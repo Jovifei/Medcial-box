@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/index/index"],
+  "window": {
+    "navigationBarTitleText": "家庭药箱",
+    "navigationBarBackgroundColor": "#f5f7f4",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f7f4"
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2"
+}

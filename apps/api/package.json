@@ -1,0 +1,20 @@
+{
+  "name": "@home-medicine/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@home-medicine/contracts": "0.1.0",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.0"
+  },
+  "scripts": {
+    "dev": "npm run build && node --env-file-if-exists=../../.env dist/server.js",
+    "lint": "eslint src test --ext .ts --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "build": "tsc -p tsconfig.json",
+    "db:migrate": "npm run build && node --env-file-if-exists=../../.env dist/migrate.js",
+    "start": "node dist/server.js"
+  }
+}

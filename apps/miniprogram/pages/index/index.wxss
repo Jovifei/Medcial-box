@@ -1,0 +1,153 @@
+page {
+  background: #f5f7f4;
+  color: #24352c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.page {
+  padding: 28rpx 30rpx 52rpx;
+}
+
+.hero {
+  padding: 24rpx 2rpx 30rpx;
+}
+
+.eyebrow {
+  color: #648274;
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+}
+
+.title {
+  margin-top: 12rpx;
+  font-size: 42rpx;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 12rpx;
+  color: #718078;
+  font-size: 25rpx;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 28rpx;
+  border-radius: 22rpx;
+  background: #e7f0e9;
+}
+
+.status-title {
+  font-size: 28rpx;
+  font-weight: 650;
+}
+
+.status-hint {
+  margin-top: 8rpx;
+  color: #718078;
+  font-size: 22rpx;
+}
+
+.status-count {
+  color: #a45437;
+  font-size: 42rpx;
+  font-weight: 700;
+}
+
+.status-count text {
+  font-size: 23rpx;
+  font-weight: 500;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin: 34rpx 2rpx 16rpx;
+}
+
+.section-title {
+  font-size: 31rpx;
+  font-weight: 680;
+}
+
+.sample-pill {
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: #edf0ec;
+  color: #778279;
+  font-size: 20rpx;
+}
+
+.medicine-card {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+  padding: 24rpx 20rpx;
+  border: 1rpx solid #e9ede8;
+  border-radius: 20rpx;
+  background: #fff;
+}
+
+.medicine-left {
+  flex: 1.15;
+  min-width: 0;
+}
+
+.medicine-right {
+  flex: 0.85;
+  min-width: 0;
+  padding-left: 18rpx;
+  border-left: 1rpx solid #edf0ec;
+}
+
+.medicine-name {
+  font-size: 27rpx;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.medicine-spec,
+.medicine-stock,
+.expiry-line,
+.purpose-label,
+.detail-hint {
+  margin-top: 10rpx;
+  color: #778279;
+  font-size: 21rpx;
+  line-height: 1.45;
+}
+
+.medicine-stock {
+  color: #52685c;
+}
+
+.expiry-line.soon {
+  color: #a45437;
+}
+
+.purpose-label {
+  margin-top: 2rpx;
+  color: #648274;
+  font-weight: 600;
+}
+
+.purpose-text {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.detail-hint {
+  margin-top: 15rpx;
+}
+
+.safety-note {
+  padding: 26rpx 8rpx 0;
+  color: #7c867e;
+  font-size: 21rpx;
+  line-height: 1.6;
+}

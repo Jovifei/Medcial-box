@@ -1,0 +1,15 @@
+{
+  "description": "Jovi 家庭药箱小程序",
+  "appid": "touristappid",
+  "projectname": "jovi-home-medicine-cabinet",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "libVersion": "trial",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "compileHotReLoad": true,
+    "useCompilerPlugins": ["typescript"]
+  }
+}

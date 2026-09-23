@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["wechat-miniprogram"],
+    "noEmit": true
+  },
+  "include": ["app.ts", "pages/**/*.ts", "typings/**/*.d.ts"]
+}

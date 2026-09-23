@@ -1,0 +1,15 @@
+{
+  "fixtureLabel": "SYNTHETIC TEST DATA — not a real medicine package or patient record",
+  "textCandidates": {
+    "medicineName": "示例药物甲",
+    "manufacturer": null,
+    "specification": "0.1 g × 10 片",
+    "approvalNumber": null,
+    "expiry": {
+      "value": "2027-08",
+      "precision": "month"
+    }
+  },
+  "expectedReviewStatus": "unverified",
+  "expectedAction": "Ask the user to confirm or edit fields before saving."
+}

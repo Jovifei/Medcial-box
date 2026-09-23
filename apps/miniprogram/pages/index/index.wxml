@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">{{stageLabel}}</view>
+    <view class="title">家里的药，心里有数</view>
+    <view class="subtitle">记录库存和有效期，让药品信息容易核对。</view>
+  </view>
+
+  <view class="status-card">
+    <view>
+      <view class="status-title">临期提醒</view>
+      <view class="status-hint">有效期按每一盒分别记录</view>
+    </view>
+    <view class="status-count">{{expiringCount}}<text> 项</text></view>
+  </view>
+
+  <view class="section-heading">
+    <view class="section-title">家庭药箱</view>
+    <view class="sample-pill">{{exampleLabel}}</view>
+  </view>
+
+  <view wx:for="{{items}}" wx:key="id" class="medicine-card">
+    <view class="medicine-left">
+      <view class="medicine-name">{{item.name}}</view>
+      <view class="medicine-spec">{{item.specification}}</view>
+      <view class="medicine-stock">{{item.quantityText}}</view>
+      <view class="expiry-line {{item.expiryState}}">{{item.expiryText}}</view>
+    </view>
+    <view class="medicine-right">
+      <view class="purpose-label">简要用途</view>
+      <view class="purpose-text">{{item.purpose}}</view>
+      <view class="detail-hint">详情将在后续阶段开放 ›</view>
+    </view>
+  </view>
+
+  <view class="safety-note">
+    库存清单用于家庭管理。请以包装内说明书及医生或药师的指导为准。
+  </view>
+</view>

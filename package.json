@@ -1,0 +1,30 @@
+{
+  "name": "jovi-home-medicine-cabinet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A shared WeChat mini program for a household medicine cabinet.",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/contracts",
+    "apps/miniprogram",
+    "apps/api"
+  ],
+  "scripts": {
+    "lint": "eslint apps packages scripts --ext .ts,.mjs --max-warnings=0 && node scripts/check-json.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "dev:api": "npm run dev --workspace @home-medicine/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "@types/wechat-miniprogram": "^3.4.10",
+    "eslint": "^10.11.0",
+    "typescript-eslint": "^8.70.1",
+    "typescript": "^5.9.3"
+  }
+}

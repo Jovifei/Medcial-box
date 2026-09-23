@@ -1,0 +1,22 @@
+# Local configuration and generated files
+.env
+.env.*
+!.env.example
+node_modules/
+**/node_modules/
+**/dist/
+**/compiled/
+.turbo/
+.DS_Store
+Thumbs.db
+
+# Local medicine photos and database exports must never enter version control
+.local-data/
+local-data/
+*.dump
+*.sql.gz
+*.backup
+apps/miniprogram/private.config.json
+
+# WorkBuddy local workspace memory must not enter version control
+.workbuddy/
