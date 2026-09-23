@@ -60,4 +60,5 @@
 ## 变更复核记录
 
 - 初始基线：空工作区；无既有源文件；尚无 Git 元数据。
+- 2026-09-24（Git 初始化）：`git init -b main`，首个提交 `5c3adf2`（45 个文件，P0 全部文档与代码），推送远端 `Jovifei/Medcial-box` 并经 `ls-remote` 验证；`.workbuddy/` 已在 ignore 内，未入库。
 - 2026-09-24（审核修复轮）：按独立审核意见修复 6 处问题——①README/operations/status 的 Compose 命令统一改为独立版 `docker-compose`；②`.gitignore` 与根 `.dockerignore` 补 `.workbuddy/`；③requirements.md 验收指标去重；④迁移排序改为数字前缀（`orderMigrations`）并新增 3 项单元测试；⑤本地 API 默认绑定 `127.0.0.1`（Compose 内 `API_HOST=0.0.0.0`）；⑥`/ready` 失败增加服务端日志。另：移除无效的 `deploy/.dockerignore`；小程序示例数据改显式类型注解；lessons.md 补记 Biome 与 compose 插件两条经验。`lint`／`typecheck`／`test`（7 tests）／`build` 复跑通过，compose 配置解析通过。
