@@ -3,7 +3,7 @@ import type {
   LeafletReviewStatus,
   MedicationSummary,
 } from "@home-medicine/contracts";
-import type { Database } from "../types.js";
+import type { QueryRunner } from "../types.js";
 import { parseJsonArray } from "../types.js";
 import { mostSevereState, summarizeExpiryState } from "../domain/expiry.js";
 import type { ValidatedMedicineFields } from "../inputs.js";
@@ -62,7 +62,7 @@ export function toMedicineSummary(
 }
 
 export async function listMedicines(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   includeArchived: boolean,
 ): Promise<MedicineRow[]> {
@@ -75,7 +75,7 @@ export async function listMedicines(
 }
 
 export async function findMedicineInFamily(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
 ): Promise<MedicineRow | null> {
@@ -87,7 +87,7 @@ export async function findMedicineInFamily(
 }
 
 export async function insertMedicine(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   fields: ValidatedMedicineFields,
   userId: string,
@@ -122,7 +122,7 @@ export async function insertMedicine(
  * confirmed by the caller beforehand) → the route maps it to 409.
  */
 export async function updateMedicine(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
   fields: ValidatedMedicineFields,
@@ -163,7 +163,7 @@ export async function updateMedicine(
 
 /** Archive (soft delete). Returns false when the row is missing or archived. */
 export async function archiveMedicine(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
   userId: string,

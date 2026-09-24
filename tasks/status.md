@@ -5,16 +5,17 @@
 - 完成证据：
   - `npm run lint` PASS（`--max-warnings=0`）。
   - `npm run typecheck` PASS。
-  - `npm test` PASS（全仓 83/83：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13 + D2/D3 决策落地新增 6；全部为合成注入测试，不依赖真实数据库）。
+  - `npm test` PASS（全仓 88 项 = 87 通过 + 1 跳过：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13 + D2/D3 决策落地新增 6 + 审核修复轮新增 5；跳过项为真实 PostgreSQL 集成测试，设置 `TEST_DATABASE_URL` 后自动执行；其余全部为合成注入测试）。
   - `npm run build` PASS（含小程序 `tsc --noEmit`）。
   - `docker-compose --env-file deploy/.env.example -f deploy/docker-compose.yml config --quiet` PASS（本机未安装 compose 插件，仅独立版 docker-compose v5.4.0）。
   - 无密钥 CI 已就绪：`.github/workflows/ci.yml`（Node 22，npm ci → lint → typecheck → test → build，零 Secrets）。
   - B1 后端核心：`002_core_inventory.sql` 迁移（含仅存令牌哈希的 sessions 表）；微信登录 `WechatGateway` 可注入（测试用假网关，无公开测试登录后门）；Bearer 认证 preHandler；家庭/药品/批次/个人剂量备注 CRUD（PUT 版本不符 409、跨家庭一律 404 不泄露存在性）；有效期纯函数（月末/跨年/年月精度/提前 30 天临期）。
   - B2 导出与小程序：`POST /api/v1/exports/markdown`（四分区、D1 存放位置、D4 归档排除、说明书核验区分、个人剂量权限、Markdown 转义）；小程序统一网络层/登录服务与五个页面（首页、创建家庭、药品录入/编辑、药品详情、批次编辑、导出预览：复制文本与写本地 .md + `wx.shareFileMessage` 回退复制）。小程序仅 typecheck 通过，未做开发者工具编译预览。
-  - B3 家庭共享：`003_family_invites.sql`（一次性邀请凭据仅存 sha256、72h、原子消费防复用）；owner 生成邀请码（403 OWNER_ONLY 门槛）、明文接受（404 无效 / 410 过期与已用 / 409 已有家庭）、owner 移除成员（自移除与移除 owner 403；被移除者原令牌后续请求 404 FAMILY_NOT_FOUND 即时失效）；小程序 `pages/invite`（owner 生成/复制、无家庭用户粘贴加入、成员提示）。
+  - B3 家庭共享：`003_family_invites.sql`（一次性邀请凭据仅存 sha256、72h、原子消费防复用）；owner 生成邀请码（403 OWNER_ONLY 门槛）、明文接受（404 无效 / 410 过期与已用 / 409 已有家庭）、owner 移除成员（自移除与移除 owner 403；被移除者原令牌后续请求 404 FAMILY_NOT_FOUND 即时失效）；小程序 `pages/invite`（owner 生成/复制、转发卡片携带 code 自动填充、成员身份展示、移除/转让/退出）。
+- 2026-09-24 审核修复轮（第二轮独立审核意见，全部落地）：①`Database.withTransaction` 单连接事务接口（server.ts 绑定 PoolClient；假池同步实现并记录 BEGIN/COMMIT），建家庭/接受邀请/转让/药品创建/药品编辑全部迁移至该接口；②药品编辑在事务内同步批次增删改（批次携带 id/version 乐观锁），修复"提示已保存但批次未生效"；③药品创建与初始批次同事务，杜绝半成品；④迁移 `004_family_single_owner.sql` 单 owner 部分唯一索引 + 转让事务内 `FOR UPDATE` 锁家庭行、重验双方角色、先降级后升级；⑤有效期按家庭时区 Asia/Shanghai 计算（`zonedDateParts`），新增上海本地午夜边界测试；⑥成员身份展示（昵称/稳定标签 + isSelf）与 owner 移除按钮；⑦新增 `integration-pg.test.mjs` 真实库集成测试（迁移、单 owner 约束、并发转让串行化；无 TEST_DATABASE_URL 自动跳过）。
 - BLOCKED：Docker CLI 使用的 Docker Desktop Linux engine named pipe 未运行；本机没有 PostgreSQL／`psql`；未发现微信开发者工具。
 - NOT_RUN：真实 PostgreSQL readiness 与迁移执行、微信开发者工具编译与页面预览、正式 AppID 真实登录、`.md` 真机分享、真实两账号邀请/共享/移除验证（需合法 HTTPS 测试环境，没有实测不标完整 PASS）、外部模型与药品查询 API、生产部署。
-- 当前基线：Git 已初始化；B1/B2/B3 轮改动尚未提交（禁止由工程师执行 commit/push，由主理人统一处理）。npm 锁文件已生成，依赖包缓存位于允许的 `E:\Claude_allow\Download\medcial_box\npm-cache`。
+- 当前基线：Git 已初始化；D2/D3 决策与审核修复轮改动随本轮由主理人提交并推送。npm 锁文件已生成，依赖包缓存位于允许的 `E:\Claude_allow\Download\medcial_box\npm-cache`。
 - 允许范围：当前本地项目文件、合成数据、本地依赖缓存目录 `E:\Claude_allow\Download\medcial_box`。
 - 不包括：真实微信账号、真实用户照片／健康信息、真实线上 API 密钥、生产网站或服务器变更、推送／发布。
-- 下一步：QA 全量回归；P0 真实数据库与开发者工具验收、P2 真实两账号共享验收保留 `BLOCKED_RUNTIME`/`NOT_RUN`，待环境可用后补证；随后评估 P3 拍照识别排期。
+- 下一步：真实环境补证（Docker 引擎恢复后设 `TEST_DATABASE_URL` 跑 `integration-pg.test.mjs`；装微信开发者工具用 `touristappid` 预览；AppID 批复后真机验收），随后评估 P3 拍照识别排期。

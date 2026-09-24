@@ -2,7 +2,7 @@
 // - 明文邀请码只在创建响应出现一次，库存 sha256 哈希；
 // - 72 小时失效、一次性消费；
 // - 消费走单条原子 UPDATE（used_at IS NULL AND expires_at > now()），rowCount 判定防复用。
-import type { Database } from "../types.js";
+import type { QueryRunner } from "../types.js";
 
 export interface FamilyInviteRow {
   id: string;
@@ -16,7 +16,7 @@ export interface FamilyInviteRow {
 }
 
 export async function insertInvite(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   tokenHash: string,
   createdBy: string,
@@ -30,7 +30,7 @@ export async function insertInvite(
 }
 
 export async function findInviteByTokenHash(
-  database: Database,
+  database: QueryRunner,
   tokenHash: string,
 ): Promise<FamilyInviteRow | null> {
   const result = await database.query<FamilyInviteRow>(
@@ -45,7 +45,7 @@ export async function findInviteByTokenHash(
  * invite is already used / expired (caller classifies via findInviteByTokenHash).
  */
 export async function consumeInvite(
-  database: Database,
+  database: QueryRunner,
   tokenHash: string,
   userId: string,
 ): Promise<FamilyInviteRow | null> {

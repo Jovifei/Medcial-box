@@ -110,6 +110,10 @@ export interface DosageNoteListResponse {
 export interface FamilyMemberSummary {
   id: string;
   role: "owner" | "member";
+  /** 展示名：昵称或按加入顺序生成的稳定标签（成员 1…）。 */
+  displayName: string;
+  /** 是否为当前会话用户本人。 */
+  isSelf: boolean;
   joinedAt: string;
 }
 

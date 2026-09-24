@@ -74,19 +74,39 @@ test("month precision: the expiry month itself is due_this_month", () => {
     deriveExpiryState({ value: "2026-10", precision: "month" }, NOW),
     "due_this_month",
   );
-  // 当月最后一天仍未过期。
+  // 当月最后一天仍未过期（以家庭时区 Asia/Shanghai 为准：UTC 16:00 前仍是当月）。
   assert.equal(
-    deriveExpiryState({ value: "2026-10", precision: "month" }, new Date("2026-10-31T23:59:59Z")),
+    deriveExpiryState({ value: "2026-10", precision: "month" }, new Date("2026-10-31T15:59:59Z")),
     "due_this_month",
   );
 });
 
-test("month precision: cross-year boundaries", () => {
-  const endOf2026 = new Date("2026-12-31T23:59:59Z");
-  const startOf2027 = new Date("2027-01-01T00:00:00Z");
-  assert.equal(deriveExpiryState({ value: "2027-01", precision: "month" }, endOf2026), "ok");
-  assert.equal(deriveExpiryState({ value: "2026-12", precision: "month" }, endOf2026), "due_this_month");
+test("month precision: cross-year boundaries (family timezone Asia/Shanghai)", () => {
+  // UTC 2026-12-31T15:59:59Z = 上海 2026-12-31 23:59 → "2026-12" 仍是当月。
+  const lastMinuteOf2026 = new Date("2026-12-31T15:59:59Z");
+  const endOf2026 = new Date("2026-12-31T23:59:59Z"); // 上海已是 2027-01-01
+  const startOf2027 = new Date("2027-01-01T16:00:01Z"); // 上海 2027-01-02
+  assert.equal(deriveExpiryState({ value: "2026-12", precision: "month" }, lastMinuteOf2026), "due_this_month");
+  assert.equal(deriveExpiryState({ value: "2027-01", precision: "month" }, lastMinuteOf2026), "ok");
+  assert.equal(deriveExpiryState({ value: "2027-01", precision: "month" }, endOf2026), "due_this_month");
+  assert.equal(deriveExpiryState({ value: "2026-12", precision: "month" }, endOf2026), "expired");
   assert.equal(deriveExpiryState({ value: "2026-12", precision: "month" }, startOf2027), "expired");
+});
+
+test("day precision follows the family timezone, not UTC (audit fix #5)", () => {
+  // UTC 2026-09-24T20:00:00Z = 上海 2026-09-25 04:00：
+  // 上海视角 2026-09-24 已经过去 → expired（旧 UTC 算法会误判为"今天到期"）。
+  const earlyMorning = new Date("2026-09-24T20:00:00Z");
+  assert.equal(
+    deriveExpiryState({ value: "2026-09-24", precision: "day" }, earlyMorning),
+    "expired",
+  );
+  assert.equal(daysUntilExpiry({ value: "2026-09-24", precision: "day" }, earlyMorning), -1);
+  // UTC 2026-09-30T17:00:00Z = 上海 2026-10-01 01:00 → "2026-09" 已过月。
+  assert.equal(
+    deriveExpiryState({ value: "2026-09", precision: "month" }, new Date("2026-09-30T17:00:00Z")),
+    "expired",
+  );
 });
 
 test("unknown precision always reports unknown regardless of value", () => {

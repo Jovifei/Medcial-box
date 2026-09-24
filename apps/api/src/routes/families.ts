@@ -8,7 +8,7 @@ import {
   createFamilyWithOwner,
   findFamilyById,
   findMembershipByUserId,
-  listMembersByFamily,
+  listMembersWithIdentity,
 } from "../repositories/families.js";
 
 export async function registerFamilyRoutes(
@@ -54,15 +54,19 @@ export async function registerFamilyRoutes(
     if (family === null) {
       return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "家庭不存在"));
     }
-    const members = await listMembersByFamily(database, ctx.familyId);
+    // 成员身份展示（审核修复 #6）：关联昵称，未设置时按加入顺序生成
+    // 稳定标签（成员 1、成员 2…）；isSelf 供界面标注"我"。
+    const members = await listMembersWithIdentity(database, ctx.familyId);
     return {
       family: {
         id: family.id,
         name: family.name,
         role: asMemberRole(auth?.role ?? "member"),
-        members: members.map((member) => ({
+        members: members.map((member, index) => ({
           id: member.id,
           role: asMemberRole(member.role),
+          displayName: member.nickname ?? `成员 ${index + 1}`,
+          isSelf: auth !== null && member.user_id === auth.userId,
           joinedAt: toIso(member.joined_at),
         })),
       },

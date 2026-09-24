@@ -5,7 +5,7 @@ import type {
   DosageNoteSummary,
   NoteVisibility,
 } from "@home-medicine/contracts";
-import type { Database } from "../types.js";
+import type { QueryRunner } from "../types.js";
 
 export interface DosageNoteRow {
   id: string;
@@ -34,7 +34,7 @@ export function toNoteSummary(
 }
 
 export async function listVisibleNotes(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
   viewerId: string,
@@ -48,7 +48,7 @@ export async function listVisibleNotes(
 
 /** Owned lookup only: another member's note (even family-visible) misses → 404. */
 export async function findNoteOwned(
-  database: Database,
+  database: QueryRunner,
   noteId: string,
   medicineId: string,
   familyId: string,
@@ -62,7 +62,7 @@ export async function findNoteOwned(
 }
 
 export async function insertNote(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   medicineId: string,
   userId: string,
@@ -83,7 +83,7 @@ export async function insertNote(
  * conflict (existence + ownership confirmed by the caller) → 409.
  */
 export async function updateNote(
-  database: Database,
+  database: QueryRunner,
   noteId: string,
   medicineId: string,
   familyId: string,
@@ -102,7 +102,7 @@ export async function updateNote(
 }
 
 export async function deleteNote(
-  database: Database,
+  database: QueryRunner,
   noteId: string,
   medicineId: string,
   familyId: string,

@@ -94,10 +94,10 @@ test("GET /families/current returns the family with its members", async () => {
   try {
     await login(app, pool, { membership: membershipRow() });
     pool.always(/FROM families WHERE id/, { rows: [familyRow()], rowCount: 1 });
-    pool.always(/FROM family_members WHERE family_id/, {
+    pool.always(/FROM family_members fm/, {
       rows: [
-        membershipRow({ id: "membership-1", role: "owner", user_id: "user-1" }),
-        membershipRow({ id: "membership-2", role: "member", user_id: "user-2" }),
+        membershipRow({ id: "membership-1", role: "owner", user_id: "user-1", nickname: null }),
+        membershipRow({ id: "membership-2", role: "member", user_id: "user-2", nickname: "家人" }),
       ],
       rowCount: 2,
     });
@@ -116,6 +116,12 @@ test("GET /families/current returns the family with its members", async () => {
       body.family.members.map((member) => member.role).sort(),
       ["member", "owner"],
     );
+    // 成员身份展示（审核修复 #6）：昵称或稳定标签 + 本人标注。
+    const [ownerView, memberView] = body.family.members;
+    assert.equal(ownerView.displayName, "成员 1");
+    assert.equal(ownerView.isSelf, true);
+    assert.equal(memberView.displayName, "家人");
+    assert.equal(memberView.isSelf, false);
   } finally {
     await app.close();
   }

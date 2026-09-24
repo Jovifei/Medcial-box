@@ -79,6 +79,10 @@ function oneOf<T extends string>(
 // ---------------------------------------------------------------------------
 
 export interface ValidatedBatchFields {
+  /** 已有批次的标识（药品编辑同步用）；null/缺省 = 新增批次。 */
+  id: string | null;
+  /** 已有批次的预期版本（乐观锁门）；新增批次为 null。 */
+  version: number | null;
   lotNumber: string | null;
   expiryValue: string | null;
   expiryPrecision: ExpiryPrecision;
@@ -110,6 +114,8 @@ function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
   }
 
   return {
+    id: raw.id === undefined || raw.id === null ? null : text(raw.id, "id"),
+    version: raw.version === undefined || raw.version === null ? null : requireInt(raw.version, "version", 1),
     lotNumber,
     expiryValue,
     expiryPrecision,

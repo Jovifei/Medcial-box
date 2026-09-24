@@ -291,3 +291,148 @@ test("archiving is idempotent and missing medicines still return 404", async () 
     await app.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// 审核修复 #2/#3：药品+批次在同一连接事务内创建与同步
+// ---------------------------------------------------------------------------
+
+test("medicine creation runs inside a single transaction (BEGIN before, COMMIT after)", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.on(/INSERT INTO medicines/, {
+      rows: [medicineRow({ id: "m-tx", version: 1 })],
+      rowCount: 1,
+    });
+    pool.on(/INSERT INTO medicine_batches/, {
+      rows: [batchRow({ id: "b-tx", medicine_id: "m-tx" })],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines",
+      ...authHeader(),
+      payload: { name: "事务药品", batches: [{ quantity: 1, unit: "box" }] },
+    });
+    assert.equal(response.statusCode, 201);
+
+    // BEGIN → INSERT medicines → INSERT medicine_batches → COMMIT 顺序必须成立。
+    const ordered = pool.calls.map((call) => call.sql);
+    const begin = ordered.findIndex((sql) => sql === "BEGIN");
+    const commit = ordered.findIndex((sql) => sql === "COMMIT");
+    const insertMedicineAt = ordered.findIndex((sql) => sql.includes("INSERT INTO medicines"));
+    const insertBatchAt = ordered.findIndex((sql) => sql.includes("INSERT INTO medicine_batches"));
+    assert.ok(begin !== -1 && commit !== -1, "事务必须显式开启并提交");
+    assert.ok(begin < insertMedicineAt && insertMedicineAt < insertBatchAt && insertBatchAt < commit);
+  } finally {
+    await app.close();
+  }
+});
+
+test("medicine update syncs batches (add / update / delete) in one transaction", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.always(/FROM medicines WHERE id/, {
+      rows: [medicineRow({ id: "m-1", version: 2 })],
+      rowCount: 1,
+    });
+    pool.on(/UPDATE medicines SET/, {
+      rows: [medicineRow({ id: "m-1", version: 3 })],
+      rowCount: 1,
+    });
+    // 模拟真实库：同步后再查询时，行集合应反映已插入/已删除的批次。
+    pool.always(/FROM medicine_batches WHERE medicine_id/, () => {
+      const inserted = pool.callsMatching(/INSERT INTO medicine_batches/).length > 0;
+      const deleted = pool.callsMatching(/DELETE FROM medicine_batches/).length > 0;
+      const rows = [
+        batchRow({ id: "b-keep", version: 5 }),
+        ...(inserted ? [batchRow({ id: "b-new", medicine_id: "m-1" })] : []),
+        ...(deleted ? [] : [batchRow({ id: "b-drop", version: 1 })]),
+      ];
+      return { rows, rowCount: rows.length };
+    });
+    pool.on(/UPDATE medicine_batches SET/, {
+      rows: [batchRow({ id: "b-keep", version: 5 })],
+      rowCount: 1,
+    });
+    pool.on(/INSERT INTO medicine_batches/, {
+      rows: [batchRow({ id: "b-new", medicine_id: "m-1" })],
+      rowCount: 1,
+    });
+    pool.on(/DELETE FROM medicine_batches/, {
+      rows: [{ id: "b-drop" }],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/medicines/m-1",
+      ...authHeader(),
+      payload: {
+        name: "布洛芬缓释胶囊",
+        version: 2,
+        batches: [
+          // 更新已有批次（携带其当前版本作为乐观锁门）。
+          { id: "b-keep", version: 4, quantity: 5, unit: "box" },
+          // 新增批次（无 id）。
+          { quantity: 2, unit: "box" },
+          // b-drop 未出现 → 视为用户已删除。
+        ],
+      },
+    });
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.deepEqual(
+      body.batches.map((batch) => batch.id).sort(),
+      ["b-keep", "b-new"],
+      "删除的批次不应出现在结果里",
+    );
+    assert.equal(pool.callsMatching(/DELETE FROM medicine_batches/).length, 1);
+    assert.equal(pool.callsMatching(/INSERT INTO medicine_batches/).length, 1);
+    assert.equal(pool.callsMatching(/UPDATE medicine_batches SET/).length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a stale batch version during medicine save yields 409 and rolls the whole save back", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.always(/FROM medicines WHERE id/, {
+      rows: [medicineRow({ id: "m-1", version: 2 })],
+      rowCount: 1,
+    });
+    pool.on(/UPDATE medicines SET/, {
+      rows: [medicineRow({ id: "m-1", version: 3 })],
+      rowCount: 1,
+    });
+    pool.always(/FROM medicine_batches WHERE medicine_id/, {
+      rows: [batchRow({ id: "b-1", version: 7 })],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/medicines/m-1",
+      ...authHeader(),
+      payload: {
+        name: "布洛芬缓释胶囊",
+        version: 2,
+        batches: [{ id: "b-1", version: 1, quantity: 9, unit: "box" }],
+      },
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json().error.code, "VERSION_CONFLICT");
+    // 整个保存回滚：ROLLBACK 必须出现，且事务显式开启。
+    const rollback = pool.callsMatching(/^ROLLBACK$/).length;
+    assert.equal(rollback, 1);
+  } finally {
+    await app.close();
+  }
+});

@@ -51,6 +51,22 @@ export function createFakePool() {
       else stickyScripts.push({ pattern, result });
       return pool;
     },
+    /**
+     * 与真实 Pool.withTransaction 对齐：BEGIN → fn → COMMIT，异常 ROLLBACK。
+     * 合成实现里 fn 直接使用本池（脚本路由不变），但 BEGIN/COMMIT/ROLLBACK
+     * 会记录进 calls，测试可断言事务包裹与语句顺序。
+     */
+    async withTransaction(fn) {
+      await this.query("BEGIN");
+      try {
+        const result = await fn(this);
+        await this.query("COMMIT");
+        return result;
+      } catch (error) {
+        await this.query("ROLLBACK").catch(() => undefined);
+        throw error;
+      }
+    },
     calls,
     callsMatching(pattern) {
       return calls.filter((entry) => pattern.test(entry.sql));

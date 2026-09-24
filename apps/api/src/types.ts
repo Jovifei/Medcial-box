@@ -10,14 +10,24 @@ export interface QueryResult<T> {
 }
 
 /**
- * Minimal database surface used by repositories. `pg.Pool` satisfies this
- * structurally; synthetic tests inject a scripted fake pool instead.
+ * 最小查询面：仓储层只依赖它。pg.Pool 与事务客户端都满足该结构，
+ * 保证多步写入可以通过同一连接执行（见 Database.withTransaction）。
  */
-export interface Database {
-  query<T = Record<string, unknown>>(
-    sql: string,
-    params?: unknown[],
-  ): Promise<QueryResult<T>>;
+export interface QueryRunner {
+  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<QueryResult<T>>;
+}
+
+/**
+ * 数据库抽象。`pg.Pool` 满足该结构（连接池实现 withTransaction 时绑定
+ * 单个 PoolClient）；合成测试注入的假池同样实现 withTransaction。
+ */
+export interface Database extends QueryRunner {
+  /**
+   * 在绑定单一连接的事务中执行 `fn`：BEGIN → fn → COMMIT，异常时 ROLLBACK。
+   * 任何多步写入（建家庭、接受邀请、转让所有权、药品+批次）都必须走本接口，
+   * 禁止用多次 pool.query 手工拼 BEGIN/COMMIT（连接池会把语句分散到不同连接）。
+   */
+  withTransaction<T>(fn: (tx: QueryRunner) => Promise<T>): Promise<T>;
 }
 
 export interface AuthContext {
@@ -58,4 +68,14 @@ export function parseJsonArray(value: unknown): string[] {
     }
   }
   return [];
+}
+
+/** 事务内业务冲突：回滚事务后由路由映射为对应的 4xx 响应。 */
+export class TransactionConflictError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly body: ApiErrorBody,
+  ) {
+    super(body.error.message);
+  }
 }

@@ -6,6 +6,8 @@
 
 ## P0：收口（文档纠正＋无密钥 CI） — PARTIAL / BLOCKED_RUNTIME
 
+> 全仓当前测试证据：**88 项 = 87 通过 + 1 跳过**（跳过项为真实 PostgreSQL 集成测试，设 `TEST_DATABASE_URL` 自动执行；详见各阶段复核与变更记录）。
+
 - [x] 固化产品需求、接口边界和架构决策。
 - [x] 记录开源参考项目、许可证和可借鉴范围。
 - [x] 建立跨阶段任务台账、状态记录与复核区。
@@ -61,11 +63,13 @@
 - PASS 证据（2026-09-24 B2 轮）：`npm run lint` PASS；`npm run typecheck` PASS；`npm test` PASS（全仓 64/64 = B1 后 57 + B2 新增 7）；`npm run build` PASS（含小程序 tsc --noEmit）。
 - NOT_RUN：微信开发者工具编译与页面预览（工具未检出，页面代码以 typecheck 通过为准，不标设备 PASS）；真实导出 `.md` 真机分享；`POST /api/v1/exports/markdown` 真实 PostgreSQL 数据验证。
 
-### P1 其余条目（待办）
+### P1 其余条目（待真实环境验收，代码已完成）
 
-- [ ] 实现说明书摘要与实际个人剂量分离的录入和详情页面。
-- [ ] 实现 Markdown 预览、UTF-8 `.md` 本地文件、复制文本与可选的个人剂量导出。
-- [ ] 自动验证导出内容与 Markdown 转义；真实环境项单独记 `PASS_CODE_ONLY` 或 NOT_RUN。
+- [x] 说明书摘要与实际个人剂量分离的录入和详情页面（B1/B2 完成）。
+- [x] Markdown 预览、UTF-8 `.md` 本地文件、复制文本与可选的个人剂量导出（B2 完成）。
+- [x] 导出内容与 Markdown 转义自动验证（B2 完成 7 项；QA 回归修复 2 处恒真断言后强化）。
+- [ ] **BLOCKED_RUNTIME** 真实 PostgreSQL 迁移与读写验证（迁移 001–004 已就绪；设 `TEST_DATABASE_URL` 后 `apps/api/test/integration-pg.test.mjs` 自动执行）。
+- [ ] **NOT_RUN** 真实微信登录与 `.md` 真机分享（需 AppID/HTTPS）。
 
 ## P2：家庭共享 — PASS_CODE_ONLY / BLOCKED_RUNTIME（代码与合成测试完成）
 
@@ -85,11 +89,11 @@
 - PASS 证据（2026-09-24 B3 轮）：`npm run lint` PASS；`npm run typecheck` PASS；`npm test` PASS（全仓 77/77 = B2 后 64 + B3 新增 13）；`npm run build` PASS（含小程序 tsc --noEmit）。
 - NOT_RUN：真实两账号邀请/共享/移除验证（需合法 HTTPS 测试环境，无实测不标完整 PASS）；微信开发者工具编译预览。
 
-### P2 其余条目（待真实环境验收）
+### P2 其余条目（代码已完成，仅待真实环境验收）
 
-- [ ] 实现 owner 邀请（一次性文本邀请码、仅存哈希、72h 失效）、成员加入、移除后失效和一个用户只属于一个家庭（`003_family_invites.sql` + 邀请端点，随 B3）。
-- [ ] 家庭库存对成员共享，个人剂量备注默认私有、主动选择后共享（后端 B1 已实现可见性语义与逐请求鉴权）；所有 API 逐次鉴权。
-- [ ] 验证邀请过期／复用、跨家庭拒绝、成员撤销和并发版本冲突（B1 已覆盖版本冲突部分）。
+- [x] owner 邀请（一次性凭据、仅存哈希、72h 失效）、成员加入、移除后失效、一账号一家庭（B3 完成）。
+- [x] 家庭成员管理 UI：成员身份展示（昵称/稳定标签 + "我"标注）、owner 移除按钮、转让所有权入口（审核修复轮 #6 完成）。
+- [x] 邀请过期／复用、跨家庭拒绝、成员撤销即时失效和并发版本冲突的自动验证（B1/B3 + 审核修复轮完成）。
 - [ ] **NOT_RUN** HTTPS 测试环境就绪后由两个真实微信用户验收邀请和同步；没有该证据不标完整 PASS。
 
 ## P3：拍照识别与药品资料补齐 — NOT_STARTED
@@ -123,3 +127,4 @@
 - 2026-09-24（B2 导出 + 小程序）：新增 `services/markdown-export.ts` 渲染器（四分区 + D1 存放位置 + D4 归档排除 + 说明书核验区分 + 个人剂量权限 + Markdown 转义）与 `POST /api/v1/exports/markdown`；新增导出合成测试 7 项（全仓 64/64）。小程序新增统一网络层 `services/api.ts`、登录 `services/auth.ts` 与五个页面（首页改造、创建家庭、药品录入/编辑、药品详情、批次编辑、导出预览），`app.json`/`app.ts`/`app.wxss`/typings 同步；miniprogram lint 脚本纳入 services。小程序仅通过 `tsc --noEmit` 验证（无开发者工具，不标编译/真机 PASS）。全仓四项门禁复跑通过；未执行 git commit/push。
 - 2026-09-24（B3 P2 家庭共享）：新增 `003_family_invites.sql`（一次性邀请凭据：sha256 哈希、72h、used_at/used_by 原子消费）；contracts 追加 INVITATION_EXPIRED/INVITATION_USED 与邀请请求/响应类型；新增 `repositories/invites.ts`（含单条原子 UPDATE 防复用）与 `routes/invitations.ts`（owner 生成、明文接受 404/410/409 语义、owner 移除成员且自移除/owner 移除 403）；剂量备注"全家可见"沿用 002 的 visibility 列（未加 shared_with_family，从设计文档安排）；小程序新增 `pages/invite` 与首页入口。合成测试新增 13 项（全仓 77/77）。真实两账号共享验证保持 NOT_RUN（需 HTTPS 测试环境）。全仓四项门禁复跑通过；未执行 git commit/push。
 - 2026-09-24（D2/D3 决策落地）：邀请升级为"转发卡片（onShareAppMessage 携带 code，家人点卡片自动填充）+ 文本码兜底"；新增 POST /api/v1/families/leave（成员自助退出，owner 需先转让）与 POST /api/v1/families/members/{id}/transfer-ownership（事务内角色互换）；邀请页补成员列表、转让与退出入口；测试 77→83（+6：退出即时失效、owner 退出限制 ×2、转让成功后原 owner 可退出、非 owner 转让 403、自转让/404）。lint/typecheck/build 全绿。
+- 2026-09-24（审核修复轮二）：第二轮独立审核 6 项代码问题全部落地——①新增 `Database.withTransaction` 单连接事务接口，建家庭/接受邀请/转让/药品创建/药品编辑全部迁移，消除 pool.query 手工 BEGIN/COMMIT 的跨连接风险；②药品编辑在事务内按 id/version 同步批次增删改，修复"提示已保存但批次未生效"（+2 测试：同步成功、批次版本过期 409 整体回滚）；③药品创建与初始批次同事务（+1 事务顺序断言）；④迁移 `004_family_single_owner.sql` 单 owner 部分唯一索引 + 转让 FOR UPDATE 锁家庭行、事务内重验双方角色、先降级后升级；⑤有效期按 Asia/Shanghai 计算（`zonedDateParts`，+1 上海本地午夜边界测试）；⑥成员身份展示（昵称/稳定标签 + isSelf）与 owner 移除按钮；⑦新增 `integration-pg.test.mjs` 真实库集成测试（无 TEST_DATABASE_URL 自动跳过）。测试 83→88。文档漂移清理：本台账 P1/P2"其余条目"去重、roadmap 当前基线更新、operations 过期表述更正、lessons.md 补事务与时区两条。

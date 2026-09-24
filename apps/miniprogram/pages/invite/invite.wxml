@@ -21,15 +21,23 @@
       <view class="section-title small">家庭成员</view>
       <view class="member-row" wx:for="{{members}}" wx:key="id">
         <view class="member-info">
-          <view class="member-role">{{item.role === 'owner' ? 'owner（我）' : '成员'}}</view>
+          <view class="member-role">
+            {{item.role === 'owner' ? 'owner' : '成员'}}：{{item.displayName}}{{item.isSelf ? '（我）' : ''}}
+          </view>
           <view class="member-joined">{{item.joinedDate}} 加入</view>
         </view>
-        <view
-          class="btn btn-ghost btn-small"
-          wx:if="{{item.role === 'member'}}"
-          data-member-id="{{item.id}}"
-          bindtap="onTransferOwnership"
-        >转让所有权</view>
+        <view class="member-actions" wx:if="{{item.role === 'member' && !item.isSelf}}">
+          <view
+            class="btn btn-ghost btn-small"
+            data-member-id="{{item.id}}"
+            bindtap="onTransferOwnership"
+          >转让</view>
+          <view
+            class="btn btn-danger btn-small"
+            data-member-id="{{item.id}}"
+            bindtap="onRemoveMember"
+          >移除</view>
+        </view>
       </view>
       <view class="hint">转让后你变为普通成员，即可使用下方退出功能。</view>
     </view>

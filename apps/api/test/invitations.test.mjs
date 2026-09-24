@@ -321,8 +321,10 @@ test("removal updates the member list seen by GET /families/current", async () =
   const { app } = await twoUserApp(pool);
   try {
     pool.always(/FROM families WHERE id/, { rows: [familyRow({ id: "family-1" })], rowCount: 1 });
-    pool.always(/FROM family_members WHERE family_id/, {
-      rows: [membershipRow({ id: "membership-1", role: "owner", user_id: "user-1" })],
+    pool.always(/FROM family_members fm/, {
+      rows: [
+        membershipRow({ id: "membership-1", role: "owner", user_id: "user-1", nickname: null }),
+      ],
       rowCount: 1,
     });
     const response = await app.inject({
@@ -334,6 +336,9 @@ test("removal updates the member list seen by GET /families/current", async () =
     const members = response.json().family.members;
     assert.equal(members.length, 1);
     assert.equal(members[0].role, "owner");
+    // 成员身份展示（审核修复 #6）：昵称缺省 → 按加入顺序稳定标签；本人标注。
+    assert.equal(members[0].displayName, "成员 1");
+    assert.equal(members[0].isSelf, true);
   } finally {
     await app.close();
   }
@@ -579,6 +584,11 @@ test("owner transfer swaps roles in one transaction and the ex-owner can leave",
   ]);
   const app = await createApp(pool, gateway);
   try {
+    // 转让事务先 FOR UPDATE 锁家庭行（审核修复 #4 的并发串行化）。
+    pool.always(/FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     pool.always(/FROM family_members WHERE id = \$1 AND family_id/, {
       rows: [membershipRow({ id: "membership-2", role: "member", user_id: "user-2" })],
       rowCount: 1,
@@ -641,6 +651,11 @@ test("transfer rejects self-target and unknown members", async () => {
   const pool = createFakePool();
   const { app } = await twoUserApp(pool);
   try {
+    // 转让事务先 FOR UPDATE 锁家庭行。
+    pool.always(/FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     // 第一次查找命中 owner 自己的成员关系 → 自转让 400；
     // 第二次查找为空 → 目标不存在 404。
     pool.on(/FROM family_members WHERE id = \$1 AND family_id/, {

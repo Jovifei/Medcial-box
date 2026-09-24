@@ -198,6 +198,26 @@ Page({
     }
   },
 
+  /** owner 移除成员：移除后该成员立即失去访问权限。 */
+  async onRemoveMember(event: { currentTarget: { dataset: { memberId?: string } } }): Promise<void> {
+    const memberId = event.currentTarget.dataset.memberId;
+    if (typeof memberId !== "string" || memberId === "") return;
+    const data = this.data as InvitePageData;
+    const target = data.members.find((member) => member.id === memberId);
+    const confirmed = await confirmModal(
+      "移除成员",
+      `${target?.displayName ?? "该成员"}将立即失去「${data.familyName}」药箱的访问权限（其记录与备注保留）。确定移除吗？`,
+    );
+    if (!confirmed) return;
+    try {
+      await api.removeMember(memberId);
+      wx.showToast({ title: "已移除", icon: "success" });
+      await this.refresh();
+    } catch (error) {
+      showError(error);
+    }
+  },
+
   /** owner 转让所有权（D3 配套）：转让后原 owner 变为普通成员，即可自助退出。 */
   async onTransferOwnership(
     event: { currentTarget: { dataset: { memberId?: string } } },

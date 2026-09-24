@@ -13,6 +13,10 @@ const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
 
 interface BatchForm {
+  /** 已有批次标识（编辑时从详情带入，保存时随 payload 回传）；null = 新增。 */
+  id: string | null;
+  /** 已有批次版本（后端乐观锁门）。 */
+  version: number | null;
   lotNumber: string;
   expiryValue: string;
   precisionIndex: number;
@@ -50,6 +54,8 @@ const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 function emptyBatch(): BatchForm {
   return {
+    id: null,
+    version: null,
     lotNumber: "",
     expiryValue: "",
     precisionIndex: 0,
@@ -63,6 +69,8 @@ function emptyBatch(): BatchForm {
 
 function batchFromSummary(summary: MedicationSummary): BatchForm[] {
   return summary.batches.map((batch) => ({
+    id: batch.id,
+    version: batch.version,
     lotNumber: batch.lotNumber ?? "",
     expiryValue: batch.expiry.value ?? "",
     precisionIndex: Math.max(0, PRECISION_VALUES.indexOf(batch.expiry.precision)),
@@ -107,6 +115,8 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
     }
 
     payloads.push({
+      // 已有批次携带 id/version（后端按版本乐观锁同步）；新增批次缺省即插入。
+      ...(batch.id !== null ? { id: batch.id, version: batch.version } : {}),
       lotNumber: batch.lotNumber.trim() === "" ? null : batch.lotNumber.trim(),
       expiry: expiryValue === null ? null : { value: expiryValue, precision },
       quantity,

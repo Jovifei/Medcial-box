@@ -11,7 +11,7 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { Database } from "../types.js";
-import { errorBody, toIso } from "../types.js";
+import { errorBody, toIso, TransactionConflictError } from "../types.js";
 import { sha256Hex } from "../auth/session.js";
 import { requireFamily } from "../auth/session.js";
 import {
@@ -90,33 +90,37 @@ export async function registerInvitationRoutes(
         .send(errorBody("ALREADY_IN_FAMILY", "已属于一个家庭，如需更换请先由 owner 移除"));
     }
 
-    // 事务内：先建成员关系，再原子消费邀请；消费失败（并发复用）整体回滚。
-    await database.query("BEGIN");
+    // 事务绑定同一连接：先建成员关系，再原子消费邀请；消费失败（并发复用）整体回滚。
     try {
-      const membership = await insertFamilyMember(database, invite.family_id, auth.userId, "member");
-      const consumed = await consumeInvite(database, tokenHash, auth.userId);
-      if (consumed === null) {
-        await database.query("ROLLBACK");
-        return reply
-          .code(410)
-          .send(errorBody("INVITATION_USED", "邀请码已被使用，请向 owner 重新索取"));
-      }
-      const family = await findFamilyById(database, invite.family_id);
-      if (family === null) {
-        await database.query("ROLLBACK");
-        return reply.code(404).send(errorBody("NOT_FOUND", "邀请对应的家庭不存在"));
-      }
-      await database.query("COMMIT");
-      return {
-        family: { id: family.id, name: family.name },
-        membership: {
-          id: membership.id,
-          role: asMemberRole(membership.role),
-          joinedAt: toIso(membership.joined_at),
-        },
-      };
+      return await database.withTransaction(async (tx) => {
+        const membership = await insertFamilyMember(tx, invite.family_id, auth.userId, "member");
+        const consumed = await consumeInvite(tx, tokenHash, auth.userId);
+        if (consumed === null) {
+          throw new TransactionConflictError(
+            410,
+            errorBody("INVITATION_USED", "邀请码已被使用，请向 owner 重新索取"),
+          );
+        }
+        const family = await findFamilyById(tx, invite.family_id);
+        if (family === null) {
+          throw new TransactionConflictError(
+            404,
+            errorBody("NOT_FOUND", "邀请对应的家庭不存在"),
+          );
+        }
+        return {
+          family: { id: family.id, name: family.name },
+          membership: {
+            id: membership.id,
+            role: asMemberRole(membership.role),
+            joinedAt: toIso(membership.joined_at),
+          },
+        };
+      });
     } catch (error) {
-      await database.query("ROLLBACK").catch(() => undefined);
+      if (error instanceof TransactionConflictError) {
+        return reply.code(error.statusCode).send(error.body);
+      }
       throw error;
     }
   });
@@ -175,7 +179,10 @@ export async function registerInvitationRoutes(
       );
   });
 
-  // 转让所有权（D3 配套）：owner 把家庭让给一名普通成员，双方角色在事务内互换。
+  // 转让所有权（D3 配套）：owner 把家庭让给一名普通成员。
+  // 并发保护（审核修复 #4）：事务绑定同一连接；FOR UPDATE 锁家庭行串行化
+  // 并发转让；事务内重验双方角色；先降级后升级（配合 004 的单 owner 唯一索引，
+  // 避免瞬态双 owner 触发约束冲突）。
   app.post("/api/v1/families/members/:memberId/transfer-ownership", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
@@ -185,39 +192,68 @@ export async function registerInvitationRoutes(
     }
     const { memberId } = request.params as { memberId: string };
 
-    const target = await findMemberById(database, memberId, ctx.familyId);
-    if (target === null) {
-      return reply.code(404).send(NOT_FOUND_BODY);
-    }
-    if (target.user_id === ctx.userId) {
-      return reply.code(400).send(errorBody("VALIDATION_ERROR", "不能把所有权转让给自己"));
-    }
-    if (target.role !== "member") {
-      return reply.code(400).send(errorBody("VALIDATION_ERROR", "目标成员已是 owner"));
-    }
-
-    await database.query("BEGIN");
     try {
-      const promoted = await updateMemberRole(database, memberId, ctx.familyId, "owner");
-      if (promoted === null) {
-        await database.query("ROLLBACK");
-        return reply.code(404).send(NOT_FOUND_BODY);
-      }
-      const demoted = await updateMemberRoleByUserId(database, ctx.userId, ctx.familyId, "member");
-      if (demoted === null) {
-        await database.query("ROLLBACK");
-        return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "当前成员关系不存在"));
-      }
-      await database.query("COMMIT");
-      return {
-        membership: {
-          id: promoted.id,
-          role: asMemberRole(promoted.role),
-          joinedAt: toIso(promoted.joined_at),
-        },
-      };
+      return await database.withTransaction(async (tx) => {
+        const locked = await tx.query<{ id: string }>(
+          "SELECT id FROM families WHERE id = $1 FOR UPDATE",
+          [ctx.familyId],
+        );
+        if (locked.rowCount === 0) {
+          throw new TransactionConflictError(
+            404,
+            errorBody("FAMILY_NOT_FOUND", "家庭不存在"),
+          );
+        }
+        // 事务内重验当前用户仍是 owner（preHandler 之后可能发生并发转让）。
+        const current = await tx.query<{ role: string }>(
+          "SELECT role FROM family_members WHERE user_id = $1 AND family_id = $2 FOR UPDATE",
+          [ctx.userId, ctx.familyId],
+        );
+        if (current.rows[0]?.role !== "owner") {
+          throw new TransactionConflictError(
+            409,
+            errorBody("VERSION_CONFLICT", "家庭成员状态已变化，请刷新后重试"),
+          );
+        }
+        const target = await findMemberById(tx, memberId, ctx.familyId);
+        if (target === null) {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
+        if (target.user_id === ctx.userId) {
+          throw new TransactionConflictError(
+            400,
+            errorBody("VALIDATION_ERROR", "不能把所有权转让给自己"),
+          );
+        }
+        if (target.role !== "member") {
+          throw new TransactionConflictError(
+            400,
+            errorBody("VALIDATION_ERROR", "目标成员已是 owner"),
+          );
+        }
+        const demoted = await updateMemberRoleByUserId(tx, ctx.userId, ctx.familyId, "member");
+        if (demoted === null) {
+          throw new TransactionConflictError(
+            404,
+            errorBody("FAMILY_NOT_FOUND", "当前成员关系不存在"),
+          );
+        }
+        const promoted = await updateMemberRole(tx, memberId, ctx.familyId, "owner");
+        if (promoted === null) {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
+        return {
+          membership: {
+            id: promoted.id,
+            role: asMemberRole(promoted.role),
+            joinedAt: toIso(promoted.joined_at),
+          },
+        };
+      });
     } catch (error) {
-      await database.query("ROLLBACK").catch(() => undefined);
+      if (error instanceof TransactionConflictError) {
+        return reply.code(error.statusCode).send(error.body);
+      }
       throw error;
     }
   });

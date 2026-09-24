@@ -1,7 +1,7 @@
 // families / family_members 表仓储。
 // 不变量：每账号仅一个家庭（family_members.user_id UNIQUE），
 // 服务端在创建/加入前先显式预检，数据库约束兜底。
-import type { Database } from "../types.js";
+import type { Database, QueryRunner } from "../types.js";
 
 export type MemberRole = "owner" | "member";
 
@@ -26,7 +26,7 @@ export interface MembershipRow {
 }
 
 export async function findMembershipByUserId(
-  database: Database,
+  database: QueryRunner,
   userId: string,
 ): Promise<MembershipRow | null> {
   const result = await database.query<MembershipRow>(
@@ -37,7 +37,7 @@ export async function findMembershipByUserId(
 }
 
 export async function findFamilyById(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
 ): Promise<FamilyRow | null> {
   const result = await database.query<FamilyRow>(
@@ -48,7 +48,7 @@ export async function findFamilyById(
 }
 
 export async function listMembersByFamily(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
 ): Promise<MembershipRow[]> {
   const result = await database.query<MembershipRow>(
@@ -58,8 +58,28 @@ export async function listMembersByFamily(
   return result.rows;
 }
 
+export interface MemberIdentityRow extends MembershipRow {
+  nickname: string | null;
+}
+
+/** 成员列表 + 昵称（LEFT JOIN users；未设置昵称为 null，展示层生成稳定标签）。 */
+export async function listMembersWithIdentity(
+  database: QueryRunner,
+  familyId: string,
+): Promise<MemberIdentityRow[]> {
+  const result = await database.query<MemberIdentityRow>(
+    `SELECT fm.id, fm.family_id, fm.user_id, fm.role, fm.joined_at, u.nickname
+     FROM family_members fm
+     LEFT JOIN users u ON u.id = fm.user_id
+     WHERE fm.family_id = $1
+     ORDER BY fm.joined_at, fm.id`,
+    [familyId],
+  );
+  return result.rows;
+}
+
 export async function findMemberById(
-  database: Database,
+  database: QueryRunner,
   memberId: string,
   familyId: string,
 ): Promise<MembershipRow | null> {
@@ -71,7 +91,7 @@ export async function findMemberById(
 }
 
 export async function deleteMemberById(
-  database: Database,
+  database: QueryRunner,
   memberId: string,
   familyId: string,
 ): Promise<boolean> {
@@ -83,7 +103,7 @@ export async function deleteMemberById(
 }
 
 export async function deleteMembershipByUserId(
-  database: Database,
+  database: QueryRunner,
   userId: string,
 ): Promise<boolean> {
   const result = await database.query<{ id: string }>(
@@ -94,7 +114,7 @@ export async function deleteMembershipByUserId(
 }
 
 export async function countMembersByFamily(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
 ): Promise<number> {
   const result = await database.query<{ count: number | string }>(
@@ -106,7 +126,7 @@ export async function countMembersByFamily(
 }
 
 export async function updateMemberRole(
-  database: Database,
+  database: QueryRunner,
   memberId: string,
   familyId: string,
   role: MemberRole,
@@ -119,7 +139,7 @@ export async function updateMemberRole(
 }
 
 export async function updateMemberRoleByUserId(
-  database: Database,
+  database: QueryRunner,
   userId: string,
   familyId: string,
   role: MemberRole,
@@ -132,7 +152,7 @@ export async function updateMemberRoleByUserId(
 }
 
 export async function insertFamily(
-  database: Database,
+  database: QueryRunner,
   name: string,
   createdBy: string,
 ): Promise<FamilyRow> {
@@ -144,7 +164,7 @@ export async function insertFamily(
 }
 
 export async function insertFamilyMember(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   userId: string,
   role: MemberRole,
@@ -157,21 +177,17 @@ export async function insertFamilyMember(
 }
 
 /**
- * 创建家庭 + owner 成员关系：同一事务内完成，失败即整体回滚。
+ * 创建家庭 + owner 成员关系：事务绑定同一连接（withTransaction），
+ * 任一步失败整体回滚，杜绝"有家庭无 owner"的半成品。
  */
 export async function createFamilyWithOwner(
   database: Database,
   name: string,
   ownerId: string,
 ): Promise<{ family: FamilyRow; membership: MembershipRow }> {
-  await database.query("BEGIN");
-  try {
-    const family = await insertFamily(database, name, ownerId);
-    const membership = await insertFamilyMember(database, family.id, ownerId, "owner");
-    await database.query("COMMIT");
+  return database.withTransaction(async (tx) => {
+    const family = await insertFamily(tx, name, ownerId);
+    const membership = await insertFamilyMember(tx, family.id, ownerId, "owner");
     return { family, membership };
-  } catch (error) {
-    await database.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  }
+  });
 }

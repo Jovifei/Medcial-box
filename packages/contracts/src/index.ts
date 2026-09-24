@@ -79,6 +79,10 @@ export interface FamilyCore {
 export interface FamilyMemberSummary {
   id: string;
   role: MemberRole;
+  /** 展示名：用户昵称；未设置时按加入顺序生成（成员 1、成员 2…）。 */
+  displayName: string;
+  /** 是否为当前会话用户本人（界面标注"我"）。 */
+  isSelf: boolean;
   joinedAt: string;
 }
 

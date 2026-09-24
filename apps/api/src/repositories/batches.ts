@@ -1,7 +1,7 @@
 // medicine_batches 表仓储：批次冗余 family_id，端点用单查询完成归属校验。
 import type { ExpiryPrecision, QuantityUnit } from "@home-medicine/contracts";
 import type { MedicationBatchSummary } from "@home-medicine/contracts";
-import type { Database } from "../types.js";
+import type { QueryRunner } from "../types.js";
 import { describeExpiry } from "../domain/expiry.js";
 import type { ValidatedBatchFields } from "../inputs.js";
 
@@ -44,7 +44,7 @@ export function toBatchSummary(
 }
 
 export async function listBatchesByMedicine(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
 ): Promise<MedicineBatchRow[]> {
@@ -56,7 +56,7 @@ export async function listBatchesByMedicine(
 }
 
 export async function listBatchesByFamily(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
 ): Promise<MedicineBatchRow[]> {
   const result = await database.query<MedicineBatchRow>(
@@ -67,7 +67,7 @@ export async function listBatchesByFamily(
 }
 
 export async function findBatchInMedicine(
-  database: Database,
+  database: QueryRunner,
   batchId: string,
   medicineId: string,
   familyId: string,
@@ -80,7 +80,7 @@ export async function findBatchInMedicine(
 }
 
 export async function insertBatch(
-  database: Database,
+  database: QueryRunner,
   medicineId: string,
   familyId: string,
   fields: ValidatedBatchFields,
@@ -112,7 +112,7 @@ export async function insertBatch(
  * confirmed by the caller beforehand) → the route maps it to 409.
  */
 export async function updateBatch(
-  database: Database,
+  database: QueryRunner,
   batchId: string,
   medicineId: string,
   familyId: string,
@@ -147,7 +147,7 @@ export async function updateBatch(
 
 /** Batches are physically deleted (mistyped entries, no references). */
 export async function deleteBatch(
-  database: Database,
+  database: QueryRunner,
   batchId: string,
   medicineId: string,
   familyId: string,
