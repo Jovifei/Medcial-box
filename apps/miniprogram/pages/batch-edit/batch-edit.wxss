@@ -1,0 +1,12 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+}
+
+.footnote {
+  margin-top: 20rpx;
+  padding: 0 6rpx;
+}
+
+.disabled {
+  opacity: 0.6;
+}

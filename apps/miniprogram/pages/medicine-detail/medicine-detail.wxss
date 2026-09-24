@@ -1,0 +1,87 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+}
+
+.med-name {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.med-spec {
+  margin-top: 8rpx;
+  color: #52685c;
+  font-size: 24rpx;
+}
+
+.med-meta {
+  margin-top: 12rpx;
+  color: #778279;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.link-btn {
+  color: #3f7d5c;
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+.batch-card {
+  margin-top: 14rpx;
+  padding: 18rpx 16rpx;
+  border: 1rpx solid #e9ede8;
+  border-radius: 16rpx;
+  background: #fbfcfb;
+}
+
+.batch-title {
+  font-size: 25rpx;
+  font-weight: 650;
+}
+
+.batch-line {
+  margin-top: 8rpx;
+  color: #52685c;
+  font-size: 22rpx;
+}
+
+.batch-edit-hint {
+  margin-top: 10rpx;
+  color: #8a958d;
+  font-size: 20rpx;
+}
+
+.leaflet-badge {
+  margin-top: 4rpx;
+}
+
+.leaflet-text {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.65;
+}
+
+.note-card {
+  margin-top: 14rpx;
+  padding: 16rpx;
+  border: 1rpx solid #e9ede8;
+  border-radius: 14rpx;
+  background: #fbfcfb;
+}
+
+.note-owner {
+  color: #648274;
+  font-size: 21rpx;
+  font-weight: 650;
+}
+
+.note-delete {
+  color: #a45437;
+  font-size: 21rpx;
+}
+
+.note-content {
+  margin-top: 8rpx;
+  font-size: 25rpx;
+  line-height: 1.6;
+}

@@ -1,0 +1,30 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+}
+
+.option-row {
+  margin-top: 14rpx;
+}
+
+.option-title {
+  font-size: 26rpx;
+  font-weight: 650;
+}
+
+.markdown-view {
+  width: 100%;
+  box-sizing: border-box;
+  height: 640rpx;
+  margin-top: 12rpx;
+  padding: 18rpx;
+  border: 1rpx solid #dfe5df;
+  border-radius: 14rpx;
+  background: #fbfcfb;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.footnote {
+  margin-top: 18rpx;
+  padding: 0 6rpx;
+}

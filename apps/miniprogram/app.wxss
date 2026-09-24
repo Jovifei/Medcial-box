@@ -1,0 +1,137 @@
+/* 全局共享样式：卡片、表单、按钮、状态徽标。 */
+page {
+  background: #f5f7f4;
+  color: #24352c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 27rpx;
+}
+
+.card {
+  margin-bottom: 18rpx;
+  padding: 24rpx 22rpx;
+  border: 1rpx solid #e9ede8;
+  border-radius: 20rpx;
+  background: #fff;
+}
+
+.section-title {
+  margin: 26rpx 2rpx 14rpx;
+  font-size: 30rpx;
+  font-weight: 680;
+}
+
+.field {
+  margin-bottom: 18rpx;
+}
+
+.field-label {
+  margin-bottom: 8rpx;
+  color: #52685c;
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+.field-hint {
+  margin-top: 6rpx;
+  color: #8a958d;
+  font-size: 21rpx;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16rpx 18rpx;
+  border: 1rpx solid #dfe5df;
+  border-radius: 14rpx;
+  background: #fbfcfb;
+  font-size: 26rpx;
+}
+
+.textarea {
+  height: 140rpx;
+}
+
+.picker-box {
+  padding: 16rpx 18rpx;
+  border: 1rpx solid #dfe5df;
+  border-radius: 14rpx;
+  background: #fbfcfb;
+  color: #24352c;
+}
+
+.btn {
+  margin-top: 20rpx;
+  padding: 20rpx 26rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  font-weight: 650;
+  text-align: center;
+}
+
+.btn-primary {
+  background: #3f7d5c;
+  color: #fff;
+}
+
+.btn-ghost {
+  border: 1rpx solid #c8d4ca;
+  background: #fff;
+  color: #3f7d5c;
+}
+
+.btn-danger {
+  border: 1rpx solid #e3c1b5;
+  background: #fff7f4;
+  color: #a45437;
+}
+
+.btn[disabled] {
+  opacity: 0.55;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.badge-expired {
+  background: #f7e3da;
+  color: #a45437;
+}
+
+.badge-due {
+  background: #f9ecd7;
+  color: #9a6b21;
+}
+
+.badge-soon {
+  background: #f9ecd7;
+  color: #9a6b21;
+}
+
+.badge-ok {
+  background: #e2efe6;
+  color: #3f7d5c;
+}
+
+.badge-unknown {
+  background: #edf0ec;
+  color: #778279;
+}
+
+.hint {
+  color: #7c867e;
+  font-size: 21rpx;
+  line-height: 1.6;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}

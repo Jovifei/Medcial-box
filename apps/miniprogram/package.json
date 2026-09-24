@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "lint": "eslint app.ts pages typings --ext .ts --max-warnings=0",
+    "lint": "eslint app.ts pages services typings --ext .ts --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json --noEmit"
   }

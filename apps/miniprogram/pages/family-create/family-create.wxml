@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="intro card">
+    <view class="intro-title">创建家庭药箱</view>
+    <view class="hint">首版每个微信账号只属于一个家庭。创建后你成为 owner，之后可通过邀请（后续版本）让家人加入。已在家庭中时无法重复创建。</view>
+  </view>
+
+  <view class="card">
+    <view class="field">
+      <view class="field-label">家庭名称（必填）</view>
+      <input class="input" placeholder="例如：幸福之家" value="{{name}}" bindinput="onNameInput" maxlength="30" />
+    </view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+      {{submitting ? "创建中…" : "创建家庭并成为 owner"}}
+    </view>
+    <view class="field-hint">创建即成为 owner；成员管理能力将在家庭共享版本提供。</view>
+  </view>
+
+  <view class="safety-note hint">
+    家庭药箱仅用于库存管理参考，不涉及诊疗建议；请以说明书和医嘱为准。
+  </view>
+</view>

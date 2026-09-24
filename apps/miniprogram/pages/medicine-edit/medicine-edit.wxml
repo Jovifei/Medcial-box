@@ -1,0 +1,118 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">{{isEdit ? "编辑药品" : "手动录入药品"}}</view>
+
+    <view class="field">
+      <view class="field-label">药品名称（必填）</view>
+      <input class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
+    </view>
+    <view class="field">
+      <view class="field-label">规格</view>
+      <input class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒" />
+    </view>
+    <view class="field">
+      <view class="field-label">生产厂家</view>
+      <input class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">批准文号</view>
+      <input class="input" data-field="approvalNumber" bindinput="onFieldInput" value="{{approvalNumber}}" placeholder="例如：国药准字H…" />
+    </view>
+    <view class="field">
+      <view class="field-label">有效成分（顿号/逗号分隔）</view>
+      <input class="input" data-field="ingredients" bindinput="onFieldInput" value="{{ingredients}}" placeholder="例如：布洛芬" />
+    </view>
+    <view class="field">
+      <view class="field-label">用途分类</view>
+      <input class="input" data-field="purposeCategory" bindinput="onFieldInput" value="{{purposeCategory}}" placeholder="例如：解热镇痛" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">说明书摘要（手填）</view>
+    <view class="field">
+      <view class="field-label">用途摘要</view>
+      <textarea class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">用法用量摘要</view>
+      <textarea class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">禁忌摘要</view>
+      <textarea class="textarea" data-field="leafletContraindications" bindinput="onFieldInput" value="{{leafletContraindications}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">注意事项摘要</view>
+      <textarea class="textarea" data-field="leafletPrecautions" bindinput="onFieldInput" value="{{leafletPrecautions}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">摘要来源</view>
+      <input class="input" data-field="leafletSource" bindinput="onFieldInput" value="{{leafletSource}}" placeholder="例如：包装内说明书" />
+    </view>
+    <view class="row">
+      <view>
+        <view class="field-label">本人已核对说明书</view>
+        <view class="field-hint">对照包装内说明书后勾选；未核验摘要不会作为已确认资料导出。</view>
+      </view>
+      <switch checked="{{verified}}" bindchange="onVerifiedChange" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="section-title">库存批次</view>
+      <view class="btn-ghost-mini" bindtap="onAddBatch">＋ 加一批次</view>
+    </view>
+    <view class="field-hint">数量留空请打开"数量未知"；每包装换算数仅在本人确认后填写。</view>
+
+    <view wx:for="{{batches}}" wx:key="index" wx:for-item="batch" wx:for-index="index" class="batch-block">
+      <view class="batch-head">
+        <view class="batch-title">批次 {{index + 1}}</view>
+        <view class="batch-remove" bindtap="onRemoveBatch" data-index="{{index}}">删除</view>
+      </view>
+      <view class="field">
+        <view class="field-label">批次号</view>
+        <input class="input" data-index="{{index}}" data-field="lotNumber" bindinput="onBatchFieldInput" value="{{batch.lotNumber}}" />
+      </view>
+      <view class="field">
+        <view class="field-label">有效期精度</view>
+        <picker range="{{precisionLabels}}" value="{{batch.precisionIndex}}" data-index="{{index}}" bindchange="onBatchPrecisionChange">
+          <view class="picker-box">{{precisionLabels[batch.precisionIndex]}}</view>
+        </picker>
+      </view>
+      <view class="field" wx:if="{{batch.precisionIndex !== 2}}">
+        <view class="field-label">有效期原文（保持包装原样，不伪造日期）</view>
+        <input class="input" data-index="{{index}}" data-field="expiryValue" bindinput="onBatchFieldInput" value="{{batch.expiryValue}}"
+          placeholder="{{batch.precisionIndex === 0 ? 'YYYY-MM-DD' : 'YYYY-MM'}}" />
+      </view>
+      <view class="field">
+        <view class="field-label">单位</view>
+        <picker range="{{unitLabels}}" value="{{batch.unitIndex}}" data-index="{{index}}" bindchange="onBatchUnitChange">
+          <view class="picker-box">{{unitLabels[batch.unitIndex]}}</view>
+        </picker>
+      </view>
+      <view class="row">
+        <view class="field-label">数量未知</view>
+        <switch checked="{{batch.quantityUnknown}}" data-index="{{index}}" bindchange="onBatchUnknownChange" />
+      </view>
+      <view class="field" wx:if="{{!batch.quantityUnknown}}">
+        <view class="field-label">数量（0 表示确定耗尽）</view>
+        <input class="input" type="number" data-index="{{index}}" data-field="quantity" bindinput="onBatchFieldInput" value="{{batch.quantity}}" placeholder="例如：2" />
+      </view>
+      <view class="field">
+        <view class="field-label">每包装换算数（本人已确认后填写）</view>
+        <input class="input" type="number" data-index="{{index}}" data-field="confirmedUnits" bindinput="onBatchFieldInput" value="{{batch.confirmedUnits}}" placeholder="例如：24" />
+      </view>
+      <view class="field">
+        <view class="field-label">存放位置</view>
+        <input class="input" data-index="{{index}}" data-field="storageLocation" bindinput="onBatchFieldInput" value="{{batch.storageLocation}}" placeholder="例如：客厅药箱" />
+      </view>
+    </view>
+  </view>
+
+  <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+    {{submitting ? "保存中…" : (isEdit ? "保存修改" : "保存药品")}}
+  </view>
+  <view class="hint footnote">药品与批次信息仅用于家庭库存管理；实际每日剂量请使用"个人剂量备注"记录，不从说明书自动生成。</view>
+</view>

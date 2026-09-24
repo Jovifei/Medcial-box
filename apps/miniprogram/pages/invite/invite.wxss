@@ -1,0 +1,32 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+}
+
+.invite-result {
+  margin-top: 20rpx;
+}
+
+.invite-code {
+  padding: 22rpx 20rpx;
+  border: 1rpx dashed #9db8a6;
+  border-radius: 14rpx;
+  background: #f2f7f3;
+  color: #24352c;
+  font-size: 30rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  word-break: break-all;
+}
+
+.invite-result .hint {
+  margin-top: 10rpx;
+}
+
+.footnote {
+  margin-top: 20rpx;
+  padding: 0 6rpx;
+}
+
+.disabled {
+  opacity: 0.6;
+}

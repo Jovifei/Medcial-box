@@ -2,37 +2,55 @@
   <view class="hero">
     <view class="eyebrow">{{stageLabel}}</view>
     <view class="title">家里的药，心里有数</view>
-    <view class="subtitle">记录库存和有效期，让药品信息容易核对。</view>
+    <view class="subtitle" wx:if="{{familyName !== ''}}">家庭：{{familyName}}</view>
+    <view class="subtitle" wx:else>记录库存和有效期，让药品信息容易核对。</view>
   </view>
 
   <view class="status-card">
     <view>
-      <view class="status-title">临期提醒</view>
-      <view class="status-hint">有效期按每一盒分别记录</view>
+      <view class="status-title">临期 / 过期提醒</view>
+      <view class="status-hint">有效期按每一盒分别记录，仅供参考</view>
     </view>
-    <view class="status-count">{{expiringCount}}<text> 项</text></view>
+    <view class="status-numbers">
+      <view class="status-count">{{expiringCount}}<text> 项临期</text></view>
+      <view class="status-count expired">{{expiredCount}}<text> 项过期</text></view>
+    </view>
   </view>
 
-  <view class="section-heading">
-    <view class="section-title">家庭药箱</view>
-    <view class="sample-pill">{{exampleLabel}}</view>
+  <view class="toolbar">
+    <view class="tool-btn primary" bindtap="onTapAdd">＋ 录入药品</view>
+    <view class="tool-btn" bindtap="onTapExport">导出 Markdown</view>
+    <view class="tool-btn" bindtap="onTapInvite">家庭共享</view>
   </view>
 
-  <view wx:for="{{items}}" wx:key="id" class="medicine-card">
+  <view class="search-box">
+    <input
+      class="search-input"
+      placeholder="搜索药名（本机快速筛选）"
+      value="{{keyword}}"
+      bindinput="onSearchInput"
+      confirm-type="search"
+    />
+    <view class="sample-pill" wx:if="{{isExample}}">合成示例</view>
+    <view class="sample-pill" wx:elif="{{isFiltered}}">筛选中</view>
+  </view>
+
+  <view wx:for="{{items}}" wx:key="id" class="medicine-card" bindtap="onTapMedicine" data-id="{{item.id}}">
     <view class="medicine-left">
       <view class="medicine-name">{{item.name}}</view>
       <view class="medicine-spec">{{item.specification}}</view>
       <view class="medicine-stock">{{item.quantityText}}</view>
-      <view class="expiry-line {{item.expiryState}}">{{item.expiryText}}</view>
+      <view class="expiry-line">{{item.expiryText}}</view>
     </view>
     <view class="medicine-right">
       <view class="purpose-label">简要用途</view>
       <view class="purpose-text">{{item.purpose}}</view>
-      <view class="detail-hint">详情将在后续阶段开放 ›</view>
+      <view class="badge badge-{{item.state}}">{{item.state}}</view>
+      <view class="detail-hint" wx:if="{{!item.isExample}}">查看批次与备注 ›</view>
     </view>
   </view>
 
   <view class="safety-note">
-    库存清单用于家庭管理。请以包装内说明书及医生或药师的指导为准。
+    库存清单用于家庭管理，库存存在不等于适合服用。请以包装内说明书及医生或药师的指导为准。
   </view>
 </view>

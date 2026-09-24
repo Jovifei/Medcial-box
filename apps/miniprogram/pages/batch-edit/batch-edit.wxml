@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">{{isEdit ? "编辑批次" : "新增批次"}}</view>
+
+    <view class="field">
+      <view class="field-label">批次号</view>
+      <input class="input" data-field="lotNumber" bindinput="onFieldInput" value="{{lotNumber}}" placeholder="留空记为“批次号未记录”" />
+    </view>
+    <view class="field">
+      <view class="field-label">有效期精度</view>
+      <picker range="{{precisionLabels}}" value="{{precisionIndex}}" bindchange="onPrecisionChange">
+        <view class="picker-box">{{precisionLabels[precisionIndex]}}</view>
+      </picker>
+    </view>
+    <view class="field" wx:if="{{precisionIndex !== 2}}">
+      <view class="field-label">有效期原文（保持包装原样）</view>
+      <input class="input" data-field="expiryValue" bindinput="onFieldInput" value="{{expiryValue}}"
+        placeholder="{{precisionIndex === 0 ? 'YYYY-MM-DD' : 'YYYY-MM'}}" />
+      <view class="field-hint">仅到月时按“过完该月才过期、当月为本月到期”判断，不伪造日期。</view>
+    </view>
+    <view class="field">
+      <view class="field-label">单位</view>
+      <picker range="{{unitLabels}}" value="{{unitIndex}}" bindchange="onUnitChange">
+        <view class="picker-box">{{unitLabels[unitIndex]}}</view>
+      </picker>
+    </view>
+    <view class="row">
+      <view class="field-label">数量未知</view>
+      <switch checked="{{quantityUnknown}}" bindchange="onUnknownChange" />
+    </view>
+    <view class="field" wx:if="{{!quantityUnknown}}">
+      <view class="field-label">数量（0 表示确定耗尽）</view>
+      <input class="input" type="number" data-field="quantity" bindinput="onFieldInput" value="{{quantity}}" />
+    </view>
+    <view class="field">
+      <view class="field-label">每包装换算数（本人已确认后填写）</view>
+      <input class="input" type="number" data-field="confirmedUnits" bindinput="onFieldInput" value="{{confirmedUnits}}" placeholder="例如：24" />
+    </view>
+    <view class="field">
+      <view class="field-label">存放位置</view>
+      <input class="input" data-field="storageLocation" bindinput="onFieldInput" value="{{storageLocation}}" placeholder="例如：客厅药箱" />
+    </view>
+  </view>
+
+  <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
+    {{submitting ? "保存中…" : (isEdit ? "保存批次" : "添加批次")}}
+  </view>
+  <view class="btn btn-danger" wx:if="{{isEdit}}" bindtap="onDelete">删除该批次</view>
+  <view class="hint footnote">批次数值为空表示"未知"，0 表示"确定耗尽"；导出时会显式标注。</view>
+</view>

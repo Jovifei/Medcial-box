@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "家庭药箱"
+  "navigationBarTitleText": "家庭药箱",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
 }

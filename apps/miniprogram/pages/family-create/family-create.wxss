@@ -1,0 +1,17 @@
+.page {
+  padding: 28rpx 30rpx 52rpx;
+}
+
+.intro-title {
+  font-size: 30rpx;
+  font-weight: 680;
+  margin-bottom: 10rpx;
+}
+
+.safety-note {
+  padding: 20rpx 6rpx 0;
+}
+
+.disabled {
+  opacity: 0.6;
+}

@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="card" wx:if="{{mode === 'loading'}}">
+    <view class="hint">正在确认你的家庭状态…</view>
+  </view>
+
+  <!-- owner：生成一次性邀请码 -->
+  <view class="card" wx:if="{{mode === 'owner'}}">
+    <view class="section-title">邀请家人（{{familyName}}）</view>
+    <view class="hint">生成一次性文本邀请码，72 小时内有效；明文只显示一次，请通过可靠渠道转发。家人在小程序粘贴后即可加入。</view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onCreateInvitation" wx:if="{{invitationCode === ''}}">
+      {{submitting ? "生成中…" : "生成邀请码"}}
+    </view>
+    <view wx:if="{{invitationCode !== ''}}" class="invite-result">
+      <view class="invite-code">{{invitationCode}}</view>
+      <view class="hint">有效期至：{{invitationExpiresAt}}（一次性使用）</view>
+      <view class="btn btn-ghost" bindtap="onCopyInvitation">复制邀请码</view>
+    </view>
+  </view>
+
+  <!-- 无家庭：粘贴邀请码加入 -->
+  <view class="card" wx:if="{{mode === 'join'}}">
+    <view class="section-title">加入家庭</view>
+    <view class="hint">请让家庭 owner 生成邀请码并转发给你，粘贴到下方即可加入。</view>
+    <view class="field">
+      <view class="field-label">邀请码</view>
+      <input class="input" placeholder="粘贴 owner 发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" />
+    </view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
+      {{submitting ? "加入中…" : "加入家庭"}}
+    </view>
+  </view>
+
+  <!-- 普通成员：说明入口在 owner -->
+  <view class="card" wx:if="{{mode === 'member'}}">
+    <view class="section-title">已在家庭（{{familyName}}）</view>
+    <view class="hint">邀请与移除成员由家庭 owner 管理。每个账号只属于一个家庭；如需更换家庭，请先由当前 owner 移除你，再加入新家庭（药品不会自动搬移或合并）。</view>
+  </view>
+
+  <view class="hint footnote">家庭共享仅同步库存管理信息；个人剂量备注默认仅本人可见，主动选择"全家可见"后其他成员只读。</view>
+</view>

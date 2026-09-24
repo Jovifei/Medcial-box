@@ -1,9 +1,3 @@
-page {
-  background: #f5f7f4;
-  color: #24352c;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
 .page {
   padding: 28rpx 30rpx 52rpx;
 }
@@ -51,27 +45,65 @@ page {
   font-size: 22rpx;
 }
 
+.status-numbers {
+  display: flex;
+  gap: 28rpx;
+}
+
 .status-count {
   color: #a45437;
   font-size: 42rpx;
   font-weight: 700;
+  text-align: right;
+}
+
+.status-count.expired {
+  color: #8f3d2a;
 }
 
 .status-count text {
-  font-size: 23rpx;
+  font-size: 21rpx;
   font-weight: 500;
 }
 
-.section-heading {
+.toolbar {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.tool-btn {
+  flex: 1;
+  padding: 18rpx 22rpx;
+  border: 1rpx solid #c8d4ca;
+  border-radius: 16rpx;
+  background: #fff;
+  color: #3f7d5c;
+  font-size: 26rpx;
+  font-weight: 650;
+  text-align: center;
+}
+
+.tool-btn.primary {
+  border-color: #3f7d5c;
+  background: #3f7d5c;
+  color: #fff;
+}
+
+.search-box {
   display: flex;
   align-items: center;
   gap: 14rpx;
-  margin: 34rpx 2rpx 16rpx;
+  margin: 24rpx 0 14rpx;
 }
 
-.section-title {
-  font-size: 31rpx;
-  font-weight: 680;
+.search-input {
+  flex: 1;
+  padding: 14rpx 18rpx;
+  border: 1rpx solid #dfe5df;
+  border-radius: 14rpx;
+  background: #fff;
+  font-size: 24rpx;
 }
 
 .sample-pill {
@@ -123,10 +155,6 @@ page {
 
 .medicine-stock {
   color: #52685c;
-}
-
-.expiry-line.soon {
-  color: #a45437;
 }
 
 .purpose-label {

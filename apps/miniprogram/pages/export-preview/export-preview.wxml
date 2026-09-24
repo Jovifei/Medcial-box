@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">导出选项</view>
+    <view class="row option-row">
+      <view>
+        <view class="option-title">包含个人剂量备注</view>
+        <view class="hint">默认关闭；开启后仅包含你有权查看的备注，并标注归属成员。</view>
+      </view>
+      <switch checked="{{includePersonalDosage}}" bindchange="onTogglePersonalDosage" />
+    </view>
+    <view class="row option-row">
+      <view>
+        <view class="option-title">包含已归档药品</view>
+        <view class="hint">默认关闭；开启后归档药品以"（已归档）"分区输出。</view>
+      </view>
+      <switch checked="{{includeArchived}}" bindchange="onToggleArchived" />
+    </view>
+    <view class="row option-row">
+      <view>
+        <view class="option-title">包含存放位置</view>
+        <view class="hint">默认开启；未记录的批次会标注"存放位置未记录"。</view>
+      </view>
+      <switch checked="{{includeStorageLocation}}" bindchange="onToggleStorageLocation" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="section-title">导出预览</view>
+      <view class="hint" wx:if="{{generatedAt !== ''}}">{{generatedAt}}</view>
+    </view>
+    <view class="hint" wx:if="{{loading}}">正在生成…</view>
+    <textarea class="markdown-view" value="{{markdown}}" disabled maxlength="-1" />
+  </view>
+
+  <view class="btn btn-primary" bindtap="onCopy">复制文本</view>
+  <view class="btn btn-ghost" bindtap="onShareFile">写本地 .md 并分享</view>
+  <view class="hint footnote" wx:if="{{lastAction !== ''}}">{{lastAction}}</view>
+  <view class="hint footnote">分享前会先将 Markdown 写入本地临时 .md 文件；真机不支持分享时自动回退为复制文本。导出内容仅供家庭管理参考，以说明书和医嘱为准。</view>
+</view>

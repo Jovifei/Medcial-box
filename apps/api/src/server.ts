@@ -1,6 +1,7 @@
 import { buildServer } from "./app.js";
 import { createDatabasePool } from "./db.js";
 import { applyMigrations } from "./db/migrations.js";
+import type { Database, QueryResult } from "./types.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -11,7 +12,13 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(databaseUrl);
   try {
     await applyMigrations(pool);
-    const app = await buildServer({ database: { query: (sql) => pool.query(sql) } });
+    const database: Database = {
+      query: async <T>(sql: string, params?: unknown[]): Promise<QueryResult<T>> => {
+        const result = await pool.query(sql, params);
+        return result as QueryResult<T>;
+      },
+    };
+    const app = await buildServer({ database });
     app.addHook("onClose", async () => pool.end());
     const port = Number.parseInt(process.env.API_PORT ?? "3000", 10);
     // Local development defaults to loopback; containers set API_HOST=0.0.0.0.

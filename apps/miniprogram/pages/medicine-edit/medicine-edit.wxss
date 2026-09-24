@@ -1,0 +1,46 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+}
+
+.batch-block {
+  margin-top: 18rpx;
+  padding: 18rpx 16rpx 4rpx;
+  border: 1rpx solid #e9ede8;
+  border-radius: 16rpx;
+  background: #fbfcfb;
+}
+
+.batch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.batch-title {
+  font-size: 25rpx;
+  font-weight: 650;
+  color: #52685c;
+}
+
+.batch-remove {
+  color: #a45437;
+  font-size: 23rpx;
+}
+
+.btn-ghost-mini {
+  padding: 8rpx 18rpx;
+  border: 1rpx solid #c8d4ca;
+  border-radius: 999rpx;
+  color: #3f7d5c;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.footnote {
+  margin-top: 20rpx;
+  padding: 0 6rpx;
+}
+
+.disabled {
+  opacity: 0.6;
+}

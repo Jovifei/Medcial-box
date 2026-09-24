@@ -1,5 +1,13 @@
 {
-  "pages": ["pages/index/index"],
+  "pages": [
+    "pages/index/index",
+    "pages/family-create/family-create",
+    "pages/medicine-edit/medicine-edit",
+    "pages/medicine-detail/medicine-detail",
+    "pages/batch-edit/batch-edit",
+    "pages/export-preview/export-preview",
+    "pages/invite/invite"
+  ],
   "window": {
     "navigationBarTitleText": "家庭药箱",
     "navigationBarBackgroundColor": "#f5f7f4",
