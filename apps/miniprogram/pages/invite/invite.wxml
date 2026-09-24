@@ -3,24 +3,42 @@
     <view class="hint">正在确认你的家庭状态…</view>
   </view>
 
-  <!-- owner：生成一次性邀请码 -->
+  <!-- owner：生成一次性邀请码 → 转发卡片 / 复制兜底；管理成员与所有权 -->
   <view class="card" wx:if="{{mode === 'owner'}}">
     <view class="section-title">邀请家人（{{familyName}}）</view>
-    <view class="hint">生成一次性文本邀请码，72 小时内有效；明文只显示一次，请通过可靠渠道转发。家人在小程序粘贴后即可加入。</view>
+    <view class="hint">生成一次性邀请码后，可直接"转发给微信好友"，家人点卡片即可加入；也可以复制邀请码发给他粘贴。72 小时内有效、只能使用一次。</view>
     <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onCreateInvitation" wx:if="{{invitationCode === ''}}">
       {{submitting ? "生成中…" : "生成邀请码"}}
     </view>
     <view wx:if="{{invitationCode !== ''}}" class="invite-result">
       <view class="invite-code">{{invitationCode}}</view>
       <view class="hint">有效期至：{{invitationExpiresAt}}（一次性使用）</view>
+      <button class="btn btn-primary share-btn" open-type="share">转发给微信好友</button>
       <view class="btn btn-ghost" bindtap="onCopyInvitation">复制邀请码</view>
+    </view>
+
+    <view class="member-block" wx:if="{{members.length > 0}}">
+      <view class="section-title small">家庭成员</view>
+      <view class="member-row" wx:for="{{members}}" wx:key="id">
+        <view class="member-info">
+          <view class="member-role">{{item.role === 'owner' ? 'owner（我）' : '成员'}}</view>
+          <view class="member-joined">{{item.joinedDate}} 加入</view>
+        </view>
+        <view
+          class="btn btn-ghost btn-small"
+          wx:if="{{item.role === 'member'}}"
+          data-member-id="{{item.id}}"
+          bindtap="onTransferOwnership"
+        >转让所有权</view>
+      </view>
+      <view class="hint">转让后你变为普通成员，即可使用下方退出功能。</view>
     </view>
   </view>
 
-  <!-- 无家庭：粘贴邀请码加入 -->
+  <!-- 无家庭：点卡片自动填充，或手动粘贴邀请码加入 -->
   <view class="card" wx:if="{{mode === 'join'}}">
     <view class="section-title">加入家庭</view>
-    <view class="hint">请让家庭 owner 生成邀请码并转发给你，粘贴到下方即可加入。</view>
+    <view class="hint">家人通过微信转发邀请卡片进入本页会自动填入邀请码；也可以让 owner 复制邀请码发给你，粘贴到下方。</view>
     <view class="field">
       <view class="field-label">邀请码</view>
       <input class="input" placeholder="粘贴 owner 发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" />
@@ -30,10 +48,13 @@
     </view>
   </view>
 
-  <!-- 普通成员：说明入口在 owner -->
+  <!-- 普通成员：可自助退出（D3） -->
   <view class="card" wx:if="{{mode === 'member'}}">
     <view class="section-title">已在家庭（{{familyName}}）</view>
-    <view class="hint">邀请与移除成员由家庭 owner 管理。每个账号只属于一个家庭；如需更换家庭，请先由当前 owner 移除你，再加入新家庭（药品不会自动搬移或合并）。</view>
+    <view class="hint">邀请与移除成员由家庭 owner 管理。每个账号只属于一个家庭；退出后立即失去本药箱的访问权限，重新加入需要新的邀请（药品不会自动搬移或合并）。</view>
+    <view class="btn btn-danger {{leaving ? 'disabled' : ''}}" bindtap="onLeaveFamily">
+      {{leaving ? "退出中…" : "退出家庭"}}
+    </view>
   </view>
 
   <view class="hint footnote">家庭共享仅同步库存管理信息；个人剂量备注默认仅本人可见，主动选择"全家可见"后其他成员只读。</view>

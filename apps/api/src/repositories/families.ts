@@ -82,6 +82,55 @@ export async function deleteMemberById(
   return result.rowCount !== 0;
 }
 
+export async function deleteMembershipByUserId(
+  database: Database,
+  userId: string,
+): Promise<boolean> {
+  const result = await database.query<{ id: string }>(
+    "DELETE FROM family_members WHERE user_id = $1 RETURNING id",
+    [userId],
+  );
+  return result.rowCount !== 0;
+}
+
+export async function countMembersByFamily(
+  database: Database,
+  familyId: string,
+): Promise<number> {
+  const result = await database.query<{ count: number | string }>(
+    "SELECT COUNT(*)::int AS count FROM family_members WHERE family_id = $1",
+    [familyId],
+  );
+  const raw = result.rows[0]?.count;
+  return typeof raw === "number" ? raw : Number.parseInt(String(raw ?? "0"), 10);
+}
+
+export async function updateMemberRole(
+  database: Database,
+  memberId: string,
+  familyId: string,
+  role: MemberRole,
+): Promise<MembershipRow | null> {
+  const result = await database.query<MembershipRow>(
+    "UPDATE family_members SET role = $3 WHERE id = $1 AND family_id = $2 RETURNING id, family_id, user_id, role, joined_at",
+    [memberId, familyId, role],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function updateMemberRoleByUserId(
+  database: Database,
+  userId: string,
+  familyId: string,
+  role: MemberRole,
+): Promise<MembershipRow | null> {
+  const result = await database.query<MembershipRow>(
+    "UPDATE family_members SET role = $3 WHERE user_id = $1 AND family_id = $2 RETURNING id, family_id, user_id, role, joined_at",
+    [userId, familyId, role],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function insertFamily(
   database: Database,
   name: string,

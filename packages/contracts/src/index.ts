@@ -33,6 +33,7 @@ export type ApiErrorCode =
   | "ALREADY_IN_FAMILY"
   | "INVITATION_EXPIRED"
   | "INVITATION_USED"
+  | "OWNER_CANNOT_LEAVE"
   | "WECHAT_EXCHANGE_FAILED"
   | "WECHAT_GATEWAY_ERROR"
   | "INTERNAL_ERROR";
@@ -117,6 +118,10 @@ export interface AcceptInvitationRequest {
 
 export interface AcceptInvitationResponse {
   family: FamilyCore;
+  membership: FamilyMemberSummary;
+}
+
+export interface TransferOwnershipResponse {
   membership: FamilyMemberSummary;
 }
 

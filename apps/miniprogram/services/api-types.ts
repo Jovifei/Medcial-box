@@ -134,6 +134,10 @@ export interface AcceptInvitationResponse {
   membership: FamilyMemberSummary;
 }
 
+export interface TransferOwnershipResponse {
+  membership: FamilyMemberSummary;
+}
+
 export interface CreateFamilyResponse {
   family: { id: string; name: string };
   membership: FamilyMemberSummary;

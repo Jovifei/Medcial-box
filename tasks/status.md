@@ -5,7 +5,7 @@
 - 完成证据：
   - `npm run lint` PASS（`--max-warnings=0`）。
   - `npm run typecheck` PASS。
-  - `npm test` PASS（全仓 77/77：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13；全部为合成注入测试，不依赖真实数据库）。
+  - `npm test` PASS（全仓 83/83：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13 + D2/D3 决策落地新增 6；全部为合成注入测试，不依赖真实数据库）。
   - `npm run build` PASS（含小程序 `tsc --noEmit`）。
   - `docker-compose --env-file deploy/.env.example -f deploy/docker-compose.yml config --quiet` PASS（本机未安装 compose 插件，仅独立版 docker-compose v5.4.0）。
   - 无密钥 CI 已就绪：`.github/workflows/ci.yml`（Node 22，npm ci → lint → typecheck → test → build，零 Secrets）。

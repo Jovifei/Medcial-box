@@ -13,6 +13,7 @@ import type {
   MedicationSummary,
   MedicineListResponse,
   MedicinePayload,
+  TransferOwnershipResponse,
 } from "./api-types";
 
 export class ApiError extends Error {
@@ -149,6 +150,19 @@ export const api = {
     return request<null>({
       method: "DELETE",
       path: `/api/v1/families/members/${memberId}`,
+    });
+  },
+
+  /** 成员自助退出家庭（owner 需先转让所有权，后端返回 409 OWNER_CANNOT_LEAVE）。 */
+  leaveFamily(): Promise<null> {
+    return request<null>({ method: "POST", path: "/api/v1/families/leave" });
+  },
+
+  /** owner 把家庭所有权转让给一名普通成员。 */
+  transferOwnership(memberId: string): Promise<TransferOwnershipResponse> {
+    return request<TransferOwnershipResponse>({
+      method: "POST",
+      path: `/api/v1/families/members/${memberId}/transfer-ownership`,
     });
   },
 

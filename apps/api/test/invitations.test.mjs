@@ -486,3 +486,184 @@ test("markdown export respects note visibility per viewer", async () => {
     await app.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// D3 决策更新（2026-09-24）：成员自助退出 + 所有权转让
+// ---------------------------------------------------------------------------
+
+test("member can leave the family and immediately loses access", async () => {
+  const pool = createFakePool();
+  const { app, sessions } = await twoUserApp(pool);
+  try {
+    pool.always(/DELETE FROM family_members WHERE user_id/, {
+      rows: [{ id: "membership-2" }],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/leave",
+      ...memberHeader(),
+    });
+    assert.equal(response.statusCode, 204);
+    assert.equal(pool.callsMatching(/DELETE FROM family_members WHERE user_id/).length, 1);
+
+    // 退出后成员关系消失：同一令牌的后续请求立即 404 FAMILY_NOT_FOUND。
+    sessions.removeMembership("user-2");
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/v1/medicines",
+      ...memberHeader(),
+    });
+    assert.equal(after.statusCode, 404);
+    assert.equal(after.json().error.code, "FAMILY_NOT_FOUND");
+  } finally {
+    await app.close();
+  }
+});
+
+test("owner cannot leave while other members exist (must transfer first)", async () => {
+  const pool = createFakePool();
+  const { app } = await twoUserApp(pool);
+  try {
+    pool.always(/COUNT\(\*\)::int AS count FROM family_members/, {
+      rows: [{ count: 2 }],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/leave",
+      ...ownerHeader(),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json().error.code, "OWNER_CANNOT_LEAVE");
+    assert.equal(pool.callsMatching(/DELETE FROM family_members/).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("owner cannot leave a family with no other members until P4 defines dissolution", async () => {
+  const pool = createFakePool();
+  const { app } = await twoUserApp(pool);
+  try {
+    pool.always(/COUNT\(\*\)::int AS count FROM family_members/, {
+      rows: [{ count: 1 }],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/leave",
+      ...ownerHeader(),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json().error.code, "OWNER_CANNOT_LEAVE");
+    assert.equal(pool.callsMatching(/DELETE FROM family_members/).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("owner transfer swaps roles in one transaction and the ex-owner can leave", async () => {
+  const pool = createFakePool();
+  const ownerMembership = membershipRow({ id: "membership-1", role: "owner", user_id: "user-1" });
+  const gateway = createTestGateway({
+    "js-owner": "openid-owner",
+    "js-member": "openid-member",
+  });
+  scriptMultiUserSessions(pool, [
+    { token: OWNER_TOKEN, userId: "user-1", openid: "openid-owner", membership: ownerMembership },
+    { token: MEMBER_TOKEN, userId: "user-2", openid: "openid-member", membership: membershipRow({ id: "membership-2", role: "member", user_id: "user-2" }) },
+  ]);
+  const app = await createApp(pool, gateway);
+  try {
+    pool.always(/FROM family_members WHERE id = \$1 AND family_id/, {
+      rows: [membershipRow({ id: "membership-2", role: "member", user_id: "user-2" })],
+      rowCount: 1,
+    });
+    pool.always(/UPDATE family_members SET role = \$3 WHERE id = \$1 AND family_id = \$2/, {
+      rows: [membershipRow({ id: "membership-2", role: "owner", user_id: "user-2" })],
+      rowCount: 1,
+    });
+    pool.always(/UPDATE family_members SET role = \$3 WHERE user_id = \$1 AND family_id = \$2/, {
+      rows: [membershipRow({ id: "membership-1", role: "member", user_id: "user-1" })],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/members/membership-2/transfer-ownership",
+      ...ownerHeader(),
+    });
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.membership.id, "membership-2");
+    assert.equal(body.membership.role, "owner");
+    assert.equal(pool.callsMatching(/UPDATE family_members SET role/).length, 2);
+
+    // 转让后原 owner 变为普通成员，即可自助退出。
+    ownerMembership.role = "member";
+    pool.always(/DELETE FROM family_members WHERE user_id/, {
+      rows: [{ id: "membership-1" }],
+      rowCount: 1,
+    });
+    const leave = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/leave",
+      ...ownerHeader(),
+    });
+    assert.equal(leave.statusCode, 204);
+  } finally {
+    await app.close();
+  }
+});
+
+test("only the owner can transfer ownership (member gets 403 OWNER_ONLY)", async () => {
+  const pool = createFakePool();
+  const { app } = await twoUserApp(pool);
+  try {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/members/membership-1/transfer-ownership",
+      ...memberHeader(),
+    });
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.json().error.code, "OWNER_ONLY");
+    assert.equal(pool.callsMatching(/UPDATE family_members SET role/).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("transfer rejects self-target and unknown members", async () => {
+  const pool = createFakePool();
+  const { app } = await twoUserApp(pool);
+  try {
+    // 第一次查找命中 owner 自己的成员关系 → 自转让 400；
+    // 第二次查找为空 → 目标不存在 404。
+    pool.on(/FROM family_members WHERE id = \$1 AND family_id/, {
+      rows: [membershipRow({ id: "membership-1", role: "owner", user_id: "user-1" })],
+      rowCount: 1,
+    });
+    const selfResponse = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/members/membership-1/transfer-ownership",
+      ...ownerHeader(),
+    });
+    assert.equal(selfResponse.statusCode, 400);
+    assert.equal(selfResponse.json().error.code, "VALIDATION_ERROR");
+
+    pool.on(/FROM family_members WHERE id = \$1 AND family_id/, { rows: [], rowCount: 0 });
+    const missing = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/members/membership-x/transfer-ownership",
+      ...ownerHeader(),
+    });
+    assert.equal(missing.statusCode, 404);
+    assert.equal(missing.json().error.code, "NOT_FOUND");
+  } finally {
+    await app.close();
+  }
+});

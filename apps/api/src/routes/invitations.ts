@@ -4,6 +4,10 @@
 // - DELETE /api/v1/families/members/{id}    仅 owner；不能移除自己/owner；移除后成员关系消失，
 //   被移除者的后续请求在认证 preHandler 查不到成员关系 → 404 FAMILY_NOT_FOUND（会话本身不撤销，
 //   从其设计文档 §5 的安排）。
+// - POST /api/v1/families/leave             成员自助退出（Jovi 决策 D3）；owner 不能直接退出，
+//   需先转让所有权；仅剩 owner 的家庭其解散/数据删除在 P4 定义前不可退出。
+// - POST /api/v1/families/members/{id}/transfer-ownership 仅 owner；目标必须是本家庭的普通成员；
+//   事务内双方角色互换，任一失败整体回滚。
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { Database } from "../types.js";
@@ -12,11 +16,15 @@ import { sha256Hex } from "../auth/session.js";
 import { requireFamily } from "../auth/session.js";
 import {
   asMemberRole,
+  countMembersByFamily,
   deleteMemberById,
+  deleteMembershipByUserId,
   findFamilyById,
   findMemberById,
   findMembershipByUserId,
   insertFamilyMember,
+  updateMemberRole,
+  updateMemberRoleByUserId,
 } from "../repositories/families.js";
 import { consumeInvite, findInviteByTokenHash, insertInvite } from "../repositories/invites.js";
 
@@ -127,8 +135,8 @@ export async function registerInvitationRoutes(
       return reply.code(404).send(NOT_FOUND_BODY);
     }
     if (target.user_id === ctx.userId) {
-      // D3：本轮不提供自助退出，owner 移除自己属 backlog。
-      return reply.code(403).send(errorBody("FORBIDDEN", "不能移除自己；如需退出家庭请联系后续版本支持"));
+      // 自助退出走 POST /api/v1/families/leave，本端点面向 owner 移除他人。
+      return reply.code(403).send(errorBody("FORBIDDEN", "不能移除自己；如需退出请使用“退出家庭”"));
     }
     if (target.role === "owner") {
       return reply.code(403).send(errorBody("FORBIDDEN", "不能移除家庭 owner"));
@@ -137,5 +145,80 @@ export async function registerInvitationRoutes(
     const deleted = await deleteMemberById(database, memberId, ctx.familyId);
     if (!deleted) return reply.code(404).send(NOT_FOUND_BODY);
     return reply.code(204).send();
+  });
+
+  // 成员自助退出（D3）：普通成员立即删除自己的成员关系，
+  // 后续请求在认证 preHandler 查不到成员关系 → 404 FAMILY_NOT_FOUND。
+  app.post("/api/v1/families/leave", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+    if (auth.role !== "owner") {
+      const deleted = await deleteMembershipByUserId(database, auth.userId);
+      if (!deleted) return reply.code(404).send(NOT_FOUND_BODY);
+      return reply.code(204).send();
+    }
+    // owner 退出需先转让所有权；仅剩 owner 时解散/数据删除在 P4 定义前不可用。
+    const memberCount = await countMembersByFamily(database, ctx.familyId);
+    if (memberCount > 1) {
+      return reply
+        .code(409)
+        .send(errorBody("OWNER_CANNOT_LEAVE", "owner 不能直接退出：请先把所有权转让给其他成员"));
+    }
+    return reply
+      .code(409)
+      .send(
+        errorBody("OWNER_CANNOT_LEAVE", "解散家庭与数据删除将在后续版本提供，当前无法退出仅剩自己的家庭"),
+      );
+  });
+
+  // 转让所有权（D3 配套）：owner 把家庭让给一名普通成员，双方角色在事务内互换。
+  app.post("/api/v1/families/members/:memberId/transfer-ownership", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const auth = request.auth;
+    if (auth === null || auth.role !== "owner") {
+      return reply.code(403).send(OWNER_ONLY_BODY);
+    }
+    const { memberId } = request.params as { memberId: string };
+
+    const target = await findMemberById(database, memberId, ctx.familyId);
+    if (target === null) {
+      return reply.code(404).send(NOT_FOUND_BODY);
+    }
+    if (target.user_id === ctx.userId) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "不能把所有权转让给自己"));
+    }
+    if (target.role !== "member") {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "目标成员已是 owner"));
+    }
+
+    await database.query("BEGIN");
+    try {
+      const promoted = await updateMemberRole(database, memberId, ctx.familyId, "owner");
+      if (promoted === null) {
+        await database.query("ROLLBACK");
+        return reply.code(404).send(NOT_FOUND_BODY);
+      }
+      const demoted = await updateMemberRoleByUserId(database, ctx.userId, ctx.familyId, "member");
+      if (demoted === null) {
+        await database.query("ROLLBACK");
+        return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "当前成员关系不存在"));
+      }
+      await database.query("COMMIT");
+      return {
+        membership: {
+          id: promoted.id,
+          role: asMemberRole(promoted.role),
+          joinedAt: toIso(promoted.joined_at),
+        },
+      };
+    } catch (error) {
+      await database.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
   });
 }

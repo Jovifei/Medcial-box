@@ -1,11 +1,17 @@
-// 邀请页（P2 家庭共享）：
-// - owner：生成一次性文本邀请码（72 小时有效）并展示复制；
-// - 无家庭用户：粘贴邀请码加入；
-// - 已在家庭的普通成员：提示"邀请由 owner 管理；如需更换家庭需先由 owner 移除"。
+// 邀请页（P2 家庭共享 + 2026-09-24 决策更新 D2/D3）：
+// - owner：生成一次性文本邀请码（72 小时）→ "转发给微信好友"（onShareAppMessage 携带
+//   邀请码参数，家人点卡片直达本页自动填充）+ 复制文本邀请码兜底；
+// - 无家庭用户：点分享卡片进入自动填充邀请码，或手动粘贴加入；
+// - 普通成员：可自助退出家庭（D3）；owner 可先转让所有权再退出。
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import type { FamilyMemberSummary } from "../../services/api-types";
 
 type InviteMode = "loading" | "owner" | "join" | "member";
+
+interface MemberView extends FamilyMemberSummary {
+  joinedDate: string;
+}
 
 interface InvitePageData {
   mode: InviteMode;
@@ -14,11 +20,24 @@ interface InvitePageData {
   invitationExpiresAt: string;
   inviteInput: string;
   submitting: boolean;
+  members: MemberView[];
+  leaving: boolean;
 }
 
 function showError(error: unknown): void {
   const message = error instanceof ApiError ? error.message : "操作失败，请稍后重试";
   wx.showToast({ title: message, icon: "none", duration: 2800 });
+}
+
+function confirmModal(title: string, content: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title,
+      content,
+      success: (result) => resolve(result.confirm),
+      fail: () => resolve(false),
+    });
+  });
 }
 
 Page({
@@ -29,10 +48,34 @@ Page({
     invitationExpiresAt: "",
     inviteInput: "",
     submitting: false,
+    members: [] as MemberView[],
+    leaving: false,
+  },
+
+  /** 从分享卡片进入时携带的邀请码（onLoad 早于 onShow 的 refresh）。 */
+  pendingCode: "",
+
+  onLoad(options: Record<string, string | undefined>) {
+    const raw = typeof options.code === "string" ? options.code : "";
+    const code = raw === "" ? "" : decodeURIComponent(raw).trim();
+    this.pendingCode = code;
+    if (code !== "") this.setData({ inviteInput: code });
   },
 
   onShow() {
     this.refresh();
+  },
+
+  /** owner 已生成邀请码后，转发卡片携带邀请码；家人点卡片直达本页自动填充。 */
+  onShareAppMessage() {
+    const data = this.data as InvitePageData;
+    if (data.invitationCode !== "") {
+      return {
+        title: `邀请你加入「${data.familyName}」的家庭药箱`,
+        path: `/pages/invite/invite?code=${encodeURIComponent(data.invitationCode)}`,
+      };
+    }
+    return { title: "家庭药箱：记录家里的药与有效期", path: "/pages/index/index" };
   },
 
   async refresh(): Promise<void> {
@@ -47,11 +90,19 @@ Page({
       this.setData({
         mode: result.family.role === "owner" ? "owner" : "member",
         familyName: result.family.name,
+        members: result.family.members.map((member) => ({
+          ...member,
+          joinedDate: member.joinedAt.slice(0, 10),
+        })),
         invitationCode: "",
       });
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
         this.setData({ mode: "join", familyName: "", invitationCode: "" });
+        if (this.pendingCode !== "") {
+          this.setData({ inviteInput: this.pendingCode });
+          this.pendingCode = "";
+        }
         return;
       }
       showError(error);
@@ -68,7 +119,7 @@ Page({
         invitationCode: result.invitationCode,
         invitationExpiresAt: result.expiresAt,
       });
-      wx.showToast({ title: "已生成，72 小时内有效", icon: "none" });
+      wx.showToast({ title: "已生成，可转发或复制", icon: "none" });
     } catch (error) {
       showError(error);
     } finally {
@@ -115,7 +166,7 @@ Page({
       if (error instanceof ApiError && error.code === "ALREADY_IN_FAMILY") {
         wx.showModal({
           title: "已在家庭中",
-          content: "每个账号只能属于一个家庭。如需更换，请先由当前家庭的 owner 移除你，再使用新邀请码；药品不会自动搬移或合并。",
+          content: "每个账号只能属于一个家庭。如需更换，可先在邀请页使用“退出家庭”，再使用新邀请码；药品不会自动搬移或合并。",
           showCancel: false,
         });
         return;
@@ -123,6 +174,47 @@ Page({
       showError(error);
     } finally {
       this.setData({ submitting: false });
+    }
+  },
+
+  /** 成员自助退出（D3）：退出后立即失去访问权限。 */
+  async onLeaveFamily(): Promise<void> {
+    const data = this.data as InvitePageData;
+    if (data.leaving) return;
+    const confirmed = await confirmModal(
+      "退出家庭",
+      `退出后将立即失去「${data.familyName}」药箱的访问权限，重新加入需要新的邀请。确定退出吗？`,
+    );
+    if (!confirmed) return;
+    this.setData({ leaving: true });
+    try {
+      await api.leaveFamily();
+      wx.showToast({ title: "已退出家庭", icon: "success" });
+      setTimeout(() => wx.reLaunch({ url: "/pages/index/index" }), 900);
+    } catch (error) {
+      showError(error);
+    } finally {
+      this.setData({ leaving: false });
+    }
+  },
+
+  /** owner 转让所有权（D3 配套）：转让后原 owner 变为普通成员，即可自助退出。 */
+  async onTransferOwnership(
+    event: { currentTarget: { dataset: { memberId?: string } } },
+  ): Promise<void> {
+    const memberId = event.currentTarget.dataset.memberId;
+    if (typeof memberId !== "string" || memberId === "") return;
+    const confirmed = await confirmModal(
+      "转让所有权",
+      "转让后你将变为普通成员，新 owner 负责邀请、移除成员与家庭管理。确定转让吗？",
+    );
+    if (!confirmed) return;
+    try {
+      await api.transferOwnership(memberId);
+      wx.showToast({ title: "已转让，你现在是普通成员", icon: "none" });
+      await this.refresh();
+    } catch (error) {
+      showError(error);
     }
   },
 });
