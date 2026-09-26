@@ -3,7 +3,7 @@
 ## 当前基线（2026-09-24 审核修复轮后更新）
 
 - 本地 `main` 已完成 **P0 收口 + P1 手动药箱＋Markdown 导出 + P2 家庭共享**的代码与合成测试：小程序 7 页；API 覆盖认证、家庭、药品、批次、剂量备注、导出与邀请；迁移 001–004（含单 owner 部分唯一索引）；多步写入统一走 `Database.withTransaction` 单连接事务。
-- 全仓 **88 项测试 = 87 通过 + 1 跳过**（跳过项为真实 PostgreSQL 集成测试 `integration-pg.test.mjs`，设置 `TEST_DATABASE_URL` 后自动执行迁移、单 owner 约束与并发转让验证）。lint、typecheck、build、Compose 配置解析均通过。
+- 全仓 **90 项测试 = 89 通过 + 1 跳过**（跳过项为真实 PostgreSQL 集成测试 `integration-pg.test.mjs`，设置 `TEST_DATABASE_URL` 后自动执行迁移、单 owner 约束与并发转让验证）。lint、typecheck、build、Compose 配置解析均通过。
 - Docker Desktop Linux 引擎和微信开发者工具仍未就绪，真实 PostgreSQL 查询、小程序编译预览与真机功能仍为 `NOT_RUN`。不能用代码通过替代这些证据。
 - 交付顺序不变：**手动录入＋Markdown 导出 → 家庭共享 → 拍照识别和资料补齐 → 部署与家庭试用**。P3 未实现，P4 未开始。
 

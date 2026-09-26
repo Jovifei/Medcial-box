@@ -134,25 +134,60 @@ export async function registerInvitationRoutes(
     }
     const { memberId } = request.params as { memberId: string };
 
-    const target = await findMemberById(database, memberId, ctx.familyId);
-    if (target === null) {
-      return reply.code(404).send(NOT_FOUND_BODY);
+    // 与转让/退出共用家庭行锁串行化（审核修复 #5），事务内复核：
+    // 自己仍是 owner、目标仍是普通成员，删除才生效。
+    try {
+      await database.withTransaction(async (tx) => {
+        const locked = await tx.query<{ id: string }>(
+          "SELECT id FROM families WHERE id = $1 FOR UPDATE",
+          [ctx.familyId],
+        );
+        if (locked.rowCount === 0) {
+          throw new TransactionConflictError(404, errorBody("FAMILY_NOT_FOUND", "家庭不存在"));
+        }
+        const current = await tx.query<{ role: string }>(
+          "SELECT role FROM family_members WHERE user_id = $1 AND family_id = $2 FOR UPDATE",
+          [ctx.userId, ctx.familyId],
+        );
+        if (current.rows[0]?.role !== "owner") {
+          throw new TransactionConflictError(
+            409,
+            errorBody("VERSION_CONFLICT", "家庭成员状态已变化，请刷新后重试"),
+          );
+        }
+        const target = await findMemberById(tx, memberId, ctx.familyId);
+        if (target === null) {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
+        if (target.user_id === ctx.userId) {
+          throw new TransactionConflictError(
+            403,
+            errorBody("FORBIDDEN", "不能移除自己；如需退出请使用“退出家庭”"),
+          );
+        }
+        if (target.role !== "member") {
+          throw new TransactionConflictError(
+            403,
+            errorBody("FORBIDDEN", "不能移除家庭 owner"),
+          );
+        }
+        const deleted = await deleteMemberById(tx, memberId, ctx.familyId);
+        if (!deleted) {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
+      });
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof TransactionConflictError) {
+        return reply.code(error.statusCode).send(error.body);
+      }
+      throw error;
     }
-    if (target.user_id === ctx.userId) {
-      // 自助退出走 POST /api/v1/families/leave，本端点面向 owner 移除他人。
-      return reply.code(403).send(errorBody("FORBIDDEN", "不能移除自己；如需退出请使用“退出家庭”"));
-    }
-    if (target.role === "owner") {
-      return reply.code(403).send(errorBody("FORBIDDEN", "不能移除家庭 owner"));
-    }
-
-    const deleted = await deleteMemberById(database, memberId, ctx.familyId);
-    if (!deleted) return reply.code(404).send(NOT_FOUND_BODY);
-    return reply.code(204).send();
   });
 
-  // 成员自助退出（D3）：普通成员立即删除自己的成员关系，
-  // 后续请求在认证 preHandler 查不到成员关系 → 404 FAMILY_NOT_FOUND。
+  // 成员自助退出（D3）：与转让/移除共用家庭行锁串行化（审核修复 #5），
+  // 事务内复核自己的当前角色——若并发转让已把普通成员提升为 owner，
+  // 这里会按 owner 规则拒绝，而不是删掉唯一的 owner。
   app.post("/api/v1/families/leave", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
@@ -160,23 +195,54 @@ export async function registerInvitationRoutes(
     if (auth === null) {
       return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
     }
-    if (auth.role !== "owner") {
-      const deleted = await deleteMembershipByUserId(database, auth.userId);
-      if (!deleted) return reply.code(404).send(NOT_FOUND_BODY);
+    try {
+      await database.withTransaction(async (tx) => {
+        const locked = await tx.query<{ id: string }>(
+          "SELECT id FROM families WHERE id = $1 FOR UPDATE",
+          [ctx.familyId],
+        );
+        if (locked.rowCount === 0) {
+          throw new TransactionConflictError(404, errorBody("FAMILY_NOT_FOUND", "家庭不存在"));
+        }
+        const current = await tx.query<{ id: string; role: string }>(
+          "SELECT id, role FROM family_members WHERE user_id = $1 AND family_id = $2 FOR UPDATE",
+          [ctx.userId, ctx.familyId],
+        );
+        const role = current.rows[0]?.role;
+        if (role === undefined) {
+          throw new TransactionConflictError(
+            404,
+            errorBody("FAMILY_NOT_FOUND", "当前成员关系不存在"),
+          );
+        }
+        if (role === "owner") {
+          const memberCount = await countMembersByFamily(tx, ctx.familyId);
+          if (memberCount > 1) {
+            throw new TransactionConflictError(
+              409,
+              errorBody("OWNER_CANNOT_LEAVE", "owner 不能直接退出：请先把所有权转让给其他成员"),
+            );
+          }
+          throw new TransactionConflictError(
+            409,
+            errorBody(
+              "OWNER_CANNOT_LEAVE",
+              "解散家庭与数据删除将在后续版本提供，当前无法退出仅剩自己的家庭",
+            ),
+          );
+        }
+        const deleted = await deleteMembershipByUserId(tx, auth.userId);
+        if (!deleted) {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
+      });
       return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof TransactionConflictError) {
+        return reply.code(error.statusCode).send(error.body);
+      }
+      throw error;
     }
-    // owner 退出需先转让所有权；仅剩 owner 时解散/数据删除在 P4 定义前不可用。
-    const memberCount = await countMembersByFamily(database, ctx.familyId);
-    if (memberCount > 1) {
-      return reply
-        .code(409)
-        .send(errorBody("OWNER_CANNOT_LEAVE", "owner 不能直接退出：请先把所有权转让给其他成员"));
-    }
-    return reply
-      .code(409)
-      .send(
-        errorBody("OWNER_CANNOT_LEAVE", "解散家庭与数据删除将在后续版本提供，当前无法退出仅剩自己的家庭"),
-      );
   });
 
   // 转让所有权（D3 配套）：owner 把家庭让给一名普通成员。

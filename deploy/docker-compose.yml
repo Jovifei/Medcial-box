@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../apps/api/db/migrations:/docker-entrypoint-initdb.d:ro
+    # 迁移统一由 API 启动时的迁移器执行（schema_migrations 台账防重复/防篡改）；
+    # 不要把迁移 SQL 挂到 /docker-entrypoint-initdb.d——initdb 不登记迁移记录，
+    # 会导致应用迁移器二次执行建表脚本并因表已存在而启动失败。
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s

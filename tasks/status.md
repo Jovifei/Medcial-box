@@ -5,7 +5,8 @@
 - 完成证据：
   - `npm run lint` PASS（`--max-warnings=0`）。
   - `npm run typecheck` PASS。
-  - `npm test` PASS（全仓 88 项 = 87 通过 + 1 跳过：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13 + D2/D3 决策落地新增 6 + 审核修复轮新增 5；跳过项为真实 PostgreSQL 集成测试，设置 `TEST_DATABASE_URL` 后自动执行；其余全部为合成注入测试）。
+  - `npm test` PASS（全仓 90 项 = 89 通过 + 1 跳过：P0 基线 7 + B1 新增 50 + B2 新增 7 + B3 新增 13 + D2/D3 决策落地新增 6 + 审核修复轮一新增 5 + 审核修复轮二新增 2；跳过项为真实 PostgreSQL 集成测试，设置 `TEST_DATABASE_URL` 后自动执行；其余全部为合成注入测试）。
+  - 第二轮审核修复（2026-09-26，基线 cca45f0）：①Compose 移除 initdb.d 迁移挂载，迁移统一由 API 迁移器执行；②迁移 `005_add_created_at_columns.sql` 补齐 medicines/medicine_batches/dosage_notes 的 created_at；③批次端点增/改/删改为单连接事务并递增药品聚合版本（旧页面整体保存撞 409，不再静默删批次）；④导出预览页请求序号 + 选项快照使旧响应失效，复制/分享前按当前选项重新生成；⑤退出/移除与转让共用家庭行锁并在事务内复核角色，防止单 owner 被并发删除；⑥`db.ts` 抽出 `createDatabaseAdapter`（生产与集成测试共用），集成测试改用不撞 user_id 约束的数据证明单 owner 索引。
   - `npm run build` PASS（含小程序 `tsc --noEmit`）。
   - `docker-compose --env-file deploy/.env.example -f deploy/docker-compose.yml config --quiet` PASS（本机未安装 compose 插件，仅独立版 docker-compose v5.4.0）。
   - 无密钥 CI 已就绪：`.github/workflows/ci.yml`（Node 22，npm ci → lint → typecheck → test → build，零 Secrets）。

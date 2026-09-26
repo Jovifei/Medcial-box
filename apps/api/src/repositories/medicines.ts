@@ -174,3 +174,21 @@ export async function archiveMedicine(
   );
   return result.rowCount !== 0;
 }
+
+/**
+ * 批次独立操作后递增药品聚合版本（审核修复 #3）：药品整体保存以药品版本为
+ * 聚合锁——任何批次的增/改/删都必须让旧页面的整体保存撞上 409，
+ * 杜绝"他人新增的批次被当作我删除的批次"静默丢失。
+ */
+export async function bumpMedicineVersion(
+  database: QueryRunner,
+  medicineId: string,
+  familyId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await database.query<{ id: string }>(
+    "UPDATE medicines SET version = version + 1, updated_by = $3, updated_at = now() WHERE id = $1 AND family_id = $2 RETURNING id",
+    [medicineId, familyId, userId],
+  );
+  return result.rowCount !== 0;
+}

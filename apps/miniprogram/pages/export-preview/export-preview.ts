@@ -11,6 +11,12 @@ interface ExportPreviewPageData {
   lastAction: string;
 }
 
+interface ExportOptions {
+  includePersonalDosage: boolean;
+  includeArchived: boolean;
+  includeStorageLocation: boolean;
+}
+
 interface ShareFileMessageOption {
   filePath: string;
   fileName?: string;
@@ -38,23 +44,35 @@ Page({
     lastAction: "",
   },
 
+  /** 请求序号（审核修复 #4）：响应只在其仍是最新一次请求且选项未变时才生效。 */
+  requestSeq: 0,
+
   onShow() {
     this.refresh();
   },
 
-  async refresh(): Promise<void> {
+  buildOptions(): ExportOptions {
     const data = this.data as ExportPreviewPageData;
-    if (data.loading) return;
+    return {
+      includePersonalDosage: data.includePersonalDosage,
+      includeArchived: data.includeArchived,
+      includeStorageLocation: data.includeStorageLocation,
+    };
+  },
+
+  async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    const requestedKey = JSON.stringify(this.buildOptions());
     this.setData({ loading: true });
     try {
       await ensureLoggedIn();
-      const result = await api.exportMarkdown({
-        includePersonalDosage: data.includePersonalDosage,
-        includeArchived: data.includeArchived,
-        includeStorageLocation: data.includeStorageLocation,
-      });
+      const result = await api.exportMarkdown(this.buildOptions());
+      // 等待期间用户又改了开关或触发了新请求：本次响应作废，不覆盖预览。
+      if (seq !== this.requestSeq) return;
+      if (JSON.stringify(this.buildOptions()) !== requestedKey) return;
       this.setData({ markdown: result.markdown, generatedAt: result.generatedAt });
     } catch (error) {
+      if (seq !== this.requestSeq) return;
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
         wx.showModal({
           title: "还没有家庭",
@@ -66,7 +84,7 @@ Page({
       }
       showError(error);
     } finally {
-      this.setData({ loading: false });
+      if (seq === this.requestSeq) this.setData({ loading: false });
     }
   },
 
@@ -85,10 +103,17 @@ Page({
     this.refresh();
   },
 
+  /** 复制/分享前都按当前选项重新生成（审核修复 #4）：绝不使用开关变更前的旧结果。 */
+  async freshMarkdown(): Promise<string> {
+    await ensureLoggedIn();
+    const result = await api.exportMarkdown(this.buildOptions());
+    this.setData({ markdown: result.markdown, generatedAt: result.generatedAt });
+    return result.markdown;
+  },
+
   async onCopy(): Promise<void> {
-    const markdown = (this.data as ExportPreviewPageData).markdown;
-    if (markdown === "") return;
     try {
+      const markdown = await this.freshMarkdown();
       await new Promise<void>((resolve, reject) => {
         wx.setClipboardData({
           data: markdown,
@@ -96,7 +121,7 @@ Page({
           fail: (result) => reject(new Error(result.errMsg ?? "复制失败")),
         });
       });
-      this.setData({ lastAction: "已复制到剪贴板" });
+      this.setData({ lastAction: "已按当前选项重新生成并复制" });
       wx.showToast({ title: "已复制文本", icon: "success" });
     } catch (error) {
       showError(error);
@@ -104,14 +129,13 @@ Page({
   },
 
   async onShareFile(): Promise<void> {
-    const data = this.data as ExportPreviewPageData;
-    if (data.markdown === "") return;
     const filePath = `${wx.env.USER_DATA_PATH}/home-medicine-cabinet.md`;
     try {
+      const markdown = await this.freshMarkdown();
       await new Promise<void>((resolve, reject) => {
         wx.getFileSystemManager().writeFile({
           filePath,
-          data: data.markdown,
+          data: markdown,
           encoding: "utf8",
           success: () => resolve(),
           fail: (result) => reject(new Error(result.errMsg ?? "写入文件失败")),
@@ -129,12 +153,12 @@ Page({
           fail: (result) => reject(new Error(result.errMsg ?? "分享未完成")),
         });
       });
-      this.setData({ lastAction: "已发起 .md 文件分享" });
+      this.setData({ lastAction: "已按当前选项重新生成并发起 .md 文件分享" });
     } catch (error) {
       // 真机/当前版本不支持分享或用户取消：回退为复制文本，始终保证可用路径。
       await this.onCopy();
       this.setData({
-        lastAction: `文件分享不可用（${error instanceof Error ? error.message : "未知原因"}），已回退为复制文本`,
+        lastAction: `文件分享不可用（${error instanceof Error ? error.message : "未知原因"}），已按当前选项重新复制`,
       });
     }
   },

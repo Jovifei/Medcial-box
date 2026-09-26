@@ -1,7 +1,6 @@
 import { buildServer } from "./app.js";
-import { createDatabasePool } from "./db.js";
+import { createDatabaseAdapter, createDatabasePool } from "./db.js";
 import { applyMigrations } from "./db/migrations.js";
-import type { Database, QueryResult, QueryRunner } from "./types.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -12,30 +11,7 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(databaseUrl);
   try {
     await applyMigrations(pool);
-    const database: Database = {
-      query: async <T>(sql: string, params?: unknown[]): Promise<QueryResult<T>> => {
-        const result = await pool.query(sql, params);
-        return result as QueryResult<T>;
-      },
-      // 事务绑定单个连接：pool.connect 后同一 PoolClient 执行 BEGIN/语句/COMMIT，
-      // 避免连接池把多步写入分散到不同连接导致事务失效。
-      withTransaction: async <T>(fn: (tx: QueryRunner) => Promise<T>): Promise<T> => {
-        const client = await pool.connect();
-        try {
-          await client.query("BEGIN");
-          try {
-            const result = await fn(client as unknown as QueryRunner);
-            await client.query("COMMIT");
-            return result;
-          } catch (error) {
-            await client.query("ROLLBACK").catch(() => undefined);
-            throw error;
-          }
-        } finally {
-          client.release();
-        }
-      },
-    };
+    const database = createDatabaseAdapter(pool);
     const app = await buildServer({ database });
     app.addHook("onClose", async () => pool.end());
     const port = Number.parseInt(process.env.API_PORT ?? "3000", 10);

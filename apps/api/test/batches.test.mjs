@@ -24,6 +24,11 @@ test("one medicine keeps multiple batches with independent versions", async () =
   const app = await loggedInApp(pool, gateway);
   try {
     pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    // 审核修复 #3：批次增/改/删成功后递增药品聚合版本。
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
     pool.on(/INSERT INTO medicine_batches/, {
       rows: [batchRow({ id: "b-1", version: 1 })],
       rowCount: 1,
@@ -77,6 +82,10 @@ test("quantity null means unknown and zero means definitely empty", async () => 
   const app = await loggedInApp(pool, gateway);
   try {
     pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
     pool.on(/INSERT INTO medicine_batches/, {
       rows: [batchRow({ id: "b-1", quantity: null })],
       rowCount: 1,
@@ -118,6 +127,10 @@ test("confirmed units per package must be a positive integer or absent", async (
   const app = await loggedInApp(pool, gateway);
   try {
     pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
     pool.on(/INSERT INTO medicine_batches/, {
       rows: [batchRow({ id: "b-1", confirmed_units_per_package: 24 })],
       rowCount: 1,
@@ -215,6 +228,10 @@ test("updating a batch with the matching version bumps it and returns the row", 
   const app = await loggedInApp(pool, gateway);
   try {
     pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
     pool.always(/FROM medicine_batches WHERE id/, {
       rows: [batchRow({ id: "b-1", version: 1 })],
       rowCount: 1,
@@ -249,6 +266,10 @@ test("a missing batch is a 404 and deletion is physical", async () => {
   const app = await loggedInApp(pool, gateway);
   try {
     pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
 
     pool.always(/FROM medicine_batches WHERE id/, { rows: [], rowCount: 0 });
     const missingUpdate = await app.inject({
@@ -275,6 +296,78 @@ test("a missing batch is a 404 and deletion is physical", async () => {
       ...authHeader(),
     });
     assert.equal(missingDelete.statusCode, 404);
+  } finally {
+    await app.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 审核修复 #3：批次独立操作递增药品聚合版本（整体保存的旧页面必须撞 409）
+// ---------------------------------------------------------------------------
+
+test("standalone batch creation bumps the medicine aggregate version", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.always(/FROM medicines WHERE id/, {
+      rows: [medicineRow({ id: "m-1", version: 1 })],
+      rowCount: 1,
+    });
+    pool.always(/UPDATE medicines SET version = version \+ 1/, {
+      rows: [{ id: "m-1" }],
+      rowCount: 1,
+    });
+    pool.on(/INSERT INTO medicine_batches/, {
+      rows: [batchRow({ id: "b-new" })],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines/m-1/batches",
+      ...authHeader(),
+      payload: { quantity: 3, unit: "box" },
+    });
+    assert.equal(response.statusCode, 201);
+    const bumps = pool.callsMatching(/UPDATE medicines SET version = version \+ 1/);
+    assert.equal(bumps.length, 1, "批次新增必须递增药品聚合版本");
+    // 聚合版本递增与批次插入在同一事务（BEGIN…COMMIT 包裹）。
+    const ordered = pool.calls.map((call) => call.sql);
+    const begin = ordered.indexOf("BEGIN");
+    const bump = ordered.findIndex((sql) => sql.includes("UPDATE medicines SET version"));
+    const commit = ordered.indexOf("COMMIT");
+    assert.ok(begin !== -1 && begin < bump && bump < commit, "版本递增必须在事务内");
+  } finally {
+    await app.close();
+  }
+});
+
+test("failed batch mutation does not bump the medicine aggregate version", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.always(/FROM medicines WHERE id/, { rows: [medicineRow({ id: "m-1" })], rowCount: 1 });
+    pool.always(/FROM medicine_batches WHERE id/, {
+      rows: [batchRow({ id: "b-1", version: 2 })],
+      rowCount: 1,
+    });
+    pool.on(/UPDATE medicine_batches SET/, { rows: [], rowCount: 0 });
+
+    const conflict = await app.inject({
+      method: "PUT",
+      url: "/api/v1/medicines/m-1/batches/b-1",
+      ...authHeader(),
+      payload: { quantity: 5, version: 1 },
+    });
+    assert.equal(conflict.statusCode, 409);
+    assert.equal(
+      pool.callsMatching(/UPDATE medicines SET version = version \+ 1/).length,
+      0,
+      "失败操作不得递增药品版本",
+    );
+    assert.equal(pool.callsMatching(/^ROLLBACK$/).length, 1, "失败操作必须整体回滚");
   } finally {
     await app.close();
   }

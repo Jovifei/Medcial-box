@@ -286,6 +286,11 @@ test("owner removing a member revokes access for that member's existing token im
   const pool = createFakePool();
   const { app, sessions } = await twoUserApp(pool);
   try {
+    // 移除事务先 FOR UPDATE 锁家庭行（审核修复 #5 的串行化）。
+    pool.always(/SELECT id FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     pool.always(/FROM family_members WHERE id/, {
       rows: [membershipRow({ id: "membership-2", role: "member", user_id: "user-2" })],
       rowCount: 1,
@@ -348,6 +353,11 @@ test("non-owner cannot remove members; owner/self and owner removal are forbidde
   const pool = createFakePool();
   const { app } = await twoUserApp(pool);
   try {
+    // 移除事务先 FOR UPDATE 锁家庭行（审核修复 #5 的串行化）。
+    pool.always(/SELECT id FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     // 成员尝试移除 → 403 OWNER_ONLY（查成员之前先校验角色）。
     const memberAttempt = await app.inject({
       method: "DELETE",
@@ -500,6 +510,11 @@ test("member can leave the family and immediately loses access", async () => {
   const pool = createFakePool();
   const { app, sessions } = await twoUserApp(pool);
   try {
+    // 退出事务先 FOR UPDATE 锁家庭行（审核修复 #5 的串行化）。
+    pool.always(/SELECT id FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     pool.always(/DELETE FROM family_members WHERE user_id/, {
       rows: [{ id: "membership-2" }],
       rowCount: 1,
@@ -531,6 +546,10 @@ test("owner cannot leave while other members exist (must transfer first)", async
   const pool = createFakePool();
   const { app } = await twoUserApp(pool);
   try {
+    pool.always(/SELECT id FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     pool.always(/COUNT\(\*\)::int AS count FROM family_members/, {
       rows: [{ count: 2 }],
       rowCount: 1,
@@ -553,6 +572,10 @@ test("owner cannot leave a family with no other members until P4 defines dissolu
   const pool = createFakePool();
   const { app } = await twoUserApp(pool);
   try {
+    pool.always(/SELECT id FROM families WHERE id = \$1 FOR UPDATE/, {
+      rows: [{ id: "family-1" }],
+      rowCount: 1,
+    });
     pool.always(/COUNT\(\*\)::int AS count FROM family_members/, {
       rows: [{ count: 1 }],
       rowCount: 1,

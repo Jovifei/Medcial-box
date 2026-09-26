@@ -1,12 +1,15 @@
-// 真实 PostgreSQL 集成测试（审核修复 #1/#4 配套）：
+// 真实 PostgreSQL 集成测试（审核修复 #1/#4/#6 配套）：
 // - 设置 TEST_DATABASE_URL（如 docker compose 起库后的 postgres://...）才会执行；
 //   未设置时整体 SKIP，不阻塞无 Docker 环境（CI 默认跳过）。
-// - 覆盖：迁移（含 004 单 owner 部分唯一索引）、单 owner 约束、
-//   并发转让所有权经 FOR UPDATE 串行化后仍满足"每家庭最多一个 owner"。
+// - 数据库适配器与生产完全一致（createDatabaseAdapter：含 withTransaction）。
+// - 覆盖：迁移（001–005）、单 owner 部分唯一索引（用"把已有普通成员升级为
+//   owner"触发 23505，不会撞 user_id 唯一约束形成假证明）、并发转让经
+//   FOR UPDATE 串行化后仍满足"每家庭最多一个 owner"、成员自助退出。
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Pool } from "pg";
 import { applyMigrations } from "../dist/db/migrations.js";
+import { createDatabaseAdapter } from "../dist/db.js";
 import { buildServer } from "../dist/app.js";
 import { createTestGateway } from "./helpers/fake-wechat.mjs";
 import { sha256hex } from "./helpers/app.mjs";
@@ -52,9 +55,7 @@ test(
       ).rows[0];
       const insertMember =
         "INSERT INTO family_members (family_id, user_id, role) VALUES ($1, $2, $3) RETURNING id";
-      const ownerMembership = (
-        await pool.query(insertMember, [family.id, owner.id, "owner"])
-      ).rows[0];
+      await pool.query(insertMember, [family.id, owner.id, "owner"]);
       const member1Id = (
         await pool.query(insertMember, [family.id, member1.id, "member"])
       ).rows[0].id;
@@ -67,16 +68,23 @@ test(
       await pool.query(insertSession, [member1.id, sha256hex(MEMBER_TOKEN)]);
       await pool.query(insertSession, [member2.id, sha256hex(MEMBER2_TOKEN)]);
 
-      // 单 owner 约束：再插一名 owner 应触发唯一冲突（23505）。
+      // 单 owner 约束（审核修复 #6 的正确证明）：把一名"普通成员"升级为 owner
+      // 时已有 owner 在座 → 触发部分唯一索引 23505；数据不含重复 user_id，
+      // 因此不会因用户唯一约束而得到假阳性。
       await assert.rejects(
-        pool.query(insertMember, [family.id, member1.id, "owner"]),
+        pool.query("UPDATE family_members SET role = 'owner' WHERE id = $1", [member1Id]),
         (error) => (error ?? {}).code === "23505",
       );
 
-      // 应用层事务接口：并发转让（owner → member1 与 owner → member2）。
-      // FOR UPDATE 串行化后两次都成功，但任一时刻只能有一个 owner。
+      // 应用层（与生产相同的 createDatabaseAdapter 事务接口）：
+      // 并发转让（owner → member1 与 owner → member2）经 FOR UPDATE 串行化，
+      // 两次请求或成功或因状态变化 409，但最终不变量必须成立：恰好一个 owner。
       const gateway = createTestGateway({});
-      const app = await buildServer({ database: pool, wechatGateway: gateway, logger: false });
+      const app = await buildServer({
+        database: createDatabaseAdapter(pool),
+        wechatGateway: gateway,
+        logger: false,
+      });
       t.after(() => app.close());
       const ownerHeader = { headers: { authorization: `Bearer ${OWNER_TOKEN}` } };
 
@@ -92,8 +100,6 @@ test(
           ...ownerHeader,
         }),
       ]);
-      // 两次转让都按串行化顺序成功（第二次发起时发起人已不是 owner → 409），
-      // 或其中一次因状态变化失败；无论哪种路径，最终不变量必须成立。
       for (const outcome of [first, second]) {
         if (outcome.status === "fulfilled") {
           const status = outcome.value.statusCode;
@@ -109,14 +115,13 @@ test(
       );
       assert.equal(owners.rows[0].count, 1, "并发转让后仍必须恰好一名 owner");
 
-      // 转让后的成员可以自助退出（事务删除成员关系）。
+      // 转让后的成员可以自助退出（事务删除成员关系，审核修复 #5 的锁路径）。
       const leave = await app.inject({
         method: "POST",
         url: "/api/v1/families/leave",
         headers: { authorization: `Bearer ${MEMBER_TOKEN}` },
       });
       assert.ok([204, 404, 409].includes(leave.statusCode), `leave status ${leave.statusCode}`);
-      assert.equal(ownerMembership.id.length > 0, true);
     } finally {
       await pool.end();
     }
