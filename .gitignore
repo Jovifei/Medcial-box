@@ -20,3 +20,6 @@ apps/miniprogram/private.config.json
 
 # WorkBuddy local workspace memory must not enter version control
 .workbuddy/
+
+# Local demo artifacts
+/demo-output/
