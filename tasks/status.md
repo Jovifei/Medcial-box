@@ -1,3 +1,13 @@
+# 2026-09-27 Flutter 交互原型（本轮）
+
+- 分支：`codex/flutter-ui-prototype`，基于 `7d8afdb`，独立工作树 `C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`。
+- Flutter：3.47.5 stable；Android SDK 已存在，通过 `E:\AI_Tools\Other\AndroidSDK` Junction 统一访问；Android 设备 `GM1910` 已连接。
+- 原型范围：欢迎页、家庭选择、创建／加入底部面板、药箱首页、搜索、药品详情、批次状态、个人备注、Markdown 导出选项；全部使用合成数据。
+- 当前证据：`flutter analyze` 无问题；Widget 测试 4/4 通过；Debug APK 构建成功；APK 已安装并启动到 `GM1910`，已截图验证欢迎页、家庭选择底部面板和药品详情。
+- 真正微信登录、API 联调、相机识别和生产发布不在本轮范围。
+
+---
+
 # 2026-09-27 登录与家庭试用闭环（本轮执行）
 
 - 后端已实现 `GET /api/v1/auth/me`、`POST /api/v1/auth/logout`、`PATCH /api/v1/users/me` 和邀请码预览；会话只按令牌哈希撤销，昵称不超过 40 个 Unicode 字符，预览不消费邀请码。

@@ -1,5 +1,23 @@
 # 项目阶段任务台账
 
+## 2026-09-27 Flutter 交互原型（执行中）
+
+- [x] 创建 `codex/flutter-ui-prototype` 分支和独立工作树
+- [x] 安装 Flutter 3.47.5 stable，配置 Android SDK 访问路径
+- [x] 完成 Material 3 主题、路由转场、底部面板、弹窗和共享元素动画
+- [x] 完成欢迎页、家庭选择、药箱首页、药品详情和导出预览
+- [x] 接入本地合成仓库和可替换 `AuthRepository`／`MedicineRepository` 接口
+- [x] `flutter analyze`、Widget 测试、Debug APK 构建通过
+- [x] APK 安装到 `GM1910` 并启动验证
+- [ ] 记录用户视觉反馈并进行第二轮调整
+
+### Flutter 验收证据
+
+- Widget 测试：4/4 PASS
+- APK：`apps/flutter/build/app/outputs/flutter-apk/app-debug.apk`
+- 已验证截图：`E:\Claude_allow\Download\medcial_box\flutter-ui-prototype-welcome.png`、`flutter-ui-prototype-choice2.png`、`flutter-ui-prototype-after-create.png`、`flutter-ui-prototype-manual.png`
+- 边界：使用合成数据；未接微信登录、真实 API、拍照识别和远端服务。
+
 ## 2026-09-27 下一阶段：登录与家庭试用闭环（执行中）
 
 - [x] 登录欢迎页：明确微信登录、会话恢复、过期重试、退出登录（代码完成；真机仍待验收）

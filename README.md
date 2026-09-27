@@ -5,6 +5,7 @@
 ## 目录
 
 - `apps/miniprogram/`：微信原生小程序和 TypeScript 预览骨架。
+- `apps/flutter/`：独立 Flutter 交互原型，当前只使用本地合成数据。
 - `apps/api/`：Fastify API、PostgreSQL 访问和有校验的数据库迁移。
 - `packages/contracts/`：前后端共享的基础数据契约。
 - `docs/`：产品需求、架构、开源调研和本地运维说明。
@@ -56,6 +57,8 @@ npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 
 手机试用准备的当前证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
 
 拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
+
+Flutter 交互原型的运行说明见 [`apps/flutter/README.md`](apps/flutter/README.md)。它不替换微信小程序，先用于验证页面跳转、底部面板、确认弹窗和药品详情动画。
 
 ## 数据和安全边界
 
