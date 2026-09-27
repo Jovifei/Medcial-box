@@ -1,0 +1,50 @@
+.page {
+  padding: 88rpx 30rpx 60rpx;
+}
+
+.hero {
+  padding: 24rpx 8rpx 38rpx;
+}
+
+.eyebrow {
+  color: #3f7d5c;
+  font-size: 24rpx;
+  font-weight: 650;
+  letter-spacing: 3rpx;
+}
+
+.title {
+  margin-top: 18rpx;
+  font-size: 46rpx;
+  font-weight: 720;
+  line-height: 1.3;
+}
+
+.subtitle {
+  margin-top: 18rpx;
+  color: #718078;
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+
+.login-card {
+  padding: 34rpx 28rpx 30rpx;
+}
+
+.error {
+  margin-top: 18rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 12rpx;
+  background: #fff3ef;
+  color: #a45437;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.safety-note {
+  padding: 24rpx 8rpx 0;
+}
+
+.disabled {
+  opacity: 0.6;
+}

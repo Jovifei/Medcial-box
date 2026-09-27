@@ -17,6 +17,7 @@ local-data/
 *.sql.gz
 *.backup
 apps/miniprogram/private.config.json
+**/project.private.config.json
 
 # WorkBuddy local workspace memory must not enter version control
 .workbuddy/

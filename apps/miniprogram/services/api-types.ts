@@ -156,7 +156,47 @@ export interface AuthSessionResponse {
   };
 }
 
+export interface AuthMeResponse {
+  user: {
+    id: string;
+    nickname: string | null;
+    hasFamily: boolean;
+  };
+  family: {
+    id: string;
+    name: string;
+    role: "owner" | "member";
+  } | null;
+}
+
+export interface UpdateProfileResponse {
+  user: {
+    id: string;
+    nickname: string | null;
+  };
+}
+
+export interface InvitationPreviewResponse {
+  family: { id: string; name: string };
+  expiresAt: string;
+}
+
 export interface MarkdownExportResponse {
   markdown: string;
   generatedAt: string;
+}
+
+export interface MedicineRecognitionResponse {
+  draft: {
+    name: string | null;
+    specification: string | null;
+    manufacturer: string | null;
+    approvalNumber: string | null;
+    purposeCategory: string | null;
+    lotNumber: string | null;
+    expiryValue: string | null;
+    expiryPrecision: ExpiryPrecision | null;
+  };
+  warnings: string[];
+  requiresConfirmation: true;
 }

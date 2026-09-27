@@ -14,6 +14,7 @@ import type { Database } from "../types.js";
 import { errorBody, toIso, TransactionConflictError } from "../types.js";
 import { sha256Hex } from "../auth/session.js";
 import { requireFamily } from "../auth/session.js";
+import { createRateLimiter } from "../rate-limit.js";
 import {
   asMemberRole,
   countMembersByFamily,
@@ -42,6 +43,9 @@ export async function registerInvitationRoutes(
   app: FastifyInstance,
   database: Database,
 ): Promise<void> {
+  const previewRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 30 });
+  const acceptRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 10 });
+
   app.post("/api/v1/families/invitations", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
@@ -59,10 +63,51 @@ export async function registerInvitationRoutes(
     });
   });
 
+  app.post("/api/v1/families/invitations/preview", async (request, reply) => {
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+    if (!previewRateLimit(auth.userId)) {
+      return reply.code(429).send(errorBody("RATE_LIMITED", "邀请码查询过于频繁，请稍后重试"));
+    }
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const code = validateCode(body.invitationCode);
+    if (code === null) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "邀请码不能为空"));
+    }
+
+    const tokenHash = sha256Hex(code);
+    const invite = await findInviteByTokenHash(database, tokenHash);
+    if (invite === null) {
+      return reply.code(404).send(errorBody("NOT_FOUND", "邀请码无效或已被撤销"));
+    }
+    if (new Date(toIso(invite.expires_at)).getTime() <= Date.now()) {
+      return reply.code(410).send(errorBody("INVITATION_EXPIRED", "邀请码已过期，请向 owner 重新索取"));
+    }
+    if (invite.used_at !== null) {
+      return reply.code(410).send(errorBody("INVITATION_USED", "邀请码已被使用"));
+    }
+
+    const family = await findFamilyById(database, invite.family_id);
+    if (family === null) {
+      return reply.code(404).send(errorBody("NOT_FOUND", "邀请对应的家庭不存在"));
+    }
+
+    // 预览只读取邀请码与家庭最小信息，绝不消费邀请码或返回成员/库存。
+    return {
+      family: { id: family.id, name: family.name },
+      expiresAt: toIso(invite.expires_at),
+    };
+  });
+
   app.post("/api/v1/families/invitations/accept", async (request, reply) => {
     const auth = request.auth;
     if (auth === null) {
       return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+    if (!acceptRateLimit(auth.userId)) {
+      return reply.code(429).send(errorBody("RATE_LIMITED", "加入请求过于频繁，请稍后重试"));
     }
     const body = (request.body ?? {}) as Record<string, unknown>;
     const code = validateCode(body.code);

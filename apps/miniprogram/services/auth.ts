@@ -1,6 +1,6 @@
 // 登录服务：wx.login 取临时 code → 服务端换会话令牌（令牌仅本地保存）。
 // 服务端没有任何公开测试登录接口；AppID/AppSecret 只存在于服务端环境变量。
-import { api, readToken, storeToken } from "./api";
+import { api, clearToken, readToken, storeToken } from "./api";
 import { ApiError } from "./api";
 
 export interface LoginResult {
@@ -36,10 +36,38 @@ export function loginWithWechat(): Promise<LoginResult> {
   });
 }
 
-/** 已有令牌直接复用；否则静默登录一次。返回可用令牌。 */
-export async function ensureLoggedIn(): Promise<string> {
+/**
+ * 确认当前令牌仍然可用。首次欢迎页传 allowInteractive=false，避免打开应用
+ * 时悄悄替用户完成微信登录；业务页保留旧的静默登录兼容行为。
+ */
+export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {}): Promise<string> {
   const existing = readToken();
-  if (existing !== "") return existing;
+  if (existing !== "") {
+    try {
+      await api.getAuthMe();
+      return existing;
+    } catch (error) {
+      if (!(error instanceof ApiError) || (error.statusCode !== 401 && error.code !== "UNAUTHORIZED" && error.code !== "SESSION_EXPIRED")) {
+        throw error;
+      }
+      clearToken();
+    }
+  }
+  if (options.allowInteractive === false) {
+    throw new ApiError("UNAUTHENTICATED", "请先登录", 401);
+  }
   const result = await loginWithWechat();
   return result.token;
+}
+
+/** 退出当前设备会话；服务端撤销失败时也清理本地令牌，避免卡在旧状态。 */
+export async function logout(): Promise<void> {
+  try {
+    if (readToken() !== "") await api.logout();
+  } catch (error) {
+    // 令牌已经失效时，退出登录的本地结果仍然是成功；其它网络错误继续提示用户。
+    if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
+  } finally {
+    clearToken();
+  }
 }

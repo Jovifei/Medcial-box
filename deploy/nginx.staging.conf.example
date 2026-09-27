@@ -1,0 +1,29 @@
+# Integrate into the existing proxy only after confirming the hostname,
+# certificate paths and loopback port. This is not an installed configuration.
+server {
+    listen 80;
+    server_name medbox-test.example.invalid;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name medbox-test.example.invalid;
+    ssl_certificate /etc/letsencrypt/live/medbox-test.example.invalid/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/medbox-test.example.invalid/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 1m;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3301;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # The API's login limiter trusts these headers only because this proxy
+        # overwrites them and the API remains bound to the loopback interface.
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+        add_header X-Content-Type-Options nosniff always;
+    }
+    location / { return 404; }
+}

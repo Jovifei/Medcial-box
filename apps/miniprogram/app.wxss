@@ -8,44 +8,49 @@ page {
 
 .card {
   margin-bottom: 18rpx;
-  padding: 24rpx 22rpx;
+  padding: 28rpx 24rpx;
   border: 1rpx solid #e9ede8;
   border-radius: 20rpx;
   background: #fff;
 }
 
 .section-title {
-  margin: 26rpx 2rpx 14rpx;
-  font-size: 30rpx;
+  margin: 0 2rpx 16rpx;
+  font-size: 32rpx;
   font-weight: 680;
+  line-height: 1.4;
 }
 
 .field {
-  margin-bottom: 18rpx;
+  margin-bottom: 22rpx;
 }
 
 .field-label {
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
   color: #52685c;
-  font-size: 23rpx;
+  font-size: 24rpx;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .field-hint {
   margin-top: 6rpx;
   color: #8a958d;
   font-size: 21rpx;
+  line-height: 1.6;
 }
 
 .input,
 .textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 16rpx 18rpx;
+  min-height: 84rpx;
+  padding: 18rpx 20rpx;
   border: 1rpx solid #dfe5df;
   border-radius: 14rpx;
   background: #fbfcfb;
   font-size: 26rpx;
+  line-height: 1.4;
 }
 
 .textarea {
@@ -53,20 +58,30 @@ page {
 }
 
 .picker-box {
-  padding: 16rpx 18rpx;
+  min-height: 84rpx;
+  box-sizing: border-box;
+  padding: 18rpx 20rpx;
   border: 1rpx solid #dfe5df;
   border-radius: 14rpx;
   background: #fbfcfb;
   color: #24352c;
+  font-size: 26rpx;
+  line-height: 1.4;
 }
 
 .btn {
-  margin-top: 20rpx;
+  min-height: 88rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 22rpx;
   padding: 20rpx 26rpx;
   border-radius: 16rpx;
   font-size: 28rpx;
   font-weight: 650;
   text-align: center;
+  line-height: 1.35;
 }
 
 .btn-primary {

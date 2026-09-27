@@ -6,21 +6,21 @@
         <view class="option-title">包含个人剂量备注</view>
         <view class="hint">默认关闭；开启后仅包含你有权查看的备注，并标注归属成员。</view>
       </view>
-      <switch checked="{{includePersonalDosage}}" bindchange="onTogglePersonalDosage" />
+      <switch checked="{{includePersonalDosage}}" disabled="{{nativeActionPending}}" bindchange="onTogglePersonalDosage" />
     </view>
     <view class="row option-row">
       <view>
         <view class="option-title">包含已归档药品</view>
         <view class="hint">默认关闭；开启后归档药品以"（已归档）"分区输出。</view>
       </view>
-      <switch checked="{{includeArchived}}" bindchange="onToggleArchived" />
+      <switch checked="{{includeArchived}}" disabled="{{nativeActionPending}}" bindchange="onToggleArchived" />
     </view>
     <view class="row option-row">
       <view>
         <view class="option-title">包含存放位置</view>
         <view class="hint">默认开启；未记录的批次会标注"存放位置未记录"。</view>
       </view>
-      <switch checked="{{includeStorageLocation}}" bindchange="onToggleStorageLocation" />
+      <switch checked="{{includeStorageLocation}}" disabled="{{nativeActionPending}}" bindchange="onToggleStorageLocation" />
     </view>
   </view>
 
@@ -33,6 +33,7 @@
     <textarea class="markdown-view" value="{{markdown}}" disabled maxlength="-1" />
   </view>
 
+  <view class="hint" wx:if="{{actionBusy}}">正在处理导出，请稍候…</view>
   <view class="btn btn-primary" bindtap="onCopy">复制文本</view>
   <view class="btn btn-ghost" bindtap="onShareFile">写本地 .md 并分享</view>
   <view class="hint footnote" wx:if="{{lastAction !== ''}}">{{lastAction}}</view>

@@ -1,0 +1,4 @@
+* text=auto
+# Migration checksums and Linux shell execution must not depend on checkout OS.
+*.sql text eol=lf
+*.sh text eol=lf

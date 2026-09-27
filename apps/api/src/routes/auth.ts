@@ -4,9 +4,20 @@ import type { Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
 import type { WechatGateway } from "../auth/wechat.js";
 import { WechatCodeError } from "../auth/wechat.js";
-import { issueSessionToken } from "../auth/session.js";
-import { findUserByOpenid, insertUser } from "../repositories/users.js";
-import { findMembershipByUserId } from "../repositories/families.js";
+import {
+  issueSessionToken,
+  parseBearerToken,
+  revokeSessionToken,
+} from "../auth/session.js";
+import { findUserById, findUserByOpenid, insertUser, updateUserNickname } from "../repositories/users.js";
+import {
+  asMemberRole,
+  findFamilyById,
+  findMembershipByUserId,
+} from "../repositories/families.js";
+import { clientAddress, createRateLimiter } from "../rate-limit.js";
+
+const MAX_NICKNAME_LENGTH = 40;
 
 export interface AuthRouteDeps {
   database: Database;
@@ -18,8 +29,81 @@ export async function registerAuthRoutes(
   deps: AuthRouteDeps,
 ): Promise<void> {
   const { database, wechatGateway } = deps;
+  const loginRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 30 });
+
+  app.get("/api/v1/auth/me", async (request, reply) => {
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+
+    const user = await findUserById(database, auth.userId);
+    if (user === null) {
+      return reply
+        .code(401)
+        .send(errorBody("UNAUTHORIZED", "登录状态无效，请重新登录"));
+    }
+
+    const family = auth.familyId === null ? null : await findFamilyById(database, auth.familyId);
+    return {
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        hasFamily: family !== null,
+      },
+      family:
+        family === null
+          ? null
+          : {
+              id: family.id,
+              name: family.name,
+              role: asMemberRole(auth.role ?? "member"),
+            },
+    };
+  });
+
+  app.post("/api/v1/auth/logout", async (request, reply) => {
+    const token = parseBearerToken(request.headers.authorization);
+    if (token === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "缺少登录凭据，请先登录"));
+    }
+    await revokeSessionToken(database, token);
+    return { revoked: true as const };
+  });
+
+  app.patch("/api/v1/users/me", async (request, reply) => {
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const rawNickname = body.nickname;
+    if (rawNickname !== null && typeof rawNickname !== "string") {
+      return reply
+        .code(400)
+        .send(errorBody("VALIDATION_ERROR", "昵称必须是文本或 null"));
+    }
+    const nickname = typeof rawNickname === "string" ? rawNickname.trim() : null;
+    if (nickname !== null && Array.from(nickname).length > MAX_NICKNAME_LENGTH) {
+      return reply
+        .code(400)
+        .send(errorBody("VALIDATION_ERROR", `昵称不能超过 ${MAX_NICKNAME_LENGTH} 个字符`));
+    }
+
+    const user = await updateUserNickname(database, auth.userId, nickname === "" ? null : nickname);
+    if (user === null) {
+      return reply
+        .code(401)
+        .send(errorBody("UNAUTHORIZED", "登录状态无效，请重新登录"));
+    }
+    return { user: { id: user.id, nickname: user.nickname } };
+  });
 
   app.post("/api/v1/auth/wechat", async (request, reply) => {
+    if (!loginRateLimit(clientAddress(request))) {
+      return reply.code(429).send(errorBody("RATE_LIMITED", "登录请求过于频繁，请稍后重试"));
+    }
     const body = (request.body ?? {}) as Record<string, unknown>;
     const code = typeof body.code === "string" ? body.code.trim() : "";
     if (code === "") {

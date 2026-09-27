@@ -19,7 +19,7 @@
 
 ## 识别与资料来源
 
-未来 API 接收用户上传的照片，并创建待确认草稿。识别适配器把图像字段抽取成候选值；药品目录适配器按批准文号优先，结合厂家和规格展示可能匹配项。匹配项和说明书来源分别显示，用户确认／修改后才保存。若药品说明书未公开、接口不可用或匹配有歧义，允许补拍说明书或手工维护库存，且将缺失、未核验、用户确认、来源匹配区分开。
+API 通过 `POST /api/v1/recognitions/medicine` 接收认证后的 JPEG/PNG 照片，返回待确认草稿，不写入库存或持久化原图。识别适配器可选择本地 Ollama 或显式配置的百炼视觉模型；药品目录适配器按批准文号优先，结合厂家和规格展示可能匹配项。匹配项和说明书来源分别显示，用户确认／修改后才保存。若药品说明书未公开、接口不可用或匹配有歧义，允许补拍说明书或手工维护库存，且将缺失、未核验、用户确认、来源匹配区分开。固定提供方式与模型故障记录见 [`recognition-provider-decision-2026-09-27.md`](recognition-provider-decision-2026-09-27.md)。
 
 百炼密钥、药品 API 密钥、微信 AppSecret 只能由 API 容器读取。图片采用私有目录；后端授权后通过受控端点访问，不暴露静态公开 URL。日志不写入图片内容、会话密钥和家庭剂量信息。
 
@@ -37,7 +37,7 @@
 - `/api/v1/auth/wechat`：服务端通过微信登录凭证换取平台用户标识，再签发本应用短期会话。
 - `/api/v1/families` 与 `/api/v1/families/invitations`：家庭创建、邀请和成员管理。
 - `/api/v1/medicines`、`/api/v1/medicines/{id}/batches`：资料、批次和带版本的更新。
-- `/api/v1/recognition/drafts`：上传图片、识别和药品目录检索形成草稿，确认与写入分开。
+- `/api/v1/recognitions/medicine`：认证后上传照片并返回结构化识别草稿，确认与写入分开。
 - `/api/v1/exports/markdown`：按权限和导出开关生成 UTF-8 文本，默认包括已确认的说明书摘要；个人剂量备注需单独选择。
 
 小程序把返回文本写入本地临时文件，再用 [`wx.shareFileMessage`](https://developers.weixin.qq.com/miniprogram/dev/api/share/wx.shareFileMessage.html) 分享；文本复制作为替代路径。该微信 API 使用本地／临时文件路径。Markdown 后缀支持性尚未以真实客户端验证，P3 验收须记录微信系统版本与结果。

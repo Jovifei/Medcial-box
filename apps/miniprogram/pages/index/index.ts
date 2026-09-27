@@ -1,5 +1,4 @@
-import { api } from "../../services/api";
-import { ApiError } from "../../services/api";
+import { api, ApiError, readToken } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type {
   ExpiryState,
@@ -26,30 +25,6 @@ const UNIT_SHORT: Record<QuantityUnit, string> = {
   box: "盒",
   other: "份",
 };
-
-// 合成示例兜底：服务不可用时展示，并始终带"合成数据"标注，不冒充真实库存。
-const exampleItems: CabinetItem[] = [
-  {
-    id: "example-1",
-    name: "示例：对乙酰氨基酚片",
-    specification: "0.5 g × 12 片",
-    purpose: "示例用途：缓解疼痛、退热",
-    quantityText: "剩余：6 片（合成数据）",
-    expiryText: "有效期：2026-10（合成数据）",
-    state: "expiring_soon",
-    isExample: true,
-  },
-  {
-    id: "example-2",
-    name: "示例：感冒颗粒",
-    specification: "每袋 10 g",
-    purpose: "用途待确认",
-    quantityText: "剩余：数量未知（合成数据）",
-    expiryText: "有效期：待补充（合成数据）",
-    state: "unknown",
-    isExample: true,
-  },
-];
 
 function quantitySummary(medicine: MedicationSummary): string {
   if (medicine.batches.length === 0) return "暂无批次记录";
@@ -94,20 +69,24 @@ interface IndexPageData {
   familyName: string;
   items: CabinetItem[];
   allItems: CabinetItem[];
+  errorMessage: string;
 }
 
 Page({
   data: {
     stageLabel: "药箱首页",
-    isExample: true,
+    isExample: false,
     isFiltered: false,
     expiringCount: 0,
     expiredCount: 0,
     keyword: "",
     familyName: "",
-    items: exampleItems,
-    allItems: exampleItems,
+    items: [] as CabinetItem[],
+    allItems: [] as CabinetItem[],
+    errorMessage: "",
   },
+
+  redirecting: false,
 
   onShow() {
     this.refresh();
@@ -118,10 +97,24 @@ Page({
   },
 
   async refresh(): Promise<void> {
+    if (readToken() === "") {
+      if (!this.redirecting) {
+        this.redirecting = true;
+        wx.reLaunch({ url: "/pages/login/login" });
+      }
+      return;
+    }
     try {
-      await ensureLoggedIn();
-    } catch {
-      this.useExampleData("服务不可用，展示合成示例");
+      await ensureLoggedIn({ allowInteractive: false });
+    } catch (error) {
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        if (!this.redirecting) {
+          this.redirecting = true;
+          wx.reLaunch({ url: "/pages/login/login" });
+        }
+        return;
+      }
+      this.showUnavailable(error);
       return;
     }
     try {
@@ -130,11 +123,11 @@ Page({
       this.applyMedicines(list.medicines, family.family.name);
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        // 尚未创建家庭：引导到创建页。
-        wx.navigateTo({ url: "/pages/family-create/family-create" });
+        // 尚未创建或加入家庭：先让用户选择创建还是加入。
+        wx.navigateTo({ url: "/pages/family-entry/family-entry" });
         return;
       }
-      this.useExampleData("服务不可用，展示合成示例");
+      this.showUnavailable(error);
     }
   },
 
@@ -147,20 +140,22 @@ Page({
       if (state === "expired") expiredCount += 1;
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
-    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount });
+    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
     this.applyFilter();
   },
 
-  useExampleData(label: string): void {
+  showUnavailable(error: unknown): void {
+    const message = error instanceof ApiError ? error.message : "服务暂时不可用，请稍后重试";
     this.setData({
-      stageLabel: label,
-      isExample: true,
+      stageLabel: "暂时无法连接",
+      isExample: false,
       familyName: "",
-      allItems: exampleItems,
+      allItems: [],
+      items: [],
       expiredCount: 0,
-      expiringCount: 1,
+      expiringCount: 0,
+      errorMessage: message,
     });
-    this.applyFilter();
   },
 
   applyFilter(): void {
@@ -192,5 +187,9 @@ Page({
 
   onTapInvite(): void {
     wx.navigateTo({ url: "/pages/invite/invite" });
+  },
+
+  onRetry(): void {
+    this.refresh();
   },
 });

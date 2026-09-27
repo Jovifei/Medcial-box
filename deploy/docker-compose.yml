@@ -12,7 +12,7 @@ services:
     # 不要把迁移 SQL 挂到 /docker-entrypoint-initdb.d——initdb 不登记迁移记录，
     # 会导致应用迁移器二次执行建表脚本并因表已存在而启动失败。
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -26,6 +26,14 @@ services:
       API_PORT: 3000
       API_HOST: 0.0.0.0
       DATABASE_URL: postgres://${POSTGRES_USER:-medbox}:${POSTGRES_PASSWORD:-local-dev-only}@db:5432/${POSTGRES_DB:-medbox}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      MEDICINE_RECOGNITION_PROVIDER: ${MEDICINE_RECOGNITION_PROVIDER:-dashscope}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:0.8b}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3-vl-flash}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:

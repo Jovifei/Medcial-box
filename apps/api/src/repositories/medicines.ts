@@ -86,6 +86,19 @@ export async function findMedicineInFamily(
   return result.rows[0] ?? null;
 }
 
+/** All aggregate writes acquire the parent row before touching any batch. */
+export async function lockMedicineInFamily(
+  transaction: QueryRunner,
+  medicineId: string,
+  familyId: string,
+): Promise<MedicineRow | null> {
+  const result = await transaction.query<MedicineRow>(
+    `SELECT ${MEDICINE_COLUMNS} FROM medicines WHERE id = $1 AND family_id = $2 FOR UPDATE`,
+    [medicineId, familyId],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function insertMedicine(
   database: QueryRunner,
   familyId: string,

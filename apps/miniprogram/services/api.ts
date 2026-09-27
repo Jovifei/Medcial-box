@@ -3,6 +3,7 @@
 import { API_BASE } from "./config";
 import type {
   AcceptInvitationResponse,
+  AuthMeResponse,
   AuthSessionResponse,
   BatchPayload,
   CreateFamilyResponse,
@@ -13,7 +14,10 @@ import type {
   MedicationSummary,
   MedicineListResponse,
   MedicinePayload,
+  MedicineRecognitionResponse,
+  InvitationPreviewResponse,
   TransferOwnershipResponse,
+  UpdateProfileResponse,
 } from "./api-types";
 
 export class ApiError extends Error {
@@ -53,9 +57,10 @@ export function clearToken(): void {
 }
 
 interface RequestOptions {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   payload?: Record<string, unknown>;
+  timeoutMs?: number;
   /** 匿名请求（登录本身）不附带 Authorization。 */
   anonymous?: boolean;
 }
@@ -85,10 +90,11 @@ export function request<T>(options: RequestOptions): Promise<T> {
     }
     wx.request({
       url: `${API_BASE}${options.path}`,
-      method: options.method,
+      // PATCH 由微信运行时支持，但旧版 wechat-miniprogram 类型声明未列出它。
+      method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
       data: options.payload,
       header,
-      timeout: 10000,
+      timeout: options.timeoutMs ?? 10000,
       success: (response) => {
         const status = response.statusCode;
         if (status >= 200 && status < 300) {
@@ -110,12 +116,36 @@ function toPayload(value: object): Record<string, unknown> {
 }
 
 export const api = {
+  recognizeMedicine(imageBase64: string, mimeType: "image/jpeg" | "image/png"): Promise<MedicineRecognitionResponse> {
+    return request<MedicineRecognitionResponse>({
+      method: "POST",
+      path: "/api/v1/recognitions/medicine",
+      payload: { imageBase64, mimeType },
+      timeoutMs: 60000,
+    });
+  },
   login(code: string): Promise<AuthSessionResponse> {
     return request<AuthSessionResponse>({
       method: "POST",
       path: "/api/v1/auth/wechat",
       payload: { code },
       anonymous: true,
+    });
+  },
+
+  getAuthMe(): Promise<AuthMeResponse> {
+    return request<AuthMeResponse>({ method: "GET", path: "/api/v1/auth/me" });
+  },
+
+  logout(): Promise<{ revoked: boolean }> {
+    return request<{ revoked: boolean }>({ method: "POST", path: "/api/v1/auth/logout", payload: {} });
+  },
+
+  updateProfile(nickname: string | null): Promise<UpdateProfileResponse> {
+    return request<UpdateProfileResponse>({
+      method: "PATCH",
+      path: "/api/v1/users/me",
+      payload: { nickname },
     });
   },
 
@@ -143,6 +173,14 @@ export const api = {
       method: "POST",
       path: "/api/v1/families/invitations/accept",
       payload: { code },
+    });
+  },
+
+  previewInvitation(code: string): Promise<InvitationPreviewResponse> {
+    return request<InvitationPreviewResponse>({
+      method: "POST",
+      path: "/api/v1/families/invitations/preview",
+      payload: { invitationCode: code },
     });
   },
 

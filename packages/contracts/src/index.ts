@@ -36,6 +36,8 @@ export type ApiErrorCode =
   | "OWNER_CANNOT_LEAVE"
   | "WECHAT_EXCHANGE_FAILED"
   | "WECHAT_GATEWAY_ERROR"
+  | "RATE_LIMITED"
+  | "RECOGNITION_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export interface ApiError {
@@ -48,6 +50,24 @@ export interface ApiError {
 export interface HealthStatus {
   status: "ok" | "unavailable";
   database?: "connected" | "disconnected";
+}
+
+/** Photo recognition is a draft only; the user must check it before saving. */
+export interface MedicineRecognitionDraft {
+  name: string | null;
+  specification: string | null;
+  manufacturer: string | null;
+  approvalNumber: string | null;
+  purposeCategory: string | null;
+  lotNumber: string | null;
+  expiryValue: string | null;
+  expiryPrecision: ExpiryPrecision | null;
+}
+
+export interface MedicineRecognitionResponse {
+  draft: MedicineRecognitionDraft;
+  warnings: string[];
+  requiresConfirmation: true;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +84,35 @@ export interface AuthWechatResponse {
   user: {
     id: string;
     hasFamily: boolean;
+  };
+}
+
+export interface AuthMeResponse {
+  user: {
+    id: string;
+    nickname: string | null;
+    hasFamily: boolean;
+  };
+  family: {
+    id: string;
+    name: string;
+    role: MemberRole;
+  } | null;
+}
+
+export interface LogoutResponse {
+  revoked: true;
+}
+
+export interface UpdateCurrentUserRequest {
+  /** Empty string or null clears the optional display name. */
+  nickname: string | null;
+}
+
+export interface UpdateCurrentUserResponse {
+  user: {
+    id: string;
+    nickname: string | null;
   };
 }
 
@@ -123,6 +172,15 @@ export interface AcceptInvitationRequest {
 export interface AcceptInvitationResponse {
   family: FamilyCore;
   membership: FamilyMemberSummary;
+}
+
+export interface PreviewInvitationRequest {
+  invitationCode: string;
+}
+
+export interface PreviewInvitationResponse {
+  family: FamilyCore;
+  expiresAt: string;
 }
 
 export interface TransferOwnershipResponse {

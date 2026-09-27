@@ -101,6 +101,114 @@ test("owner invitation stores only the sha256 hash and expires in 72 hours", asy
   }
 });
 
+test("logged-in users can preview a valid invitation without consuming it", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-member": "openid-member" });
+  const memberToken = "3".repeat(64);
+  scriptMultiUserSessions(pool, [
+    { token: memberToken, userId: "user-9", openid: "openid-member", membership: null },
+  ]);
+  const app = await createApp(pool, gateway);
+  try {
+    const code = "valid-preview-code";
+    const expiresAt = new Date(Date.now() + 3600_000).toISOString();
+    pool.always(/FROM family_invites WHERE token_hash/, (sql, params) =>
+      params[0] === sha256hex(code)
+        ? {
+            rows: [{
+              id: "invite-1",
+              family_id: "family-1",
+              token_hash: params[0],
+              created_by: "user-1",
+              expires_at: expiresAt,
+              used_at: null,
+              used_by: null,
+              created_at: new Date().toISOString(),
+            }],
+            rowCount: 1,
+          }
+        : { rows: [], rowCount: 0 },
+    );
+    pool.always(/FROM families WHERE id/, {
+      rows: [familyRow({ id: "family-1", name: "本地测试家庭" })],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/invitations/preview",
+      headers: { authorization: `Bearer ${memberToken}` },
+      payload: { invitationCode: code },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), {
+      family: { id: "family-1", name: "本地测试家庭" },
+      expiresAt,
+    });
+    assert.equal(pool.callsMatching(/UPDATE family_invites SET/).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("invitation preview preserves invalid, expired, and used error semantics", async () => {
+  const pool = createFakePool();
+  const memberToken = "3".repeat(64);
+  scriptMultiUserSessions(pool, [
+    { token: memberToken, userId: "user-9", openid: "openid-member", membership: null },
+  ]);
+  const app = await createApp(pool, createTestGateway({}));
+  try {
+    const headers = { authorization: `Bearer ${memberToken}` };
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/invitations/preview",
+      headers,
+      payload: { invitationCode: "unknown" },
+    });
+    assert.equal(invalid.statusCode, 404);
+    assert.equal(invalid.json().error.code, "NOT_FOUND");
+
+    pool.always(/FROM family_invites WHERE token_hash/, (sql, params) => {
+      const used = params[0] === sha256hex("used");
+      return {
+        rows: [{
+          id: "invite-1",
+          family_id: "family-1",
+          token_hash: params[0],
+          created_by: "user-1",
+          expires_at: used
+            ? new Date(Date.now() + 3600_000).toISOString()
+            : new Date(Date.now() - 3600_000).toISOString(),
+          used_at: used ? new Date().toISOString() : null,
+          used_by: used ? "user-8" : null,
+          created_at: new Date().toISOString(),
+        }],
+        rowCount: 1,
+      };
+    });
+    const expired = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/invitations/preview",
+      headers,
+      payload: { invitationCode: "expired" },
+    });
+    assert.equal(expired.statusCode, 410);
+    assert.equal(expired.json().error.code, "INVITATION_EXPIRED");
+
+    const used = await app.inject({
+      method: "POST",
+      url: "/api/v1/families/invitations/preview",
+      headers,
+      payload: { invitationCode: "used" },
+    });
+    assert.equal(used.statusCode, 410);
+    assert.equal(used.json().error.code, "INVITATION_USED");
+  } finally {
+    await app.close();
+  }
+});
+
 test("a logged-in user without a family accepts a valid invitation as member", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({ "js-nobody": "openid-nobody" });

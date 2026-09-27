@@ -97,6 +97,25 @@
   margin: 24rpx 0 14rpx;
 }
 
+.error-card {
+  margin-top: 22rpx;
+  border-color: #efd4cb;
+  background: #fff8f5;
+}
+
+.retry-btn {
+  margin-top: 18rpx;
+}
+
+.empty-card {
+  margin-top: 22rpx;
+  padding: 30rpx 24rpx;
+  border: 1rpx dashed #c8d4ca;
+  border-radius: 20rpx;
+  background: #fff;
+  text-align: center;
+}
+
 .search-input {
   flex: 1;
   padding: 14rpx 18rpx;

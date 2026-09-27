@@ -28,4 +28,5 @@ COPY apps/api/db ./apps/api/db
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 
 EXPOSE 3000
+USER node
 CMD ["node", "apps/api/dist/server.js"]

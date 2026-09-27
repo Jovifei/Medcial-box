@@ -3,8 +3,8 @@ import { applyMigrations } from "./db/migrations.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL must be configured by the local environment or container.");
+  if (!databaseUrl && !process.env.PGHOST) {
+    throw new Error("Configure DATABASE_URL or the PGHOST/PGUSER/PGPASSWORD/PGDATABASE variables.");
   }
 
   const pool = createDatabasePool(databaseUrl);

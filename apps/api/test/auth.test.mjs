@@ -128,6 +128,30 @@ test("login without a code fails validation with 400", async () => {
   }
 });
 
+test("wechat login is rate limited per client address", async () => {
+  const pool = createFakePool();
+  const app = await createApp(pool, createTestGateway({}));
+  try {
+    for (let index = 0; index < 30; index += 1) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/wechat",
+        payload: { code: "" },
+      });
+      assert.equal(response.statusCode, 400);
+    }
+    const limited = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/wechat",
+      payload: { code: "" },
+    });
+    assert.equal(limited.statusCode, 429);
+    assert.equal(limited.json().error.code, "RATE_LIMITED");
+  } finally {
+    await app.close();
+  }
+});
+
 test("protected endpoints reject missing and invalid tokens with 401", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({});
@@ -183,6 +207,126 @@ test("a valid session without a family gets 404 FAMILY_NOT_FOUND on business end
     });
     assert.equal(response.statusCode, 404);
     assert.equal(response.json().error.code, "FAMILY_NOT_FOUND");
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET /auth/me returns the current user and minimal family membership", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await createApp(pool, gateway);
+  try {
+    const token = await login(app, pool, { membership: {
+      id: "membership-1",
+      family_id: "family-1",
+      role: "owner",
+      joined_at: "2026-09-24T08:00:00Z",
+    } });
+    pool.always(/SELECT id, openid, nickname FROM users WHERE id/, {
+      rows: [{ id: "user-1", openid: "openid-user-1", nickname: "小王" }],
+      rowCount: 1,
+    });
+    pool.always(/FROM families WHERE id/, {
+      rows: [{ id: "family-1", name: "本地测试家庭", created_by: "user-1", created_at: "2026-09-24T08:00:00Z", updated_at: "2026-09-24T08:00:00Z" }],
+      rowCount: 1,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/me",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), {
+      user: { id: "user-1", nickname: "小王", hasFamily: true },
+      family: { id: "family-1", name: "本地测试家庭", role: "owner" },
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("PATCH /users/me trims and clears the optional nickname", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await createApp(pool, gateway);
+  try {
+    const token = await login(app, pool, { membership: null });
+    pool.always(/UPDATE users SET nickname/, (sql, params) => ({
+      rows: [{ id: "user-1", openid: "openid-user-1", nickname: params[1] }],
+      rowCount: 1,
+    }));
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { nickname: "  家人  " },
+    });
+    assert.equal(updated.statusCode, 200);
+    assert.deepEqual(updated.json(), { user: { id: "user-1", nickname: "家人" } });
+
+    const cleared = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { nickname: null },
+    });
+    assert.equal(cleared.statusCode, 200);
+    assert.deepEqual(cleared.json(), { user: { id: "user-1", nickname: null } });
+    assert.equal(pool.callsMatching(/UPDATE users SET nickname/).at(-1).params[1], null);
+  } finally {
+    await app.close();
+  }
+});
+
+test("PATCH /users/me rejects missing, non-text, and oversized nicknames", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await createApp(pool, gateway);
+  try {
+    const token = await login(app, pool, { membership: null });
+    const headers = { authorization: `Bearer ${token}` };
+    for (const nickname of [undefined, 123, "x".repeat(41)]) {
+      const payload = nickname === undefined ? {} : { nickname };
+      const response = await app.inject({ method: "PATCH", url: "/api/v1/users/me", headers, payload });
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.json().error.code, "VALIDATION_ERROR");
+    }
+    assert.equal(pool.callsMatching(/UPDATE users SET nickname/).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("POST /auth/logout revokes the current bearer hash", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await createApp(pool, gateway);
+  try {
+    const token = await login(app, pool, { membership: null });
+    pool.always(/DELETE FROM sessions WHERE token_hash/, { rows: [], rowCount: 0 });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/logout",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { revoked: true });
+    const deletion = pool.callsMatching(/DELETE FROM sessions WHERE token_hash/)[0];
+    assert.equal(deletion.params[0], createHash("sha256").update(token).digest("hex"));
+  } finally {
+    await app.close();
+  }
+});
+
+test("POST /auth/logout without a session is rejected cleanly", async () => {
+  const app = await createApp(createFakePool(), createTestGateway({}));
+  try {
+    const response = await app.inject({ method: "POST", url: "/api/v1/auth/logout", payload: {} });
+    assert.equal(response.statusCode, 401);
+    assert.equal(response.json().error.code, "UNAUTHORIZED");
   } finally {
     await app.close();
   }

@@ -4,7 +4,7 @@
 // - 无家庭用户：点分享卡片进入自动填充邀请码，或手动粘贴加入；
 // - 普通成员：可自助退出家庭（D3）；owner 可先转让所有权再退出。
 import { api, ApiError } from "../../services/api";
-import { ensureLoggedIn } from "../../services/auth";
+import { ensureLoggedIn, logout as logoutSession } from "../../services/auth";
 import type { FamilyMemberSummary } from "../../services/api-types";
 
 type InviteMode = "loading" | "owner" | "join" | "member";
@@ -22,6 +22,9 @@ interface InvitePageData {
   submitting: boolean;
   members: MemberView[];
   leaving: boolean;
+  nickname: string;
+  nicknameDraft: string;
+  profileSubmitting: boolean;
 }
 
 function showError(error: unknown): void {
@@ -40,6 +43,15 @@ function confirmModal(title: string, content: string): Promise<boolean> {
   });
 }
 
+function decode(value: string | undefined): string {
+  if (typeof value !== "string" || value === "") return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 Page({
   data: {
     mode: "loading" as InviteMode,
@@ -50,6 +62,9 @@ Page({
     submitting: false,
     members: [] as MemberView[],
     leaving: false,
+    nickname: "",
+    nicknameDraft: "",
+    profileSubmitting: false,
   },
 
   /** 从分享卡片进入时携带的邀请码（onLoad 早于 onShow 的 refresh）。 */
@@ -57,7 +72,7 @@ Page({
 
   onLoad(options: Record<string, string | undefined>) {
     const raw = typeof options.code === "string" ? options.code : "";
-    const code = raw === "" ? "" : decodeURIComponent(raw).trim();
+    const code = decode(raw).trim();
     this.pendingCode = code;
     if (code !== "") this.setData({ inviteInput: code });
   },
@@ -80,13 +95,18 @@ Page({
 
   async refresh(): Promise<void> {
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false });
     } catch (error) {
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        const suffix = this.pendingCode === "" ? "" : `?code=${encodeURIComponent(this.pendingCode)}`;
+        wx.reLaunch({ url: `/pages/login/login${suffix}` });
+        return;
+      }
       showError(error);
       return;
     }
     try {
-      const result = await api.getCurrentFamily();
+      const [result, me] = await Promise.all([api.getCurrentFamily(), api.getAuthMe()]);
       this.setData({
         mode: result.family.role === "owner" ? "owner" : "member",
         familyName: result.family.name,
@@ -95,6 +115,8 @@ Page({
           joinedDate: member.joinedAt.slice(0, 10),
         })),
         invitationCode: "",
+        nickname: me.user.nickname ?? "",
+        nicknameDraft: me.user.nickname ?? "",
       });
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
@@ -106,6 +128,46 @@ Page({
         return;
       }
       showError(error);
+    }
+  },
+
+  onNicknameInput(event: { detail: { value: string } }): void {
+    this.setData({ nicknameDraft: event.detail.value });
+  },
+
+  async onSaveNickname(): Promise<void> {
+    const data = this.data as InvitePageData;
+    if (data.profileSubmitting) return;
+    const nickname = data.nicknameDraft.trim();
+    if (nickname.length > 20) {
+      wx.showToast({ title: "显示名最多 20 个字", icon: "none" });
+      return;
+    }
+    this.setData({ profileSubmitting: true });
+    try {
+      const result = await api.updateProfile(nickname === "" ? null : nickname);
+      this.setData({ nickname: result.user.nickname ?? "", nicknameDraft: result.user.nickname ?? "" });
+      wx.showToast({ title: "显示名已保存", icon: "success" });
+      await this.refresh();
+    } catch (error) {
+      showError(error);
+    } finally {
+      this.setData({ profileSubmitting: false });
+    }
+  },
+
+  async onLogout(): Promise<void> {
+    const confirmed = await confirmModal("退出登录", "退出后会清除本机登录状态，但不会退出家庭或删除药品。确定退出吗？");
+    if (!confirmed) return;
+    let failure: unknown = null;
+    try {
+      await logoutSession();
+    } catch (error) {
+      failure = error;
+    }
+    wx.reLaunch({ url: "/pages/login/login" });
+    if (failure !== null) {
+      setTimeout(() => showError(failure), 300);
     }
   },
 
@@ -158,7 +220,7 @@ Page({
     if (data.submitting) return;
     this.setData({ submitting: true });
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false });
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
       setTimeout(() => wx.reLaunch({ url: "/pages/index/index" }), 900);
@@ -226,7 +288,7 @@ Page({
     if (typeof memberId !== "string" || memberId === "") return;
     const confirmed = await confirmModal(
       "转让所有权",
-      "转让后你将变为普通成员，新 owner 负责邀请、移除成员与家庭管理。确定转让吗？",
+      "转让后你将变为普通成员，新管理员负责邀请、移除成员与家庭管理。确定转让吗？",
     );
     if (!confirmed) return;
     try {

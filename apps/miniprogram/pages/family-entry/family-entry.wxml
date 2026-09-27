@@ -1,0 +1,35 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">欢迎使用家庭药箱</view>
+    <view class="title">先选择你的家庭</view>
+    <view class="subtitle">一个微信账号首版只加入一个家庭。你可以创建自己的药箱，也可以使用家人发来的邀请码加入。</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">创建家庭药箱</view>
+    <view class="hint">创建后你会成为管理员，可以邀请家人一起维护库存。</view>
+    <view class="btn btn-primary" bindtap="onCreateFamily">创建家庭</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">加入家人的药箱</view>
+    <view class="hint">先预览家庭名称和有效期，确认后才会消耗一次性邀请码。</view>
+    <view class="field">
+      <view class="field-label">邀请码</view>
+      <input class="input" placeholder="粘贴家人发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" maxlength="120" />
+    </view>
+    <view class="btn btn-ghost {{previewing ? 'disabled' : ''}}" bindtap="onPreviewInvitation" wx:if="{{preview === null}}">
+      {{previewing ? "查询中…" : "预览邀请"}}
+    </view>
+    <view class="preview" wx:if="{{preview !== null}}">
+      <view class="preview-title">{{preview.familyName}}</view>
+      <view class="hint">有效期至：{{preview.expiresAt}}</view>
+      <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
+        {{submitting ? "加入中…" : "确认加入"}}
+      </view>
+    </view>
+    <view class="error" wx:if="{{errorMessage !== ''}}">{{errorMessage}}</view>
+  </view>
+
+  <view class="safety-note hint">家庭药箱仅用于库存管理，库存存在不代表适合任何人服用。</view>
+</view>

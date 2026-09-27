@@ -34,7 +34,7 @@ Page({
     try {
       await ensureLoggedIn();
       await api.createFamily(name);
-      wx.showToast({ title: "家庭已创建，你是 owner", icon: "success" });
+      wx.showToast({ title: "家庭已创建，你是管理员", icon: "success" });
       setTimeout(() => wx.navigateBack({ fail: () => wx.reLaunch({ url: "/pages/index/index" }) }), 900);
     } catch (error) {
       showError(error);

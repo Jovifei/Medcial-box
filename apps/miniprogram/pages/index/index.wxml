@@ -35,6 +35,18 @@
     <view class="sample-pill" wx:elif="{{isFiltered}}">筛选中</view>
   </view>
 
+  <view class="card error-card" wx:if="{{errorMessage !== ''}}">
+    <view class="section-title">暂时无法加载药箱</view>
+    <view class="hint">{{errorMessage}}</view>
+    <view class="btn btn-ghost retry-btn" bindtap="onRetry">重新连接</view>
+  </view>
+
+  <view class="empty-card" wx:if="{{errorMessage === '' && items.length === 0}}">
+    <view class="section-title">还没有药品</view>
+    <view class="hint">可以拍照识别，或先只填写药品名称保存。</view>
+    <view class="btn btn-primary" bindtap="onTapAdd">录入第一种药</view>
+  </view>
+
   <view wx:for="{{items}}" wx:key="id" class="medicine-card" bindtap="onTapMedicine" data-id="{{item.id}}">
     <view class="medicine-left">
       <view class="medicine-name">{{item.name}}</view>

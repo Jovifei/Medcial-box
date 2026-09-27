@@ -12,7 +12,7 @@
   docker-compose --env-file .env -f deploy/docker-compose.yml up --build
   ```
 
-  本机只有独立版 `docker-compose`（v5.4.0），未安装 `docker compose` 插件；文档与脚本统一使用 `docker-compose`。
+  本机当前 `docker compose` 与 `docker-compose` 均报告 v5.4.0；旧命令仍可使用。
 
 `.env.example` 中口令只用于开发。服务器部署必须在主机或密钥管理系统配置口令、微信 AppSecret、模型 API key 和药品数据 API key；不能提交到仓库或编译进小程序。
 
@@ -34,5 +34,18 @@
 本地 `project.config.json` 使用 `touristappid` 占位。通过账号审核后，由项目所有者在受控本地配置实际 AppID 和后端 AppSecret，检查 HTTPS request/upload/download 域名白名单，再验证微信登录和真机拍照。不要修改线上网站反向代理、DNS、服务器或证书来完成本地 P0。
 
 `wx.shareFileMessage` 需要本地或临时文件路径。开发者工具预览不算最终分享验收；P3 必须在真实微信客户端验证 `.md` 文件，并保留复制文本功能。
+
+## 已隔离的本机 Docker 登录试验
+
+本机已有其他项目容器时，使用独立项目名和未占用的回环端口。将私有 `deploy/.env.local` 放在 Git 忽略范围内：`POSTGRES_PASSWORD` 是本项目数据库密码，`WECHAT_APP_ID` 是小程序公开标识，`WECHAT_APP_SECRET` 是唯一的微信服务端密钥；后者只由所有者在本机文件内填写，不出现在命令行或小程序包。
+
+```powershell
+docker compose --env-file deploy/.env.local -p medbox-local-trial -f deploy/docker-compose.yml config --quiet
+docker compose --env-file deploy/.env.local -p medbox-local-trial -f deploy/docker-compose.yml up -d --build --pull never
+```
+
+小程序本地调试副本可用 `npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 --local` 生成到 `.local-data/mini-local-<UUID>`，源配置不变。`--local` 仅允许回环 HTTP origin，并将开发者工具域名校验设为关闭；真实设备和远端验收仍使用 HTTPS 和合法域名。开发者工具的 CLI 服务端口若默认关闭，可直接在 GUI 扫码并打开生成目录，无需改变该安全设置。
+
+拍照识别本地优先使用已在 Windows 安装的 Ollama 模型。私有 `deploy/.env.local` 中设置 `MEDICINE_RECOGNITION_PROVIDER=ollama`、`OLLAMA_BASE_URL=http://host.docker.internal:11434`、`OLLAMA_MODEL=qwen3.5:0.8b`；Docker Desktop API 可通过该主机名访问本机服务。识别接口只返回待人工核对的草稿。不要把 `11434` 公开到网络；此地址不适用于远端 ECS。百炼适配器仅在服务端显式选择 `dashscope` 且配置独立密钥时使用。
 
 服务器部署须绑定已批准的小程序 HTTPS 域名、单独 PostgreSQL 凭证和访问日志策略。Compose 当前只用于回环地址开发；生产发布另建经审阅的配置，不复用默认口令，不公开数据库端口。

@@ -2,6 +2,11 @@
 **/dist
 .git
 .env
+**/.env
+**/.env.*
+!**/*.example
+**/project.private.config.json
+**/private.config.json
 .env.*
 .local-data
 .workbuddy

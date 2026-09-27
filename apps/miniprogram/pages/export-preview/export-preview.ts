@@ -1,33 +1,38 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 
-interface ExportPreviewPageData {
-  loading: boolean;
-  markdown: string;
-  generatedAt: string;
-  includePersonalDosage: boolean;
-  includeArchived: boolean;
-  includeStorageLocation: boolean;
-  lastAction: string;
-}
-
 interface ExportOptions {
   includePersonalDosage: boolean;
   includeArchived: boolean;
   includeStorageLocation: boolean;
 }
-
+interface ExportRequest {
+  seq: number;
+  options: ExportOptions;
+}
 interface ShareFileMessageOption {
   filePath: string;
   fileName?: string;
   success?: (result: { errMsg: string }) => void;
   fail?: (result: { errMsg: string }) => void;
 }
-
 interface ShareFileCapableWx {
   shareFileMessage?: (option: ShareFileMessageOption) => void;
 }
-
+let nextFileId = 0;
+const pendingFileCleanup = new Set<string>();
+async function removeTemporaryFile(filePath: string): Promise<boolean> {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      wx.getFileSystemManager().unlink({ filePath, success: () => resolve(),
+        fail: (result) => reject(new Error(result.errMsg ?? "清理失败")) });
+    });
+    pendingFileCleanup.delete(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function showError(error: unknown): void {
   const message = error instanceof ApiError ? error.message : "操作失败，请稍后重试";
   wx.showToast({ title: message, icon: "none", duration: 2800 });
@@ -36,6 +41,8 @@ function showError(error: unknown): void {
 Page({
   data: {
     loading: false,
+    actionBusy: false,
+    nativeActionPending: false,
     markdown: "",
     generatedAt: "",
     includePersonalDosage: false,
@@ -43,123 +50,136 @@ Page({
     includeStorageLocation: true,
     lastAction: "",
   },
-
-  /** 请求序号（审核修复 #4）：响应只在其仍是最新一次请求且选项未变时才生效。 */
   requestSeq: 0,
 
-  onShow() {
-    this.refresh();
+  async onShow() {
+    if (this.data.nativeActionPending) return;
+    const cleanupResults = await Promise.all([...pendingFileCleanup].map(removeTemporaryFile));
+    void this.refresh();
+    if (cleanupResults.some((result) => !result)) {
+      this.setData({ lastAction: "临时文件清理失败，请重新打开本页重试" });
+      wx.showToast({ title: "临时文件清理失败", icon: "none" });
+    }
   },
+  onUnload() { ++this.requestSeq; },
 
   buildOptions(): ExportOptions {
-    const data = this.data as ExportPreviewPageData;
     return {
-      includePersonalDosage: data.includePersonalDosage,
-      includeArchived: data.includeArchived,
-      includeStorageLocation: data.includeStorageLocation,
+      includePersonalDosage: this.data.includePersonalDosage,
+      includeArchived: this.data.includeArchived,
+      includeStorageLocation: this.data.includeStorageLocation,
     };
   },
-
+  beginRequest(): ExportRequest {
+    const request = { seq: ++this.requestSeq, options: this.buildOptions() };
+    this.setData({ loading: true, markdown: "", generatedAt: "", lastAction: "" });
+    return request;
+  },
+  isCurrent(request: ExportRequest): boolean {
+    return request.seq === this.requestSeq &&
+      JSON.stringify(request.options) === JSON.stringify(this.buildOptions());
+  },
+  // 预览与导出动作共用不可变选项快照；每个异步边界后都复核请求身份。
+  async generate(request: ExportRequest): Promise<string | undefined> {
+    await ensureLoggedIn();
+    if (!this.isCurrent(request)) return;
+    const result = await api.exportMarkdown(request.options);
+    if (!this.isCurrent(request)) return;
+    this.setData({ markdown: result.markdown, generatedAt: result.generatedAt });
+    return result.markdown;
+  },
   async refresh(): Promise<void> {
-    const seq = ++this.requestSeq;
-    const requestedKey = JSON.stringify(this.buildOptions());
-    this.setData({ loading: true });
+    const request = this.beginRequest();
     try {
-      await ensureLoggedIn();
-      const result = await api.exportMarkdown(this.buildOptions());
-      // 等待期间用户又改了开关或触发了新请求：本次响应作废，不覆盖预览。
-      if (seq !== this.requestSeq) return;
-      if (JSON.stringify(this.buildOptions()) !== requestedKey) return;
-      this.setData({ markdown: result.markdown, generatedAt: result.generatedAt });
+      await this.generate(request);
     } catch (error) {
-      if (seq !== this.requestSeq) return;
+      if (!this.isCurrent(request)) return;
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        wx.showModal({
-          title: "还没有家庭",
-          content: "导出前请先创建家庭药箱。",
-          showCancel: false,
-          success: () => wx.navigateBack(),
-        });
+        wx.showModal({ title: "还没有家庭", content: "导出前请先创建家庭药箱。", showCancel: false,
+          success: () => wx.navigateBack() });
         return;
       }
       showError(error);
     } finally {
-      if (seq === this.requestSeq) this.setData({ loading: false });
+      if (this.isCurrent(request)) this.setData({ loading: false });
     }
   },
-
   onTogglePersonalDosage(event: { detail: { value: boolean } }): void {
+    if (this.data.nativeActionPending) return;
     this.setData({ includePersonalDosage: event.detail.value });
     this.refresh();
   },
-
   onToggleArchived(event: { detail: { value: boolean } }): void {
+    if (this.data.nativeActionPending) return;
     this.setData({ includeArchived: event.detail.value });
     this.refresh();
   },
-
   onToggleStorageLocation(event: { detail: { value: boolean } }): void {
+    if (this.data.nativeActionPending) return;
     this.setData({ includeStorageLocation: event.detail.value });
     this.refresh();
   },
-
-  /** 复制/分享前都按当前选项重新生成（审核修复 #4）：绝不使用开关变更前的旧结果。 */
-  async freshMarkdown(): Promise<string> {
-    await ensureLoggedIn();
-    const result = await api.exportMarkdown(this.buildOptions());
-    this.setData({ markdown: result.markdown, generatedAt: result.generatedAt });
-    return result.markdown;
+  async copyMarkdown(request: ExportRequest, markdown: string, fallback = false): Promise<void> {
+    if (!this.isCurrent(request)) return;
+    // The native clipboard call cannot be retracted. Freeze options at dispatch.
+    this.setData({ nativeActionPending: true });
+    await new Promise<void>((resolve, reject) => {
+      wx.setClipboardData({ data: markdown, success: () => resolve(),
+        fail: (result) => reject(new Error(result.errMsg ?? "复制失败")) });
+    });
+    if (!this.isCurrent(request)) return;
+    this.setData({ lastAction: fallback ? "文件分享未完成，已复制当前文本" : "已复制当前文本" });
+    wx.showToast({ title: "已复制文本", icon: "success" });
   },
-
-  async onCopy(): Promise<void> {
+  async onCopy(): Promise<void> { await this.runAction(false); },
+  async onShareFile(): Promise<void> { await this.runAction(true); },
+  async runAction(share: boolean): Promise<void> {
+    if (this.data.actionBusy) return;
+    this.setData({ actionBusy: true });
+    const request = this.beginRequest();
+    let filePath = "";
     try {
-      const markdown = await this.freshMarkdown();
-      await new Promise<void>((resolve, reject) => {
-        wx.setClipboardData({
-          data: markdown,
-          success: () => resolve(),
-          fail: (result) => reject(new Error(result.errMsg ?? "复制失败")),
-        });
-      });
-      this.setData({ lastAction: "已按当前选项重新生成并复制" });
-      wx.showToast({ title: "已复制文本", icon: "success" });
-    } catch (error) {
-      showError(error);
-    }
-  },
-
-  async onShareFile(): Promise<void> {
-    const filePath = `${wx.env.USER_DATA_PATH}/home-medicine-cabinet.md`;
-    try {
-      const markdown = await this.freshMarkdown();
-      await new Promise<void>((resolve, reject) => {
-        wx.getFileSystemManager().writeFile({
-          filePath,
-          data: markdown,
-          encoding: "utf8",
-          success: () => resolve(),
-          fail: (result) => reject(new Error(result.errMsg ?? "写入文件失败")),
-        });
-      });
+      const markdown = await this.generate(request);
+      if (markdown === undefined || !this.isCurrent(request)) return;
       const shareApi = (wx as unknown as ShareFileCapableWx).shareFileMessage;
-      if (typeof shareApi !== "function") {
-        throw new Error("当前微信版本不支持文件分享");
+      if (!share || typeof shareApi !== "function") {
+        await this.copyMarkdown(request, markdown, share);
+        return;
       }
+      // 独立文件名防止跨页面实例及前后动作互相覆盖。
+      filePath = `${wx.env.USER_DATA_PATH}/home-medicine-${Date.now()}-${++nextFileId}.md`;
+      // Failed writes can leave a partial file containing private text.
+      pendingFileCleanup.add(filePath);
       await new Promise<void>((resolve, reject) => {
-        shareApi.call(wx, {
-          filePath,
-          fileName: "家庭药箱清单.md",
-          success: () => resolve(),
-          fail: (result) => reject(new Error(result.errMsg ?? "分享未完成")),
+        wx.getFileSystemManager().writeFile({ filePath, data: markdown, encoding: "utf8",
+          success: () => resolve(), fail: (result) => reject(new Error(result.errMsg ?? "写入文件失败")) });
+      });
+      if (!this.isCurrent(request)) return;
+      try {
+        // The native share call cannot be retracted. Freeze options at dispatch.
+        this.setData({ nativeActionPending: true });
+        await new Promise<void>((resolve, reject) => {
+          shareApi.call(wx, { filePath, fileName: "家庭药箱清单.md", success: () => resolve(),
+            fail: (result) => reject(new Error(result.errMsg ?? "分享未完成")) });
         });
-      });
-      this.setData({ lastAction: "已按当前选项重新生成并发起 .md 文件分享" });
+      } catch {
+        // 仅分享失败/取消回退；网络、写入和剪贴板失败不得报告成功。
+        if (this.isCurrent(request)) await this.copyMarkdown(request, markdown, true);
+        return;
+      }
+      if (this.isCurrent(request)) this.setData({ lastAction: "已分享当前 .md 文件" });
     } catch (error) {
-      // 真机/当前版本不支持分享或用户取消：回退为复制文本，始终保证可用路径。
-      await this.onCopy();
-      this.setData({
-        lastAction: `文件分享不可用（${error instanceof Error ? error.message : "未知原因"}），已按当前选项重新复制`,
-      });
+      if (this.isCurrent(request)) showError(error);
+    } finally {
+      if (filePath !== "" && pendingFileCleanup.has(filePath)) {
+        if (!(await removeTemporaryFile(filePath))) {
+          this.setData({ lastAction: "临时文件清理失败，请重新打开本页重试" });
+          wx.showToast({ title: "临时文件清理失败", icon: "none" });
+        }
+      }
+      this.setData({ actionBusy: false });
+      this.setData({ nativeActionPending: false });
+      if (this.isCurrent(request)) this.setData({ loading: false });
     }
   },
 });

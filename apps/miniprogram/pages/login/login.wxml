@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">家庭药箱</view>
+    <view class="title">把家里的药，记在一起</view>
+    <view class="subtitle">登录后创建或加入家庭药箱，和家人共同维护库存与有效期。</view>
+  </view>
+
+  <view class="card login-card">
+    <view class="section-title">微信登录</view>
+    <view class="hint">只使用微信身份建立家庭成员关系，不要求填写手机号或密码。</view>
+    <view class="error" wx:if="{{errorMessage !== ''}}">{{errorMessage}}</view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onLogin">
+      {{submitting ? "登录中…" : "使用微信登录"}}
+    </view>
+  </view>
+
+  <view class="safety-note hint">家庭药箱只用于库存记录，不提供诊疗或选药建议。</view>
+</view>

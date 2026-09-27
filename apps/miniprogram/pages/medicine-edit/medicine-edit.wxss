@@ -1,10 +1,12 @@
 .page {
-  padding: 28rpx 30rpx 60rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 28rpx calc(120rpx + env(safe-area-inset-bottom));
 }
 
 .batch-block {
-  margin-top: 18rpx;
-  padding: 18rpx 16rpx 4rpx;
+  margin-top: 20rpx;
+  padding: 22rpx 20rpx 6rpx;
   border: 1rpx solid #e9ede8;
   border-radius: 16rpx;
   background: #fbfcfb;
@@ -17,7 +19,8 @@
 }
 
 .batch-title {
-  font-size: 25rpx;
+  font-size: 27rpx;
+  line-height: 1.4;
   font-weight: 650;
   color: #52685c;
 }
@@ -28,7 +31,7 @@
 }
 
 .btn-ghost-mini {
-  padding: 8rpx 18rpx;
+  padding: 10rpx 20rpx;
   border: 1rpx solid #c8d4ca;
   border-radius: 999rpx;
   color: #3f7d5c;
@@ -43,4 +46,37 @@
 
 .disabled {
   opacity: 0.6;
+}
+
+.photo-action,
+.save-action {
+  min-height: 88rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.35;
+}
+
+.recognition-status {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border: 1rpx solid #cfe3d5;
+  border-radius: 16rpx;
+  background: #f2faf4;
+}
+
+.recognition-status-title {
+  margin-bottom: 6rpx;
+  color: #2f704f;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.recognition-status-text {
+  color: #496356;
+  font-size: 23rpx;
+  line-height: 1.6;
+  word-break: break-all;
 }

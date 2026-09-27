@@ -14,7 +14,7 @@ import {
   toBatchSummary,
   updateBatch,
 } from "../repositories/batches.js";
-import { bumpMedicineVersion, findMedicineInFamily } from "../repositories/medicines.js";
+import { bumpMedicineVersion, findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
 import { validateBatchInput, validateBatchUpdateInput } from "../inputs.js";
 
 const MEDICINE_NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家庭中");
@@ -47,7 +47,7 @@ export async function registerBatchRoutes(
 
     try {
       const batch = await database.withTransaction(async (tx) => {
-        const medicine = await findMedicineInFamily(tx, medicineId, ctx.familyId);
+        const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
         if (medicine === null) {
           throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
         }
@@ -81,7 +81,7 @@ export async function registerBatchRoutes(
 
     try {
       const updated = await database.withTransaction(async (tx) => {
-        const medicine = await findMedicineInFamily(tx, medicineId, ctx.familyId);
+        const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
         if (medicine === null) {
           throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
         }
@@ -127,7 +127,7 @@ export async function registerBatchRoutes(
 
     try {
       const deleted = await database.withTransaction(async (tx) => {
-        const medicine = await findMedicineInFamily(tx, medicineId, ctx.familyId);
+        const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
         if (medicine === null) {
           throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
         }

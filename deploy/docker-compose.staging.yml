@@ -1,0 +1,53 @@
+# Standalone staging stack; existing site proxies to the loopback API port.
+name: medbox-staging
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-medbox_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-medbox_staging}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a private staging database password}
+    volumes:
+      - staging_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-medbox_staging}
+      PGUSER: ${POSTGRES_USER:-medbox_staging}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a private staging database password}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:?Set the approved mini-program AppID}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:?Inject the AppSecret on the server}
+      MEDICINE_RECOGNITION_PROVIDER: ${MEDICINE_RECOGNITION_PROVIDER:-dashscope}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:0.8b}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3-vl-flash}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+    ports:
+      - "127.0.0.1:${STAGING_API_PORT:-3301}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/v1/health/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+volumes:
+  staging_database:

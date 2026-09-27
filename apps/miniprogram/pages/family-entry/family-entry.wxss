@@ -1,0 +1,58 @@
+.page {
+  padding: 44rpx 30rpx 60rpx;
+}
+
+.hero {
+  padding: 18rpx 8rpx 30rpx;
+}
+
+.eyebrow {
+  color: #3f7d5c;
+  font-size: 23rpx;
+  font-weight: 650;
+  letter-spacing: 2rpx;
+}
+
+.title {
+  margin-top: 14rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 14rpx;
+  color: #718078;
+  font-size: 25rpx;
+  line-height: 1.7;
+}
+
+.preview {
+  margin-top: 22rpx;
+  padding: 20rpx;
+  border-radius: 14rpx;
+  background: #f2f7f3;
+}
+
+.preview-title {
+  color: #315f46;
+  font-size: 30rpx;
+  font-weight: 680;
+}
+
+.error {
+  margin-top: 18rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+  background: #fff3ef;
+  color: #a45437;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.safety-note {
+  padding: 20rpx 8rpx 0;
+}
+
+.disabled {
+  opacity: 0.6;
+}

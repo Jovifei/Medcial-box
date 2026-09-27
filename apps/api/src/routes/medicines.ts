@@ -11,6 +11,7 @@ import {
   findMedicineInFamily,
   insertMedicine,
   listMedicines,
+  lockMedicineInFamily,
   toMedicineSummary,
   updateMedicine,
   type MedicineRow,
@@ -110,7 +111,7 @@ export async function registerMedicineRoutes(
       // 单连接事务：药品版本更新 + 批次同步（按 id 增/改/删）。
       // 页面提交的批次带 id/version；未出现在提交里的已有批次 = 用户已删除。
       const summary = await database.withTransaction(async (tx) => {
-        const existing = await findMedicineInFamily(tx, medicineId, ctx.familyId);
+        const existing = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
         if (existing === null) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }

@@ -18,6 +18,17 @@ export async function findUserByOpenid(
   return result.rows[0] ?? null;
 }
 
+export async function findUserById(
+  database: QueryRunner,
+  userId: string,
+): Promise<UserRow | null> {
+  const result = await database.query<UserRow>(
+    "SELECT id, openid, nickname FROM users WHERE id = $1",
+    [userId],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function insertUser(
   database: QueryRunner,
   openid: string,
@@ -28,4 +39,16 @@ export async function insertUser(
     [openid, nickname],
   );
   return result.rows[0];
+}
+
+export async function updateUserNickname(
+  database: QueryRunner,
+  userId: string,
+  nickname: string | null,
+): Promise<UserRow | null> {
+  const result = await database.query<UserRow>(
+    "UPDATE users SET nickname = $2, updated_at = now() WHERE id = $1 RETURNING id, openid, nickname",
+    [userId, nickname],
+  );
+  return result.rows[0] ?? null;
 }

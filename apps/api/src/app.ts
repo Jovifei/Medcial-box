@@ -13,11 +13,14 @@ import { registerBatchRoutes } from "./routes/batches.js";
 import { registerDosageNoteRoutes } from "./routes/dosage-notes.js";
 import { registerExportRoutes } from "./routes/exports.js";
 import { registerInvitationRoutes } from "./routes/invitations.js";
+import { registerRecognitionRoutes } from "./routes/recognitions.js";
+import { createDefaultMedicineRecognitionProvider, type MedicineRecognitionProvider } from "./services/medicine-recognition.js";
 
 export interface BuildServerOptions {
   database: Database;
   /** Defaults to the real HTTP gateway (env credentials); tests inject a fake. */
   wechatGateway?: WechatGateway;
+  medicineRecognitionProvider?: MedicineRecognitionProvider;
   logger?: boolean;
 }
 
@@ -26,7 +29,7 @@ export async function buildServer(options: BuildServerOptions) {
 
   // 统一错误 shape：{ error: { code, message } }；内部细节只进服务端日志。
   app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-    if (error.validation !== undefined || error.statusCode === 400) {
+    if (error.validation !== undefined || error.statusCode === 400 || error.statusCode === 415) {
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "请求格式不正确"));
     }
     request.log.error({ err: error }, "Unhandled request failure");
@@ -47,6 +50,7 @@ export async function buildServer(options: BuildServerOptions) {
   await registerDosageNoteRoutes(app, options.database);
   await registerExportRoutes(app, options.database);
   await registerInvitationRoutes(app, options.database);
+  await registerRecognitionRoutes(app, options.medicineRecognitionProvider ?? createDefaultMedicineRecognitionProvider());
 
   return app;
 }

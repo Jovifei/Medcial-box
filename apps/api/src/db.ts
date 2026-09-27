@@ -1,7 +1,9 @@
 import { Pool } from "pg";
 import type { Database, QueryResult, QueryRunner } from "./types.js";
 
-export function createDatabasePool(connectionString: string): Pool {
+// With no URL, pg reads separate PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE
+// variables. This avoids URL-encoding mistakes with generated passwords.
+export function createDatabasePool(connectionString?: string): Pool {
   return new Pool({
     connectionString,
     max: 10,

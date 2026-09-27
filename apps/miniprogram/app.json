@@ -1,5 +1,7 @@
 {
   "pages": [
+    "pages/login/login",
+    "pages/family-entry/family-entry",
     "pages/index/index",
     "pages/family-create/family-create",
     "pages/medicine-edit/medicine-edit",

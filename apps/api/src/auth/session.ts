@@ -43,6 +43,14 @@ export async function issueSessionToken(
   return { token, expiresAt };
 }
 
+/** Revoke one bearer token by deleting only its stored hash. */
+export async function revokeSessionToken(
+  database: Database,
+  token: string,
+): Promise<void> {
+  await database.query("DELETE FROM sessions WHERE token_hash = $1", [sha256Hex(token)]);
+}
+
 export function parseBearerToken(header: string | undefined): string | null {
   if (header === undefined) return null;
   const match = /^Bearer\s+(.+)$/i.exec(header.trim());

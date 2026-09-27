@@ -1,6 +1,72 @@
 # 项目阶段任务台账
 
-状态标签：`PASS` 仅表示记录了对应验收证据；`BLOCKED` 表示存在明确外部阻塞；`NOT_RUN` 表示尚无验证证据。
+## 2026-09-27 下一阶段：登录与家庭试用闭环（执行中）
+
+- [x] 登录欢迎页：明确微信登录、会话恢复、过期重试、退出登录（代码完成；真机仍待验收）
+- [x] 首次进入：创建家庭／加入家庭选择，分享邀请码跨登录保留（代码完成；真机仍待验收）
+- [x] 家庭管理：家庭入口、邀请预览、成员显示名、管理员文案与错误状态（代码与 API 测试完成）
+- [ ] 录入闭环：拍照草稿核对保存、失败恢复、同名药批次提示、导出真流程
+- [x] API：`auth/me`、`auth/logout`、`users/me`、邀请预览及契约／迁移／测试
+- [x] 工程验证：lint、typecheck、test、build、PostgreSQL 集成测试（本地真实 PG 14/14；常规 `npm test` 保留 1 项跳过）
+- [x] 文档收口：状态、识别路线、开发者工具导入目录及本轮证据
+
+### 本轮验收记录
+
+- 状态：IN_PROGRESS
+- 代码路径：`C:\Users\Admin\.codex\worktrees\phone-trial-readiness\medcial_box`
+- 约束：不修改 `E:\project\medcial_box` 主目录；不写入或输出真实密钥；真实双账号／真机／远端部署待独立环境验证。
+- 本地 Docker：`medbox-local-trial` API/DB healthy，`/live` 与 `/ready` HTTP 200。
+- 小程序导入包：`.local-data\mini-local-9a27b898-eac3-46ec-bc13-9a7ffe25d0d4`（AppID 与回环 API 已生成，包内无服务端密钥）。
+
+### 本轮审核与遗留验收
+
+- [x] 后端接口响应与小程序契约只读联调审核；已修复代理限流键、失效会话邀请码丢失、异常编码、注销失败页面状态和重复加入按钮。
+- [ ] **NOT_RUN** 微信开发者工具编译及页面点击验证（需要工具 GUI／服务端口可用）。
+- [ ] **NOT_RUN** 两个真实微信账号、两台手机的创建／邀请／共享／移除／导出验收。
+- [ ] **NOT_RUN** ECS HTTPS 部署、备份恢复和真实域名验证。
+
+## 2026-09-27 录入体验纠正 — IN_PROGRESS
+
+Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用项点选、仅名称最少手填，选填资料收起。本地优先使用已安装的 Ollama 图像模型，无额外模型 API Key；云端适配器保留为可选。详见 `tasks/plans/2026-09-27-photo-first-entry.md`；真实药盒验收单独记证据。
+
+- [x] 快速录入与分层表单代码完成：只填药名可保存未知数量／日期；非法小数、尾缀和不存在日期有专项测试，开发者工具交互待确认。
+- [x] 图片识别只返回草稿并要求核对后保存；本地 Ollama 与云端百炼可切换，服务不可用时仍可录入。合成后端与本地模型测试 PASS，开发者工具交互待验。
+- [x] 用开发者工具选择合成药盒图片并取得识别草稿：最新请求 HTTP 200、约 4.9 秒；数据库 medicines/batches 仍为 0，确认草稿未自动入库。仍待页面核对后保存与 Markdown 验证。
+- [ ] **BLOCKED_LOCAL_UI** 微信开发者工具 CLI 报 `IDE service port disabled`；需要在工具“设置 → 安全设置”手动开启服务端口后，才能由 CLI 继续打开/编译项目。当前后端与模型测试不受影响。
+- [x] 修复识别无结果体验：设备日志确认请求返回 503；页面增加持久状态面板，API 增加 JPEG/PNG 完整性检查，避免损坏图片触发 Ollama 崩溃。待开发者工具重新编译复测。
+- [ ] 真实家庭照片前收紧本机 Ollama `11434` 入站访问；当前仅使用合成图片。
+- [ ] 本地服务、开发者工具验证通过后再进入 ECS 测试部署。
+
+## 2026-09-27 本地 Docker 与微信登录 — IN_PROGRESS
+
+执行顺序及验收边界见 `tasks/plans/2026-09-27-local-docker-login.md`。Jovi 已确认先本地，真实登录通过后再远端部署。
+
+- [x] 使用独立 Compose 项目与回环端口运行本机 API、PostgreSQL：两个容器健康，迁移 5 条，`/live` 与 `/ready` PASS。
+- [x] 本地 AppSecret 已配置且容器已重建；开发者工具真实 `wx.login` → 后端 code 交换返回 200，用户与会话各 1。真机登录 `NOT_RUN`。
+- [ ] 在开发者工具用合成数据完成家庭创建、药品批次录入与 Markdown 导出。
+- [ ] 记录本地、微信与远端独立证据；远端部署暂不执行。
+
+本轮局部证据见 `tasks/reports/2026-09-27-local-docker-login.md`。微信开发者工具已安装并打开，真实扫码／登录仍待操作。
+
+## 2026-09-27 手机试用准备 — LOCAL_PASS / REAL_DEVICE_NOT_RUN
+
+- [x] 关闭导出选项竞态，新增实际页面逻辑回归验证（21/21 PASS；微信真机 NOT_RUN）。
+- [x] 统一药品／批次加锁顺序，验证真实数据库并发（PostgreSQL 17 集成测试 PASS）。
+- [x] 重建隔离集成测试与 PostgreSQL CI 必跑检查（本地 14/14 PASS；远端 CI NOT_RUN）。
+- [x] 准备 HTTPS 测试部署、私有凭据注入、小程序配置和备份恢复（配置及本地原生 PG dump/restore PASS；容器脚本实跑 NOT_RUN）。
+- [ ] **BLOCKED_INPUT** 取得 SSH 登录入口；在 Cloudflare 权威 DNS 完成测试 A 记录并核对备案／TLS 后，部署 HTTPS 测试环境并做双账号真机验收。ECS IP、AppID 和候选域名已存于本机配置。
+- [x] 完成本地检查和独立复核，登记证据与未完成项。
+
+### 本轮复核与证据
+
+- `npm run lint`、`npm run typecheck`、`npm run build` PASS；真实 PostgreSQL 环境下 `npm test`：API 124/124、工具 3/3，0 跳过。
+- 原生 PostgreSQL 17.11 隔离数据库：迁移、API CRUD、权限、并发、备份与恢复后读取 PASS。数据库测试使用随机 schema，没有清空共享业务表。
+- 测试环境 Compose 静态配置 PASS；本机 Docker Desktop 引擎启动失败，实际容器部署与脚本演练 NOT_RUN。
+- 微信开发者工具、真实 AppID 登录、`.md` 真机分享、两账号家庭试用、远端 CI 均 NOT_RUN。详细命令、结果和边界见 `tasks/reports/2026-09-27-phone-trial-readiness.md`。
+
+详见 `tasks/plans/2026-09-26-phone-trial-readiness.md`。本轮以该工作包作为当前进度入口，以下保留历史阶段记录。
+
+状态标签：`PASS` 仅表示记录了对应验收证据；`BLOCKED` 表示存在明确外部阻塞；`NOT_RUN` 表示尚无验证证据。下方 P0–P4 是阶段历史台账；其中 P0/P1/P2 的旧测试数与运行状态以本页顶部最新复核为准。
 
 阶段顺序（Jovi 已确认的交付顺序）：**P0 收口 → P1 手动药箱＋Markdown 导出 → P2 家庭共享 → P3 拍照识别 → P4 上线试用**。阶段定义与 `tasks/plans/2026-09-24-mvp-roadmap.md` 一一对应。
 
