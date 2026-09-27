@@ -22,6 +22,34 @@
   margin-top: 10rpx;
 }
 
+.preview {
+  margin-top: 18rpx;
+  padding: 18rpx;
+  border-radius: 14rpx;
+  background: #f2f7f3;
+}
+
+.preview-title {
+  color: #24352c;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.preview .hint {
+  margin-top: 8rpx;
+}
+
+.preview .btn {
+  margin-top: 16rpx;
+}
+
+.error {
+  margin-top: 14rpx;
+  color: #b74a32;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
 .footnote {
   margin-top: 20rpx;
   padding: 0 6rpx;

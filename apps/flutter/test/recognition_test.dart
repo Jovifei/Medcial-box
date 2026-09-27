@@ -22,4 +22,11 @@ void main() {
     expect(draft.expiry, '待补充');
     expect(draft.warnings, hasLength(3));
   });
+
+  test('unrelated OCR text does not become a medicine name', () {
+    final draft = MedicineTextParser().parse('家庭药箱\n2027年12月31日');
+
+    expect(draft.name, isEmpty);
+    expect(draft.warnings, contains('没有可靠识别出药品名称，请人工填写。'));
+  });
 }

@@ -105,8 +105,19 @@ class _HomePageState extends State<HomePage> {
       await _openRecognitionDraft(image);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('无法打开图片权限或选择器：$error')));
+      final message = error.toString().toLowerCase();
+      if (message.contains('cancel')) return;
+      final permissionDenied =
+          message.contains('permission') || message.contains('denied');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            permissionDenied
+                ? '相机或相册权限未开启，请到系统设置允许家庭药箱访问后重试。'
+                : '无法打开相机或相册，请重试。',
+          ),
+        ),
+      );
     }
   }
 

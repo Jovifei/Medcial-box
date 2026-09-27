@@ -44,7 +44,7 @@ class MedicineTextParser {
     final medicineWords = RegExp(r'(片|胶囊|颗粒|口服液|喷雾|滴眼液|软膏|贴膏|丸|散|糖浆)');
     return lines.firstWhere(
       (line) => medicineWords.hasMatch(line) && line.length <= 32,
-      orElse: () => lines.isEmpty ? '' : lines.first,
+      orElse: () => '',
     );
   }
 

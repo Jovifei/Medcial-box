@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:home_medicine_flutter/app.dart';
+import 'package:home_medicine_flutter/data/demo_repositories.dart';
+import 'package:home_medicine_flutter/features/export/export_page.dart';
+import 'package:home_medicine_flutter/features/medicine/medicine_detail_page.dart';
 
 Future<void> openHome(WidgetTester tester) async {
   await tester.pumpWidget(const HomeMedicineApp());
@@ -57,6 +60,106 @@ void main() {
     await tester.tap(find.byType(SwitchListTile).first);
     await tester.pumpAndSettle();
     expect(find.textContaining('个人剂量备注：包含'), findsOneWidget);
+  });
+
+  testWidgets('export switches change the actual preview content', (
+    tester,
+  ) async {
+    final repository = DemoMedicineRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: ExportPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('家人备注：成人一次 1 片，仅作记录。'), findsNothing);
+    expect(find.textContaining('客厅药箱'), findsOneWidget);
+
+    await tester.tap(find.byType(SwitchListTile).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('家人备注：成人一次 1 片，仅作记录。'), findsOneWidget);
+
+    await tester.tap(find.byType(SwitchListTile).last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('客厅药箱'), findsNothing);
+  });
+
+  testWidgets('medicine detail persists an edited personal note', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = DemoMedicineRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MedicineDetailPage(
+          repository: repository,
+          medicineId: 'paracetamol',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.byType(TextButton), 300);
+    await tester.tap(find.byType(TextButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '新的家庭备注');
+    await tester.tap(find.text('保存备注'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新的家庭备注'), findsOneWidget);
+    expect(
+      (await repository.getMedicine('paracetamol')).personalNote,
+      '新的家庭备注',
+    );
+  });
+
+  testWidgets('medicine detail persists a new batch', (tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = DemoMedicineRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MedicineDetailPage(
+          repository: repository,
+          medicineId: 'paracetamol',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('添加一个批次'), 300);
+    await tester.tap(find.text('添加一个批次'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '3');
+    await tester.enterText(fields.at(1), '盒');
+    await tester.enterText(fields.at(2), '2028-01-31');
+    await tester.tap(find.text('保存演示批次'));
+    await tester.pumpAndSettle();
+
+    final medicine = await repository.getMedicine('paracetamol');
+    expect(medicine.batches, hasLength(2));
+    expect(medicine.batches.last.quantity, 3);
+    expect(medicine.batches.last.expiry, '2028-01-31');
+  });
+
+  testWidgets('invalid medicine id shows a recoverable error state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MedicineDetailPage(
+          repository: DemoMedicineRepository(),
+          medicineId: 'missing',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('找不到这项药品'), findsOneWidget);
+    expect(find.text('返回药箱'), findsOneWidget);
   });
 
   testWidgets('manual medicine entry writes a new demo record', (tester) async {

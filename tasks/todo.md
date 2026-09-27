@@ -9,7 +9,7 @@
 - [x] 接入本地合成仓库和可替换 `AuthRepository`／`MedicineRepository` 接口
 - [x] 接入 `image_picker` 相机／相册权限和中文 ML Kit 识别草稿
 - [x] 完成手动药品录入、识别失败补填、人工核对后保存
-- [x] `flutter analyze`、Widget／解析器测试 7/7、Debug APK 构建通过
+- [x] `flutter analyze`、Widget／解析器／仓库测试 15/15、Debug APK 构建通过
 - [x] APK 安装到 `GM1910`，验证相机权限、系统相机、拍照返回、识别草稿和手动保存
 - [ ] 记录用户视觉反馈并进行第二轮调整
 
@@ -17,7 +17,7 @@
 
 - [x] 首页录入入口改为拍照／相册／手动三选一底部面板
 - [x] 录入页按来源调用微信相机或相册，识别结果仍人工核对后保存
-- [x] 生成最新本地小程序导入包：`.local-data\mini-local-4c7e7a86-b57e-4b8e-8718-a4dadd08a482`
+- [x] 生成最新本地小程序导入包：`.local-data\mini-local-418b7b11-952a-4b57-896b-4722b7425073`
 - [ ] 在微信开发者工具和真机验证相机授权、图片识别和保存流程
 
 ### Flutter 验收证据
@@ -212,6 +212,21 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [ ] 评估应用内 AI 问药；未验证外部清单使用价值与医疗边界前不实施。
 
 ## 变更复核记录
+
+### 2026-09-27 审计问题修复计划
+
+- [x] Flutter：备注、批次写回演示仓库；详情页补错误/空批次状态。
+- [x] Flutter：导出选项与 Markdown 内容同步；相机权限和 OCR 失败提示改为用户可操作文案。
+- [x] 小程序：分享邀请码统一走预览确认；批次数量和有效期校验与药品编辑页统一。
+- [x] 小程序：保留邀请码页面状态；串行化识别与编辑加载；补充对应自动化测试。
+- [x] 运行 API、PostgreSQL、Flutter、小程序静态门禁；提交审计修复证据并推送分支。
+
+#### 修复复核
+
+- 状态：`PASS_CODE_AND_LOCAL_DEVICE_BUILD`；代码和自动化测试通过。
+- 证据：根 `lint/typecheck/build`、API `127 PASS + 1 SKIPPED`、tooling `5/5 PASS`、Flutter `analyze PASS`、Flutter 测试 `15/15 PASS`、Debug APK 构建 PASS。
+- 运行边界：微信开发者工具真实点击、真实小程序相机权限、双账号共享和 ECS 仍为 `NOT_RUN`；CLI 被 `IDE service port disabled` 阻塞。
+
 
 - 初始基线：空工作区；无既有源文件；尚无 Git 元数据。
 - 2026-09-24（Git 初始化）：`git init -b main`，首个提交 `5c3adf2`（45 个文件，P0 全部文档与代码），推送远端 `Jovifei/Medcial-box` 并经 `ls-remote` 验证；`.workbuddy/` 已在 ignore 内，未入库。

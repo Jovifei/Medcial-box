@@ -20,27 +20,49 @@ class MedicineDetailPage extends StatefulWidget {
 }
 
 class _MedicineDetailPageState extends State<MedicineDetailPage> {
+  late Future<DemoMedicine> _medicineFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _medicineFuture = widget.repository.getMedicine(widget.medicineId);
+  }
+
+  void _reloadMedicine() {
+    setState(() {
+      _medicineFuture = widget.repository.getMedicine(widget.medicineId);
+    });
+  }
+
   Future<void> _editNote(DemoMedicine medicine) async {
-    final controller = TextEditingController(text: medicine.personalNote);
     final note = await showAppSheet<String>(
       context,
       title: '个人剂量备注',
-      builder: (context) => Column(
-        children: [
-          TextField(
-            controller: controller,
-            maxLines: 4,
-            decoration: const InputDecoration(hintText: '只记录家人的实际备注，不自动生成用药方案'),
-          ),
-          const SizedBox(height: 16),
-          PrimaryButton(
-            label: '保存备注',
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-          ),
-        ],
+      builder: (_) => _PersonalNoteSheet(initialNote: medicine.personalNote),
+    );
+    if (note != null && mounted) {
+      widget.repository.updatePersonalNote(medicine.id, note);
+      _reloadMedicine();
+    }
+  }
+
+  Future<void> _addBatch() async {
+    await showAppSheet<void>(
+      context,
+      title: '添加批次',
+      builder: (sheetContext) => _AddBatchSheet(
+        onSave: (quantity, unit, expiry) {
+          widget.repository.addBatch(
+            medicineId: widget.medicineId,
+            quantity: quantity,
+            unit: unit,
+            expiry: expiry,
+          );
+          Navigator.pop(sheetContext);
+          if (mounted) _reloadMedicine();
+        },
       ),
     );
-    if (note != null) setState(() {});
   }
 
   Future<void> _archive(DemoMedicine medicine) async {
@@ -89,13 +111,29 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
         ],
       ),
       body: FutureBuilder<DemoMedicine>(
-        future: widget.repository.getMedicine(widget.medicineId),
+        future: _medicineFuture,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return AppPage(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '找不到这项药品',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    SoftButton(label: '返回药箱', onPressed: () => context.pop()),
+                  ],
+                ),
+              ),
+            );
+          }
           final medicine = snapshot.data!;
-          final batch = medicine.batches.first;
           return AppPage(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             child: ListView(
@@ -139,7 +177,12 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 14),
-                      _BatchRow(batch: batch),
+                      if (medicine.batches.isEmpty)
+                        const Text('暂无批次记录，可在下方添加。')
+                      else
+                        ...medicine.batches.map(
+                          (batch) => _BatchRow(batch: batch),
+                        ),
                     ],
                   ),
                 ),
@@ -197,32 +240,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                 SoftButton(
                   label: '添加一个批次',
                   icon: Icons.add,
-                  onPressed: () => showAppSheet<void>(
-                    context,
-                    title: '添加批次',
-                    builder: (context) => Column(
-                      children: [
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: '数量',
-                            hintText: '未知也可以先保存',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: '有效期',
-                            hintText: '例如 2027-12-31',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        PrimaryButton(
-                          label: '保存演示批次',
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ),
+                  onPressed: _addBatch,
                 ),
               ],
             ),
@@ -237,6 +255,110 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
     LeafletReviewStatus.matched => '已匹配资料，等待本人核对',
     LeafletReviewStatus.unverified => '资料未核验',
   };
+}
+
+class _PersonalNoteSheet extends StatefulWidget {
+  const _PersonalNoteSheet({required this.initialNote});
+  final String initialNote;
+
+  @override
+  State<_PersonalNoteSheet> createState() => _PersonalNoteSheetState();
+}
+
+class _PersonalNoteSheetState extends State<_PersonalNoteSheet> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(text: widget.initialNote);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: const InputDecoration(hintText: '只记录家人的实际备注，不自动生成用药方案'),
+      ),
+      const SizedBox(height: 16),
+      PrimaryButton(
+        label: '保存备注',
+        onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+      ),
+    ],
+  );
+}
+
+class _AddBatchSheet extends StatefulWidget {
+  const _AddBatchSheet({required this.onSave});
+  final void Function(int? quantity, String unit, String expiry) onSave;
+
+  @override
+  State<_AddBatchSheet> createState() => _AddBatchSheetState();
+}
+
+class _AddBatchSheetState extends State<_AddBatchSheet> {
+  final quantityController = TextEditingController();
+  final expiryController = TextEditingController();
+  final unitController = TextEditingController(text: '盒');
+
+  @override
+  void dispose() {
+    quantityController.dispose();
+    expiryController.dispose();
+    unitController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final rawQuantity = quantityController.text.trim();
+    int? quantity;
+    if (rawQuantity.isNotEmpty) {
+      final parsed = int.tryParse(rawQuantity);
+      if (parsed == null || parsed < 0) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('数量需为不小于 0 的整数，或留空表示未知')));
+        return;
+      }
+      quantity = parsed;
+    }
+    widget.onSave(quantity, unitController.text, expiryController.text);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      TextField(
+        controller: quantityController,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(labelText: '数量', hintText: '未知也可以留空'),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: unitController,
+        decoration: const InputDecoration(labelText: '数量单位'),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: expiryController,
+        decoration: const InputDecoration(
+          labelText: '有效期',
+          hintText: '例如 2027-12-31',
+        ),
+      ),
+      const SizedBox(height: 16),
+      PrimaryButton(label: '保存演示批次', onPressed: _save),
+    ],
+  );
 }
 
 class _BatchRow extends StatelessWidget {

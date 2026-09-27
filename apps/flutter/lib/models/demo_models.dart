@@ -15,6 +15,7 @@ class DemoBatch {
     required this.expiry,
     required this.state,
     this.lotNumber,
+    this.storageLocation,
   });
   final String id;
   final int? quantity;
@@ -22,6 +23,7 @@ class DemoBatch {
   final String expiry;
   final ExpiryState state;
   final String? lotNumber;
+  final String? storageLocation;
 }
 
 class DemoMedicine {
@@ -42,13 +44,14 @@ class DemoMedicine {
   final LeafletReviewStatus leafletStatus;
   final String personalNote;
 
-  DemoMedicine copyWith({String? personalNote}) => DemoMedicine(
-    id: id,
-    name: name,
-    specification: specification,
-    purpose: purpose,
-    batches: batches,
-    leafletStatus: leafletStatus,
-    personalNote: personalNote ?? this.personalNote,
-  );
+  DemoMedicine copyWith({String? personalNote, List<DemoBatch>? batches}) =>
+      DemoMedicine(
+        id: id,
+        name: name,
+        specification: specification,
+        purpose: purpose,
+        batches: batches ?? this.batches,
+        leafletStatus: leafletStatus,
+        personalNote: personalNote ?? this.personalNote,
+      );
 }

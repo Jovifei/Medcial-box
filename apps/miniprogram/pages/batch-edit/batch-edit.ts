@@ -1,5 +1,10 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import {
+  isStrictNonNegativeInteger,
+  isStrictPositiveInteger,
+  isValidExpiryValue,
+} from "../../services/input-validation";
 import type {
   BatchPayload,
   ExpiryPrecision,
@@ -11,9 +16,6 @@ const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "b
 const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "其他"];
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
-
-const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 interface BatchEditPageData {
   medicineId: string;
@@ -122,30 +124,30 @@ Page({
     const data = this.data as BatchEditPageData;
     const precision = PRECISION_VALUES[data.precisionIndex] ?? "day";
     let expiryValue: string | null = data.expiryValue.trim();
-    if (precision === "day" && expiryValue !== "" && !DAY_PATTERN.test(expiryValue)) {
-      return { payload: null, error: "按日有效期需为 YYYY-MM-DD 格式" };
+    if (precision === "day" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
+      return { payload: null, error: "按日有效期需为真实日期 YYYY-MM-DD" };
     }
-    if (precision === "month" && expiryValue !== "" && !MONTH_PATTERN.test(expiryValue)) {
-      return { payload: null, error: "按月有效期需为 YYYY-MM 格式" };
+    if (precision === "month" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
+      return { payload: null, error: "按月有效期需为真实月份 YYYY-MM" };
     }
     if (precision === "unknown") expiryValue = null;
 
     let quantity: number | null = null;
     if (!data.quantityUnknown) {
-      const parsed = Number.parseInt(data.quantity.trim(), 10);
-      if (!Number.isInteger(parsed) || parsed < 0) {
+      const raw = data.quantity.trim();
+      if (!isStrictNonNegativeInteger(raw)) {
         return { payload: null, error: "数量需为不小于 0 的整数，或打开“数量未知”开关" };
       }
-      quantity = parsed;
+      quantity = Number(raw);
     }
 
     let confirmedUnits: number | null = null;
     if (data.confirmedUnits.trim() !== "") {
-      const parsedUnits = Number.parseInt(data.confirmedUnits.trim(), 10);
-      if (!Number.isInteger(parsedUnits) || parsedUnits <= 0) {
+      const rawUnits = data.confirmedUnits.trim();
+      if (!isStrictPositiveInteger(rawUnits)) {
         return { payload: null, error: "每包装换算数需为正整数（仅在本人确认后填写）" };
       }
-      confirmedUnits = parsedUnits;
+      confirmedUnits = Number(rawUnits);
     }
 
     return {

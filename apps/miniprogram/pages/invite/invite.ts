@@ -13,12 +13,21 @@ interface MemberView extends FamilyMemberSummary {
   joinedDate: string;
 }
 
+interface InvitationPreview {
+  code: string;
+  familyName: string;
+  expiresAt: string;
+}
+
 interface InvitePageData {
   mode: InviteMode;
   familyName: string;
   invitationCode: string;
   invitationExpiresAt: string;
   inviteInput: string;
+  preview: InvitationPreview | null;
+  previewing: boolean;
+  errorMessage: string;
   submitting: boolean;
   members: MemberView[];
   leaving: boolean;
@@ -59,6 +68,9 @@ Page({
     invitationCode: "",
     invitationExpiresAt: "",
     inviteInput: "",
+    preview: null as InvitationPreview | null,
+    previewing: false,
+    errorMessage: "",
     submitting: false,
     members: [] as MemberView[],
     leaving: false,
@@ -114,13 +126,12 @@ Page({
           ...member,
           joinedDate: member.joinedAt.slice(0, 10),
         })),
-        invitationCode: "",
         nickname: me.user.nickname ?? "",
         nicknameDraft: me.user.nickname ?? "",
       });
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        this.setData({ mode: "join", familyName: "", invitationCode: "" });
+        this.setData({ mode: "join", familyName: "", preview: null, errorMessage: "" });
         if (this.pendingCode !== "") {
           this.setData({ inviteInput: this.pendingCode });
           this.pendingCode = "";
@@ -207,7 +218,39 @@ Page({
   },
 
   onInviteInput(event: { detail: { value: string } }): void {
-    this.setData({ inviteInput: event.detail.value });
+    this.setData({ inviteInput: event.detail.value, preview: null, errorMessage: "" });
+  },
+
+  async onPreviewInvitation(): Promise<void> {
+    const data = this.data as InvitePageData;
+    const code = data.inviteInput.trim();
+    if (code === "") {
+      this.setData({ errorMessage: "请先粘贴邀请码" });
+      return;
+    }
+    if (data.previewing || data.submitting) return;
+    this.setData({ previewing: true, errorMessage: "" });
+    try {
+      await ensureLoggedIn({ allowInteractive: false });
+      const result = await api.previewInvitation(code);
+      this.setData({
+        preview: {
+          code,
+          familyName: result.family.name,
+          expiresAt: result.expiresAt.slice(0, 16).replace("T", " "),
+        },
+      });
+    } catch (error) {
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        wx.reLaunch({ url: `/pages/login/login?code=${encodeURIComponent(code)}` });
+        return;
+      }
+      const message = error instanceof ApiError ? error.message : "预览邀请失败，请稍后重试";
+      this.setData({ errorMessage: message });
+      showError(error);
+    } finally {
+      this.setData({ previewing: false });
+    }
   },
 
   async onAcceptInvitation(): Promise<void> {
@@ -218,6 +261,15 @@ Page({
       return;
     }
     if (data.submitting) return;
+    if (data.preview === null || data.preview.code !== code) {
+      await this.onPreviewInvitation();
+      return;
+    }
+    const confirmed = await confirmModal(
+      "确认加入家庭",
+      `将加入「${data.preview.familyName}」。邀请码使用后不能再次使用，确定加入吗？`,
+    );
+    if (!confirmed) return;
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn({ allowInteractive: false });

@@ -34,6 +34,7 @@ class DemoMedicineRepository extends ChangeNotifier
           expiry: '2026-10',
           state: ExpiryState.expiringSoon,
           lotNumber: 'P202610',
+          storageLocation: '客厅药箱',
         ),
       ],
     ),
@@ -51,6 +52,7 @@ class DemoMedicineRepository extends ChangeNotifier
           expiry: '2027-03-31',
           state: ExpiryState.ok,
           lotNumber: 'C202703',
+          storageLocation: '厨房抽屉',
         ),
       ],
     ),
@@ -67,12 +69,18 @@ class DemoMedicineRepository extends ChangeNotifier
           unit: '瓶',
           expiry: '待补充',
           state: ExpiryState.unknown,
+          storageLocation: '卧室柜',
         ),
       ],
     ),
   ];
 
+  final List<DemoMedicine> _archivedMedicines = [];
+
   List<DemoMedicine> get medicines => List.unmodifiable(_medicines);
+
+  List<DemoMedicine> get archivedMedicines =>
+      List.unmodifiable(_archivedMedicines);
 
   @override
   Future<List<DemoMedicine>> listMedicines() async => medicines;
@@ -114,8 +122,42 @@ class DemoMedicineRepository extends ChangeNotifier
     notifyListeners();
   }
 
+  void updatePersonalNote(String id, String note) {
+    final index = _medicines.indexWhere((medicine) => medicine.id == id);
+    if (index < 0) return;
+    _medicines[index] = _medicines[index].copyWith(personalNote: note);
+    notifyListeners();
+  }
+
+  void addBatch({
+    required String medicineId,
+    required int? quantity,
+    required String unit,
+    required String expiry,
+  }) {
+    final index = _medicines.indexWhere(
+      (medicine) => medicine.id == medicineId,
+    );
+    if (index < 0) return;
+    final normalizedExpiry = expiry.trim().isEmpty ? '待补充' : expiry.trim();
+    final batch = DemoBatch(
+      id: 'batch-${DateTime.now().microsecondsSinceEpoch}',
+      quantity: quantity,
+      unit: unit.trim().isEmpty ? '盒' : unit.trim(),
+      expiry: normalizedExpiry,
+      state: normalizedExpiry == '待补充' ? ExpiryState.unknown : ExpiryState.ok,
+    );
+    final medicine = _medicines[index];
+    _medicines[index] = medicine.copyWith(
+      batches: [...medicine.batches, batch],
+    );
+    notifyListeners();
+  }
+
   void archive(String id) {
-    _medicines.removeWhere((medicine) => medicine.id == id);
+    final index = _medicines.indexWhere((medicine) => medicine.id == id);
+    if (index < 0) return;
+    _archivedMedicines.add(_medicines.removeAt(index));
     notifyListeners();
   }
 }

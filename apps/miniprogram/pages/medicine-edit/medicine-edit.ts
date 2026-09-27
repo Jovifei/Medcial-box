@@ -183,6 +183,9 @@ Page({
     captureSource: "",
   },
 
+  /** 编辑已有药品时，识别必须等待资料加载完成，避免后返回的请求覆盖识别草稿。 */
+  medicineLoadPromise: null as Promise<void> | null,
+
   onLoad(options: { id?: string; capture?: string }): void {
     const captureSource = options.capture === "camera" || options.capture === "album" ? options.capture : "";
     if (captureSource !== "") {
@@ -191,7 +194,7 @@ Page({
     }
     if (options.id) {
       this.setData({ isEdit: true, medicineId: options.id });
-      this.loadMedicine(options.id);
+      this.medicineLoadPromise = this.loadMedicine(options.id);
     }
   },
 
@@ -247,10 +250,11 @@ Page({
       | "album"
       | { currentTarget?: { dataset?: { source?: string } } },
   ): Promise<void> {
-    const data = this.data as MedicineEditPageData;
-    if (data.recognizing || data.submitting) return;
+    const initialData = this.data as MedicineEditPageData;
+    if (initialData.recognizing || initialData.submitting) return;
     this.setData({ recognizing: true });
     try {
+      if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
       const eventSource = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.source : sourceOverride;
       const source = eventSource === "album" ? "album" : "camera";
       const selection = await wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: [source], sizeType: ["compressed"] });
@@ -368,8 +372,10 @@ Page({
   },
 
   async onSubmit(): Promise<void> {
+    const initialData = this.data as MedicineEditPageData;
+    if (initialData.submitting || initialData.recognizing) return;
+    if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
     const data = this.data as MedicineEditPageData;
-    if (data.submitting || data.recognizing) return;
     const name = data.name.trim();
     if (name === "") {
       wx.showToast({ title: "药品名称不能为空", icon: "none" });

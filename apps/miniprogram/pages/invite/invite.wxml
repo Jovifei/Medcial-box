@@ -51,9 +51,17 @@
       <view class="field-label">邀请码</view>
       <input class="input" placeholder="粘贴管理员发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" />
     </view>
-    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
-      {{submitting ? "加入中…" : "加入家庭"}}
+    <view class="btn btn-ghost {{previewing ? 'disabled' : ''}}" bindtap="onPreviewInvitation" wx:if="{{preview === null}}">
+      {{previewing ? "查询中…" : "预览邀请"}}
     </view>
+    <view class="preview" wx:if="{{preview !== null}}">
+      <view class="preview-title">{{preview.familyName}}</view>
+      <view class="hint">有效期至：{{preview.expiresAt}}</view>
+      <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
+        {{submitting ? "加入中…" : "确认加入"}}
+      </view>
+    </view>
+    <view class="error" wx:if="{{errorMessage !== ''}}">{{errorMessage}}</view>
   </view>
 
   <!-- 普通成员：可自助退出（D3） -->
