@@ -59,6 +59,19 @@ void main() {
     expect(find.textContaining('个人剂量备注：包含'), findsOneWidget);
   });
 
+  testWidgets('manual medicine entry writes a new demo record', (tester) async {
+    await openHome(tester);
+    await tester.tap(find.text('录入药品'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动录入'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '测试录入药');
+    await tester.tap(find.text('保存到演示药箱'));
+    await tester.pumpAndSettle();
+    expect(find.text('测试录入药'), findsOneWidget);
+    expect(find.text('库存状态'), findsOneWidget);
+  });
+
   testWidgets('primary controls expose button semantics', (tester) async {
     await tester.pumpWidget(const HomeMedicineApp());
     await tester.pumpAndSettle();

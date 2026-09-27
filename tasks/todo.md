@@ -7,16 +7,19 @@
 - [x] 完成 Material 3 主题、路由转场、底部面板、弹窗和共享元素动画
 - [x] 完成欢迎页、家庭选择、药箱首页、药品详情和导出预览
 - [x] 接入本地合成仓库和可替换 `AuthRepository`／`MedicineRepository` 接口
-- [x] `flutter analyze`、Widget 测试、Debug APK 构建通过
-- [x] APK 安装到 `GM1910` 并启动验证
+- [x] 接入 `image_picker` 相机／相册权限和中文 ML Kit 识别草稿
+- [x] 完成手动药品录入、识别失败补填、人工核对后保存
+- [x] `flutter analyze`、Widget／解析器测试 7/7、Debug APK 构建通过
+- [x] APK 安装到 `GM1910`，验证相机权限、系统相机、拍照返回、识别草稿和手动保存
 - [ ] 记录用户视觉反馈并进行第二轮调整
 
 ### Flutter 验收证据
 
-- Widget 测试：4/4 PASS
+- Widget／解析器测试：7/7 PASS
 - APK：`apps/flutter/build/app/outputs/flutter-apk/app-debug.apk`
 - 已验证截图：`E:\Claude_allow\Download\medcial_box\flutter-ui-prototype-welcome.png`、`flutter-ui-prototype-choice2.png`、`flutter-ui-prototype-after-create.png`、`flutter-ui-prototype-manual.png`
-- 边界：使用合成数据；未接微信登录、真实 API、拍照识别和远端服务。
+- 识别证据截图：`flutter-ui-prototype-camera-permission.png`、`flutter-ui-prototype-recognition-final.png`
+- 边界：库存仍使用合成数据；未接微信登录、真实 API 和远端服务；ML Kit 识别结果必须人工核对。
 
 ## 2026-09-27 下一阶段：登录与家庭试用闭环（执行中）
 

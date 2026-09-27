@@ -2,9 +2,10 @@
 
 - 分支：`codex/flutter-ui-prototype`，基于 `7d8afdb`，独立工作树 `C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`。
 - Flutter：3.47.5 stable；Android SDK 已存在，通过 `E:\AI_Tools\Other\AndroidSDK` Junction 统一访问；Android 设备 `GM1910` 已连接。
-- 原型范围：欢迎页、家庭选择、创建／加入底部面板、药箱首页、搜索、药品详情、批次状态、个人备注、Markdown 导出选项；全部使用合成数据。
-- 当前证据：`flutter analyze` 无问题；Widget 测试 4/4 通过；Debug APK 构建成功；APK 已安装并启动到 `GM1910`，已截图验证欢迎页、家庭选择底部面板和药品详情。
-- 真正微信登录、API 联调、相机识别和生产发布不在本轮范围。
+- 原型范围：欢迎页、家庭选择、创建／加入底部面板、药箱首页、搜索、药品详情、批次状态、个人备注、Markdown 导出选项；库存使用合成数据。
+- 功能新增：`image_picker` 相机／相册入口、Android CAMERA 权限、中文 ML Kit 文字识别、识别草稿人工核对页、手动录入真正写入演示药箱。
+- 当前证据：`flutter analyze` 无问题；Widget／解析器测试 7/7 通过；Debug APK 构建成功；APK 已安装并启动到 `GM1910`；相机权限弹窗、系统相机、拍照返回识别草稿和手动录入保存均已验证。
+- 真正微信登录、API 联调、药品资料查询和生产发布不在本轮范围；本轮相机识别使用本地 ML Kit，结果必须人工核对。
 
 ---
 

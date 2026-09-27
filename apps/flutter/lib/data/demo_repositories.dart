@@ -82,21 +82,31 @@ class DemoMedicineRepository extends ChangeNotifier
       _medicines.firstWhere((medicine) => medicine.id == id);
 
   void addDemoMedicine(String name) {
+    addFromDraft(name: name);
+  }
+
+  void addFromDraft({
+    required String name,
+    String specification = '规格待补充',
+    String purpose = '用途待确认',
+    String expiry = '待补充',
+  }) {
+    final state = expiry == '待补充' ? ExpiryState.unknown : ExpiryState.ok;
     _medicines.insert(
       0,
       DemoMedicine(
         id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
-        specification: '规格待补充',
-        purpose: '用途待确认',
+        specification: specification,
+        purpose: purpose,
         leafletStatus: LeafletReviewStatus.unverified,
-        batches: const [
+        batches: [
           DemoBatch(
             id: 'new-batch',
             quantity: null,
             unit: '盒',
-            expiry: '待补充',
-            state: ExpiryState.unknown,
+            expiry: expiry,
+            state: state,
           ),
         ],
       ),

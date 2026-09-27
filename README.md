@@ -58,7 +58,7 @@ npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 
 
 拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
 
-Flutter 交互原型的运行说明见 [`apps/flutter/README.md`](apps/flutter/README.md)。它不替换微信小程序，先用于验证页面跳转、底部面板、确认弹窗和药品详情动画。
+Flutter 交互原型的运行说明见 [`apps/flutter/README.md`](apps/flutter/README.md)。它不替换微信小程序，先用于验证页面跳转、底部面板、确认弹窗、药品详情动画和 Android 拍照识别草稿流程。
 
 ## 数据和安全边界
 

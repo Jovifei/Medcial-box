@@ -32,6 +32,8 @@ dependencies:
     sdk: flutter
 
   go_router: ^16.2.4
+  google_mlkit_text_recognition: ^0.17.1
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

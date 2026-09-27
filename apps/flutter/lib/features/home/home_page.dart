@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/motion/app_motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/demo_repositories.dart';
+import '../../data/medicine_recognition.dart';
 import '../../models/demo_models.dart';
+import '../recognition/recognition_draft_page.dart';
+
+enum _AddAction { camera, gallery, manual }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.repository});
@@ -17,6 +22,25 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String keyword = '';
+  final imagePicker = ImagePicker();
+  final recognitionRepository = MlKitMedicineRecognitionRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _recoverLostImage();
+  }
+
+  Future<void> _recoverLostImage() async {
+    try {
+      final lost = await imagePicker.retrieveLostData();
+      final files = lost.files;
+      if (!mounted || files == null || files.isEmpty) return;
+      await _openRecognitionDraft(files.first);
+    } catch (_) {
+      // Widget tests and non-Android preview targets have no picker channel.
+    }
+  }
 
   List<DemoMedicine> get filtered => widget.repository.medicines
       .where(
@@ -27,7 +51,7 @@ class _HomePageState extends State<HomePage> {
       .toList();
 
   Future<void> _showAddSheet() async {
-    final addedName = await showAppSheet<String>(
+    final action = await showAppSheet<_AddAction>(
       context,
       title: '录入家里的药',
       builder: (context) {
@@ -38,7 +62,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.camera_alt_rounded,
               title: '拍照识别',
               subtitle: '识别药盒和有效期，进入人工核对',
-              onTap: () => Navigator.of(context).pop('拍照识别中的演示药品'),
+              onTap: () => Navigator.of(context).pop(_AddAction.camera),
             ),
             const SizedBox(height: 12),
             choiceTile(
@@ -46,7 +70,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.photo_library_outlined,
               title: '从相册选择',
               subtitle: '选择一张药盒照片',
-              onTap: () => Navigator.of(context).pop('相册中的演示药品'),
+              onTap: () => Navigator.of(context).pop(_AddAction.gallery),
               tint: const Color(0xFFF6EAD4),
             ),
             const SizedBox(height: 12),
@@ -55,15 +79,48 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.edit_note_rounded,
               title: '手动录入',
               subtitle: '只填名称也可以先保存',
-              onTap: () => _showManualSheet(context),
+              onTap: () => Navigator.of(context).pop(_AddAction.manual),
             ),
           ],
         );
       },
     );
-    if (addedName != null && addedName.isNotEmpty) {
-      widget.repository.addDemoMedicine(addedName);
+    if (action == _AddAction.manual && mounted) {
+      await _showManualSheet(context);
+    } else if (action != null && mounted) {
+      await _pickAndRecognize(
+        action == _AddAction.camera ? ImageSource.camera : ImageSource.gallery,
+      );
     }
+  }
+
+  Future<void> _pickAndRecognize(ImageSource source) async {
+    try {
+      final image = await imagePicker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 1800,
+      );
+      if (image == null || !mounted) return;
+      await _openRecognitionDraft(image);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('无法打开图片权限或选择器：$error')));
+    }
+  }
+
+  Future<void> _openRecognitionDraft(XFile image) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => RecognitionDraftPage(
+          image: image,
+          repository: widget.repository,
+          recognitionRepository: recognitionRepository,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _showManualSheet(BuildContext parentContext) async {
@@ -95,7 +152,8 @@ class _HomePageState extends State<HomePage> {
       },
     );
     if (name != null && parentContext.mounted) {
-      Navigator.of(parentContext).pop(name);
+      widget.repository.addDemoMedicine(name);
+      setState(() {});
     }
   }
 
