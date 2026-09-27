@@ -143,8 +143,9 @@ export const api = {
 
   updateProfile(nickname: string | null): Promise<UpdateProfileResponse> {
     return request<UpdateProfileResponse>({
-      method: "PATCH",
-      path: "/api/v1/users/me",
+      // wx.request 在部分运行时不支持 PATCH；后端提供 POST 兼容入口。
+      method: "POST",
+      path: "/api/v1/users/me/nickname",
       payload: { nickname },
     });
   },

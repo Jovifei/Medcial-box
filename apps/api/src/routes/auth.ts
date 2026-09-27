@@ -1,5 +1,5 @@
 // POST /api/v1/auth/wechat — 微信登录：code 换 openid，签发随机令牌（仅存哈希）。
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
 import type { WechatGateway } from "../auth/wechat.js";
@@ -71,7 +71,7 @@ export async function registerAuthRoutes(
     return { revoked: true as const };
   });
 
-  app.patch("/api/v1/users/me", async (request, reply) => {
+  const updateNickname = async (request: FastifyRequest, reply: FastifyReply) => {
     const auth = request.auth;
     if (auth === null) {
       return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
@@ -98,7 +98,12 @@ export async function registerAuthRoutes(
         .send(errorBody("UNAUTHORIZED", "登录状态无效，请重新登录"));
     }
     return { user: { id: user.id, nickname: user.nickname } };
-  });
+  };
+
+  // 保留 REST PATCH 契约；微信小程序客户端使用 POST 兼容入口，
+  // 因为部分 wx.request 运行时不接受 PATCH 作为 method。
+  app.patch("/api/v1/users/me", updateNickname);
+  app.post("/api/v1/users/me/nickname", updateNickname);
 
   app.post("/api/v1/auth/wechat", async (request, reply) => {
     if (!loginRateLimit(clientAddress(request))) {

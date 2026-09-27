@@ -247,7 +247,7 @@ test("GET /auth/me returns the current user and minimal family membership", asyn
   }
 });
 
-test("PATCH /users/me trims and clears the optional nickname", async () => {
+test("PATCH and POST /users/me nickname routes trim and clear the optional nickname", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
   const app = await createApp(pool, gateway);
@@ -266,6 +266,15 @@ test("PATCH /users/me trims and clears the optional nickname", async () => {
     });
     assert.equal(updated.statusCode, 200);
     assert.deepEqual(updated.json(), { user: { id: "user-1", nickname: "家人" } });
+
+    const mobileUpdated = await app.inject({
+      method: "POST",
+      url: "/api/v1/users/me/nickname",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { nickname: "  手机端  " },
+    });
+    assert.equal(mobileUpdated.statusCode, 200);
+    assert.deepEqual(mobileUpdated.json(), { user: { id: "user-1", nickname: "手机端" } });
 
     const cleared = await app.inject({
       method: "PATCH",

@@ -59,4 +59,8 @@ test("invite and medicine edit pages keep the guarded flows in source", async ()
   const medicineEdit = await readProjectFile("apps/miniprogram/pages/medicine-edit/medicine-edit.ts");
   assert.match(medicineEdit, /medicineLoadPromise = this\.loadMedicine\(options\.id\)/);
   assert.match(medicineEdit, /if \(this\.medicineLoadPromise !== null\) await this\.medicineLoadPromise;/);
+
+  const api = await readProjectFile("apps/miniprogram/services/api.ts");
+  assert.match(api, /path: "\/api\/v1\/users\/me\/nickname"/);
+  assert.match(api, /updateProfile[\s\S]*?method: "POST"/);
 });

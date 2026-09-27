@@ -3,8 +3,8 @@
 ## 2026-09-27 审计问题修复结果
 
 - Flutter：备注与批次写回演示仓库；归档保留可选导出；导出 Markdown 现在随个人备注、存放位置和归档开关改变；详情页补无效 ID、空批次状态；相机权限错误改为可操作提示；OCR 无药品关键词时保持空白并提示人工核对。
-- 小程序：分享邀请码统一为预览→确认→接受；批次数量和有效期使用严格校验；邀请码刷新保留当前有效码；编辑药品时识别等待资料加载完成。
-- 验证：根 lint/typecheck/build 通过；API 合成测试 127 通过、1 个可选真实 PostgreSQL 测试跳过；tooling 5/5 通过；Flutter analyze 通过、Widget/解析器/仓库测试 15 项通过、Debug APK 构建通过；最新 APK 已保留数据安装到 `GM1910`，启动进程和欢迎页语义节点 PASS；`git diff --check` 通过。
+- 小程序：分享邀请码统一为预览→确认→接受；批次数量和有效期使用严格校验；邀请码刷新保留当前有效码；编辑药品时识别等待资料加载完成；显示名保存改走 POST 兼容入口，避开 wx.request 的 PATCH 运行时问题。
+- 验证：根 lint/typecheck/build 通过；API 合成测试 127 通过、1 个可选真实 PostgreSQL 测试跳过；tooling 5/5 通过；Flutter analyze 通过、Widget/解析器/仓库测试 15 项通过、Debug APK 构建通过；最新 APK 已保留数据安装到 `GM1910`，启动进程和欢迎页语义节点 PASS；本地 Docker API/DB 重建后 `/ready` PASS，兼容入口无令牌返回预期 401；`git diff --check` 通过。
 - 仍未完成：微信开发者工具页面点击、真实小程序相机/相册权限、双账号家庭共享和远端 ECS 验收。开发者工具 CLI 仍受 `IDE service port disabled` 阻塞。
 
 - 分支：`codex/flutter-ui-prototype`，基于 `7d8afdb`，独立工作树 `C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`。
@@ -13,7 +13,7 @@
 - 功能新增：`image_picker` 相机／相册入口、Android CAMERA 权限、中文 ML Kit 文字识别、识别草稿人工核对页、手动录入真正写入演示药箱。
 - 当前证据：`flutter analyze` 无问题；Widget／解析器／仓库测试 15/15 通过；Debug APK 构建成功；最新 APK 已保留数据安装并启动到 `GM1910`；相机权限弹窗、系统相机、拍照返回识别草稿和手动录入保存均已有设备证据。
 - 真正微信登录、API 联调、药品资料查询和生产发布不在本轮范围；本轮相机识别使用本地 ML Kit，结果必须人工核对。
-- 小程序同步：首页新增 Flutter 同款三选一录入底部面板；拍照／相册入口带 `capture` 来源进入录入页，继续使用现有鉴权识别 API 和人工核对保存。最新本地导入包：`.local-data\mini-local-418b7b11-952a-4b57-896b-4722b7425073`。
+- 小程序同步：首页新增 Flutter 同款三选一录入底部面板；拍照／相册入口带 `capture` 来源进入录入页，继续使用现有鉴权识别 API 和人工核对保存。最新本地导入包：`.local-data\mini-local-0e6110b2-a8a7-40ce-ab52-fbd42d79fdb6`。
 
 ---
 
