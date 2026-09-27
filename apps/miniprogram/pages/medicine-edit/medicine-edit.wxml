@@ -2,8 +2,9 @@
   <view class="card photo-card">
     <view class="section-title">{{isEdit ? "编辑药品" : "添加家里的药"}}</view>
     <view class="field-hint">先拍药盒，识别后核对；有效期在另一面时可稍后补拍或手填。</view>
-    <view class="btn btn-primary photo-action {{recognizing ? 'disabled' : ''}}" bindtap="onRecognizePhoto">
-      {{recognizing ? "正在识别，请稍候…" : "拍照识别 / 从相册选择"}}
+    <view class="photo-actions">
+      <view class="btn btn-primary photo-action {{recognizing ? 'disabled' : ''}}" data-source="camera" bindtap="onRecognizePhoto">{{recognizing ? "正在识别，请稍候…" : "📷 拍照识别"}}</view>
+      <view class="btn btn-ghost photo-action {{recognizing ? 'disabled' : ''}}" data-source="album" bindtap="onRecognizePhoto">🖼 从相册选择</view>
     </view>
     <view class="recognition-status" wx:if="{{recognitionHint}}">
       <view class="recognition-status-title">{{recognizing ? "识别处理中" : "识别结果"}}</view>

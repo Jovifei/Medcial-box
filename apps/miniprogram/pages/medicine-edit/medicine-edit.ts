@@ -53,6 +53,7 @@ interface MedicineEditPageData {
   precisionLabels: string[];
   purposeOptions: string[];
   purposeIndex: number;
+  captureSource: "" | "camera" | "album";
 }
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -179,9 +180,15 @@ Page({
     precisionLabels: PRECISION_LABELS,
     purposeOptions: PURPOSE_OPTIONS,
     purposeIndex: 0,
+    captureSource: "",
   },
 
-  onLoad(options: { id?: string }): void {
+  onLoad(options: { id?: string; capture?: string }): void {
+    const captureSource = options.capture === "camera" || options.capture === "album" ? options.capture : "";
+    if (captureSource !== "") {
+      this.setData({ captureSource });
+      setTimeout(() => this.onRecognizePhoto(captureSource), 260);
+    }
     if (options.id) {
       this.setData({ isEdit: true, medicineId: options.id });
       this.loadMedicine(options.id);
@@ -234,12 +241,19 @@ Page({
     this.setData({ purposeIndex, purposeCategory: selected === "未分类" ? "" : selected });
   },
 
-  async onRecognizePhoto(): Promise<void> {
+  async onRecognizePhoto(
+    sourceOverride?:
+      | "camera"
+      | "album"
+      | { currentTarget?: { dataset?: { source?: string } } },
+  ): Promise<void> {
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting) return;
     this.setData({ recognizing: true });
     try {
-      const selection = await wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: ["camera", "album"], sizeType: ["compressed"] });
+      const eventSource = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.source : sourceOverride;
+      const source = eventSource === "album" ? "album" : "camera";
+      const selection = await wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: [source], sizeType: ["compressed"] });
       const file = selection.tempFiles[0];
       if (!file) return;
       if (file.size > 4 * 1024 * 1024) {

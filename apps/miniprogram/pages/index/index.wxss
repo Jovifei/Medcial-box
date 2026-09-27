@@ -198,3 +198,95 @@
   font-size: 21rpx;
   line-height: 1.6;
 }
+
+.entry-sheet-layer {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+}
+
+.entry-sheet-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(21, 34, 27, 0.42);
+}
+
+.entry-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 18rpx 30rpx calc(34rpx + env(safe-area-inset-bottom));
+  border-radius: 30rpx 30rpx 0 0;
+  background: #f5f7f4;
+  box-shadow: 0 -12rpx 40rpx rgba(35, 53, 44, 0.14);
+}
+
+.sheet-handle {
+  width: 70rpx;
+  height: 8rpx;
+  margin: 0 auto 24rpx;
+  border-radius: 99rpx;
+  background: #dce5de;
+}
+
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: 720;
+}
+
+.sheet-hint {
+  margin-top: 8rpx;
+  color: #718078;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.sheet-option {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin-top: 16rpx;
+  padding: 22rpx 20rpx;
+  border: 1rpx solid #e1e9e2;
+  border-radius: 20rpx;
+  background: #fff;
+}
+
+.sheet-icon {
+  width: 66rpx;
+  height: 66rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e3f0e7;
+  color: #315f46;
+  font-size: 34rpx;
+}
+
+.sheet-icon.album {
+  background: #f6ead4;
+}
+
+.sheet-option-main {
+  flex: 1;
+}
+
+.sheet-option-title {
+  color: #24352c;
+  font-size: 29rpx;
+  font-weight: 680;
+}
+
+.sheet-option-hint {
+  margin-top: 6rpx;
+  color: #718078;
+  font-size: 21rpx;
+  line-height: 1.45;
+}
+
+.sheet-arrow {
+  color: #7c8b80;
+  font-size: 42rpx;
+}

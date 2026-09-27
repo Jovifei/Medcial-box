@@ -58,6 +58,15 @@
   line-height: 1.35;
 }
 
+.photo-actions {
+  display: flex;
+  gap: 14rpx;
+}
+
+.photo-actions .photo-action {
+  flex: 1;
+}
+
 .recognition-status {
   margin-top: 18rpx;
   padding: 18rpx 20rpx;

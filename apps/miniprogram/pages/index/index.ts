@@ -70,6 +70,7 @@ interface IndexPageData {
   items: CabinetItem[];
   allItems: CabinetItem[];
   errorMessage: string;
+  entrySheetVisible: boolean;
 }
 
 Page({
@@ -84,6 +85,7 @@ Page({
     items: [] as CabinetItem[],
     allItems: [] as CabinetItem[],
     errorMessage: "",
+    entrySheetVisible: false,
   },
 
   redirecting: false,
@@ -178,7 +180,25 @@ Page({
   },
 
   onTapAdd(): void {
-    wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
+    this.setData({ entrySheetVisible: true });
+  },
+
+  onCloseEntrySheet(): void {
+    this.setData({ entrySheetVisible: false });
+  },
+
+  onSelectEntry(event: { currentTarget: { dataset: { action?: string } } }): void {
+    const action = event.currentTarget.dataset.action;
+    this.setData({ entrySheetVisible: false });
+    if (action === "camera" || action === "album") {
+      wx.navigateTo({ url: `/pages/medicine-edit/medicine-edit?capture=${action}` });
+      return;
+    }
+    if (action === "manual") wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
+  },
+
+  noop(): void {
+    // 遮罩层阻止触摸事件穿透到底部页面。
   },
 
   onTapExport(): void {
