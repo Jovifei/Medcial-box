@@ -14,8 +14,15 @@ interface CabinetItem {
   quantityText: string;
   expiryText: string;
   state: ExpiryState;
+  stateClass: string;
+  stateLabel: string;
+  stockState: string;
+  needsInfo: boolean;
+  searchText: string;
   isExample: boolean;
 }
+
+type CabinetFilter = "all" | "expiring" | "low" | "missing";
 
 const UNIT_SHORT: Record<QuantityUnit, string> = {
   tablet: "片",
@@ -47,14 +54,41 @@ function purposeText(medicine: MedicationSummary): string {
 }
 
 function toCabinetItem(medicine: MedicationSummary): CabinetItem {
+  const activeExpiryStates = medicine.batches.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state);
+  const severity: Record<ExpiryState, number> = { expired: 0, due_this_month: 1, expiring_soon: 2, ok: 3, unknown: 4 };
+  const state = activeExpiryStates.length > 0
+    ? [...activeExpiryStates].sort((left, right) => severity[left] - severity[right])[0]
+    : medicine.expiryState?.state ?? "unknown";
+  const dateRecords = medicine.batches.map((batch) => ({
+    date: batch.managementExpiryDate ?? batch.expiry.value,
+    label: batch.managementExpiryState?.label ?? batch.expiryState.label,
+  })).filter((item): item is { date: string; label: string } => item.date !== null);
+  dateRecords.sort((left, right) => left.date.localeCompare(right.date));
+  const stateLabels: Record<ExpiryState, string> = {
+    expired: "已过期或开封期限已到",
+    due_this_month: "本月到期",
+    expiring_soon: "30 天内到期",
+    ok: "有效期正常",
+    unknown: "有效期未知",
+  };
   return {
     id: medicine.id,
     name: medicine.name,
     specification: medicine.specification ?? "规格未记录",
     purpose: purposeText(medicine),
     quantityText: quantitySummary(medicine),
-    expiryText: medicine.expiryState?.label ?? "有效期未知",
-    state: medicine.expiryState?.state ?? "unknown",
+    expiryText: dateRecords.length > 0 ? `最早需处理：${dateRecords[0].date}` : medicine.expiryState?.label ?? "有效期未知",
+    state,
+    stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
+    stateLabel: stateLabels[state],
+    stockState: medicine.stockStatus?.state ?? "unknown",
+    needsInfo: medicine.specification === null || medicine.manufacturer === null ||
+      medicine.activeIngredients.length === 0 || medicine.leaflet.reviewStatus === "unverified",
+    searchText: [medicine.name, medicine.specification, medicine.manufacturer,
+      medicine.approvalNumber, ...medicine.activeIngredients,
+      ...medicine.batches.map((batch) => batch.storageLocation)]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ").toLocaleLowerCase(),
     isExample: false,
   };
 }
@@ -65,7 +99,11 @@ interface IndexPageData {
   isFiltered: boolean;
   expiringCount: number;
   expiredCount: number;
+  lowStockCount: number;
+  missingInfoCount: number;
   keyword: string;
+  filterKind: CabinetFilter;
+  filters: Array<{ id: CabinetFilter; label: string; count: number }>;
   familyName: string;
   items: CabinetItem[];
   allItems: CabinetItem[];
@@ -80,7 +118,11 @@ Page({
     isFiltered: false,
     expiringCount: 0,
     expiredCount: 0,
+    lowStockCount: 0,
+    missingInfoCount: 0,
     keyword: "",
+    filterKind: "all" as CabinetFilter,
+    filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
     familyName: "",
     items: [] as CabinetItem[],
     allItems: [] as CabinetItem[],
@@ -137,12 +179,23 @@ Page({
     const allItems = medicines.map(toCabinetItem);
     let expiredCount = 0;
     let expiringCount = 0;
-    for (const medicine of medicines) {
-      const state = medicine.expiryState?.state ?? "unknown";
+    for (const item of allItems) {
+      const state = item.state;
       if (state === "expired") expiredCount += 1;
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
     this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
+    const lowStockCount = allItems.filter((item) => item.stockState === "low").length;
+    const missingInfoCount = allItems.filter((item) => item.needsInfo).length;
+    this.setData({
+      lowStockCount,
+      missingInfoCount,
+      filters: [
+        { id: "expiring", label: "临期 / 过期", count: expiredCount + expiringCount },
+        { id: "low", label: "库存不足", count: lowStockCount },
+        { id: "missing", label: "待补资料", count: missingInfoCount },
+      ],
+    });
     this.applyFilter();
   },
 
@@ -156,16 +209,37 @@ Page({
       items: [],
       expiredCount: 0,
       expiringCount: 0,
+      lowStockCount: 0,
+      missingInfoCount: 0,
       errorMessage: message,
     });
   },
 
   applyFilter(): void {
-    const keyword = (this.data as IndexPageData).keyword.trim();
-    const allItems = (this.data as IndexPageData).allItems;
-    const items =
-      keyword === "" ? allItems : allItems.filter((item) => item.name.includes(keyword));
-    this.setData({ items, isFiltered: keyword !== "" });
+    const data = this.data as IndexPageData;
+    const keyword = data.keyword.trim().toLocaleLowerCase();
+    const items = data.allItems.filter((item) => {
+      const matchesKeyword = keyword === "" || item.searchText.includes(keyword);
+      const matchesFilter = data.filterKind === "all" ||
+        (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
+        (data.filterKind === "low" && item.stockState === "low") ||
+        (data.filterKind === "missing" && item.needsInfo);
+      return matchesKeyword && matchesFilter;
+    });
+    this.setData({ items, isFiltered: keyword !== "" || data.filterKind !== "all" });
+  },
+
+  onSelectFilter(event: { currentTarget: { dataset: { kind?: CabinetFilter } } }): void {
+    const selected = event.currentTarget.dataset.kind;
+    if (!selected) return;
+    const current = (this.data as IndexPageData).filterKind;
+    this.setData({ filterKind: current === selected ? "all" : selected });
+    this.applyFilter();
+  },
+
+  onClearFilters(): void {
+    this.setData({ keyword: "", filterKind: "all" });
+    this.applyFilter();
   },
 
   onSearchInput(event: { detail: { value: string } }): void {
@@ -194,6 +268,10 @@ Page({
       wx.navigateTo({ url: `/pages/medicine-edit/medicine-edit?capture=${action}` });
       return;
     }
+    if (action === "scan") {
+      wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit?scan=1" });
+      return;
+    }
     if (action === "manual") wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
   },
 
@@ -207,6 +285,10 @@ Page({
 
   onTapInvite(): void {
     wx.navigateTo({ url: "/pages/invite/invite" });
+  },
+
+  onTapFamily(): void {
+    wx.navigateTo({ url: "/pages/family-settings/family-settings" });
   },
 
   onRetry(): void {

@@ -26,6 +26,8 @@ RUN npm ci --omit=dev
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/db ./apps/api/db
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
+RUN mkdir -p /var/lib/medbox/private-uploads && chown -R node:node /var/lib/medbox
+ENV PRIVATE_UPLOAD_DIR=/var/lib/medbox/private-uploads
 
 EXPOSE 3000
 USER node

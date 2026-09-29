@@ -1,4 +1,4 @@
-// 批次端点（药品作用域）：列表、新建、编辑（version → 409）、物理删除。
+// 批次端点（药品作用域）：列表、新建、编辑（version → 409）、进入回收站。
 // 审核修复 #3：批次的增/改/删都在单连接事务内执行，并在成功后递增药品聚合
 // 版本——药品整体保存以药品版本为锁，旧页面保存会撞 409，不再静默删除
 // 他人并发新增的批次。
@@ -8,14 +8,17 @@ import { errorBody, TransactionConflictError } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import {
   deleteBatch,
+  decrementUnopenedBatchForSplit,
   findBatchInMedicine,
+  insertOpenedBatchSplit,
   insertBatch,
+  lockBatchInMedicine,
   listBatchesByMedicine,
   toBatchSummary,
   updateBatch,
 } from "../repositories/batches.js";
 import { bumpMedicineVersion, findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
-import { validateBatchInput, validateBatchUpdateInput } from "../inputs.js";
+import { validateBatchInput, validateBatchSplitInput, validateBatchUpdateInput } from "../inputs.js";
 
 const MEDICINE_NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家庭中");
 const BATCH_NOT_FOUND_BODY = errorBody("NOT_FOUND", "批次不存在或不在当前药品下");
@@ -116,7 +119,100 @@ export async function registerBatchRoutes(
     }
   });
 
-  // 批次录错即删：物理删除，无批次版本校验；同样递增药品聚合版本。
+  app.post("/api/v1/medicines/:medicineId/batches/:batchId/open-split", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const { medicineId, batchId } = request.params as { medicineId: string; batchId: string };
+    const parsed = validateBatchSplitInput(request.body);
+    if (!parsed.ok) return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
+
+    try {
+      const split = await database.withTransaction(async (tx) => {
+        // 先锁聚合根再锁批次，与其他批次写操作保持同一锁顺序。
+        const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
+        if (medicine === null) throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
+        if (medicine.is_archived) {
+          throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "已归档药品不能拆分批次"));
+        }
+
+        const existing = await lockBatchInMedicine(tx, batchId, medicineId, ctx.familyId);
+        if (existing === null) throw new TransactionConflictError(404, BATCH_NOT_FOUND_BODY);
+        if (existing.version !== parsed.value.version) {
+          throw new TransactionConflictError(409, CONFLICT_BODY);
+        }
+        if (existing.quantity === null || existing.quantity === 0) {
+          throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "数量未知或为零的批次不能拆分"));
+        }
+        if (existing.opened_state !== "unopened" || existing.disposition_status !== "active") {
+          throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "只有未开封且未处理的批次可以拆分"));
+        }
+        if (parsed.value.openedQuantity >= existing.quantity) {
+          throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "开封数量必须小于当前批次数量"));
+        }
+
+        const remainingBatch = await decrementUnopenedBatchForSplit(
+          tx,
+          batchId,
+          medicineId,
+          ctx.familyId,
+          parsed.value.openedQuantity,
+          parsed.value.version,
+          ctx.userId,
+        );
+        if (remainingBatch === null) throw new TransactionConflictError(409, CONFLICT_BODY);
+
+        const openedBatch = await insertOpenedBatchSplit(
+          tx,
+          batchId,
+          medicineId,
+          ctx.familyId,
+          remainingBatch.version,
+          parsed.value.openedQuantity,
+          parsed.value.openedAt,
+          parsed.value.afterOpeningLimit,
+          ctx.userId,
+        );
+        if (openedBatch === null) throw new TransactionConflictError(409, CONFLICT_BODY);
+
+        const bumped = await bumpMedicineVersion(tx, medicineId, ctx.familyId, ctx.userId);
+        if (!bumped) throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
+
+        // 006 的行级触发器会分别记录原批次余量和新批次；此事件将两条记录的
+        // 业务关系归并成一个可读的拆分操作，和库存修改同事务提交。
+        await tx.query(
+          `INSERT INTO audit_events (family_id, actor_id, entity_type, entity_id, action, changes)
+           VALUES ($1, $2, 'batch', $3, 'split_opened', $4::jsonb)`,
+          [
+            ctx.familyId,
+            ctx.userId,
+            openedBatch.id,
+            JSON.stringify({
+              sourceBatchId: batchId,
+              openedQuantity: parsed.value.openedQuantity,
+              remainingQuantity: remainingBatch.quantity,
+              unit: existing.unit,
+              openedAt: parsed.value.openedAt,
+              afterOpeningLimit: parsed.value.afterOpeningLimit,
+            }),
+          ],
+        );
+
+        return { remainingBatch, openedBatch };
+      });
+
+      return reply.code(201).send({
+        openedBatch: toBatchSummary(split.openedBatch),
+        remainingBatch: toBatchSummary(split.remainingBatch),
+      });
+    } catch (error) {
+      if (error instanceof TransactionConflictError) {
+        return reply.code(error.statusCode).send(error.body);
+      }
+      throw error;
+    }
+  });
+
+  // 删除批次进入 30 天回收站，保留版本与审计记录；同样递增药品聚合版本。
   app.delete("/api/v1/medicines/:medicineId/batches/:batchId", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
@@ -131,7 +227,7 @@ export async function registerBatchRoutes(
         if (medicine === null) {
           throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
         }
-        const removed = await deleteBatch(tx, batchId, medicineId, ctx.familyId);
+        const removed = await deleteBatch(tx, batchId, medicineId, ctx.familyId, ctx.userId);
         if (!removed) {
           throw new TransactionConflictError(404, BATCH_NOT_FOUND_BODY);
         }

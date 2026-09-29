@@ -51,6 +51,32 @@
   font-size: 20rpx;
 }
 
+.batch-action {
+  min-height: 72rpx;
+  margin-top: 14rpx;
+  font-size: 23rpx;
+}
+
+.split-panel {
+  margin-top: 14rpx;
+  padding: 20rpx 18rpx;
+  border: 1rpx solid #c8dcca;
+  border-radius: 16rpx;
+  background: #f6fbf7;
+}
+
+.split-title { margin-bottom: 8rpx; font-size: 25rpx; font-weight: 700; }
+.split-field { margin-top: 14rpx; margin-bottom: 0; }
+.split-preview { margin-top: 12rpx; padding: 12rpx 14rpx; border-radius: 12rpx; background: #e8f2ea; color: #315e44; font-size: 23rpx; font-weight: 650; line-height: 1.5; }
+.split-error { margin-top: 10rpx; color: #a45437; font-size: 22rpx; line-height: 1.5; }
+.split-actions { display: flex; gap: 12rpx; margin-top: 16rpx; }
+.split-actions .btn { flex: 1; min-height: 78rpx; margin-top: 0; padding: 14rpx; font-size: 23rpx; }
+
+.opening-warning {
+  color: #a45437;
+  font-weight: 650;
+}
+
 .leaflet-badge {
   margin-top: 4rpx;
 }
@@ -60,6 +86,21 @@
   font-size: 24rpx;
   line-height: 1.65;
 }
+
+.leaflet-photo-section .section-title { margin-bottom: 0; }
+.photo-count { color: #758278; font-size: 21rpx; }
+.photo-upload { min-height: 78rpx; margin-top: 16rpx; font-size: 24rpx; }
+.photo-status { margin-top: 10rpx; color: #3f7d5c; font-size: 21rpx; line-height: 1.55; }
+.photo-error { margin-top: 10rpx; color: #a45437; font-size: 21rpx; line-height: 1.55; word-break: break-word; }
+.photo-retry { margin-left: 8rpx; color: #3f7d5c; text-decoration: underline; }
+.photo-loading,
+.photo-empty { margin-top: 16rpx; }
+.leaflet-photo-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid #edf0ec; }
+.photo-meta { min-width: 0; flex: 1; }
+.photo-title { font-size: 23rpx; font-weight: 650; word-break: break-word; }
+.photo-actions { display: flex; align-items: center; gap: 16rpx; flex: 0 0 auto; }
+.photo-action { min-width: 74rpx; padding: 12rpx 16rpx; border: 1rpx solid #c8d4ca; border-radius: 999rpx; color: #3f7d5c; text-align: center; font-size: 21rpx; }
+.photo-delete { padding: 12rpx 6rpx; color: #a45437; font-size: 21rpx; }
 
 .note-card {
   margin-top: 14rpx;

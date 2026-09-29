@@ -5,6 +5,7 @@
   "scripts": {
     "lint": "eslint app.ts pages services typings --ext .ts --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json --noEmit"
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs"
   }
 }

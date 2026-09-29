@@ -30,15 +30,16 @@ npm run prepare:mini -- --appid wx0000000000000000 --api-base https://<测试域
 
 ## 备份与恢复演练
 
-在测试服务器上使用项目脚本。备份文件保存在 Git 忽略目录，目录本身应受文件权限保护。恢复脚本只创建无网络、无持久卷的临时 PostgreSQL 容器，并在退出时移除它；不会覆盖测试库或生产库。
+在测试服务器上使用项目脚本。数据库 dump 与说明书图片卷分别备份，备份文件保存在 Git 忽略目录，目录本身应受文件权限保护。图片验收脚本只将归档解压到独立临时目录，不会覆盖现有图片卷。
 
 ```bash
 bash scripts/staging-backup.sh deploy/.env.staging .local-data/backups
 bash scripts/verify-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID.dump
+bash scripts/verify-photo-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID.dump.photos.tar.gz
 ```
 
-检查 `.sha256`、恢复脚本退出码和输出中的家庭、药品、批次数量。正式恢复必须另行制定停写、快照和回滚步骤。当前 P3 照片能力尚未实现，数据库备份不包含未来的照片目录；照片上线前须补独立图片备份与恢复演练。
+检查 `.sha256`、两个验证脚本的退出码和数据库恢复输出中的家庭、药品、批次数量。图片验证会做路径检查并解压到临时目录。正式恢复必须另行制定停写、快照和回滚步骤，再把验证后的图片归档恢复到目标卷；不要把临时目录验证误记为服务器恢复通过。
 
 ## 证据边界
 
-本仓库已验证代码、隔离 PostgreSQL、API 和本地数据库 dump/restore。Docker Desktop 引擎在本机未能启动，因此 Compose 容器运行及上述 shell 脚本的实际 Docker 演练仍需在目标服务器验证。测试目标 IP、候选子域名和 AppID 已提供；SSH 入口、权威 DNS 中的有效记录、网站备案／证书状态及服务端 AppSecret 尚待核对，故 HTTPS、微信真实登录、双账号分享及发布均为 `NOT_RUN`。
+本仓库的真实 PostgreSQL 验收只使用一次性隔离容器与临时 schema；本地试用栈和其他项目容器不作为测试目标。Compose 私有图片卷与成对备份脚本已加入代码，但本轮没有对 ECS 执行部署或备份。正式 AppID 对应关系、微信订阅模板与类目、目录授权、HTTPS 和两台手机共享仍须在实际微信账号及设备上验收；未完成前记为 `BLOCKED` 或 `NOT_RUN`。

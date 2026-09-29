@@ -34,6 +34,14 @@ services:
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3-vl-flash}
       DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      JISU_MEDICINE_API_KEY: ${JISU_MEDICINE_API_KEY:-}
+      WECHAT_REMINDER_TEMPLATE_ID: ${WECHAT_REMINDER_TEMPLATE_ID:-}
+      WECHAT_REMINDER_FIELD_MAP: ${WECHAT_REMINDER_FIELD_MAP:-}
+      WECHAT_REMINDER_SCHEDULER_ENABLED: ${WECHAT_REMINDER_SCHEDULER_ENABLED:-false}
+      WECHAT_MINIPROGRAM_STATE: ${WECHAT_MINIPROGRAM_STATE:-developer}
+      PRIVATE_UPLOAD_DIR: /var/lib/medbox/private-uploads
+    volumes:
+      - private_uploads:/var/lib/medbox/private-uploads
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:
@@ -48,3 +56,4 @@ services:
 
 volumes:
   postgres_data:
+  private_uploads:

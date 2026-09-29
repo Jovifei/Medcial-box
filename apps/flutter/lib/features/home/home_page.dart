@@ -189,7 +189,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             tooltip: '导出 Markdown',
-            onPressed: () => context.push('/export'),
+            onPressed: () => context.push('/demo/export'),
             icon: const Icon(Icons.ios_share_rounded),
           ),
           const SizedBox(width: 8),
@@ -350,7 +350,7 @@ class _MedicineCard extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => context.push('/medicine/${medicine.id}'),
+              onTap: () => context.push('/demo/medicine/${medicine.id}'),
               borderRadius: BorderRadius.circular(22),
               child: AppCard(
                 padding: const EdgeInsets.all(18),

@@ -3,6 +3,9 @@
 import { API_BASE } from "./config";
 import type {
   AcceptInvitationResponse,
+  AppDeviceLinkApproveResponse,
+  AuthDevicesResponse,
+  AuditEventSummary,
   AuthMeResponse,
   AuthSessionResponse,
   BatchPayload,
@@ -16,8 +19,25 @@ import type {
   MedicinePayload,
   MedicineRecognitionResponse,
   InvitationPreviewResponse,
+  FamilyInventorySettings,
+  FamilyMedicineBackup,
+  MedicineCandidatesResponse,
   TransferOwnershipResponse,
+  NotificationPendingResponse,
+  NotificationTemplatesResponse,
+  RestockItemSummary,
+  StocktakeItemInput,
+  StocktakeItemResult,
+  StocktakeSession,
+  TrashItemSummary,
   UpdateProfileResponse,
+  CreateJsonBackupResponse,
+  PreviewJsonBackupResponse,
+  RestoreJsonBackupResponse,
+  QuantityUnit,
+  LeafletPhotoSummary,
+  SplitBatchPayload,
+  SplitBatchResponse,
 } from "./api-types";
 
 export class ApiError extends Error {
@@ -57,7 +77,7 @@ export function clearToken(): void {
 }
 
 interface RequestOptions {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   payload?: Record<string, unknown>;
   timeoutMs?: number;
@@ -90,7 +110,6 @@ export function request<T>(options: RequestOptions): Promise<T> {
     }
     wx.request({
       url: `${API_BASE}${options.path}`,
-      // PATCH 由微信运行时支持，但旧版 wechat-miniprogram 类型声明未列出它。
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
       data: options.payload,
       header,
@@ -124,6 +143,47 @@ export const api = {
       timeoutMs: 60000,
     });
   },
+  listLeafletPhotos(medicineId: string): Promise<{ photos: LeafletPhotoSummary[] }> {
+    return request({ method: "GET", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos` });
+  },
+
+  uploadLeafletPhoto(
+    medicineId: string,
+    imageBase64: string,
+    mimeType: "image/jpeg" | "image/png",
+    source = "package_leaflet",
+  ): Promise<{ photo: LeafletPhotoSummary }> {
+    return request({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos`,
+      payload: { imageBase64, mimeType, source },
+      timeoutMs: 60000,
+    });
+  },
+
+  downloadLeafletPhoto(medicineId: string, photoId: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const token = readToken();
+      wx.downloadFile({
+        url: `${API_BASE}/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos/${encodeURIComponent(photoId)}`,
+        header: token === "" ? {} : { authorization: `Bearer ${token}` },
+        success: (response) => {
+          if (response.statusCode >= 200 && response.statusCode < 300 && response.tempFilePath) {
+            resolve(response.tempFilePath);
+            return;
+          }
+          if (response.statusCode === 401) clearToken();
+          reject(new ApiError(response.statusCode === 401 ? "UNAUTHORIZED" : "PHOTO_DOWNLOAD_FAILED",
+            response.statusCode === 401 ? "登录已过期，请重新登录后查看图片" : `说明书图片读取失败（${response.statusCode}）`, response.statusCode));
+        },
+        fail: () => reject(new ApiError("NETWORK_ERROR", "说明书图片下载失败，请检查网络后重试", 0)),
+      });
+    });
+  },
+
+  deleteLeafletPhoto(medicineId: string, photoId: string): Promise<null> {
+    return request<null>({ method: "DELETE", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos/${encodeURIComponent(photoId)}` });
+  },
   login(code: string): Promise<AuthSessionResponse> {
     return request<AuthSessionResponse>({
       method: "POST",
@@ -137,13 +197,25 @@ export const api = {
     return request<AuthMeResponse>({ method: "GET", path: "/api/v1/auth/me" });
   },
 
+  getDevices(): Promise<AuthDevicesResponse> {
+    return request<AuthDevicesResponse>({ method: "GET", path: "/api/v1/auth/devices" });
+  },
+
+  revokeAndroidDevice(sessionId: string): Promise<{ revoked: true }> {
+    return request<{ revoked: true }>({
+      method: "POST",
+      path: `/api/v1/auth/devices/${encodeURIComponent(sessionId)}/revoke`,
+      payload: {},
+    });
+  },
+
   logout(): Promise<{ revoked: boolean }> {
     return request<{ revoked: boolean }>({ method: "POST", path: "/api/v1/auth/logout", payload: {} });
   },
 
   updateProfile(nickname: string | null): Promise<UpdateProfileResponse> {
     return request<UpdateProfileResponse>({
-      // wx.request 在部分运行时不支持 PATCH；后端提供 POST 兼容入口。
+      // 微信端使用 POST 兼容入口，避免不同基础库对方法支持不一致。
       method: "POST",
       path: "/api/v1/users/me/nickname",
       payload: { nickname },
@@ -260,6 +332,14 @@ export const api = {
     });
   },
 
+  openSplitBatch(medicineId: string, batchId: string, payload: SplitBatchPayload): Promise<SplitBatchResponse> {
+    return request<SplitBatchResponse>({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/batches/${encodeURIComponent(batchId)}/open-split`,
+      payload: toPayload(payload),
+    });
+  },
+
   deleteBatch(medicineId: string, batchId: string): Promise<null> {
     return request<null>({
       method: "DELETE",
@@ -302,5 +382,109 @@ export const api = {
       path: "/api/v1/exports/markdown",
       payload: toPayload(payload),
     });
+  },
+
+  findMedicineCandidates(query: string, field: "barcode" | "name" = "barcode"): Promise<MedicineCandidatesResponse> {
+    return request<MedicineCandidatesResponse>({
+      method: "POST",
+      path: "/api/v1/medicine-catalog/candidates",
+      payload: { [field]: query, consentToShare: true },
+    });
+  },
+
+  approveAppDeviceLink(code: string): Promise<AppDeviceLinkApproveResponse> {
+    return request<AppDeviceLinkApproveResponse>({
+      method: "POST",
+      path: "/api/v1/auth/device-links/approve",
+      payload: { code },
+    });
+  },
+
+  getPendingNotifications(): Promise<NotificationPendingResponse> {
+    return request<NotificationPendingResponse>({ method: "GET", path: "/api/v1/notifications/pending" });
+  },
+
+  getNotificationTemplates(): Promise<NotificationTemplatesResponse> {
+    return request({ method: "GET", path: "/api/v1/notifications/templates" });
+  },
+
+  subscribeToNotifications(acceptedTemplateIds: string[]): Promise<{ acceptedTemplateIds: string[] }> {
+    return request({
+      method: "POST",
+      path: "/api/v1/notifications/subscribe",
+      payload: { acceptedTemplateIds },
+    });
+  },
+
+  getFamilyInventorySettings(): Promise<{ settings: FamilyInventorySettings }> {
+    return request({ method: "GET", path: "/api/v1/families/settings" });
+  },
+
+  updateFamilyInventorySettings(settings: FamilyInventorySettings): Promise<{ settings: FamilyInventorySettings }> {
+    return request({
+      method: "PUT",
+      path: "/api/v1/families/settings",
+      payload: { stocktakeInterval: settings.stocktakeInterval },
+    });
+  },
+
+  getCurrentStocktake(): Promise<{ stocktake: StocktakeSession | null }> {
+    return request({ method: "GET", path: "/api/v1/families/stocktakes/current" });
+  },
+
+  startStocktake(): Promise<{ stocktake: StocktakeSession }> {
+    return request({ method: "POST", path: "/api/v1/families/stocktakes", payload: {} });
+  },
+
+  submitStocktakeItems(stocktakeId: string, items: StocktakeItemInput[]): Promise<{ results: StocktakeItemResult[] }> {
+    return request({
+      method: "POST",
+      path: `/api/v1/families/stocktakes/${stocktakeId}/items`,
+      payload: { items: items as unknown as unknown[] },
+    });
+  },
+
+  completeStocktake(stocktakeId: string): Promise<{ completed: true; completedAt: string; nextStocktakeAt: string | null }> {
+    return request({ method: "POST", path: `/api/v1/families/stocktakes/${stocktakeId}/complete`, payload: {} });
+  },
+
+  listRestockItems(): Promise<{ items: RestockItemSummary[] }> {
+    return request({ method: "GET", path: "/api/v1/families/restock" });
+  },
+
+  createRestockItem(input: { medicineId: string; desiredQuantity?: number | null; unit: QuantityUnit }): Promise<RestockItemSummary> {
+    return request({ method: "POST", path: "/api/v1/families/restock", payload: toPayload(input) });
+  },
+
+  updateRestockItem(itemId: string, status: "needed" | "purchased" | "dismissed", version: number): Promise<RestockItemSummary> {
+    return request({ method: "PUT", path: `/api/v1/families/restock/${itemId}`, payload: { status, version } });
+  },
+
+  deleteRestockItem(itemId: string): Promise<null> {
+    return request({ method: "DELETE", path: `/api/v1/families/restock/${itemId}` });
+  },
+
+  listTrash(): Promise<{ items: TrashItemSummary[] }> {
+    return request({ method: "GET", path: "/api/v1/trash" });
+  },
+
+  restoreTrashItem(type: "medicine" | "batch", id: string): Promise<{ restored: true }> {
+    return request({ method: "POST", path: `/api/v1/trash/${type}/${id}/restore`, payload: {} });
+  },
+
+  listAuditEvents(): Promise<{ events: AuditEventSummary[] }> {
+    return request({ method: "GET", path: "/api/v1/families/audit" });
+  },
+
+  createJsonBackup(): Promise<CreateJsonBackupResponse> {
+    return request({ method: "POST", path: "/api/v1/backups/json", payload: {} });
+  },
+
+  previewJsonBackup(backup: FamilyMedicineBackup): Promise<PreviewJsonBackupResponse> {
+    return request({ method: "POST", path: "/api/v1/backups/preview", payload: { backup } });
+  },
+
+  restoreJsonBackup(backup: FamilyMedicineBackup, confirmationToken: string): Promise<RestoreJsonBackupResponse> {
+    return request({ method: "POST", path: "/api/v1/backups/restore", payload: { backup, confirmationToken, confirmed: true } });
   },
 };

@@ -87,7 +87,7 @@ test("creating a medicine with an initial batch returns version 1 and derived st
   const app = await loggedInApp(pool, gateway);
   try {
     pool.on(/INSERT INTO medicines/, {
-      rows: [medicineRow({ id: "m-new", name: "布洛芬缓释胶囊", version: 1 })],
+      rows: [medicineRow({ id: "m-new", name: "布洛芬缓释胶囊", barcode_value: "6901234567890", version: 1 })],
       rowCount: 1,
     });
     pool.on(/INSERT INTO medicine_batches/, {
@@ -101,6 +101,7 @@ test("creating a medicine with an initial batch returns version 1 and derived st
       ...authHeader(),
       payload: {
         name: "布洛芬缓释胶囊",
+        barcodeValue: "6901234567890",
         leaflet: { source: "包装内说明书", reviewStatus: "user_confirmed" },
         batches: [
           {
@@ -118,10 +119,12 @@ test("creating a medicine with an initial batch returns version 1 and derived st
     assert.equal(body.batches.length, 1);
     assert.equal(body.batches[0].expiryState.state, "ok");
     assert.equal(body.leaflet.reviewStatus, "user_confirmed");
+    assert.equal(body.barcodeValue, "6901234567890");
 
     const insertMedicine = pool.callsMatching(/INSERT INTO medicines/)[0];
     assert.equal(insertMedicine.params[0], "family-1");
-    assert.equal(insertMedicine.params[13], "user-1");
+    assert.equal(insertMedicine.params[5], "6901234567890");
+    assert.equal(insertMedicine.params[16], "user-1");
     const insertBatch = pool.callsMatching(/INSERT INTO medicine_batches/)[0];
     assert.equal(insertBatch.params[0], "m-new");
     assert.equal(insertBatch.params[1], "family-1");
@@ -209,7 +212,8 @@ test("updating a medicine bumps the version when the expected version matches", 
     const update = pool.callsMatching(/UPDATE medicines SET/)[0];
     assert.equal(update.params[0], "m-1");
     assert.equal(update.params[1], "family-1");
-    assert.equal(update.params[15], 1);
+    assert.equal(update.params[18], "user-1");
+    assert.equal(update.params[19], 1);
   } finally {
     await app.close();
   }
@@ -347,7 +351,7 @@ test("medicine update syncs batches (add / update / delete) in one transaction",
     // 模拟真实库：同步后再查询时，行集合应反映已插入/已删除的批次。
     pool.always(/FROM medicine_batches WHERE medicine_id/, () => {
       const inserted = pool.callsMatching(/INSERT INTO medicine_batches/).length > 0;
-      const deleted = pool.callsMatching(/DELETE FROM medicine_batches/).length > 0;
+      const deleted = pool.callsMatching(/UPDATE medicine_batches SET deleted_at = now\(\)/).length > 0;
       const rows = [
         batchRow({ id: "b-keep", version: 5 }),
         ...(inserted ? [batchRow({ id: "b-new", medicine_id: "m-1" })] : []),
@@ -363,7 +367,7 @@ test("medicine update syncs batches (add / update / delete) in one transaction",
       rows: [batchRow({ id: "b-new", medicine_id: "m-1" })],
       rowCount: 1,
     });
-    pool.on(/DELETE FROM medicine_batches/, {
+    pool.on(/UPDATE medicine_batches SET deleted_at = now\(\)/, {
       rows: [{ id: "b-drop" }],
       rowCount: 1,
     });
@@ -391,9 +395,9 @@ test("medicine update syncs batches (add / update / delete) in one transaction",
       ["b-keep", "b-new"],
       "删除的批次不应出现在结果里",
     );
-    assert.equal(pool.callsMatching(/DELETE FROM medicine_batches/).length, 1);
     assert.equal(pool.callsMatching(/INSERT INTO medicine_batches/).length, 1);
-    assert.equal(pool.callsMatching(/UPDATE medicine_batches SET/).length, 1);
+    assert.equal(pool.callsMatching(/UPDATE medicine_batches SET\s+lot_number/).length, 1);
+    assert.equal(pool.callsMatching(/UPDATE medicine_batches SET deleted_at = now\(\)/).length, 1);
   } finally {
     await app.close();
   }

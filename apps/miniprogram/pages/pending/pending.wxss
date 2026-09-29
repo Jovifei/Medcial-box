@@ -1,0 +1,13 @@
+.page { padding-bottom: 60rpx; }
+.home-header { padding: 18rpx 4rpx 24rpx; }
+.title { font-size: 38rpx; font-weight: 700; }
+.subtitle { margin-top: 8rpx; color: #758278; font-size: 22rpx; line-height: 1.55; }
+.error-card { border-color: #efd4cb; background: #fff8f5; }
+.empty-card { margin-top: 18rpx; padding: 38rpx 24rpx; border: 1rpx dashed #c8d4ca; border-radius: 20rpx; background: #fff; text-align: center; }
+.empty-mark { margin-bottom: 12rpx; color: #3f7d5c; font-size: 56rpx; }
+.pending-card { padding: 24rpx; }
+.pending-type { display: inline-block; padding: 6rpx 12rpx; border-radius: 999rpx; background: #fff0e9; color: #a45437; font-size: 20rpx; }
+.pending-name { margin-top: 12rpx; font-size: 28rpx; font-weight: 700; }
+.pending-label { margin-top: 8rpx; color: #44574b; font-size: 23rpx; line-height: 1.55; }
+.pending-date { margin-top: 6rpx; color: #7c867e; font-size: 21rpx; }
+.footnote { margin: 22rpx 8rpx; }

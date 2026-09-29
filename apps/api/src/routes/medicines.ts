@@ -49,7 +49,7 @@ export async function buildFamilyMedicineSummaries(
       existing.push(summary);
     }
   }
-  return medicineRows.map((row) => toMedicineSummary(row, byMedicine.get(row.id) ?? []));
+  return medicineRows.map((row) => toMedicineSummary(row, byMedicine.get(row.id) ?? [], now));
 }
 
 export async function registerMedicineRoutes(
@@ -95,7 +95,8 @@ export async function registerMedicineRoutes(
     const medicine = await findMedicineInFamily(database, medicineId, ctx.familyId);
     if (medicine === null) return reply.code(404).send(NOT_FOUND_BODY);
     const batchRows = await listBatchesByMedicine(database, medicineId, ctx.familyId);
-    return toMedicineSummary(medicine, batchRows.map((row) => toBatchSummary(row)));
+    const now = new Date();
+    return toMedicineSummary(medicine, batchRows.map((row) => toBatchSummary(row, now)), now);
   });
 
   app.put("/api/v1/medicines/:medicineId", async (request, reply) => {
@@ -161,7 +162,7 @@ export async function registerMedicineRoutes(
         }
         for (const row of existingRows) {
           if (!keptIds.has(row.id)) {
-            const deleted = await deleteBatch(tx, row.id, medicineId, ctx.familyId);
+            const deleted = await deleteBatch(tx, row.id, medicineId, ctx.familyId, ctx.userId);
             if (!deleted) {
               throw new TransactionConflictError(
                 404,
@@ -172,7 +173,8 @@ export async function registerMedicineRoutes(
         }
 
         const batchRows = await listBatchesByMedicine(tx, medicineId, ctx.familyId);
-        return toMedicineSummary(updated, batchRows.map((row) => toBatchSummary(row)));
+        const now = new Date();
+        return toMedicineSummary(updated, batchRows.map((row) => toBatchSummary(row, now)), now);
       });
       return summary;
     } catch (error) {

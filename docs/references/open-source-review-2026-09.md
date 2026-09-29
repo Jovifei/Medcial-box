@@ -20,3 +20,9 @@
 2. 使用开源依赖时通过 lockfile 固定完整解析版本、保留 package provenance，并按依赖许可证生成 notices。
 3. 本项目参考文档、合成资料与实现保持独立；没有另行书面授权时，不复制参考项目代码和视觉素材。
 4. 药品资料 API 的合同许可与数据正确性是两项不同验证；接口返回不代表临床适用或个人处方。
+
+## 2026-09-29 新增 Flutter PDF 字体
+
+- [Noto Sans CJK SC 官方仓库](https://github.com/notofonts/noto-cjk)：使用仓库 `Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf`，官方许可证为 SIL Open Font License 1.1；许可文本随 Flutter 资产 `apps/flutter/assets/fonts/NotoSansSC-OFL.txt` 一同分发。
+- 本地仅将字体固定为 Regular 400、裁剪到常用简体中文／标点／拉丁／希腊／西里尔字符集合，并以 `MedBox Sans SC` 名称打包；上游 17,773,132 字节，生成字体 SHA-256 `6C4DEEBF260DB95BFDC13A844951F88C21FB0F4E11A5C2FBC0976A102A082A68`，大小 10,100,408 字节。生成脚本位于 `apps/flutter/tool/subset_noto_sc_font.py`，使用 Python fontTools 4.63.0。
+- 字体用于嵌入 PDF，处理家庭库存的中文名称和说明书内容；应用“我的 → 开源许可”可查看许可证。

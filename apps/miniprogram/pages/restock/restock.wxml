@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="home-header"><view class="title">补货清单</view><view class="subtitle">购买后请通过药品详情新增批次，清单状态不会自动增加库存。</view></view>
+  <view class="card" wx:if="{{loading}}"><view class="hint">正在读取…</view></view>
+  <view class="card error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重试</view></view>
+  <view class="empty-card" wx:if="{{!loading && !errorMessage && items.length === 0}}"><view class="section-title">清单是空的</view><view class="hint">在药品详情中点击“加入补货清单”。</view></view>
+  <view class="card restock-card" wx:for="{{items}}" wx:key="id">
+    <view class="restock-header"><view class="restock-name">{{item.medicineName}}</view><view class="badge badge-{{item.status === 'needed' ? 'due' : 'ok'}}">{{item.statusLabel}}</view></view>
+    <view class="hint">{{item.quantityLabel}} · {{item.createdAt}}</view>
+    <view class="restock-actions" wx:if="{{item.status === 'needed'}}">
+      <view class="btn btn-ghost action-button" data-id="{{item.id}}" data-status="dismissed" data-version="{{item.version}}" bindtap="onSetStatus">取消</view>
+      <view class="btn btn-primary action-button" data-id="{{item.id}}" data-status="purchased" data-version="{{item.version}}" bindtap="onSetStatus">已购买</view>
+    </view>
+    <view class="restock-actions" wx:elif="{{item.status === 'purchased'}}">
+      <view class="btn btn-ghost action-button" data-id="{{item.medicineId}}" bindtap="onOpenMedicine">登记新批次</view>
+      <view class="btn btn-ghost action-button" data-id="{{item.id}}" bindtap="onDelete">移除记录</view>
+    </view>
+    <view class="restock-actions" wx:else><view class="btn btn-ghost action-button" data-id="{{item.id}}" bindtap="onDelete">移除记录</view></view>
+  </view>
+</view>

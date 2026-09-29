@@ -1,0 +1,11 @@
+<view class="page">
+  <view class="home-header"><view class="title">家庭变更记录</view><view class="subtitle">记录谁在什么时候调整了药品或库存，便于家人核对。</view></view>
+  <view class="card" wx:if="{{loading}}"><view class="hint">正在读取…</view></view>
+  <view class="card error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重试</view></view>
+  <view class="empty-card" wx:if="{{!loading && !errorMessage && events.length === 0}}"><view class="section-title">还没有变更记录</view></view>
+  <view wx:for="{{events}}" wx:key="id" class="card audit-item">
+    <view class="row"><view class="event-action">{{item.action}}</view><view class="event-actor">{{item.actorLabel}}</view></view>
+    <view class="hint">{{item.createdAt}} · {{item.entityType}}</view>
+    <view class="change-text">{{item.changeText}}</view>
+  </view>
+</view>

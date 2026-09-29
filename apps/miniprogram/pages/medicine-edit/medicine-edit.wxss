@@ -1,8 +1,105 @@
+.custom-nav {
+  position: relative;
+  box-sizing: border-box;
+  background: #f5f7f4;
+}
+
+.nav-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-back,
+.nav-placeholder {
+  width: 96rpx;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-back {
+  color: #26372e;
+  font-size: 56rpx;
+  line-height: 1;
+}
+
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.edit-loading-mask {
+  position: fixed;
+  z-index: 90;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx;
+  background: rgba(245, 247, 244, 0.92);
+}
+
+.edit-loading-card { width: 100%; max-width: 620rpx; }
+
 .page {
   min-height: 100vh;
   box-sizing: border-box;
   padding: 24rpx 28rpx calc(120rpx + env(safe-area-inset-bottom));
 }
+
+.draft-card {
+  border-color: #d7e5d9;
+  background: #f7fbf7;
+}
+
+.draft-actions {
+  display: flex;
+  gap: 14rpx;
+}
+
+.draft-actions .btn { flex: 1; }
+
+.barcode-info {
+  margin-top: 16rpx;
+  padding: 16rpx 18rpx;
+  border: 1rpx solid #d7e5d9;
+  border-radius: 14rpx;
+  background: #f7fbf7;
+}
+
+.barcode-label { color: #52685c; font-size: 22rpx; font-weight: 650; }
+.barcode-value { margin-top: 6rpx; color: #24352c; font-size: 25rpx; word-break: break-all; }
+.retry-barcode { min-height: 70rpx; font-size: 23rpx; }
+
+.leave-mask {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(20, 30, 24, 0.42);
+}
+
+.leave-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 30rpx 32rpx calc(26rpx + env(safe-area-inset-bottom));
+  border-radius: 24rpx 24rpx 0 0;
+  background: #fff;
+}
+
+.leave-title { font-size: 30rpx; font-weight: 700; }
 
 .batch-block {
   margin-top: 20rpx;
@@ -66,6 +163,25 @@
 .photo-actions .photo-action {
   flex: 1;
 }
+
+.scan-action {
+  min-height: 80rpx;
+}
+
+.candidate-card {
+  margin-top: 18rpx;
+  padding: 20rpx;
+  border: 1rpx solid #d7e5d9;
+  border-radius: 16rpx;
+  background: #f6fbf7;
+}
+
+.candidate-title { font-size: 26rpx; font-weight: 700; }
+.candidate-line { margin-top: 8rpx; color: #52685c; font-size: 21rpx; line-height: 1.5; }
+.candidate-warning { margin-top: 10rpx; color: #8e6236; font-size: 20rpx; line-height: 1.5; }
+.candidate-actions { display: flex; gap: 12rpx; margin-top: 8rpx; }
+.candidate-button { flex: 1; min-height: 74rpx; margin-top: 12rpx; font-size: 23rpx; }
+.opening-toggle { padding: 14rpx 0 18rpx; color: #3f7d5c; font-size: 23rpx; font-weight: 650; }
 
 .recognition-status {
   margin-top: 18rpx;

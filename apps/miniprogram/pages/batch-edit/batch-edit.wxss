@@ -10,3 +10,5 @@
 .disabled {
   opacity: 0.6;
 }
+
+.opening-toggle { padding: 14rpx 0 18rpx; color: #3f7d5c; font-size: 23rpx; font-weight: 650; }

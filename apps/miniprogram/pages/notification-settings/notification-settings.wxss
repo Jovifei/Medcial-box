@@ -1,0 +1,6 @@
+.page { padding-bottom: 60rpx; }
+.notice-status { margin-top: 18rpx; padding: 16rpx; border-radius: 14rpx; background: #edf5ef; color: #315f46; font-size: 22rpx; line-height: 1.55; }
+.error-text { color: #a45437; }
+.template-card { margin-top: 12rpx; padding: 16rpx; border: 1rpx solid #e6ebe6; border-radius: 14rpx; }
+.template-title { font-size: 23rpx; font-weight: 650; }
+.template-state { margin-top: 4rpx; color: #52685c; font-size: 21rpx; }

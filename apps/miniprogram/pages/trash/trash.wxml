@@ -1,0 +1,11 @@
+<view class="page">
+  <view class="home-header"><view class="title">最近删除</view><view class="subtitle">药品和批次可在 30 天内恢复。过期或耗尽属于库存处置，不会因此归档整种药。</view></view>
+  <view class="card" wx:if="{{loading}}"><view class="hint">正在读取…</view></view>
+  <view class="card error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重试</view></view>
+  <view class="empty-card" wx:if="{{!loading && !errorMessage && items.length === 0}}"><view class="section-title">回收站为空</view><view class="hint">删除的药品或批次会在这里保留一段时间。</view></view>
+  <view wx:for="{{items}}" wx:key="id" class="card trash-item">
+    <view class="row"><view class="trash-name">{{item.name}}</view><view class="badge badge-unknown">{{item.type === 'medicine' ? '药品' : '批次'}}</view></view>
+    <view class="hint">删除于 {{item.deletedAt}} · 保留至 {{item.expiresAt}}</view>
+    <view class="btn btn-ghost" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="onRestore">{{restoringId === item.id ? "恢复中…" : "恢复记录"}}</view>
+  </view>
+</view>

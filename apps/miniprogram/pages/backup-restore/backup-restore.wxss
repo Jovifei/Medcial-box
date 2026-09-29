@@ -1,0 +1,7 @@
+.page { padding-bottom: 60rpx; }
+.status-text { margin-top: 14rpx; color: #315f46; }
+.error-text, .conflict-text { margin-top: 12rpx; color: #a45437; }
+.preview-card { margin-top: 18rpx; padding: 18rpx; border: 1rpx solid #dfe7df; border-radius: 16rpx; background: #f7faf7; }
+.preview-title { font-size: 25rpx; font-weight: 700; }
+.backup-json { width: 100%; height: 240rpx; box-sizing: border-box; margin-top: 14rpx; padding: 14rpx; border: 1rpx solid #e1e7e1; border-radius: 12rpx; background: #fbfcfb; font-size: 20rpx; }
+.safety-note { margin: 22rpx 8rpx; color: #7c867e; font-size: 21rpx; line-height: 1.6; }

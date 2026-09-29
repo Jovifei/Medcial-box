@@ -1,11 +1,11 @@
 # 家庭药箱
 
-面向一个家庭的微信药箱：共同记录家中药品、各批次数量和有效期；需要时导出 Markdown 给外部 AI。手动药箱、共享、导出和拍照识别草稿链路已实现；真实药盒准确率、双手机试用和 ECS 部署仍待验收。服务不可用时首页显示可恢复的错误状态，不把合成数据冒充真实库存。
+面向一个家庭的共享药箱：共同记录药品、批次、开封期限、剩余数量和来源资料，并导出给外部 AI。当前分支正在完善微信小程序与 Android Flutter 双端候选版本；自动化和本地 Docker 验收通过不代表真实微信账号、设备通知或生产上线已经通过。
 
 ## 目录
 
 - `apps/miniprogram/`：微信原生小程序和 TypeScript 预览骨架。
-- `apps/flutter/`：独立 Flutter 交互原型，当前只使用本地合成数据。
+- `apps/flutter/`：Flutter Android 客户端；连接家庭 API，演示流程独立放在 `/demo/*`。
 - `apps/api/`：Fastify API、PostgreSQL 访问和有校验的数据库迁移。
 - `packages/contracts/`：前后端共享的基础数据契约。
 - `docs/`：产品需求、架构、开源调研和本地运维说明。
@@ -44,21 +44,17 @@ npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 
 
 生成包位于 `.local-data\mini-local-<UUID>`，只包含公开客户端配置，不含服务端密钥。源目录 `apps/miniprogram/` 仍使用 `touristappid` 占位值，避免把本地或生产 AppID 写入源码。
 
-## 项目阶段
+## 当前候选阶段
 
-- **P0**：产品／架构文档、任务台账、前端首页骨架、API／数据库开发环境。
-- **P1**：手动药品／批次库存、微信登录和 Markdown 导出，先解决向外部 AI 提供真实库存的需求。
-- **P2**：家庭邀请共享、成员权限与并发编辑。
-- **P3**：药盒拍照识别、药品资料查询和说明书来源核对。当前已完成本地 Ollama 草稿链路；云端和真实药盒继续按证据推进。
-- **P4**：现有 Linux 服务器部署、备份恢复和多设备家庭试用。
+本轮在 `codex/flutter-ui-prototype` 分支交付双端共享库存、开封后期限、库存阈值与盘点、补货、待处理、设备连接、条码候选、提醒、导出与恢复。分阶段事项和真实环境阻塞见 [`tasks/todo.md`](tasks/todo.md) 与 [`tasks/status.md`](tasks/status.md)。
 
-下一步实现顺序与验收见 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。机器服务、合成测试、真实微信和药品数据服务各自记录证据，不能互相代替。
+没有核实正式 AppID、可用微信订阅模板和两台手机之前，不宣称真实账号登录、微信消息送达或家庭试用通过；本轮不部署 ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
 
 手机试用准备的当前证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
 
 拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
 
-Flutter 交互原型的运行说明见 [`apps/flutter/README.md`](apps/flutter/README.md)。它不替换微信小程序，先用于验证页面跳转、底部面板、确认弹窗、药品详情动画和 Android 拍照识别草稿流程。
+Flutter Android 客户端的运行和验收边界见 [`apps/flutter/README.md`](apps/flutter/README.md)。字体、资料接口和开源项目来源登记在 [`docs/references/`](docs/references/)。
 
 ## 数据和安全边界
 

@@ -1,9 +1,12 @@
 // Real PostgreSQL only. WeChat identity exchange alone is a fake gateway.
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import test from "node:test";
 import { applyMigrations } from "../dist/db/migrations.js";
 import { buildServer } from "../dist/app.js";
+import { dispatchDueReminderMessages } from "../dist/jobs/reminder-scheduler.js";
+import { cleanupExpiredTrashedMedicinePhotos } from "../dist/jobs/leaflet-photo-cleanup.js";
+import { createReminderTemplateConfig } from "../dist/services/subscribe-messages.js";
 import { createTestGateway } from "./helpers/fake-wechat.mjs";
 import { isolatedPostgres, contend, bounded, signal } from "./helpers/isolated-pg.mjs";
 
@@ -26,10 +29,36 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
   const fixture = await isolatedPostgres(url);
   const { pool, database } = fixture;
   const gateway = createTestGateway();
+  const privatePhotoFiles = new Map();
+  const privatePhotoStore = {
+    save: async ({ familyId, medicineId, photoId, bytes }) => {
+      const key = `leaflets/${familyId}/${medicineId}/${photoId}.png`;
+      privatePhotoFiles.set(key, Buffer.from(bytes));
+      return key;
+    },
+    read: async (key) => {
+      const bytes = privatePhotoFiles.get(key);
+      if (bytes === undefined) throw new Error("photo is missing");
+      return bytes;
+    },
+    remove: async (key) => { privatePhotoFiles.delete(key); },
+  };
+  const reminderConfig = createReminderTemplateConfig({
+    appId: "synthetic-app-id",
+    appSecret: "synthetic-secret",
+    templateId: "synthetic-reminder-template",
+  });
   let app;
   try {
-    await t.test("fresh schema applies exactly 001–005, catalog is scoped, second migrate is empty", async () => {
-      assert.deepEqual(await applyMigrations(pool), ["001_bootstrap.sql", "002_core_inventory.sql", "003_family_invites.sql", "004_family_single_owner.sql", "005_add_created_at_columns.sql"]);
+    await t.test("fresh schema applies 006 lifecycle after the established migrations; second migrate is empty", async () => {
+      const applied = await applyMigrations(pool);
+      assert.deepEqual(applied.slice(0, 6), ["001_bootstrap.sql", "002_core_inventory.sql", "003_family_invites.sql", "004_family_single_owner.sql", "005_add_created_at_columns.sql", "006_inventory_lifecycle.sql"]);
+      assert.ok(applied.some((name) => /^007_/.test(name)), "later feature migrations may follow lifecycle migration 006");
+      assert.ok(applied.includes("008_medicine_barcode.sql"));
+      assert.ok(applied.includes("009_session_client_kind.sql"));
+      assert.ok(applied.includes("010_device_link_code_unique.sql"));
+      assert.ok(applied.includes("011_backup_restore_previews.sql"));
+      assert.ok(applied.includes("012_leaflet_photo_storage_cleanup.sql"));
       assert.deepEqual(await applyMigrations(pool), []);
       const columns = await pool.query("SELECT table_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = $1 AND column_name = 'created_at' AND table_name = ANY($2::text[]) ORDER BY table_name", [fixture.schema, ["medicines", "medicine_batches", "dosage_notes"]]);
       assert.deepEqual(columns.rows, ["dosage_notes", "medicine_batches", "medicines"].map((table_name) => ({ table_name, data_type: "timestamp with time zone", is_nullable: "NO" })));
@@ -42,7 +71,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
         for (const client of clients) assert.deepEqual((await client.query("SELECT current_schemas(false)::text[] AS schemas")).rows[0].schemas, [fixture.schema, "pg_catalog"]);
       } finally { clients.forEach((client) => client.release()); }
     });
-    app = await buildServer({ database, wechatGateway: gateway, logger: false });
+    app = await buildServer({ database, wechatGateway: gateway, reminderTemplateConfig: reminderConfig, privatePhotoStore, logger: { level: "error" } });
     const request = (user, method, path, payload) => app.inject({ method, url: `/api/v1${path}`, headers: { authorization: `Bearer ${user.token}` }, ...(payload === undefined ? {} : { payload }) });
     async function user() {
       const code = randomUUID();
@@ -76,6 +105,324 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.deepEqual(actual.filter((row) => row.role === "owner"), [{ user_id: winner.id, role: "owner" }]);
       assert.equal(actual.find((row) => row.user_id === group.owner.id)?.role, "member");
     }
+
+    await t.test("private photo quota serializes concurrent uploads and releases space only after file removal", async () => {
+      const { owner, id: familyId } = await family();
+      const medicine = await createMedicine(owner, [], "说明书图片配额测试药");
+      const tinyPng = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+      const first = status(await request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, {
+        imageBase64: tinyPng.toString("base64"), mimeType: "image/png",
+      }), 201);
+      assert.equal(status(await request(owner, "GET", `/medicines/${medicine.id}/leaflet-photos`), 200).photos.length, 1);
+      const fetched = await request(owner, "GET", `/medicines/${medicine.id}/leaflet-photos/${first.photo.id}`);
+      assert.equal(fetched.statusCode, 200);
+      assert.deepEqual(fetched.rawPayload, tinyPng);
+      const outsider = (await family()).owner;
+      status(await request(outsider, "GET", `/medicines/${medicine.id}/leaflet-photos/${first.photo.id}`), 404);
+
+      await pool.query(
+        `INSERT INTO medicine_leaflet_photos
+         (family_id, medicine_id, storage_key, content_type, size_bytes, source, created_by, upload_completed_at)
+         SELECT $1,$2,'quota-' || gen_random_uuid()::text || '.png','image/png',$4,'quota-test',$3,now()
+         FROM generate_series(1,7)`,
+        [familyId, medicine.id, owner.id, 8 * 1024 * 1024],
+      );
+      const makePng = (size) => {
+        const bytes = Buffer.alloc(size);
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
+        Buffer.from([73, 69, 78, 68, 174, 66, 96, 130]).copy(bytes, size - 8);
+        return bytes.toString("base64");
+      };
+      const concurrentImage = makePng(4 * 1024 * 1024);
+      const responses = await Promise.all([
+        request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, { imageBase64: concurrentImage, mimeType: "image/png" }),
+        request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, { imageBase64: concurrentImage, mimeType: "image/png" }),
+      ]);
+      assert.deepEqual(responses.map((response) => response.statusCode).sort(), [201, 413]);
+      assert.equal(privatePhotoFiles.size, 2, "quota rejection removes the temporary file");
+      status(await request(owner, "DELETE", `/medicines/${medicine.id}/leaflet-photos/${first.photo.id}`), 204);
+      assert.equal(privatePhotoFiles.has(`leaflets/${familyId}/${medicine.id}/${first.photo.id}.png`), false);
+      const removedMetadata = await pool.query(
+        "SELECT deleted_at, storage_removed_at FROM medicine_leaflet_photos WHERE id = $1",
+        [first.photo.id],
+      );
+      assert.ok(removedMetadata.rows[0].deleted_at);
+      assert.ok(removedMetadata.rows[0].storage_removed_at, "quota is released only after the private file is removed");
+      status(await request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, {
+        imageBase64: concurrentImage, mimeType: "image/png",
+      }), 201);
+      status(await request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, {
+        imageBase64: tinyPng.toString("base64"), mimeType: "image/png",
+      }), 413);
+    });
+
+    await t.test("photos remain during the medicine recovery window and are cleaned after 30 days", async () => {
+      const { owner, id: familyId } = await family();
+      const medicine = await createMedicine(owner, [], "回收站照片清理测试药");
+      const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+      const upload = status(await request(owner, "POST", `/medicines/${medicine.id}/leaflet-photos`, {
+        imageBase64: png.toString("base64"), mimeType: "image/png",
+      }), 201);
+      const photoKey = `leaflets/${familyId}/${medicine.id}/${upload.photo.id}.png`;
+      assert.equal(privatePhotoFiles.has(photoKey), true);
+      await pool.query("UPDATE medicines SET deleted_at = now() - interval '20 days' WHERE id = $1", [medicine.id]);
+      assert.equal(await cleanupExpiredTrashedMedicinePhotos(database, privatePhotoStore), 0);
+      assert.equal(privatePhotoFiles.has(photoKey), true);
+      await pool.query("UPDATE medicines SET deleted_at = now() - interval '31 days' WHERE id = $1", [medicine.id]);
+      assert.equal(await cleanupExpiredTrashedMedicinePhotos(database, privatePhotoStore), 1);
+      assert.equal(privatePhotoFiles.has(photoKey), false);
+      const state = (await pool.query("SELECT deleted_at, upload_completed_at, storage_removed_at FROM medicine_leaflet_photos WHERE id = $1", [upload.photo.id])).rows[0];
+      assert.ok(state.deleted_at);
+      assert.ok(state.upload_completed_at);
+      assert.ok(state.storage_removed_at);
+      status(await request(owner, "POST", `/trash/medicine/${medicine.id}/restore`), 404);
+    });
+
+    await t.test("splitting an unopened batch is atomic, versioned, audited, and family-scoped", async () => {
+      const group = await family();
+      const { owner } = group;
+      const outsider = (await family()).owner;
+      const medicine = await createMedicine(owner, [{
+        quantity: 8,
+        unit: "box",
+        lotNumber: "SPLIT-LOT-1",
+        expiry: { value: "2027-12", precision: "month" },
+        confirmedUnitsPerPackage: 20,
+        storageLocation: "卧室药箱",
+        openedState: "unopened",
+      }], "批次拆分测试药");
+      const sourceBefore = medicine.batches[0];
+      assert.equal(sourceBefore.quantity, 8);
+      assert.equal(sourceBefore.openedState, "unopened");
+
+      const split = status(await request(owner, "POST", `/medicines/${medicine.id}/batches/${sourceBefore.id}/open-split`, {
+        version: sourceBefore.version,
+        openedQuantity: 3,
+        openedAt: "2026-09-29",
+        afterOpeningLimit: { value: 2, unit: "month", source: "包装说明" },
+        confirmed: true,
+      }), 201);
+      assert.equal(split.remainingBatch.id, sourceBefore.id);
+      assert.equal(split.remainingBatch.quantity, 5);
+      assert.equal(split.remainingBatch.openedState, "unopened");
+      assert.equal(split.remainingBatch.version, sourceBefore.version + 1);
+      assert.equal(split.openedBatch.quantity, 3);
+      assert.equal(split.openedBatch.openedState, "opened");
+      assert.equal(split.openedBatch.openedAt, "2026-09-29");
+      assert.deepEqual(split.openedBatch.afterOpeningLimit, { value: 2, unit: "month", source: "包装说明" });
+      for (const field of ["lotNumber", "expiry", "unit", "confirmedUnitsPerPackage", "storageLocation"]) {
+        assert.deepEqual(split.openedBatch[field], sourceBefore[field], `${field} must be copied from the physical package`);
+      }
+      const current = status(await request(owner, "GET", `/medicines/${medicine.id}`), 200);
+      assert.equal(current.version, medicine.version + 1);
+      assert.equal(current.batches.length, 2);
+      assert.equal(current.batches.reduce((sum, entry) => sum + entry.quantity, 0), 8);
+      const semanticAudit = (await pool.query(
+        "SELECT family_id, actor_id, entity_type, entity_id, action, changes FROM audit_events WHERE action = 'split_opened' AND entity_id = $1",
+        [split.openedBatch.id],
+      )).rows[0];
+      assert.equal(semanticAudit.family_id, group.id);
+      assert.equal(semanticAudit.actor_id, owner.id);
+      assert.equal(semanticAudit.entity_type, "batch");
+      assert.equal(semanticAudit.entity_id, split.openedBatch.id);
+      assert.equal(semanticAudit.changes.openedQuantity, 3);
+      assert.equal(semanticAudit.changes.remainingQuantity, 5);
+
+      const auditCount = (await pool.query("SELECT count(*)::int AS count FROM audit_events WHERE entity_id = ANY($1::uuid[])", [[sourceBefore.id, split.openedBatch.id]])).rows[0].count;
+      status(await request(owner, "POST", `/medicines/${medicine.id}/batches/${sourceBefore.id}/open-split`, {
+        version: sourceBefore.version,
+        openedQuantity: 1,
+        openedAt: "2026-09-29",
+        confirmed: true,
+      }), 409);
+      const afterStale = status(await request(owner, "GET", `/medicines/${medicine.id}`), 200);
+      assert.equal(afterStale.version, current.version);
+      assert.deepEqual(afterStale.batches, current.batches);
+      assert.equal((await pool.query("SELECT count(*)::int AS count FROM audit_events WHERE entity_id = ANY($1::uuid[])", [[sourceBefore.id, split.openedBatch.id]])).rows[0].count, auditCount);
+
+      status(await request(outsider, "POST", `/medicines/${medicine.id}/batches/${sourceBefore.id}/open-split`, {
+        version: split.remainingBatch.version,
+        openedQuantity: 1,
+        openedAt: "2026-09-29",
+        confirmed: true,
+      }), 404);
+      assert.deepEqual(status(await request(outsider, "GET", `/medicines/${medicine.id}`), 404), { error: { code: "NOT_FOUND", message: "药品不存在或不在当前家庭中" } });
+      assert.equal(status(await request(owner, "GET", `/medicines/${medicine.id}`), 200).batches.length, 2);
+    });
+
+    await t.test("inventory lifecycle, item-level stocktake conflicts, restock versions, trash and device linking", async () => {
+      const { owner, members: [member] } = await family(1);
+      const outsider = (await family()).owner;
+      const created = status(await request(owner, "POST", "/medicines", {
+        name: "开封期限测试药",
+        barcodeValue: "6901234567890",
+        lowStockThreshold: { quantity: 2, unit: "box" },
+        batches: [
+          { quantity: 2, unit: "box", expiry: { value: "2027-01", precision: "month" }, openedState: "opened", openedAt: "2026-09-01", afterOpeningLimit: { value: 1, unit: "month", source: "包装说明" } },
+          { quantity: 1, unit: "box", expiry: { value: "2099-12", precision: "month" }, openedState: "unopened" },
+        ],
+      }), 201);
+      status(await request(owner, "POST", "/notifications/subscribe", {
+        acceptedTemplateIds: ["synthetic-reminder-template"],
+      }), 200);
+      const sentReminders = [];
+      const dispatched = await dispatchDueReminderMessages(database, {
+        send: async (message) => {
+          sentReminders.push(message);
+          return { messageId: `synthetic-${sentReminders.length}` };
+        },
+      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      const reminderRows = (await pool.query("SELECT status, deadline_date::text, last_error_code FROM reminder_deliveries ORDER BY created_at")).rows;
+      assert.equal(dispatched.sent, 1, JSON.stringify({ dispatched, sentReminders, reminderRows }));
+      assert.equal(sentReminders[0].deadlineDate, "2026-10-01", "the earlier opening deadline drives the reminder");
+      assert.equal(sentReminders[0].medicineName, "开封期限测试药");
+      const med = status(await request(owner, "GET", `/medicines/${created.id}`), 200);
+      assert.equal(med.barcodeValue, "6901234567890");
+      assert.equal(med.lowStockThreshold.quantity, 2);
+      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).openedExpiryDate, "2026-10-01");
+      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).managementExpiryDate, "2026-10-01");
+      assert.equal(med.stockStatus.state, "ok");
+
+      assert.deepEqual(status(await request(owner, "GET", "/families/settings"), 200).settings, {
+        stocktakeInterval: "monthly", lastStocktakeAt: null, nextStocktakeAt: null,
+      });
+      status(await request(owner, "PUT", "/families/settings", { stocktakeInterval: "weekly" }), 200);
+
+      const firstSession = status(await request(owner, "POST", "/families/stocktakes"), 201).stocktake;
+      assert.equal(firstSession.items.length, 2);
+      const openedBatch = med.batches.find((entry) => entry.openedState === "opened");
+      assert.equal(firstSession.items.find((entry) => entry.batchId === openedBatch.id).managementExpiryDate, "2026-10-01");
+      const changed = status(await request(member, "PUT", `/medicines/${med.id}/batches/${openedBatch.id}`, {
+        ...openedBatch, quantity: 3,
+      }), 200);
+      assert.equal(changed.version, openedBatch.version + 1);
+      const stale = status(await request(owner, "POST", `/families/stocktakes/${firstSession.id}/items`, {
+        items: [{ batchId: openedBatch.id, version: openedBatch.version, outcome: "adjusted", quantity: 1 }],
+      }), 200);
+      assert.deepEqual(stale.results, [{ batchId: openedBatch.id, outcome: "conflict", currentVersion: changed.version }]);
+      status(await request(outsider, "POST", `/families/stocktakes/${firstSession.id}/items`, {
+        items: [{ batchId: openedBatch.id, version: changed.version, outcome: "unchanged" }],
+      }), 404);
+
+      const secondSession = status(await request(owner, "POST", "/families/stocktakes"), 201).stocktake;
+      const current = status(await request(owner, "GET", `/medicines/${med.id}`), 200).batches.find((entry) => entry.id === openedBatch.id);
+      const saved = status(await request(owner, "POST", `/families/stocktakes/${secondSession.id}/items`, {
+        items: [{ batchId: openedBatch.id, version: current.version, outcome: "handled" }],
+      }), 200);
+      assert.equal(saved.results[0].outcome, "saved");
+      const afterHandle = status(await request(owner, "GET", `/medicines/${med.id}`), 200);
+      assert.equal(afterHandle.batches.find((entry) => entry.id === openedBatch.id).dispositionStatus, "handled");
+      assert.equal(afterHandle.stockStatus.state, "low");
+      const completed = status(await request(owner, "POST", `/families/stocktakes/${secondSession.id}/complete`), 200);
+      assert.equal(completed.completed, true);
+      assert.ok(completed.nextStocktakeAt);
+      status(await request(owner, "POST", `/families/stocktakes/${secondSession.id}/complete`), 409);
+
+      const restock = status(await request(member, "POST", "/families/restock", {
+        medicineId: med.id, desiredQuantity: 2, unit: "box",
+      }), 201);
+      assert.equal(restock.version, 1);
+      const updatedRestock = status(await request(owner, "PUT", `/families/restock/${restock.id}`, {
+        version: 1, status: "purchased",
+      }), 200);
+      assert.equal(updatedRestock.version, 2);
+      status(await request(owner, "PUT", `/families/restock/${restock.id}`, { version: 1, status: "dismissed" }), 409);
+      assert.deepEqual(status(await request(outsider, "GET", "/families/restock"), 200).items, []);
+      status(await request(owner, "DELETE", `/families/restock/${restock.id}`), 204);
+
+      const unopened = afterHandle.batches.find((entry) => entry.id !== openedBatch.id);
+      status(await request(owner, "DELETE", `/medicines/${med.id}/batches/${unopened.id}`), 204);
+      assert.ok(status(await request(owner, "GET", "/trash"), 200).items.some((entry) => entry.id === unopened.id && entry.type === "batch"));
+      status(await request(outsider, "POST", `/trash/batch/${unopened.id}/restore`), 404);
+      status(await request(owner, "POST", `/trash/batch/${unopened.id}/restore`), 200);
+      status(await request(owner, "DELETE", `/medicines/${med.id}/batches/${unopened.id}`), 204);
+      await pool.query("UPDATE medicine_batches SET deleted_at = now() - interval '31 days' WHERE id = $1", [unopened.id]);
+      assert.ok(!status(await request(owner, "GET", "/trash"), 200).items.some((entry) => entry.id === unopened.id));
+      status(await request(owner, "POST", `/trash/batch/${unopened.id}/restore`), 404);
+
+      status(await request(owner, "POST", `/medicines/${med.id}/trash`), 204);
+      assert.deepEqual(status(await request(owner, "GET", "/medicines"), 200).medicines, []);
+      status(await request(owner, "POST", `/trash/medicine/${med.id}/restore`), 200);
+      assert.equal(status(await request(owner, "GET", `/medicines/${med.id}`), 200).isArchived, false);
+      assert.ok(status(await request(owner, "GET", "/families/audit"), 200).events.length >= 6);
+
+      const backup = status(await request(owner, "POST", "/backups/json"), 200);
+      assert.equal(backup.medicines[0].barcodeValue, "6901234567890");
+      assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.value, 1);
+      assert.equal(JSON.stringify(backup).includes("dosage"), false);
+      backup.inventorySettings.stocktakeInterval = "monthly";
+      const preview = status(await request(owner, "POST", "/backups/preview", { backup }), 200);
+      assert.equal(preview.valid, true);
+      assert.equal(preview.duplicateBackup, false);
+      assert.equal(preview.inventorySettings.stocktakeInterval, "monthly");
+      assert.match(preview.confirmationToken, /^[a-f0-9]{64}$/);
+      const beforeRestoreCount = status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines.length;
+      const tamperedBackup = { ...backup, familyName: "已修改预览内容" };
+      status(await request(owner, "POST", "/backups/restore", {
+        backup: tamperedBackup, confirmationToken: preview.confirmationToken, confirmed: true,
+      }), 409);
+      assert.equal(status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines.length, beforeRestoreCount);
+      const restored = status(await request(owner, "POST", "/backups/restore", {
+        backup, confirmationToken: preview.confirmationToken, confirmed: true,
+      }), 201);
+      assert.equal(restored.restoredCount, 1);
+      assert.equal(status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines.length, beforeRestoreCount + 1);
+      assert.equal(status(await request(owner, "GET", "/families/settings"), 200).settings.stocktakeInterval, "weekly", "restore must not overwrite existing family settings");
+
+      const noSettingsOwner = (await family()).owner;
+      assert.equal(status(await request(noSettingsOwner, "GET", "/families/settings"), 200).settings.stocktakeInterval, "monthly");
+      const settingsBackup = status(await request(noSettingsOwner, "POST", "/backups/json"), 200);
+      const malformedBackup = {
+        ...settingsBackup,
+        backupId: randomUUID(),
+        inventorySettings: { ...settingsBackup.inventorySettings, lastStocktakeAt: { invalid: true } },
+      };
+      const malformedPreview = status(await request(noSettingsOwner, "POST", "/backups/preview", { backup: malformedBackup }), 200);
+      assert.equal(malformedPreview.valid, false);
+      assert.equal(malformedPreview.confirmationToken, undefined);
+      status(await request(noSettingsOwner, "POST", "/backups/restore", {
+        backup: malformedBackup, confirmationToken: "f".repeat(64), confirmed: true,
+      }), 400);
+      const missingTokenBackup = { ...settingsBackup, backupId: randomUUID(), medicines: [] };
+      status(await request(noSettingsOwner, "POST", "/backups/restore", { backup: missingTokenBackup, confirmed: true }), 400);
+      settingsBackup.backupId = randomUUID();
+      settingsBackup.medicines = [];
+      settingsBackup.inventorySettings.stocktakeInterval = "disabled";
+      const settingsPreview = status(await request(noSettingsOwner, "POST", "/backups/preview", { backup: settingsBackup }), 200);
+      status(await request(noSettingsOwner, "POST", "/backups/restore", {
+        backup: settingsBackup, confirmationToken: settingsPreview.confirmationToken, confirmed: true,
+      }), 201);
+      assert.equal(status(await request(noSettingsOwner, "GET", "/families/settings"), 200).settings.stocktakeInterval, "monthly", "restore must preserve the effective default when settings row is absent");
+      assert.equal(status(await request(owner, "POST", "/backups/preview", { backup }), 200).duplicateBackup, true);
+      status(await request(owner, "POST", "/backups/restore", {
+        backup, confirmationToken: preview.confirmationToken, confirmed: true,
+      }), 409);
+      assert.equal(status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines.length, beforeRestoreCount + 1);
+
+      const link = status(await app.inject({ method: "POST", url: "/api/v1/auth/device-links" }), 201);
+      const storedLink = (await pool.query("SELECT code_hash, poll_token_hash FROM device_link_requests WHERE code_hash = $1", [createHash("sha256").update(link.code).digest("hex")])).rows[0];
+      assert.ok(storedLink);
+      assert.notEqual(storedLink.code_hash, link.code);
+      assert.notEqual(storedLink.poll_token_hash, link.pollToken);
+      assert.deepEqual(status(await request(owner, "POST", "/auth/device-links/approve", { code: link.code }), 200), { approved: true });
+      const exchanged = status(await app.inject({ method: "POST", url: "/api/v1/auth/device-links/exchange", payload: { pollToken: link.pollToken } }), 200);
+      assert.equal(exchanged.state, "approved");
+      assert.equal(exchanged.user.id, owner.id);
+      const appSession = (await pool.query("SELECT id, client_kind FROM sessions WHERE token_hash = $1", [createHash("sha256").update(exchanged.token).digest("hex")])).rows[0];
+      assert.equal(appSession.client_kind, "android");
+      const devices = status(await request(owner, "GET", "/auth/devices"), 200).devices;
+      const androidDevice = devices.find((device) => device.id === appSession.id);
+      assert.equal(androidDevice?.clientKind, "android");
+      status(await request(owner, "POST", `/auth/devices/${appSession.id}/revoke`), 200);
+      status(await app.inject({ method: "GET", url: "/api/v1/auth/me", headers: { authorization: `Bearer ${exchanged.token}` } }), 401);
+      assert.equal(status(await app.inject({ method: "POST", url: "/api/v1/auth/device-links/exchange", payload: { pollToken: link.pollToken } }), 200).state, "expired");
+
+      const staleLink = status(await app.inject({ method: "POST", url: "/api/v1/auth/device-links" }), 201);
+      status(await request(member, "POST", "/auth/device-links/approve", { code: staleLink.code }), 200);
+      status(await request(member, "POST", "/families/leave"), 204);
+      const denied = status(await app.inject({ method: "POST", url: "/api/v1/auth/device-links/exchange", payload: { pollToken: staleLink.pollToken } }), 200);
+      assert.equal(denied.state, "expired", "membership revocation before exchange prevents App session issuance");
+    });
 
     await t.test("HTTP auth/family/inventory CRUD, unknown versus zero, notes privacy and escaped export", async () => {
       const { owner, members: [member] } = await family(1);

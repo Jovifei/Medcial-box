@@ -1,4 +1,39 @@
-# 2026-09-27 Flutter 交互原型（本轮）
+# 当前状态 · 2026-09-29
+
+## 双端家庭药箱候选版本
+
+- 状态：`LOCAL_CANDIDATE_READY / REAL_DEVICE_NOT_RUN / PLATFORM_BLOCKED`。
+- 工作树：`C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`；分支 `codex/flutter-ui-prototype`；基线 `63ddb85`。
+- 本地 Docker 候选栈：Compose 项目 `medbox-dual-stage`，API 只绑定 `127.0.0.1:13302`；`/live`、`/ready` PASS；最终镜像启动迁移 12 条；数据库和私有图片使用独立卷，API/DB health PASS。忽略环境文件中没有微信或资料服务凭据。
+- 自动验证：根 `lint/typecheck/test/build` PASS；API 179 项（178 PASS、1 项常规可选 PG 跳过）；隔离真实 PostgreSQL 17/17 PASS；小程序 47/47 PASS；Flutter analyze 无问题、40/40 PASS、Debug APK 构建及 ZIP 结构检查 PASS。
+- PDF：已加入 Noto 简体中文字体子集与 OFL 许可；PDF 生成测试可输出包含中文/希腊字符的 A4 文档。APK 位于 `apps/flutter/build/app/outputs/flutter-apk/app-debug.apk`（209,219,317 bytes；SHA256 `B48146E21178D8DF83C528DADF18F65B8F83CB987BC05701F13F9FB9A1CCF4BE`）。
+- 主要实现：开封后期限、原子拆分开封、阈值/补货/盘点、待处理、App 连接和独立会话撤销、条码候选与人工确认、成分已核验后的精确重复提示、JSON 预览恢复、回收站/审计、双端说明书照片管理、CSV/PDF/Markdown App 导出、一次性微信订阅与上海 09:00 提醒调度。图片接口在解析大请求体前鉴权，按用户限速、按家庭限制 64 MiB/100 张；文件实际清理后释放配额，回收站药品照片在 30 天恢复期后由服务端任务清理。
+
+## 未完成的验收与功能
+
+- `BLOCKED_INPUT`：尚未核实哪个 AppID 是家庭药箱专用账号，不能用车迹或其他测试账号替代；因此真实微信登录和小程序页面运行未做。
+- `BLOCKED_PLATFORM`：订阅模板和类目尚未在药箱专用 AppID 下确认，未发送真实消息；客户端明确显示模板不可用。
+- `NOT_RUN`：真实 Jisu 查询、真实药盒图片识别、实体设备相机/扫码/Android 通知、双微信账号家庭共享、导出文件在微信中的实际分享、ECS/HTTPS 部署。
+- `INCOMPLETE`：最多 10 份连续照片草稿、小程序 CSV/PDF、家庭成员自选提醒时刻。
+- `NOT_RUN`：Bash 备份与私有图片归档脚本的目标环境演练；Windows 上 WSL Bash 启动失败，未把静态验证冒充脚本 PASS。
+- 设备保护：GM1910 已有同包名应用，当前 AVD 属于其他项目。本轮没有安装覆盖、清除应用数据或启动他项目模拟器。
+
+## 下一步门禁
+
+先由 Jovi 确认药箱专用小程序 AppID（不要在聊天发送 AppSecret），然后为开发者工具生成使用 `127.0.0.1:13302` 的本地包并做真实登录/录入；若要在手机上连入，需准备独立 HTTPS 测试域名。只有药箱 AppID 的真实模板可用后，才验收微信消息实际送达；ECS 继续保持未部署。
+
+---
+
+# 历史状态记录 · 2026-09-27 Flutter 交互原型
+
+## 2026-09-28 双端真实家庭药箱（执行中）
+
+- 基线：`codex/flutter-ui-prototype` / `63ddb85`，隔离工作树 `C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`。
+- 已完成：详细计划已落盘到 `tasks/plans/2026-09-28-dual-client-inventory.md`；三项后端纯业务规则已先红后绿验证（开封期限、最早有效期限、低库存汇总）。
+- 正在实施：API/PostgreSQL 库存和家庭服务；Flutter Android 真实 API 客户端；微信小程序同一数据模型与任务流。
+- 外部待核验：新 AppID 与 MateLink 账号关系、微信订阅模板/类目、资料接口密钥、微信开发者工具 UI 端口。
+- 安全边界：只在本地候选环境工作，不改 ECS，不操作非 medbox 容器，不输出密钥；微信消息必须用户主动授权后发送。
+- 本轮最终验收还未执行：`NOT_RUN`；任何模板/API/真机阻塞如实记为 `BLOCKED`。
 
 ## 2026-09-27 审计问题修复结果
 

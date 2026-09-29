@@ -57,7 +57,11 @@ export function parseBearerToken(header: string | undefined): string | null {
   return match ? match[1].trim() : null;
 }
 
-const PUBLIC_PATHS = new Set<string>(["/api/v1/auth/wechat"]);
+const PUBLIC_PATHS = new Set<string>([
+  "/api/v1/auth/wechat",
+  "/api/v1/auth/device-links",
+  "/api/v1/auth/device-links/exchange",
+]);
 
 function isPublicPath(path: string): boolean {
   return PUBLIC_PATHS.has(path) || path.startsWith("/api/v1/health");
@@ -74,39 +78,48 @@ export async function registerAuth(
   database: Database,
 ): Promise<void> {
   app.decorateRequest("auth", null);
-  app.addHook("preHandler", async (request, reply) => {
-    const path = request.url.split("?")[0] ?? request.url;
-    if (isPublicPath(path)) return;
+  app.addHook("preHandler", async (request, reply) => authenticateRequest(request, reply, database));
+}
 
-    const token = parseBearerToken(request.headers.authorization);
-    if (token === null) {
-      reply.code(401).send(errorBody("UNAUTHORIZED", "缺少登录凭据，请先登录"));
-      return;
-    }
+/** Authenticate on demand. Large-body routes call this from onRequest so
+ * unauthenticated requests are rejected before Fastify parses their payload. */
+export async function authenticateRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  database: Database,
+): Promise<void> {
+  if (request.auth !== null) return;
+  const path = request.url.split("?")[0] ?? request.url;
+  if (isPublicPath(path)) return;
 
-    const sessions = await database.query<SessionLookupRow>(
-      "SELECT id, user_id, expires_at FROM sessions WHERE token_hash = $1",
-      [sha256Hex(token)],
-    );
-    const session = sessions.rows[0];
-    if (session === undefined) {
-      reply.code(401).send(errorBody("UNAUTHORIZED", "登录状态无效，请重新登录"));
-      return;
-    }
-    if (new Date(toIso(session.expires_at)).getTime() <= Date.now()) {
-      reply.code(401).send(errorBody("SESSION_EXPIRED", "登录已过期，请重新登录"));
-      return;
-    }
+  const token = parseBearerToken(request.headers.authorization);
+  if (token === null) {
+    reply.code(401).send(errorBody("UNAUTHORIZED", "缺少登录凭据，请先登录"));
+    return;
+  }
 
-    // 成员关系每次请求都查库：owner 移除成员后其会话立即失去家庭数据访问。
-    const membership = await findMembershipByUserId(database, session.user_id);
-    const auth: AuthContext = {
-      userId: session.user_id,
-      familyId: membership === null ? null : membership.family_id,
-      role: membership === null ? null : asMemberRole(membership.role),
-    };
-    request.auth = auth;
-  });
+  const sessions = await database.query<SessionLookupRow>(
+    "SELECT id, user_id, expires_at FROM sessions WHERE token_hash = $1",
+    [sha256Hex(token)],
+  );
+  const session = sessions.rows[0];
+  if (session === undefined) {
+    reply.code(401).send(errorBody("UNAUTHORIZED", "登录状态无效，请重新登录"));
+    return;
+  }
+  if (new Date(toIso(session.expires_at)).getTime() <= Date.now()) {
+    reply.code(401).send(errorBody("SESSION_EXPIRED", "登录已过期，请重新登录"));
+    return;
+  }
+
+  // 成员关系每次请求都查库：owner 移除成员后其会话立即失去家庭数据访问。
+  const membership = await findMembershipByUserId(database, session.user_id);
+  request.auth = {
+    userId: session.user_id,
+    sessionId: session.id,
+    familyId: membership === null ? null : membership.family_id,
+    role: membership === null ? null : asMemberRole(membership.role),
+  };
 }
 
 export interface FamilyContext {

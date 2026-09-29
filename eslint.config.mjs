@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/compiled/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/compiled/**", "apps/flutter/**/build/**", "apps/flutter/**/.dart_tool/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -27,12 +27,16 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/api/test/**/*.mjs", "scripts/**/*.mjs"],
+    files: ["apps/api/test/**/*.mjs", "apps/miniprogram/test/**/*.mjs", "scripts/**/*.mjs"],
     languageOptions: {
       globals: {
+        Buffer: "readonly",
+        clearTimeout: "readonly",
         console: "readonly",
         fetch: "readonly",
         process: "readonly",
+        setTimeout: "readonly",
+        structuredClone: "readonly",
         URL: "readonly",
       },
     },

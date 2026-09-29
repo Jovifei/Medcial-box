@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">提醒设置</view>
+    <view class="hint">订阅只会在你主动点击后请求微信授权。是否送达取决于模板可用性、授权结果和微信平台规则。</view>
+    <view class="notice-status" wx:if="{{statusText}}">{{statusText}}</view>
+    <view class="hint error-text" wx:if="{{errorMessage}}">{{errorMessage}}</view>
+    <view class="hint" wx:if="{{loading}}">正在检查模板…</view>
+    <view class="template-card" wx:for="{{templates}}" wx:key="templateId">
+      <view class="template-title">{{item.title}}</view>
+      <view class="template-state">{{item.available ? '可申请授权' : '暂不可用'}}</view>
+    </view>
+    <view class="btn btn-primary {{subscribing || !canSubscribe ? 'disabled' : ''}}" bindtap="onTapSubscribe">
+      {{subscribing ? "等待授权…" : "主动订阅微信提醒"}}
+    </view>
+  </view>
+  <view class="card">
+    <view class="section-title">待处理事项</view>
+    <view class="hint">当前 {{notifications.length}} 项。通知权限关闭时，事项仍会保留在药箱待处理页。</view>
+    <view class="btn btn-ghost" bindtap="onOpenPending">打开待处理列表</view>
+  </view>
+</view>

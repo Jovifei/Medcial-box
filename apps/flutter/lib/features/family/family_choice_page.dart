@@ -35,7 +35,7 @@ class FamilyChoicePage extends StatelessWidget {
         );
       },
     );
-    if (created == true && context.mounted) context.go('/home');
+    if (created == true && context.mounted) context.go('/demo/home');
   }
 
   Future<void> _showJoin(BuildContext context) async {
@@ -75,14 +75,14 @@ class FamilyChoicePage extends StatelessWidget {
         );
       },
     );
-    if (joined == true && context.mounted) context.go('/home');
+    if (joined == true && context.mounted) context.go('/demo/home');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(onPressed: () => context.go('/welcome')),
+        leading: BackButton(onPressed: () => context.go('/demo/welcome')),
         title: const Text('选择家庭药箱'),
       ),
       body: AppPage(

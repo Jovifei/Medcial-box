@@ -1,5 +1,33 @@
 # 项目阶段任务台账
 
+## 2026-09-28 双端家庭药箱与库存完善（LOCAL_CANDIDATE_READY；真实环境验收待做）
+
+详细设计见 [2026-09-28-dual-client-inventory](plans/2026-09-28-dual-client-inventory.md)。本轮已在当前分支完成可运行候选版本；以下把代码交付与账号/设备验收分开记账。
+
+- [x] P0 API：迁移 `006`–`012`、开封期限/来源、低库存阈值、盘点、补货、软删除与 30 天回收站、审计、条码值、私有说明书照片、JSON 备份恢复；图片上传在解析前认证，按家庭 64 MiB/100 张限额，药品超过恢复期后由定时任务清理关联图片。
+- [x] P0 设备连接：5 分钟连接码、独立轮询凭据、由小程序确认、Android 独立会话、列出会话并撤销 Android 会话；移除成员后换取前再次核对家庭关系。
+- [x] P1 双端候选：Flutter API Repository/安全会话/离线缓存与草稿/药箱-待处理-我的；小程序同家庭 API、草稿保留/放弃/继续、条码候选、设备管理、成分已核验后的精确重复提示。
+- [x] 库存规则：开封与包装取更早截止、未知与零分开、单位换算需确认、低库存、补货、版本保护的盘点冲突；两端以单事务 API 拆分已确认未开封批次。
+- [x] 提醒代码：微信一次性订阅授权、上海时间多级提醒、9 点后任务、重复发送去重和事件复核；推送只含通用提醒文本，不包含药名或个人剂量。
+- [x] 资料/扫码基础：Jisu 适配器、显式同意、条码候选、人工核对后保存；数据库与 API 支持私有说明书照片；两端扫描值保存到 `barcodeValue`。
+- [x] 导出与恢复：Markdown/CSV/中文 PDF（Flutter）、JSON 导入预览与管理员确认、重复导入幂等、回收站和修改记录。
+- [x] 自动验证：根 lint/typecheck/test/build；Mini 47/47；Flutter analyze、40/40 和 Android Debug APK；API 179 项（178 PASS/1 个默认可选 PG 跳过）；强制隔离 PostgreSQL 17/17。
+- [x] 本地 Docker：隔离项目 `medbox-dual-stage` 在回环 `127.0.0.1:13302` 运行，`/live`、`/ready` PASS，迁移 12 条，独立数据库/图片卷，容器 health PASS。配置文件在被忽略的 `.local-data/dual-stage-candidate-20260929.env`，微信和资料供应商字段为空。
+- [x] 说明书图片流程：两端需用户选择并确认才上传，点击才鉴权预览；家庭图片容量有上限，物理清理完成后才释放配额；上传预留、用户删除和过期药品图片均有幂等重试清理。
+- [ ] **NOT_RUN** 微信开发者工具 WXML/页面点击、真实登录、真实相机/相册/扫码与分享。测试 AppID 的归属尚未由 Jovi 确认；不可拿车迹或测试小程序密钥代用。
+- [ ] **BLOCKED_PLATFORM** 微信订阅模板/类目及真实送达、消息点击路径。需先核实药箱专用 AppID 与可用模板；当前代码诚实显示不可用，没有模板时不发送。
+- [ ] **NOT_RUN** Jisu 实时药品/条码查询、真实药盒识别与说明书资料核对；未配置供应商密钥或真实样本，识别候选不算准确率通过。
+- [ ] **NOT_RUN** Android 实体相机/扫码/通知运行。GM1910 已安装同包名应用，其他 AVD 归其他项目使用，本轮未覆盖设备或数据；不应把 API/Widget 测试标成真机 PASS。
+- [ ] **INCOMPLETE** 连续多图（最多 10 份）草稿队列、小程序 CSV/PDF、家庭成员自选提醒时刻。
+- [ ] **NOT_RUN** `staging-backup.sh` 与图片归档脚本的 Bash 运行/服务器恢复演练；Windows 本机 Bash 不可用。数据库 JSON 恢复的真实 PG 集成测试已通过。
+- [ ] ECS/HTTPS/公网部署：本轮按本地优先约定未执行，不连接或改动服务器。
+
+### 本轮工作树
+
+- 状态：`LOCAL_CANDIDATE_READY / REAL_DEVICE_NOT_RUN / PLATFORM_BLOCKED`。
+- 分支：`codex/flutter-ui-prototype`；隔离工作树：`C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box`；基线：`63ddb85`。
+- 不触碰其他项目容器/应用数据，不输出密钥；本地 Compose 使用单独项目名和回环端口。
+
 ## 2026-09-27 Flutter 交互原型（执行中）
 
 - [x] 创建 `codex/flutter-ui-prototype` 分支和独立工作树

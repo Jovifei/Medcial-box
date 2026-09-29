@@ -32,6 +32,7 @@ export interface Database extends QueryRunner {
 
 export interface AuthContext {
   userId: string;
+  sessionId: string;
   familyId: string | null;
   role: "owner" | "member" | null;
 }

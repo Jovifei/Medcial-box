@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="card">
+    <view class="family-name">{{familyName || "家庭设置"}}</view>
+    <view class="hint">{{role === 'owner' ? '管理员' : role === 'member' ? '家庭成员' : ''}} · 库存和资料由家庭成员共同维护</view>
+    <view class="btn btn-primary" bindtap="onOpenInvite">邀请家人</view>
+  </view>
+  <view class="card">
+    <view class="section-title">家庭成员</view>
+    <view wx:for="{{members}}" wx:key="id" class="member-row">
+      <view><view class="member-name">{{item.displayName}}{{item.isSelf ? '（我）' : ''}}</view><view class="hint">{{item.role === 'owner' ? '管理员' : '成员'}} · {{item.joinedAt}}</view></view>
+    </view>
+    <view class="hint" wx:if="{{members.length === 0}}">成员信息暂不可用</view>
+  </view>
+  <view class="card">
+    <view class="section-title">盘点设置</view>
+    <view class="field-hint">按批次核对库存；冲突的批次会单独提示，其他成员的修改不会被覆盖。</view>
+    <view class="field">
+      <view class="field-label">盘点频率</view>
+      <picker range="{{intervalLabels}}" value="{{intervalIndex}}" bindchange="onIntervalChange">
+        <view class="picker-box">{{intervalLabels[intervalIndex]}}</view>
+      </picker>
+    </view>
+    <view class="hint" wx:if="{{settings && settings.nextStocktakeAt}}">下次盘点：{{settings.nextStocktakeAt}}</view>
+    <view class="btn btn-ghost" bindtap="onStartStocktake">现在盘点</view>
+  </view>
+  <view class="error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重试</view></view>
+</view>

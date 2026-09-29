@@ -60,8 +60,10 @@ class MedicineTextParser {
   }
 
   String _findExpiry(String text) {
+    // A bare date could be a manufacture date, batch code, or another number
+    // on the box. Only accept dates that OCR ties to an expiry label.
     final match = RegExp(
-      r'(20\d{2})\s*(?:年|[-/.])\s*(\d{1,2})(?:\s*(?:月|[-/.])\s*(\d{1,2})\s*日?)?',
+      r'(?:有效期至|有效期|失效日期|失效期至|失效期)\s*[:：]?\s*(20\d{2})\s*(?:年|[-/.])\s*(\d{1,2})(?:\s*(?:月|[-/.])\s*(\d{1,2})\s*日?)?',
     ).firstMatch(text);
     if (match == null) return '待补充';
     final year = match.group(1)!;

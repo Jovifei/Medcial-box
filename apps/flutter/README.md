@@ -1,31 +1,30 @@
-# 家庭药箱 Flutter 交互原型
+# 家庭药箱 Android App
 
-这是家庭药箱的独立 Flutter 交互原型。库存使用本地合成数据；相机／相册和中文 ML Kit 识别已经接入，识别只生成待人工核对草稿，不连接微信登录或真实家庭数据。
+Flutter Android 客户端与微信小程序共用 Fastify API。App 不执行微信登录；新设备在 App 显示连接码后，由已登录小程序确认，App 再用独立轮询凭据换取自己的可撤销会话。演示流程保留在 `/demo/*`，不会写入正式家庭药箱。
 
-## 本地运行
+## 本地开发
 
-Flutter SDK 位于 `E:\AI_Tools\Other\Flutter`，Android SDK 使用 `E:\AI_Tools\Other\AndroidSDK`（指向本机已安装 SDK）。
+Flutter SDK 位于 `E:\AI_Tools\Other\Flutter`，Android SDK 使用 `E:\AI_Tools\Other\AndroidSDK`。将 API 地址通过 `API_BASE_URL` 构建参数设置；默认示例地址不会连接真实服务。
 
 ```powershell
 $env:FLUTTER_SUPPRESS_ANALYTICS = "true"
 E:\AI_Tools\Other\Flutter\bin\flutter.bat pub get
 E:\AI_Tools\Other\Flutter\bin\flutter.bat analyze
 E:\AI_Tools\Other\Flutter\bin\flutter.bat test
-E:\AI_Tools\Other\Flutter\bin\flutter.bat run -d 6e4fa92f
+E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=https://<测试 API 域名>
 ```
 
-Debug APK：
+APK 输出到 `build\app\outputs\flutter-apk\app-debug.apk`。开发构建需要可用的 HTTPS API；不要把微信 AppSecret、资料服务密钥或模型密钥放入 `--dart-define`。
 
-```powershell
-E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --debug
-```
+## 功能范围
 
-输出位于 `build\app\outputs\flutter-apk\app-debug.apk`。
+- 药箱、待处理、我的三个入口；家庭共享库存、批次开封期限、阈值、补货、盘点、回收站和变更记录来自服务端 API。
+- 相机／相册识别和条码扫描均生成可编辑草稿；联网药品候选查询要用户明确同意，结果仍须人工核对。识别和查询失败保留手工录入。
+- Markdown、CSV、中文 PDF 和 JSON 备份共用当前家庭数据；个人剂量默认排除。
+- 登录凭据保存在 Android 安全存储，库存缓存和录入草稿保存在本地；断网时显示缓存时间，不自动重放写请求。
 
-## 原型流程
+PDF 使用内嵌的精简简体中文字体。上游、字体加工方式、SHA-256 与 SIL Open Font License 1.1 说明见 [开源参考登记](../../docs/references/open-source-review-2026-09.md)；可在 App“我的 → 开源许可”查看许可文本。
 
-欢迎页 → 家庭选择 → 创建／加入底部面板 → 药箱首页 → 药品详情 → Markdown 导出选项。
+## 验收边界
 
-原型重点验证 Flutter 的路由淡入滑动、底部面板、确认弹窗、共享元素动画、搜索、状态卡片和可访问性语义。后续接入真实 API 时，只替换 `AuthRepository` 和 `MedicineRepository` 的实现。
-
-点击“录入药品”可选择拍照、相册或手动录入。Android 首次拍照会弹出相机权限；图片识别使用中文 ML Kit，药品名称、规格和有效期都允许人工修改，识别失败仍可直接手动保存。
+Widget/API 契约测试和 Debug APK 构建不代表真实微信账号、实体相机／扫码、通知送达或药品资料供应商已经联调。正式 AppID 对应关系、微信模板及类目、两台手机家庭共享、现场拍照与消息点击路径须单独记录结果；尚未实测时使用 `NOT_RUN` 或 `BLOCKED`。

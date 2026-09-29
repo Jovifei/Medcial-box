@@ -170,6 +170,7 @@ function renderMedicine(
   const meta: string[] = [];
   if (medicine.manufacturer !== null) meta.push(`生产厂家：${medicine.manufacturer}`);
   if (medicine.approvalNumber !== null) meta.push(`批准文号：${medicine.approvalNumber}`);
+  if (medicine.barcodeValue !== null && medicine.barcodeValue !== undefined) meta.push(`商品条码：${medicine.barcodeValue}`);
   if (medicine.purposeCategory !== null) meta.push(`用途分类：${medicine.purposeCategory}`);
   if (meta.length > 0) lines.push(`- ${meta.join("；")}`);
 
@@ -228,6 +229,8 @@ export function renderMarkdownExport(
       medicine.manufacturer === null ? null : escapeMarkdownText(medicine.manufacturer),
     approvalNumber:
       medicine.approvalNumber === null ? null : escapeMarkdownText(medicine.approvalNumber),
+    barcodeValue:
+      medicine.barcodeValue == null ? medicine.barcodeValue : escapeMarkdownText(medicine.barcodeValue),
     purposeCategory:
       medicine.purposeCategory === null ? null : escapeMarkdownText(medicine.purposeCategory),
     leaflet: {

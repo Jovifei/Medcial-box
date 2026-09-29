@@ -19,6 +19,12 @@ export type LeafletReviewStatus = "unverified" | "matched" | "user_confirmed";
 
 export type NoteVisibility = "private" | "family";
 
+export type OpenedState = "unknown" | "unopened" | "opened";
+export type OpenedExpiryUnit = "day" | "month";
+export type StockStatus = "ok" | "low" | "unknown" | "exhausted";
+export type StocktakeInterval = "weekly" | "monthly" | "disabled";
+export type RestockStatus = "needed" | "purchased" | "dismissed";
+
 export type MemberRole = "owner" | "member";
 
 export type ApiErrorCode =
@@ -38,6 +44,9 @@ export type ApiErrorCode =
   | "WECHAT_GATEWAY_ERROR"
   | "RATE_LIMITED"
   | "RECOGNITION_UNAVAILABLE"
+  | "MEDICINE_CATALOG_UNAVAILABLE"
+  | "NOTIFICATION_UNAVAILABLE"
+  | "BACKUP_ALREADY_IMPORTED"
   | "INTERNAL_ERROR";
 
 export interface ApiError {
@@ -205,6 +214,15 @@ export interface BatchExpiryInput {
   precision: ExpiryPrecision;
 }
 
+export type AfterOpeningLimitInput =
+  | { value: number; unit: OpenedExpiryUnit; source?: string | null }
+  | { date: string; source?: string | null };
+
+export interface LowStockThresholdInput {
+  quantity: number;
+  unit: QuantityUnit;
+}
+
 export interface CreateBatchInput {
   lotNumber?: string | null;
   expiry?: BatchExpiryInput | null;
@@ -212,10 +230,26 @@ export interface CreateBatchInput {
   unit?: QuantityUnit;
   confirmedUnitsPerPackage?: number | null;
   storageLocation?: string | null;
+  openedState?: OpenedState;
+  openedAt?: string | null;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
 }
 
 export interface UpdateBatchInput extends CreateBatchInput {
   version: number;
+}
+
+export interface SplitBatchInput {
+  version: number;
+  openedQuantity: number;
+  openedAt: string;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
+  confirmed: true;
+}
+
+export interface SplitBatchResponse {
+  openedBatch: MedicationBatchSummary;
+  remainingBatch: MedicationBatchSummary;
 }
 
 export interface CreateMedicineInput {
@@ -223,10 +257,12 @@ export interface CreateMedicineInput {
   specification?: string | null;
   manufacturer?: string | null;
   approvalNumber?: string | null;
+  barcodeValue?: string | null;
   activeIngredients?: string[];
   purposeCategory?: string | null;
   leaflet?: LeafletInput;
   batches?: CreateBatchInput[];
+  lowStockThreshold?: LowStockThresholdInput | null;
 }
 
 export interface UpdateMedicineInput
@@ -244,6 +280,14 @@ export interface MedicationBatchSummary {
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
   storageLocation: string | null;
+  dispositionStatus?: "active" | "handled";
+  openedState?: OpenedState;
+  openedAt?: string | null;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
+  openedExpiryDate?: string | null;
+  managementExpiryDate?: string | null;
+  managementExpirySource?: "package" | "opened" | null;
+  managementExpiryState?: ExpiryStateInfo;
   version: number;
 }
 
@@ -253,6 +297,7 @@ export interface MedicationSummary {
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
+  barcodeValue?: string | null;
   activeIngredients: string[];
   purposeCategory: string | null;
   leaflet: {
@@ -264,6 +309,8 @@ export interface MedicationSummary {
     reviewStatus: LeafletReviewStatus;
   };
   batches: MedicationBatchSummary[];
+  lowStockThreshold?: LowStockThresholdInput | null;
+  stockStatus?: { state: StockStatus; quantity: number | null; unit: QuantityUnit | null };
   /** 全部批次中最严重的有效期状态；无批次时为 unknown。 */
   expiryState?: ExpiryStateInfo;
   isArchived?: boolean;
@@ -277,6 +324,153 @@ export interface MedicineListResponse {
 
 export interface BatchListResponse {
   batches: MedicationBatchSummary[];
+}
+
+export interface FamilyInventorySettings {
+  stocktakeInterval: StocktakeInterval;
+  lastStocktakeAt: string | null;
+  nextStocktakeAt: string | null;
+}
+
+export interface StocktakeItemInput {
+  batchId: string;
+  version: number;
+  outcome: "unchanged" | "adjusted" | "empty" | "handled" | "deferred";
+  quantity?: number | null;
+}
+
+export interface StocktakeItemResult {
+  batchId: string;
+  outcome: "saved" | "conflict" | "not_found";
+  currentVersion?: number;
+}
+
+export interface RestockItemSummary {
+  id: string;
+  medicineId: string;
+  medicineName: string;
+  desiredQuantity: number | null;
+  unit: QuantityUnit;
+  status: RestockStatus;
+  createdAt: string;
+  version: number;
+}
+
+export interface MedicineCandidate {
+  name: string;
+  specification: string | null;
+  manufacturer: string | null;
+  approvalNumber: string | null;
+  barcodeValue?: string | null;
+  activeIngredients: string[];
+  leaflet: LeafletInput | null;
+  source: string;
+  sourceUpdatedAt: string | null;
+  matchReasons: string[];
+}
+
+export interface MedicineCandidatesResponse {
+  candidates: MedicineCandidate[];
+  warnings: string[];
+}
+
+export interface AppDeviceLinkStartResponse {
+  code: string;
+  pollToken: string;
+  expiresAt: string;
+}
+
+export interface AuthDeviceSummary {
+  id: string;
+  clientKind: "miniprogram" | "android";
+  createdAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
+export interface AuthDevicesResponse {
+  devices: AuthDeviceSummary[];
+}
+
+export interface AppDeviceLinkExchangeResponse {
+  state: "pending" | "approved" | "expired";
+  token?: string;
+  expiresAt?: string;
+  user?: { id: string; hasFamily: boolean };
+}
+
+export interface MedicineCatalogCandidateRequest {
+  name?: string;
+  specification?: string;
+  manufacturer?: string;
+  approvalNumber?: string;
+  barcode?: string;
+  consentToShare: true;
+}
+
+export interface MedicineLeafletPhotoSummary {
+  id: string;
+  medicineId: string;
+  contentType: "image/jpeg" | "image/png";
+  sizeBytes: number;
+  source: string;
+  createdAt: string;
+  url: string;
+}
+
+export interface WechatReminderTemplate {
+  templateId: string;
+  title: string;
+  available: boolean;
+}
+
+export interface WechatReminderTemplatesResponse {
+  available: boolean;
+  templates: WechatReminderTemplate[];
+  reason?: string;
+}
+
+export interface WechatReminderSubscribeRequest {
+  acceptedTemplateIds: string[];
+}
+
+export interface WechatReminderSubscribeResponse {
+  acceptedTemplateIds: string[];
+}
+
+export interface PendingReminderItem {
+  id: string;
+  type: "expired" | "expiry_due" | "low_stock" | "needs_check" | "stocktake_due" | "leaflet_missing";
+  medicineId: string | null;
+  batchId: string | null;
+  medicineName: string;
+  message: string;
+  dueDate: string | null;
+  action: "edit_batch" | "restock" | "stocktake" | "review_leaflet";
+}
+
+export interface FamilyMedicineBackup {
+  schemaVersion: 1;
+  backupId: string;
+  exportedAt: string;
+  familyName: string;
+  medicines: Array<CreateMedicineInput & { isArchived?: boolean }>;
+  inventorySettings: FamilyInventorySettings;
+}
+
+export interface BackupPreviewResponse {
+  valid: boolean;
+  duplicateBackup: boolean;
+  confirmationToken?: string;
+  inventorySettings?: FamilyInventorySettings;
+  medicineCount: number;
+  likelyMatches: Array<{ importedName: string; existingMedicineId: string; existingName: string }>;
+  errors: string[];
+}
+
+export interface BackupRestoreResponse {
+  restoredCount: number;
+  backupId: string;
 }
 
 // ---------------------------------------------------------------------------

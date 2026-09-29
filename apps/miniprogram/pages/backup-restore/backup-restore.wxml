@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">JSON 备份</view>
+    <view class="hint">备份包含家庭药品、批次、阈值和设置；不包含登录令牌、密钥或邀请凭据。</view>
+    <view class="btn btn-primary" bindtap="onCreateBackup">{{busy ? "处理中…" : "生成并分享 JSON 备份"}}</view>
+    <view class="hint status-text" wx:if="{{statusText}}">{{statusText}}</view>
+    <view class="hint" wx:if="{{backupCreatedAt}}">生成时间：{{backupCreatedAt}}</view>
+    <textarea wx:if="{{backupJson}}" class="backup-json" value="{{backupJson}}" disabled maxlength="-1" />
+    <view class="btn btn-ghost" wx:if="{{backupJson}}" bindtap="onCopyBackup">复制 JSON 内容</view>
+  </view>
+  <view class="card">
+    <view class="section-title">恢复备份</view>
+    <view class="hint">先选 JSON 文件进行预览。恢复会新增记录，不会覆盖当前家庭；同名冲突请核对。</view>
+    <view class="btn btn-ghost" bindtap="onChooseImport">{{selectedFileName || "选择 .json 备份文件"}}</view>
+    <view wx:if="{{importPreview}}" class="preview-card">
+      <view class="preview-title">恢复预览</view>
+      <view class="hint">{{previewCountsText}}</view>
+      <view class="hint conflict-text">{{conflictText}}</view>
+      <view class="btn btn-primary {{!restoreAllowed || busy ? 'disabled' : ''}}" bindtap="onConfirmRestore">{{importPreview.duplicateBackup ? "此备份已恢复" : "确认恢复到当前家庭"}}</view>
+    </view>
+    <view class="hint status-text" wx:if="{{statusText}}">{{statusText}}</view>
+    <view class="hint error-text" wx:if="{{errorMessage}}">{{errorMessage}}</view>
+  </view>
+  <view class="safety-note">数据库和说明书照片仍需通过服务器备份单独恢复。JSON 文件请保存在可信位置。</view>
+</view>

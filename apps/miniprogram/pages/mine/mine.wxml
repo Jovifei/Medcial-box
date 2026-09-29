@@ -1,0 +1,37 @@
+<view class="page">
+  <view class="card mine-family">
+    <view class="family-caption">当前家庭</view>
+    <view class="family-name">{{familyName || (loading ? "正在读取…" : "尚未加入家庭")}}</view>
+    <view class="hint">{{roleLabel}}</view>
+    <view class="btn btn-ghost" bindtap="onOpenItem" data-route="family">家庭成员与盘点设置</view>
+    <view class="btn btn-primary" bindtap="onOpenItem" data-route="invite">邀请家人加入</view>
+    <view class="hint" wx:if="{{errorMessage}}">{{errorMessage}} <text class="retry-link" bindtap="onRetry">重试</text></view>
+  </view>
+
+  <view class="section-label">常用功能</view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="app"><view><view class="menu-title">连接 Android App</view><view class="menu-hint">在小程序确认 App 的临时连接码</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="notifications"><view><view class="menu-title">提醒设置</view><view class="menu-hint">查看待处理项目并主动订阅微信提醒</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="restock"><view><view class="menu-title">补货清单</view><view class="menu-hint">记录需要补充的家庭库存</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="export"><view><view class="menu-title">导出药箱清单</view><view class="menu-hint">预览并分享 Markdown 文件</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="backup"><view><view class="menu-title">备份与恢复</view><view class="menu-hint">JSON 备份、导入预览和恢复</view></view><view class="menu-arrow">›</view></view>
+  <view class="section-label">已登录设备</view>
+  <view class="card devices-card">
+    <view class="hint" wx:if="{{devicesLoading}}">正在读取设备授权…</view>
+    <view class="hint" wx:elif="{{devicesError}}">{{devicesError}}</view>
+    <view class="hint" wx:elif="{{devices.length === 0}}">没有其他有效设备会话。</view>
+    <view wx:for="{{devices}}" wx:key="id" class="device-row">
+      <view class="device-info">
+        <view class="device-title">{{item.kindLabel}}{{item.isCurrent ? " · 当前设备" : ""}}</view>
+        <view class="hint">登录于 {{item.createdAt}}</view>
+        <view class="hint">有效至 {{item.expiresAt}}</view>
+        <view class="hint current-device" wx:if="{{item.isCurrent}}">当前小程序会话不能从此处撤销。</view>
+        <view class="hint" wx:elif="{{item.clientKind === 'miniprogram'}}">其他小程序会话需在对应设备退出；此处可撤销 Android App。</view>
+      </view>
+      <view class="btn btn-danger revoke-button" wx:if="{{item.clientKind === 'android' && !item.isCurrent}}" data-id="{{item.id}}" bindtap="onRevokeDevice">{{revokingDeviceId === item.id ? "撤销中…" : "撤销授权"}}</view>
+    </view>
+  </view>
+  <view class="section-label">数据管理</view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="trash"><view><view class="menu-title">最近删除</view><view class="menu-hint">30 天内恢复删除的药品或批次</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="audit"><view><view class="menu-title">家庭变更记录</view><view class="menu-hint">查看成员对库存所做的修改</view></view><view class="menu-arrow">›</view></view>
+  <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
+</view>

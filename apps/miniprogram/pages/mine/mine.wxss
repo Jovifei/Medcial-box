@@ -1,0 +1,18 @@
+.page { padding-bottom: 60rpx; }
+.mine-family { padding-top: 30rpx; }
+.family-caption { color: #7c867e; font-size: 22rpx; }
+.family-name { margin-top: 8rpx; font-size: 36rpx; font-weight: 700; }
+.section-label { margin: 28rpx 8rpx 12rpx; color: #758278; font-size: 23rpx; font-weight: 650; }
+.menu-card { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-bottom: 12rpx; padding: 24rpx; border: 1rpx solid #e8ece8; border-radius: 18rpx; background: #fff; }
+.menu-title { font-size: 27rpx; font-weight: 650; }
+.menu-hint { margin-top: 6rpx; color: #7c867e; font-size: 21rpx; line-height: 1.5; }
+.menu-arrow { color: #87938a; font-size: 40rpx; }
+.devices-card { padding-top: 10rpx; padding-bottom: 10rpx; }
+.device-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid #edf0ec; }
+.device-row:last-child { border-bottom: 0; }
+.device-info { min-width: 0; flex: 1; }
+.device-title { margin-bottom: 4rpx; font-size: 26rpx; font-weight: 650; word-break: break-word; }
+.current-device { margin-top: 5rpx; color: #52685c; }
+.revoke-button { flex: 0 0 170rpx; min-height: 70rpx; margin-top: 0; padding: 12rpx; font-size: 22rpx; }
+.retry-link { color: #3f7d5c; }
+.safety-note { margin: 28rpx 8rpx; color: #7c867e; font-size: 21rpx; line-height: 1.6; }

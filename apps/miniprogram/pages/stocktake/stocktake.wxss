@@ -1,0 +1,9 @@
+.page { padding-bottom: 60rpx; }
+.home-header { padding: 18rpx 4rpx 24rpx; }
+.title { font-size: 38rpx; font-weight: 700; }
+.subtitle { margin-top: 8rpx; color: #758278; font-size: 22rpx; line-height: 1.55; }
+.error-card { border-color: #efd4cb; background: #fff8f5; }
+.session-card { background: #f1f7f2; }
+.medicine-name { font-size: 27rpx; font-weight: 700; }
+.stocktake-item { padding-top: 22rpx; }
+.result-warning { margin-top: 10rpx; color: #a45437; font-size: 21rpx; line-height: 1.5; }

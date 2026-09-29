@@ -1,0 +1,10 @@
+.page { padding-bottom: 60rpx; }
+.home-header { padding: 18rpx 4rpx 24rpx; }
+.title { font-size: 38rpx; font-weight: 700; }
+.subtitle { margin-top: 8rpx; color: #758278; font-size: 22rpx; line-height: 1.55; }
+.error-card { border-color: #efd4cb; background: #fff8f5; }
+.empty-card { margin-top: 18rpx; padding: 34rpx 24rpx; border: 1rpx dashed #c8d4ca; border-radius: 20rpx; background: #fff; text-align: center; }
+.audit-item { padding: 22rpx; }
+.event-action { font-size: 26rpx; font-weight: 700; }
+.event-actor { color: #52685c; font-size: 21rpx; }
+.change-text { margin-top: 12rpx; color: #44574b; font-size: 22rpx; line-height: 1.6; overflow-wrap: anywhere; }

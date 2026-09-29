@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">连接 Android App</view>
+    <view class="hint">App 会显示一个 5 分钟有效的一次性连接码。在本页核对后确认，两个客户端将使用同一个家庭账号。</view>
+    <view class="field">
+      <view class="field-label">App 临时连接码</view>
+      <input class="input code-input" type="number" maxlength="8" value="{{code}}" bindinput="onInput" placeholder="输入 Android App 显示的 8 位连接码" />
+    </view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onApprove">{{submitting ? "确认中…" : "核对并确认连接"}}</view>
+    <view class="result-text" wx:if="{{resultText}}">{{resultText}}</view>
+  </view>
+  <view class="safety-note">只输入你自己正在使用的 App 显示的连接码。连接码不会在本页预览家庭药品数据。</view>
+</view>

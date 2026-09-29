@@ -8,13 +8,34 @@
     "pages/medicine-detail/medicine-detail",
     "pages/batch-edit/batch-edit",
     "pages/export-preview/export-preview",
-    "pages/invite/invite"
+    "pages/invite/invite",
+    "pages/pending/pending",
+    "pages/mine/mine",
+    "pages/family-settings/family-settings",
+    "pages/app-link/app-link",
+    "pages/stocktake/stocktake",
+    "pages/restock/restock",
+    "pages/trash/trash",
+    "pages/audit/audit",
+    "pages/backup-restore/backup-restore",
+    "pages/notification-settings/notification-settings"
   ],
   "window": {
     "navigationBarTitleText": "家庭药箱",
     "navigationBarBackgroundColor": "#f5f7f4",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f7f4"
+  },
+  "tabBar": {
+    "color": "#758278",
+    "selectedColor": "#3f7d5c",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "药箱" },
+      { "pagePath": "pages/pending/pending", "text": "待处理" },
+      { "pagePath": "pages/mine/mine", "text": "我的" }
+    ]
   },
   "sitemapLocation": "sitemap.json",
   "style": "v2"

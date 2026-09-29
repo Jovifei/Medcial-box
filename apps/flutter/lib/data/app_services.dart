@@ -1,0 +1,91 @@
+import 'api_auth_repository.dart';
+import 'api_client.dart';
+import 'api_medicine_repository.dart';
+import 'api_workflow_repository.dart';
+import 'app_stores.dart';
+import 'demo_repositories.dart';
+import 'local_reminder_service.dart';
+
+class AppServices {
+  AppServices._({
+    required this.apiBaseUrl,
+    required this.configurationError,
+    required this.secretStore,
+    required this.localStore,
+    required this.demoMedicineRepository,
+    required this.reminders,
+    this.api,
+    this.auth,
+    this.families,
+    this.medicines,
+    this.workflow,
+  });
+
+  final String apiBaseUrl;
+  final String? configurationError;
+  final SecretStore secretStore;
+  final LocalAppStore localStore;
+  final ApiClient? api;
+  final ApiAuthRepository? auth;
+  final ApiFamilyRepository? families;
+  final ApiMedicineRepository? medicines;
+  final ApiWorkflowRepository? workflow;
+  final DemoMedicineRepository demoMedicineRepository;
+  final LocalReminderService reminders;
+
+  bool get isConfigured => api != null && configurationError == null;
+
+  static Future<AppServices> create({
+    required String apiBaseUrl,
+    SecretStore? secretStore,
+    LocalAppStore? localStore,
+  }) async {
+    final secrets = secretStore ?? FlutterSecretStore();
+    final local = localStore ?? await SharedPreferencesAppStore.create();
+    final baseUrl = apiBaseUrl.trim();
+    if (baseUrl.isEmpty) {
+      return AppServices._(
+        apiBaseUrl: baseUrl,
+        configurationError: null,
+        secretStore: secrets,
+        localStore: local,
+        demoMedicineRepository: DemoMedicineRepository(),
+        reminders: LocalReminderService(),
+      );
+    }
+    try {
+      final api = ApiClient(
+        baseUrl: baseUrl,
+        tokenProvider: () => secrets.read(ApiAuthRepository.accessTokenKey),
+      );
+      final medicines = ApiMedicineRepository(api: api, localStore: local);
+      final reminders = LocalReminderService()..watch(medicines);
+      return AppServices._(
+        apiBaseUrl: baseUrl,
+        configurationError: null,
+        secretStore: secrets,
+        localStore: local,
+        api: api,
+        auth: ApiAuthRepository(
+          api: api,
+          secretStore: secrets,
+          localStore: local,
+        ),
+        families: ApiFamilyRepository(api: api, localStore: local),
+        medicines: medicines,
+        workflow: ApiWorkflowRepository(api: api),
+        demoMedicineRepository: DemoMedicineRepository(),
+        reminders: reminders,
+      );
+    } on ArgumentError catch (error) {
+      return AppServices._(
+        apiBaseUrl: baseUrl,
+        configurationError: error.message as String? ?? '服务地址格式错误。',
+        secretStore: secrets,
+        localStore: local,
+        demoMedicineRepository: DemoMedicineRepository(),
+        reminders: LocalReminderService(),
+      );
+    }
+  }
+}

@@ -1,0 +1,10 @@
+.page { padding-bottom: 60rpx; }
+.home-header { padding: 18rpx 4rpx 24rpx; }
+.title { font-size: 38rpx; font-weight: 700; }
+.subtitle { margin-top: 8rpx; color: #758278; font-size: 22rpx; line-height: 1.55; }
+.error-card { border-color: #efd4cb; background: #fff8f5; }
+.empty-card { margin-top: 18rpx; padding: 34rpx 24rpx; border: 1rpx dashed #c8d4ca; border-radius: 20rpx; background: #fff; text-align: center; }
+.restock-header { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-bottom: 10rpx; }
+.restock-name { flex: 1; min-width: 0; font-size: 27rpx; font-weight: 700; }
+.restock-actions { display: flex; gap: 12rpx; margin-top: 10rpx; }
+.action-button { flex: 1; min-height: 72rpx; font-size: 23rpx; }

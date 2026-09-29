@@ -1,0 +1,6 @@
+.page { padding-bottom: 60rpx; }
+.family-name { font-size: 34rpx; font-weight: 700; }
+.member-row { padding: 16rpx 0; border-bottom: 1rpx solid #edf0ec; }
+.member-row:last-child { border-bottom: 0; }
+.member-name { font-size: 25rpx; font-weight: 650; }
+.error-card { padding: 22rpx; border: 1rpx solid #efd4cb; border-radius: 16rpx; background: #fff8f5; }

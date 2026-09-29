@@ -14,13 +14,24 @@ import { registerDosageNoteRoutes } from "./routes/dosage-notes.js";
 import { registerExportRoutes } from "./routes/exports.js";
 import { registerInvitationRoutes } from "./routes/invitations.js";
 import { registerRecognitionRoutes } from "./routes/recognitions.js";
+import { registerInventoryRoutes } from "./routes/inventory.js";
 import { createDefaultMedicineRecognitionProvider, type MedicineRecognitionProvider } from "./services/medicine-recognition.js";
+import { registerMedicineCatalogRoutes } from "./routes/medicine-catalog.js";
+import { createDefaultMedicineCatalogProvider, type MedicineCatalogProvider } from "./services/medicine-catalog.js";
+import { createDefaultReminderTemplateConfig, type ReminderTemplateConfig } from "./services/subscribe-messages.js";
+import { registerReminderRoutes } from "./routes/reminders.js";
+import { registerLeafletPhotoRoutes } from "./routes/leaflet-photos.js";
+import { registerBackupRoutes } from "./routes/backups.js";
+import { PrivatePhotoStore } from "./services/private-photo-store.js";
 
 export interface BuildServerOptions {
   database: Database;
   /** Defaults to the real HTTP gateway (env credentials); tests inject a fake. */
   wechatGateway?: WechatGateway;
   medicineRecognitionProvider?: MedicineRecognitionProvider;
+  medicineCatalogProvider?: MedicineCatalogProvider;
+  reminderTemplateConfig?: ReminderTemplateConfig;
+  privatePhotoStore?: PrivatePhotoStore;
   logger?: boolean;
 }
 
@@ -51,6 +62,11 @@ export async function buildServer(options: BuildServerOptions) {
   await registerExportRoutes(app, options.database);
   await registerInvitationRoutes(app, options.database);
   await registerRecognitionRoutes(app, options.medicineRecognitionProvider ?? createDefaultMedicineRecognitionProvider());
+  await registerInventoryRoutes(app, options.database);
+  await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider());
+  await registerReminderRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());
+  await registerLeafletPhotoRoutes(app, options.database, options.privatePhotoStore ?? new PrivatePhotoStore());
+  await registerBackupRoutes(app, options.database);
 
   return app;
 }

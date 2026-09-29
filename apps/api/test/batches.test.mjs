@@ -254,13 +254,13 @@ test("updating a batch with the matching version bumps it and returns the row", 
 
     const update = pool.callsMatching(/UPDATE medicine_batches SET/)[0];
     assert.deepEqual(update.params.slice(0, 3), ["b-1", "m-1", "family-1"]);
-    assert.equal(update.params[11], 1);
+    assert.equal(update.params[15], 1);
   } finally {
     await app.close();
   }
 });
 
-test("a missing batch is a 404 and deletion is physical", async () => {
+test("a missing batch is a 404 and deletion enters the recoverable trash", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
   const app = await loggedInApp(pool, gateway);
@@ -281,7 +281,7 @@ test("a missing batch is a 404 and deletion is physical", async () => {
     assert.equal(missingUpdate.statusCode, 404);
     assert.equal(missingUpdate.json().error.code, "NOT_FOUND");
 
-    pool.on(/DELETE FROM medicine_batches/, { rows: [{ id: "b-1" }], rowCount: 1 });
+    pool.on(/UPDATE medicine_batches SET deleted_at = now\(\)/, { rows: [{ id: "b-1" }], rowCount: 1 });
     const deleted = await app.inject({
       method: "DELETE",
       url: "/api/v1/medicines/m-1/batches/b-1",
@@ -289,7 +289,7 @@ test("a missing batch is a 404 and deletion is physical", async () => {
     });
     assert.equal(deleted.statusCode, 204);
 
-    pool.on(/DELETE FROM medicine_batches/, { rows: [], rowCount: 0 });
+    pool.on(/UPDATE medicine_batches SET deleted_at = now\(\)/, { rows: [], rowCount: 0 });
     const missingDelete = await app.inject({
       method: "DELETE",
       url: "/api/v1/medicines/m-1/batches/b-missing",
@@ -368,6 +368,206 @@ test("failed batch mutation does not bump the medicine aggregate version", async
       "失败操作不得递增药品版本",
     );
     assert.equal(pool.callsMatching(/^ROLLBACK$/).length, 1, "失败操作必须整体回滚");
+  } finally {
+    await app.close();
+  }
+});
+
+test("splitting and opening part of a known batch creates an opened copy and audits atomically", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    pool.always(/FROM medicines WHERE id[\s\S]*FOR UPDATE/, {
+      rows: [medicineRow({ id: "m-1", version: 4 })],
+      rowCount: 1,
+    });
+    pool.on(/FROM medicine_batches WHERE id[\s\S]*FOR UPDATE/, {
+      rows: [batchRow({
+        id: "b-source",
+        medicine_id: "m-1",
+        quantity: 8,
+        unit: "box",
+        lot_number: "LOT-SPLIT",
+        expiry_value: "2027-12",
+        expiry_precision: "month",
+        confirmed_units_per_package: 20,
+        storage_location: "厨房药箱",
+        opened_state: "unopened",
+        version: 3,
+      })],
+      rowCount: 1,
+    });
+    pool.on(/UPDATE medicine_batches SET quantity = quantity -/, {
+      rows: [batchRow({
+        id: "b-source",
+        medicine_id: "m-1",
+        quantity: 6,
+        unit: "box",
+        lot_number: "LOT-SPLIT",
+        expiry_value: "2027-12",
+        expiry_precision: "month",
+        confirmed_units_per_package: 20,
+        storage_location: "厨房药箱",
+        opened_state: "unopened",
+        version: 4,
+      })],
+      rowCount: 1,
+    });
+    pool.on(/INSERT INTO medicine_batches[\s\S]*SELECT/, {
+      rows: [batchRow({
+        id: "b-opened",
+        medicine_id: "m-1",
+        quantity: 2,
+        unit: "box",
+        lot_number: "LOT-SPLIT",
+        expiry_value: "2027-12",
+        expiry_precision: "month",
+        confirmed_units_per_package: 20,
+        storage_location: "厨房药箱",
+        opened_state: "opened",
+        opened_at: "2026-09-29",
+        after_opening_limit: { value: 30, unit: "day", source: "说明书" },
+        version: 1,
+      })],
+      rowCount: 1,
+    });
+    pool.on(/UPDATE medicines SET version = version \+ 1/, { rows: [{ id: "m-1" }], rowCount: 1 });
+    pool.on(/INSERT INTO audit_events/, { rows: [], rowCount: 1 });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines/m-1/batches/b-source/open-split",
+      ...authHeader(),
+      payload: {
+        version: 3,
+        openedQuantity: 2,
+        openedAt: "2026-09-29",
+        afterOpeningLimit: { value: 30, unit: "day", source: "说明书" },
+        confirmed: true,
+      },
+    });
+
+    assert.equal(response.statusCode, 201, response.body);
+    const result = response.json();
+    assert.equal(result.remainingBatch.id, "b-source");
+    assert.equal(result.remainingBatch.quantity, 6);
+    assert.equal(result.remainingBatch.openedState, "unopened");
+    assert.equal(result.remainingBatch.version, 4);
+    assert.equal(result.openedBatch.id, "b-opened");
+    assert.equal(result.openedBatch.quantity, 2);
+    assert.equal(result.openedBatch.openedState, "opened");
+    assert.equal(result.openedBatch.openedAt, "2026-09-29");
+    assert.deepEqual(result.openedBatch.afterOpeningLimit, { value: 30, unit: "day", source: "说明书" });
+    assert.equal(result.openedBatch.lotNumber, "LOT-SPLIT");
+    assert.equal(result.openedBatch.expiry.value, "2027-12");
+    assert.equal(result.openedBatch.confirmedUnitsPerPackage, 20);
+    assert.equal(result.openedBatch.storageLocation, "厨房药箱");
+
+    const sql = pool.calls.map((call) => call.sql);
+    const begin = sql.indexOf("BEGIN");
+    const decrement = sql.findIndex((statement) => statement.includes("UPDATE medicine_batches SET quantity = quantity -"));
+    const insert = sql.findIndex((statement) => statement.includes("INSERT INTO medicine_batches"));
+    const bump = sql.findIndex((statement) => statement.includes("UPDATE medicines SET version = version"));
+    const audit = sql.findIndex((statement) => statement.includes("INSERT INTO audit_events"));
+    const commit = sql.indexOf("COMMIT");
+    assert.ok(begin < decrement && decrement < insert && insert < bump && bump < audit && audit < commit);
+    assert.equal(pool.callsMatching(/FROM medicines WHERE id[\s\S]*FOR UPDATE/)[0].params[1], "family-1");
+    const update = pool.callsMatching(/UPDATE medicine_batches SET quantity = quantity -/)[0];
+    assert.equal(update.params[0], "b-source");
+    assert.equal(update.params[2], "family-1");
+    assert.equal(update.params[4], 3);
+  } finally {
+    await app.close();
+  }
+});
+
+test("batch split rejects stale versions, invalid state, unknown or zero quantity without writes", async () => {
+  for (const scenario of [
+    { name: "stale version", quantity: 8, version: 4, expectedVersion: 3, state: "unopened", openedQuantity: 2, status: 409 },
+    { name: "unknown quantity", quantity: null, version: 3, expectedVersion: 3, state: "unopened", openedQuantity: 2, status: 409 },
+    { name: "zero quantity", quantity: 0, version: 3, expectedVersion: 3, state: "unopened", openedQuantity: 1, status: 409 },
+    { name: "all quantity", quantity: 2, version: 3, expectedVersion: 3, state: "unopened", openedQuantity: 2, status: 400 },
+    { name: "already opened", quantity: 8, version: 3, expectedVersion: 3, state: "opened", openedQuantity: 2, status: 409 },
+  ]) {
+    const pool = createFakePool();
+    const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+    const app = await loggedInApp(pool, gateway);
+    try {
+      pool.always(/FROM medicines WHERE id[\s\S]*FOR UPDATE/, {
+        rows: [medicineRow({ id: "m-1" })],
+        rowCount: 1,
+      });
+      pool.on(/FROM medicine_batches WHERE id[\s\S]*FOR UPDATE/, {
+        rows: [batchRow({
+          id: "b-source",
+          medicine_id: "m-1",
+          quantity: scenario.quantity,
+          opened_state: scenario.state,
+          version: scenario.version,
+        })],
+        rowCount: 1,
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/medicines/m-1/batches/b-source/open-split",
+        ...authHeader(),
+        payload: {
+          version: scenario.expectedVersion,
+          openedQuantity: scenario.openedQuantity,
+          openedAt: "2026-09-29",
+          confirmed: true,
+        },
+      });
+      assert.equal(response.statusCode, scenario.status, `${scenario.name}: ${response.body}`);
+      assert.equal(pool.callsMatching(/UPDATE medicine_batches SET quantity = quantity -/).length, 0, scenario.name);
+      assert.equal(pool.callsMatching(/INSERT INTO medicine_batches/).length, 0, scenario.name);
+      assert.equal(pool.callsMatching(/UPDATE medicines SET version = version \+ 1/).length, 0, scenario.name);
+      assert.equal(pool.callsMatching(/INSERT INTO audit_events/).length, 0, scenario.name);
+      assert.equal(pool.callsMatching(/^ROLLBACK$/).length, 1, scenario.name);
+    } finally {
+      await app.close();
+    }
+  }
+});
+
+test("batch split rejects unknown request fields and cross-family records", async () => {
+  const pool = createFakePool();
+  const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
+  const app = await loggedInApp(pool, gateway);
+  try {
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines/m-other/batches/b-other/open-split",
+      ...authHeader(),
+      payload: { version: 1, openedQuantity: 1, openedAt: "2026-09-29", confirmed: true, quantity: 2 },
+    });
+    assert.equal(invalid.statusCode, 400);
+    const invalidLimit = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines/m-other/batches/b-other/open-split",
+      ...authHeader(),
+      payload: {
+        version: 1,
+        openedQuantity: 1,
+        openedAt: "2026-09-29",
+        afterOpeningLimit: { value: 30, unit: "day", unexpected: true },
+        confirmed: true,
+      },
+    });
+    assert.equal(invalidLimit.statusCode, 400);
+    assert.equal(pool.callsMatching(/FOR UPDATE/).length, 0);
+
+    pool.always(/FROM medicines WHERE id[\s\S]*FOR UPDATE/, { rows: [], rowCount: 0 });
+    const denied = await app.inject({
+      method: "POST",
+      url: "/api/v1/medicines/m-other/batches/b-other/open-split",
+      ...authHeader(),
+      payload: { version: 1, openedQuantity: 1, openedAt: "2026-09-29", confirmed: true },
+    });
+    assert.equal(denied.statusCode, 404);
+    assert.equal(pool.callsMatching(/FROM medicine_batches WHERE id[\s\S]*FOR UPDATE/).length, 0);
+    assert.equal(pool.callsMatching(/UPDATE medicine_batches SET quantity = quantity -/).length, 0);
   } finally {
     await app.close();
   }

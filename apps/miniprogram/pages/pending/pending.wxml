@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="home-header">
+    <view class="title">待处理</view>
+    <view class="subtitle">按库存和日期整理需要核对的事项。处理状态不会自动扣减库存。</view>
+  </view>
+  <view class="card" wx:if="{{loading}}"><view class="hint">正在更新待处理事项…</view></view>
+  <view class="card error-card" wx:if="{{errorMessage}}">
+    <view class="section-title">暂时无法加载</view><view class="hint">{{errorMessage}}</view>
+    <view class="btn btn-ghost" bindtap="onRetry">重试</view>
+  </view>
+  <view class="empty-card" wx:if="{{!loading && !errorMessage && items.length === 0}}">
+    <view class="empty-mark">✓</view><view class="section-title">暂时没有待处理事项</view>
+    <view class="hint">库存、开封日期或说明书资料有变化后会在这里显示。</view>
+  </view>
+  <view wx:for="{{items}}" wx:key="id" class="card pending-card">
+    <view class="pending-type">{{item.type === 'expired' ? '已过期' : item.type === 'expiry_due' ? '临期' : item.type === 'low_stock' ? '库存不足' : item.type === 'stocktake_due' ? '需要盘点' : item.type === 'leaflet_missing' ? '待补说明书' : '待核对'}}</view>
+    <view class="pending-name">{{item.medicineName}}</view>
+    <view class="pending-label">{{item.message}}</view>
+    <view class="pending-date" wx:if="{{item.dueDate}}">需核对：{{item.dueDate}}</view>
+    <view class="btn btn-ghost" data-id="{{item.medicineId}}" data-batch-id="{{item.batchId}}" data-action="{{item.action}}" bindtap="onHandle">{{item.action === 'stocktake' ? '开始盘点' : item.action === 'restock' ? '查看补货清单' : item.action === 'review_leaflet' ? '查看药品资料' : item.action === 'edit_batch' ? '核对批次' : '查看药品'}}</view>
+  </view>
+  <view class="hint footnote" wx:if="{{lastUpdated}}">最后更新：{{lastUpdated}}</view>
+</view>

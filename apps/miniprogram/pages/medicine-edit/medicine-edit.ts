@@ -1,7 +1,9 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { confirmIngredientOverlap, findVerifiedIngredientMatches } from "../../services/ingredient-matches";
 import type {
   ExpiryPrecision,
+  MedicineCandidate,
   MedicationSummary,
   MedicinePayload,
   QuantityUnit,
@@ -26,20 +28,39 @@ interface BatchForm {
   unitIndex: number;
   confirmedUnits: string;
   storageLocation: string;
+  openedState: "unknown" | "unopened" | "opened";
+  openedAt: string;
+  openingLimitMode: "none" | "day" | "month" | "date";
+  openingLimitValue: string;
+  openingLimitSource: string;
+  openedStateIndex: number;
+  openingLimitModeIndex: number;
+  openingExpanded: boolean;
 }
 
 interface MedicineEditPageData {
   isEdit: boolean;
   medicineId: string;
   version: number;
+  medicineLoading: boolean;
   submitting: boolean;
   recognizing: boolean;
+  isDirty: boolean;
+  leaveSheetVisible: boolean;
+  draftAvailable: boolean;
+  statusBarHeight: number;
+  navBarHeight: number;
+  navRightGap: number;
   optionalExpanded: boolean;
   recognitionHint: string;
+  scannedBarcode: string;
+  barcodeLookupStatus: string;
+  canRetryBarcode: boolean;
   name: string;
   specification: string;
   manufacturer: string;
   approvalNumber: string;
+  barcodeValue: string;
   ingredients: string;
   purposeCategory: string;
   leafletPurpose: string;
@@ -54,6 +75,66 @@ interface MedicineEditPageData {
   purposeOptions: string[];
   purposeIndex: number;
   captureSource: "" | "camera" | "album";
+  candidate: MedicineCandidate | null;
+  candidates: MedicineCandidate[];
+  candidateWarnings: string[];
+  openedStateLabels: string[];
+  openingLimitModeLabels: string[];
+  openedStateIndex: number;
+  openingLimitModeIndex: number;
+}
+
+type MedicineDraftValues = Pick<MedicineEditPageData,
+  "name" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
+  "ingredients" | "purposeCategory" | "leafletPurpose" | "leafletUsage" |
+  "leafletContraindications" | "leafletPrecautions" | "leafletSource" | "verified" |
+  "batches" | "purposeIndex" | "scannedBarcode">;
+
+interface StoredMedicineDraft {
+  schemaVersion: 1;
+  medicineId: string;
+  savedAt: string;
+  fields: MedicineDraftValues;
+}
+
+const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
+const NATIVE_LEAVE_WARNING = "此表单有未保存修改。离开后会保留本机草稿；如要放弃修改，请使用页面左上角返回按钮。";
+
+function draftStorageKey(medicineId: string): string {
+  return `medicine-edit-draft:${medicineId || "new"}`;
+}
+
+function draftValues(data: MedicineEditPageData): MedicineDraftValues {
+  return {
+    name: data.name,
+    specification: data.specification,
+    manufacturer: data.manufacturer,
+    approvalNumber: data.approvalNumber,
+    barcodeValue: data.barcodeValue,
+    ingredients: data.ingredients,
+    purposeCategory: data.purposeCategory,
+    leafletPurpose: data.leafletPurpose,
+    leafletUsage: data.leafletUsage,
+    leafletContraindications: data.leafletContraindications,
+    leafletPrecautions: data.leafletPrecautions,
+    leafletSource: data.leafletSource,
+    verified: data.verified,
+    batches: data.batches.map((batch) => ({ ...batch })),
+    purposeIndex: data.purposeIndex,
+    scannedBarcode: data.scannedBarcode,
+  };
+}
+
+function formFingerprint(data: MedicineEditPageData): string {
+  const fields = draftValues(data);
+  return JSON.stringify({
+    ...fields,
+    batches: fields.batches.map((batch) => {
+      const { openingExpanded, ...comparable } = batch;
+      void openingExpanded;
+      return comparable;
+    }),
+  });
 }
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -83,6 +164,14 @@ function emptyBatch(): BatchForm {
     unitIndex: 4,
     confirmedUnits: "",
     storageLocation: "",
+    openedState: "unknown",
+    openedAt: "",
+    openingLimitMode: "none",
+    openingLimitValue: "",
+    openingLimitSource: "",
+    openedStateIndex: 0,
+    openingLimitModeIndex: 0,
+    openingExpanded: false,
   };
 }
 
@@ -99,12 +188,32 @@ function batchFromSummary(summary: MedicationSummary): BatchForm[] {
     confirmedUnits:
       batch.confirmedUnitsPerPackage === null ? "" : String(batch.confirmedUnitsPerPackage),
     storageLocation: batch.storageLocation ?? "",
+    openedState: batch.openedState ?? "unknown",
+    openedAt: batch.openedAt ?? "",
+    openingLimitMode: batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+      ? "none"
+      : "date" in batch.afterOpeningLimit ? "date" : batch.afterOpeningLimit.unit,
+    openingLimitValue: batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+      ? ""
+      : "date" in batch.afterOpeningLimit ? batch.afterOpeningLimit.date : String(batch.afterOpeningLimit.value),
+    openingLimitSource: batch.afterOpeningLimit?.source ?? "",
+    openingExpanded: batch.openedState === "opened" || batch.afterOpeningLimit !== null && batch.afterOpeningLimit !== undefined,
+    openedStateIndex: Math.max(0, ["unknown", "unopened", "opened"].indexOf(batch.openedState ?? "unknown")),
+    openingLimitModeIndex: Math.max(0, ["none", "day", "month", "date"].indexOf(
+      batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+        ? "none"
+        : "date" in batch.afterOpeningLimit ? "date" : batch.afterOpeningLimit.unit,
+    )),
   }));
 }
 
 function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: string | null } {
   const payloads: object[] = [];
   for (const batch of batches) {
+    const openedAt = typeof batch.openedAt === "string" ? batch.openedAt.trim() : "";
+    const openingLimitMode = batch.openingLimitMode ?? "none";
+    const openingLimitValue = typeof batch.openingLimitValue === "string" ? batch.openingLimitValue.trim() : "";
+    const openingLimitSource = typeof batch.openingLimitSource === "string" ? batch.openingLimitSource.trim() : "";
     const precision = PRECISION_VALUES[batch.precisionIndex] ?? "unknown";
     let expiryValue: string | null = batch.expiryValue.trim();
     if (precision === "day" && expiryValue !== "" && !validExpiryValue(expiryValue, precision)) {
@@ -114,6 +223,26 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
       return { payloads: [], error: "按月有效期需为真实月份 YYYY-MM" };
     }
     if (precision === "unknown" || expiryValue === "") expiryValue = null;
+
+    if (openedAt !== "" && !validExpiryValue(openedAt, "day")) {
+      return { payloads: [], error: "开封日期需为真实日期 YYYY-MM-DD" };
+    }
+    let afterOpeningLimit: object | null = null;
+    if (batch.openedState === "opened") {
+      const source = openingLimitSource === "" ? null : openingLimitSource;
+      if (openingLimitMode === "day" || openingLimitMode === "month") {
+        const value = openingLimitValue;
+        if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
+          return { payloads: [], error: "开封后期限需为正整数；不知道时可保持不记录" };
+        }
+        afterOpeningLimit = { value: Number(value), unit: openingLimitMode, source };
+      } else if (openingLimitMode === "date") {
+        if (!validExpiryValue(openingLimitValue, "day")) {
+          return { payloads: [], error: "开封后截止日期需为真实日期 YYYY-MM-DD" };
+        }
+        afterOpeningLimit = { date: openingLimitValue, source };
+      }
+    }
 
     let quantity: number | null = null;
     if (!batch.quantityUnknown) {
@@ -144,6 +273,9 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
       unit: UNIT_VALUES[batch.unitIndex] ?? "other",
       confirmedUnitsPerPackage: confirmedUnits,
       storageLocation: batch.storageLocation.trim() === "" ? null : batch.storageLocation.trim(),
+      openedState: batch.openedState,
+      openedAt: batch.openedState === "opened" && openedAt !== "" ? openedAt : null,
+      afterOpeningLimit,
     });
   }
   return { payloads, error: null };
@@ -159,14 +291,25 @@ Page({
     isEdit: false,
     medicineId: "",
     version: 1,
+    medicineLoading: false,
     submitting: false,
     recognizing: false,
+    isDirty: false,
+    leaveSheetVisible: false,
+    draftAvailable: false,
+    statusBarHeight: 20,
+    navBarHeight: 64,
+    navRightGap: 48,
     optionalExpanded: false,
     recognitionHint: "",
+    scannedBarcode: "",
+    barcodeLookupStatus: "",
+    canRetryBarcode: false,
     name: "",
     specification: "",
     manufacturer: "",
     approvalNumber: "",
+    barcodeValue: "",
     ingredients: "",
     purposeCategory: "",
     leafletPurpose: "",
@@ -181,21 +324,64 @@ Page({
     purposeOptions: PURPOSE_OPTIONS,
     purposeIndex: 0,
     captureSource: "",
+    candidate: null as MedicineCandidate | null,
+    candidates: [] as MedicineCandidate[],
+    candidateWarnings: [] as string[],
+    openedStateLabels: ["未记录", "未开封", "已开封"],
+    openingLimitModeLabels: ["不记录", "开封后天数", "开封后月数", "指定截止日期"],
+    openedStateIndex: 0,
+    openingLimitModeIndex: 0,
   },
 
   /** 编辑已有药品时，识别必须等待资料加载完成，避免后返回的请求覆盖识别草稿。 */
   medicineLoadPromise: null as Promise<void> | null,
+  draftStorageKey: "",
+  initialDraftSnapshot: "",
+  pendingStoredDraft: null as MedicineDraftValues | null,
+  discardingDraft: false,
 
-  onLoad(options: { id?: string; capture?: string }): void {
+  onLoad(options: { id?: string; capture?: string; scan?: string }): void {
+    const medicineId = options.id ?? "";
+    this.draftStorageKey = draftStorageKey(medicineId);
+    try {
+      const systemInfo = wx.getSystemInfoSync();
+      const statusBarHeight = systemInfo.statusBarHeight ?? 20;
+      let navRightGap = 48;
+      try {
+        const menuButton = wx.getMenuButtonBoundingClientRect();
+        navRightGap = Math.max(navRightGap, systemInfo.windowWidth - menuButton.left + 8);
+      } catch { /* retain the balanced fallback on older bases */ }
+      this.setData({ statusBarHeight, navBarHeight: statusBarHeight + 44, navRightGap });
+    } catch {
+      this.setData({ statusBarHeight: 20, navBarHeight: 64 });
+    }
+    if (medicineId !== "") this.setData({ isEdit: true, medicineId });
+    this.captureInitialSnapshot();
+    this.loadStoredDraft();
+
     const captureSource = options.capture === "camera" || options.capture === "album" ? options.capture : "";
+    if (options.scan === "1" || options.capture === "scan") {
+      setTimeout(() => this.onScanCode(), 260);
+    }
     if (captureSource !== "") {
       this.setData({ captureSource });
       setTimeout(() => this.onRecognizePhoto(captureSource), 260);
     }
-    if (options.id) {
-      this.setData({ isEdit: true, medicineId: options.id });
-      this.medicineLoadPromise = this.loadMedicine(options.id);
+    if (medicineId !== "") {
+      this.setData({ medicineLoading: true });
+      this.medicineLoadPromise = this.loadMedicine(medicineId);
     }
+  },
+
+  onHide(): void {
+    const data = this.data as MedicineEditPageData;
+    if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
+  },
+
+  onUnload(): void {
+    const data = this.data as MedicineEditPageData;
+    if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
+    this.setNativeLeaveWarning(false);
   },
 
   async loadMedicine(medicineId: string): Promise<void> {
@@ -207,6 +393,7 @@ Page({
         specification: medicine.specification ?? "",
         manufacturer: medicine.manufacturer ?? "",
         approvalNumber: medicine.approvalNumber ?? "",
+        barcodeValue: medicine.barcodeValue ?? "",
         ingredients: medicine.activeIngredients.join("、"),
         purposeCategory: medicine.purposeCategory ?? "",
         purposeIndex: Math.max(0, PURPOSE_OPTIONS.indexOf(medicine.purposeCategory ?? "")),
@@ -217,21 +404,144 @@ Page({
         leafletSource: medicine.leaflet.source ?? "",
         verified: medicine.leaflet.reviewStatus === "user_confirmed",
         batches: batchFromSummary(medicine).length > 0 ? batchFromSummary(medicine) : [emptyBatch()],
+        openedStateIndex: 0,
         version: medicine.version,
       });
+      this.captureInitialSnapshot();
     } catch (error) {
       showError(error);
+    } finally {
+      this.setData({ medicineLoading: false });
     }
+  },
+
+  captureInitialSnapshot(): void {
+    this.initialDraftSnapshot = formFingerprint(this.data as MedicineEditPageData);
+  },
+
+  updateDirtyState(): void {
+    const changed = this.initialDraftSnapshot !== formFingerprint(this.data as MedicineEditPageData);
+    this.setData({ isDirty: changed });
+    this.setNativeLeaveWarning(changed);
+  },
+
+  setNativeLeaveWarning(enabled: boolean): void {
+    try {
+      if (enabled) wx.enableAlertBeforeUnload({ message: NATIVE_LEAVE_WARNING });
+      else wx.disableAlertBeforeUnload();
+    } catch {
+      // Older WeChat bases can lack this native prompt; the custom back button still offers all three choices.
+    }
+  },
+
+  loadStoredDraft(): void {
+    try {
+      const stored = wx.getStorageSync(this.draftStorageKey) as StoredMedicineDraft | undefined;
+      if (stored?.schemaVersion !== MEDICINE_DRAFT_SCHEMA_VERSION || stored.medicineId !== (this.data.medicineId as string) ||
+          typeof stored.fields?.name !== "string" || !Array.isArray(stored.fields.batches)) return;
+      this.pendingStoredDraft = stored.fields;
+      this.setData({ draftAvailable: true });
+    } catch {
+      this.pendingStoredDraft = null;
+    }
+  },
+
+  persistCurrentDraft(updateBanner = true): void {
+    try {
+      const data = this.data as MedicineEditPageData;
+      const fields = draftValues(data);
+      const stored: StoredMedicineDraft = {
+        schemaVersion: MEDICINE_DRAFT_SCHEMA_VERSION,
+        medicineId: data.medicineId,
+        savedAt: new Date().toISOString(),
+        fields,
+      };
+      wx.setStorageSync(this.draftStorageKey, stored);
+      this.pendingStoredDraft = fields;
+      if (updateBanner) this.setData({ draftAvailable: true });
+    } catch {
+      wx.showToast({ title: "本机草稿保存失败，请先复制或完成保存", icon: "none" });
+    }
+  },
+
+  removeStoredDraft(): void {
+    this.pendingStoredDraft = null;
+    try { wx.removeStorageSync(this.draftStorageKey); } catch { /* local draft cleanup is best effort */ }
+    this.setData({ draftAvailable: false });
+  },
+
+  async onRestoreDraft(): Promise<void> {
+    if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    const fields = this.pendingStoredDraft;
+    if (fields === null) return;
+    if (this.data.isDirty) {
+      const confirmed = await new Promise<boolean>((resolve) => wx.showModal({
+        title: "恢复本机草稿",
+        content: "恢复旧草稿会覆盖当前表单内容。是否继续？",
+        success: (result) => resolve(result.confirm), fail: () => resolve(false),
+      }));
+      if (!confirmed) return;
+    }
+    this.setData({
+      ...fields,
+      draftAvailable: false,
+      recognitionHint: "已恢复本机草稿，请核对后保存。",
+      barcodeLookupStatus: fields.scannedBarcode === "" ? "" : "已保留上次扫描的商品码。",
+      canRetryBarcode: fields.scannedBarcode !== "",
+      candidate: null,
+      candidates: [],
+      candidateWarnings: [],
+    });
+    this.pendingStoredDraft = null;
+    this.updateDirtyState();
+  },
+
+  onDiscardStoredDraft(): void {
+    this.removeStoredDraft();
+  },
+
+  onRequestLeave(): void {
+    const data = this.data as MedicineEditPageData;
+    if (data.submitting || data.recognizing || data.medicineLoading) {
+      wx.showToast({ title: "请等待当前操作完成后再离开", icon: "none" });
+      return;
+    }
+    if (data.isDirty) {
+      this.setData({ leaveSheetVisible: true });
+      return;
+    }
+    this.navigateBackFromForm();
+  },
+
+  onLeaveChoice(event: { currentTarget: { dataset: { choice?: string } } }): void {
+    const choice = event.currentTarget.dataset.choice;
+    this.setData({ leaveSheetVisible: false });
+    if (choice === "continue") return;
+    if (choice === "keep") this.persistCurrentDraft();
+    if (choice === "discard") {
+      this.discardingDraft = true;
+      this.removeStoredDraft();
+    }
+    if (choice !== "keep" && choice !== "discard") return;
+    this.setData({ isDirty: false });
+    this.setNativeLeaveWarning(false);
+    this.navigateBackFromForm();
+  },
+
+  navigateBackFromForm(): void {
+    wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: "/pages/index/index" }) });
   },
 
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
+    this.updateDirtyState();
   },
 
   onVerifiedChange(event: { detail: { value: boolean } }): void {
     this.setData({ verified: event.detail.value });
+    this.updateDirtyState();
   },
 
   onToggleOptional(): void {
@@ -242,6 +552,169 @@ Page({
     const purposeIndex = Number(event.detail.value);
     const selected = PURPOSE_OPTIONS[purposeIndex] ?? "未分类";
     this.setData({ purposeIndex, purposeCategory: selected === "未分类" ? "" : selected });
+    this.updateDirtyState();
+  },
+
+  onOpenedStateChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
+    const index = Number(event.detail.value);
+    const state = (["unknown", "unopened", "opened"] as const)[index] ?? "unknown";
+    const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
+    this.setData({ [`batches[${batchIndex}].openedStateIndex`]: index, [`batches[${batchIndex}].openedState`]: state });
+    if (state !== "opened") {
+      this.setData({
+        [`batches[${batchIndex}].openedAt`]: "",
+        [`batches[${batchIndex}].openingLimitMode`]: "none",
+        [`batches[${batchIndex}].openingLimitModeIndex`]: 0,
+        [`batches[${batchIndex}].openingLimitValue`]: "",
+      });
+    }
+    this.updateDirtyState();
+  },
+
+  onToggleOpeningInfo(event: { currentTarget: { dataset: { index?: string } } }): void {
+    const index = Number(event.currentTarget.dataset.index ?? 0);
+    const batch = (this.data as MedicineEditPageData).batches[index];
+    if (!batch) return;
+    this.setData({ [`batches[${index}].openingExpanded`]: !batch.openingExpanded });
+  },
+
+  onOpeningLimitModeChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
+    const index = Number(event.detail.value);
+    const mode = (["none", "day", "month", "date"] as const)[index] ?? "none";
+    const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
+    this.setData({ [`batches[${batchIndex}].openingLimitModeIndex`]: index, [`batches[${batchIndex}].openingLimitMode`]: mode });
+    this.updateDirtyState();
+  },
+
+  async onScanCode(): Promise<void> {
+    const data = this.data as MedicineEditPageData;
+    if (data.recognizing || data.submitting) return;
+    if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    this.setData({ recognizing: true, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
+    try {
+      const shareConsent = await new Promise<boolean>((resolve) => wx.showModal({
+        title: "查询药品资料候选",
+        content: "扫描读到的码值会发送给家庭药箱资料服务查询候选；不上传药盒照片。是否继续？",
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve(false),
+      }));
+      if (!shareConsent) return;
+      const result = await new Promise<{ result: string }>((resolve, reject) => {
+        wx.scanCode({ onlyFromCamera: false, scanType: ["barCode"],
+          success: (value) => resolve(value), fail: (error) => reject(error) });
+      });
+      if (result.result.trim() === "") {
+        this.setData({ recognitionHint: "没有读到条码，请重试或手动录入。" });
+        return;
+      }
+      const scannedBarcode = result.result.trim();
+      this.setData({ scannedBarcode, barcodeValue: scannedBarcode, canRetryBarcode: false,
+        barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
+      this.updateDirtyState();
+      await ensureLoggedIn();
+      const response = await api.findMedicineCandidates(scannedBarcode);
+      this.setData({
+        candidates: response.candidates,
+        candidate: response.candidates[0] ?? null,
+        candidateWarnings: response.warnings,
+        recognitionHint: response.candidates.length > 0
+          ? "找到资料候选，请核对名称、规格和厂家；确认后才会填入表单。"
+          : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
+        barcodeLookupStatus: response.candidates.length > 0
+          ? `已读取商品码 ${scannedBarcode}，请核对候选。`
+          : `未找到候选；商品码 ${scannedBarcode} 已保留。`,
+        canRetryBarcode: false,
+      });
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "errMsg" in error &&
+        String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
+      if (error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE") {
+        this.setData({ barcodeLookupStatus: "资料查询服务当前不可用或未配置条码检索；商品码已保留，可稍后重试或手动录入。",
+          recognitionHint: "当前资料服务无法完成条码查询；商品码仍保留在表单中。", canRetryBarcode: true });
+      } else {
+        showError(error);
+        this.setData({ barcodeLookupStatus: "条码已保留，查询失败；可重试或手动录入。",
+          recognitionHint: "扫码查询失败；商品码已保留。", canRetryBarcode: true });
+      }
+    } finally {
+      this.setData({ recognizing: false });
+    }
+  },
+
+  async onRetryBarcodeLookup(): Promise<void> {
+    const data = this.data as MedicineEditPageData;
+    if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
+    this.setData({ recognizing: true });
+    const consent = await new Promise<boolean>((resolve) => wx.showModal({
+      title: "重新查询商品码",
+      content: `商品码 ${data.scannedBarcode} 将再次发送到家庭药箱资料服务查询候选，不上传照片。是否继续？`,
+      success: (result) => resolve(result.confirm),
+      fail: () => resolve(false),
+    }));
+    if (!consent) {
+      this.setData({ recognizing: false });
+      return;
+    }
+    const code = data.scannedBarcode.trim();
+    this.setData({ canRetryBarcode: false, barcodeLookupStatus: "正在查询候选资料…" });
+    try {
+      await ensureLoggedIn();
+      const response = await api.findMedicineCandidates(code);
+      this.setData({
+        candidates: response.candidates,
+        candidate: response.candidates[0] ?? null,
+        candidateWarnings: response.warnings,
+        barcodeLookupStatus: response.candidates.length > 0
+          ? `已读取商品码 ${code}，请核对候选。`
+          : `未找到候选；商品码 ${code} 已保留。`,
+        canRetryBarcode: false,
+        recognitionHint: response.candidates.length > 0
+          ? "找到资料候选，请核对名称、规格和厂家；确认后才会填入表单。"
+          : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
+      });
+    } catch (error) {
+      const message = error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE"
+        ? "资料查询服务当前不可用或未配置条码检索；商品码已保留，可稍后重试或手动录入。"
+        : "条码已保留，查询失败；可稍后重试或手动录入。";
+      this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
+      if (!(error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE")) showError(error);
+    } finally {
+      this.setData({ recognizing: false });
+    }
+  },
+
+  onApplyCandidate(event?: { currentTarget?: { dataset?: { index?: string } } }): void {
+    const data = this.data as MedicineEditPageData;
+    const index = Number(event?.currentTarget?.dataset?.index ?? 0);
+    const candidate = data.candidates[index] ?? data.candidate;
+    if (candidate === null) return;
+    const fields: Record<string, unknown> = { candidate: null, candidates: [], candidateWarnings: [] };
+    if (data.name.trim() === "") fields.name = candidate.name;
+    if (data.specification.trim() === "" && candidate.specification !== null) fields.specification = candidate.specification;
+    if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
+    if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
+    if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
+    if (data.ingredients.trim() === "" && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
+    if (candidate.leaflet !== null) {
+      if (data.leafletPurpose.trim() === "") fields.leafletPurpose = candidate.leaflet.purposeSummary ?? "";
+      if (data.leafletUsage.trim() === "") fields.leafletUsage = candidate.leaflet.packageUsageSummary ?? "";
+      if (data.leafletContraindications.trim() === "") fields.leafletContraindications = candidate.leaflet.contraindicationsSummary ?? "";
+      if (data.leafletPrecautions.trim() === "") fields.leafletPrecautions = candidate.leaflet.precautionsSummary ?? "";
+      fields.leafletSource = candidate.source;
+      fields.verified = false;
+      fields.optionalExpanded = true;
+    }
+    this.setData(fields);
+    this.updateDirtyState();
+    wx.showToast({ title: "候选已填入，请核对后保存", icon: "none" });
+  },
+
+  onDiscardCandidate(): void {
+    this.setData({ candidate: null, candidates: [], candidateWarnings: [] });
+  },
+
+  noop(): void {
+    // 阻止底部弹层内的点击穿透。
   },
 
   async onRecognizePhoto(
@@ -313,6 +786,7 @@ Page({
         }
       }
       this.setData(fields);
+      this.updateDirtyState();
     } catch (error) {
       if (typeof error === "object" && error !== null && "errMsg" in error &&
         String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
@@ -338,29 +812,34 @@ Page({
     const field = event.currentTarget.dataset.field;
     if (index === undefined || field === undefined || field === "") return;
     this.setData({ [`batches[${index}].${field}`]: event.detail.value });
+    this.updateDirtyState();
   },
 
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     this.setData({ [`batches[${index}].precisionIndex`]: Number(event.detail.value) });
+    this.updateDirtyState();
   },
 
   onBatchUnitChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     this.setData({ [`batches[${index}].unitIndex`]: Number(event.detail.value) });
+    this.updateDirtyState();
   },
 
   onBatchUnknownChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: boolean } }): void {
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     this.setData({ [`batches[${index}].quantityUnknown`]: event.detail.value });
+    this.updateDirtyState();
   },
 
   onAddBatch(): void {
     const batches = (this.data as MedicineEditPageData).batches;
     this.setData({ batches: [...batches, emptyBatch()] });
+    this.updateDirtyState();
   },
 
   onRemoveBatch(event: { currentTarget: { dataset: { index?: string } } }): void {
@@ -369,6 +848,7 @@ Page({
     const batches = (this.data as MedicineEditPageData).batches;
     const next = batches.filter((_, position) => position !== Number(index));
     this.setData({ batches: next.length > 0 ? next : [emptyBatch()] });
+    this.updateDirtyState();
   },
 
   async onSubmit(): Promise<void> {
@@ -397,6 +877,7 @@ Page({
       specification: data.specification.trim() === "" ? null : data.specification.trim(),
       manufacturer: data.manufacturer.trim() === "" ? null : data.manufacturer.trim(),
       approvalNumber: data.approvalNumber.trim() === "" ? null : data.approvalNumber.trim(),
+      barcodeValue: data.barcodeValue.trim() === "" ? (data.scannedBarcode.trim() || null) : data.barcodeValue.trim(),
       activeIngredients: ingredients,
       purposeCategory: data.purposeCategory.trim() === "" ? null : data.purposeCategory.trim(),
       leaflet: {
@@ -415,6 +896,21 @@ Page({
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (data.verified && ingredients.length > 0) {
+        let matches: MedicationSummary[] = [];
+        try {
+          const household = await api.listMedicines();
+          matches = findVerifiedIngredientMatches(
+            ingredients,
+            household.medicines,
+            true,
+            data.isEdit ? data.medicineId : "",
+          );
+        } catch {
+          // The hint is best-effort and must never prevent inventory entry.
+        }
+        if (matches.length > 0 && !(await confirmIngredientOverlap(matches))) return;
+      }
       if (data.isEdit) {
         await api.updateMedicine(data.medicineId, { ...payload, version: data.version });
         wx.showToast({ title: "已保存", icon: "success" });
@@ -422,7 +918,11 @@ Page({
         await api.createMedicine(payload);
         wx.showToast({ title: "已录入", icon: "success" });
       }
-      setTimeout(() => wx.navigateBack(), 800);
+      this.removeStoredDraft();
+      this.discardingDraft = true;
+      this.setData({ isDirty: false });
+      this.setNativeLeaveWarning(false);
+      setTimeout(() => this.navigateBackFromForm(), 800);
     } catch (error) {
       if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
         wx.showModal({

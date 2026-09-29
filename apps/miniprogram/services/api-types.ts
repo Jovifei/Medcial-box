@@ -5,6 +5,20 @@ export type ExpiryPrecision = "day" | "month" | "unknown";
 
 export type QuantityUnit = "tablet" | "capsule" | "sachet" | "bottle" | "box" | "other";
 
+export type OpenedState = "unknown" | "unopened" | "opened";
+export type OpenedExpiryUnit = "day" | "month";
+export type StockStatus = "ok" | "low" | "unknown" | "exhausted";
+export type StocktakeInterval = "weekly" | "monthly" | "disabled";
+export type RestockStatus = "needed" | "purchased" | "dismissed";
+export type AfterOpeningLimitInput =
+  | { value: number; unit: OpenedExpiryUnit; source?: string | null }
+  | { date: string; source?: string | null };
+
+export interface LowStockThresholdInput {
+  quantity: number;
+  unit: QuantityUnit;
+}
+
 export type ExpiryState = "expired" | "due_this_month" | "expiring_soon" | "ok" | "unknown";
 
 export interface ExpiryValue {
@@ -30,6 +44,13 @@ export interface MedicationBatchSummary {
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
   storageLocation: string | null;
+  openedState?: OpenedState;
+  openedAt?: string | null;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
+  openedExpiryDate?: string | null;
+  managementExpiryDate?: string | null;
+  managementExpirySource?: "package" | "opened" | null;
+  managementExpiryState?: ExpiryStateInfo;
   version: number;
 }
 
@@ -39,6 +60,7 @@ export interface MedicationSummary {
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
+  barcodeValue?: string | null;
   activeIngredients: string[];
   purposeCategory: string | null;
   leaflet: {
@@ -50,6 +72,8 @@ export interface MedicationSummary {
     reviewStatus: LeafletReviewStatus;
   };
   batches: MedicationBatchSummary[];
+  lowStockThreshold?: LowStockThresholdInput | null;
+  stockStatus?: { state: StockStatus; quantity: number | null; unit: QuantityUnit | null };
   expiryState?: ExpiryStateInfo;
   isArchived?: boolean;
   version: number;
@@ -71,7 +95,23 @@ export interface BatchPayload {
   unit?: QuantityUnit;
   confirmedUnitsPerPackage?: number | null;
   storageLocation?: string | null;
+  openedState?: OpenedState;
+  openedAt?: string | null;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
   version?: number;
+}
+
+export interface SplitBatchPayload {
+  version: number;
+  openedQuantity: number;
+  openedAt: string;
+  afterOpeningLimit?: AfterOpeningLimitInput | null;
+  confirmed: true;
+}
+
+export interface SplitBatchResponse {
+  openedBatch: MedicationBatchSummary;
+  remainingBatch: MedicationBatchSummary;
 }
 
 export interface MedicinePayload {
@@ -79,6 +119,7 @@ export interface MedicinePayload {
   specification?: string | null;
   manufacturer?: string | null;
   approvalNumber?: string | null;
+  barcodeValue?: string | null;
   activeIngredients?: string[];
   purposeCategory?: string | null;
   leaflet?: {
@@ -90,7 +131,125 @@ export interface MedicinePayload {
     reviewStatus?: LeafletReviewStatus;
   };
   batches?: BatchPayload[];
+  lowStockThreshold?: LowStockThresholdInput | null;
   version?: number;
+}
+
+export interface MedicineCandidate {
+  name: string;
+  specification: string | null;
+  manufacturer: string | null;
+  approvalNumber: string | null;
+  barcodeValue?: string | null;
+  activeIngredients: string[];
+  leaflet: NonNullable<MedicinePayload["leaflet"]> | null;
+  source: string;
+  sourceUpdatedAt: string | null;
+  matchReasons: string[];
+}
+
+export interface MedicineCandidatesResponse {
+  candidates: MedicineCandidate[];
+  warnings: string[];
+}
+
+export interface FamilyInventorySettings {
+  stocktakeInterval: StocktakeInterval;
+  lastStocktakeAt: string | null;
+  nextStocktakeAt: string | null;
+}
+
+export interface StocktakeItemInput {
+  batchId: string;
+  version: number;
+  outcome: "unchanged" | "adjusted" | "empty" | "handled" | "deferred";
+  quantity?: number | null;
+}
+
+export interface StocktakeItemResult {
+  batchId: string;
+  outcome: "saved" | "conflict" | "not_found";
+  currentVersion?: number;
+}
+
+export interface StocktakeSession {
+  id: string;
+  status: "open" | "completed";
+  startedAt: string;
+  completedAt?: string | null;
+  items: Array<{
+    batchId: string;
+    medicineId: string;
+    medicineName: string;
+    quantity: number | null;
+    unit: QuantityUnit;
+    expiry: ExpiryValue;
+    openedState: OpenedState;
+    openedAt: string | null;
+    managementExpiryDate: string | null;
+    version: number;
+    result: "pending" | "saved" | "conflict" | "not_found";
+  }>;
+}
+
+export interface RestockItemSummary {
+  id: string;
+  medicineId: string;
+  medicineName: string;
+  desiredQuantity: number | null;
+  unit: QuantityUnit;
+  status: RestockStatus;
+  createdAt: string;
+  version: number;
+}
+
+export interface TrashItemSummary {
+  type: "medicine" | "batch";
+  id: string;
+  medicineId?: string;
+  name: string;
+  deletedAt: string;
+  expiresAt: string;
+  quantity?: number | null;
+  unit?: QuantityUnit;
+}
+
+export interface AuditEventSummary {
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  changes: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface PendingNotificationSummary {
+  id: string;
+  type: "expired" | "expiry_due" | "low_stock" | "needs_check" | "stocktake_due" | "leaflet_missing";
+  medicineId: string | null;
+  batchId: string | null;
+  medicineName: string;
+  message: string;
+  dueDate: string | null;
+  action: "edit_batch" | "restock" | "stocktake" | "review_leaflet";
+}
+
+export interface NotificationTemplateSummary {
+  templateId: string;
+  title: string;
+  available: boolean;
+}
+
+export interface NotificationPendingResponse {
+  items: PendingNotificationSummary[];
+}
+
+export interface NotificationTemplatesResponse {
+  available: boolean;
+  templates: NotificationTemplateSummary[];
+  reason?: string;
 }
 
 export interface DosageNoteSummary {
@@ -169,6 +328,16 @@ export interface AuthMeResponse {
   } | null;
 }
 
+export interface DeviceSessionSummary {
+  id: string;
+  clientKind: "miniprogram" | "android";
+  createdAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
+export interface AuthDevicesResponse { devices: DeviceSessionSummary[] }
+
 export interface UpdateProfileResponse {
   user: {
     id: string;
@@ -186,6 +355,27 @@ export interface MarkdownExportResponse {
   generatedAt: string;
 }
 
+export interface AppDeviceLinkApproveResponse { approved: true }
+export interface FamilyMedicineBackup {
+  schemaVersion: 1;
+  backupId: string;
+  exportedAt: string;
+  familyName: string;
+  medicines: MedicinePayload[];
+  inventorySettings: FamilyInventorySettings;
+}
+export type CreateJsonBackupResponse = FamilyMedicineBackup;
+export interface PreviewJsonBackupResponse {
+  valid: boolean;
+  duplicateBackup: boolean;
+  confirmationToken?: string;
+  inventorySettings?: FamilyInventorySettings;
+  medicineCount: number;
+  likelyMatches: Array<{ importedName: string; existingMedicineId: string; existingName: string }>;
+  errors: string[];
+}
+export interface RestoreJsonBackupResponse { restoredCount: number; backupId: string }
+
 export interface MedicineRecognitionResponse {
   draft: {
     name: string | null;
@@ -199,4 +389,14 @@ export interface MedicineRecognitionResponse {
   };
   warnings: string[];
   requiresConfirmation: true;
+}
+
+export interface LeafletPhotoSummary {
+  id: string;
+  medicineId: string;
+  contentType: "image/jpeg" | "image/png";
+  sizeBytes: number;
+  source: string;
+  createdAt: string;
+  url: string;
 }

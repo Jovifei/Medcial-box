@@ -51,7 +51,7 @@ class WelcomePage extends StatelessWidget {
             PrimaryButton(
               label: '开始体验',
               icon: Icons.arrow_forward_rounded,
-              onPressed: () => context.go('/family-choice'),
+              onPressed: () => context.go('/demo/family-choice'),
             ),
             const SizedBox(height: 12),
             Center(

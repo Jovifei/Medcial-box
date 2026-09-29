@@ -17,8 +17,52 @@
         <view class="badge badge-{{item.state}}">{{item.expiryText}}</view>
       </view>
       <view class="batch-line">数量：{{item.quantityText}}</view>
+      <view class="batch-line">{{item.openingText}}</view>
       <view class="batch-line">{{item.storageText}}</view>
+      <view class="batch-line opening-warning" wx:if="{{item.needsOpeningInfo}}">开封期限待补充</view>
       <view class="batch-line" wx:if="{{item.confirmedText !== ''}}">{{item.confirmedText}}</view>
+      <view class="btn btn-ghost batch-action" wx:if="{{item.canMarkOpened}}" data-id="{{item.id}}" catchtap="onMarkOpened">
+        {{busyBatchId === item.id ? "保存中…" : "标记今天已开封"}}
+      </view>
+      <view class="split-panel" wx:if="{{openingSplitBatchId === item.id}}" catchtap="noop">
+        <view class="split-title">确认本次开封数量</view>
+        <view class="hint">当前批次 {{item.quantity}}{{item.unitShort}}。拆分后分别记录已开封与未开封余量。</view>
+        <view class="field split-field">
+          <view class="field-label">本次开封数量（1 到 {{item.maxOpenQuantity}}）</view>
+          <input class="input" type="number" value="{{openingSplitQuantity}}" disabled="{{openingSplitBusy}}" bindinput="onSplitQuantityInput" placeholder="必须少于当前余量" />
+        </view>
+        <view class="split-preview" wx:if="{{openingSplitPreview}}">{{openingSplitPreview}}</view>
+        <view class="split-error" wx:if="{{openingSplitError}}">{{openingSplitError}}</view>
+        <view class="field split-field">
+          <view class="field-label">开封日期</view>
+          <picker mode="date" value="{{openingSplitDate}}" disabled="{{openingSplitBusy}}" bindchange="onSplitDateChange">
+            <view class="picker-box">{{openingSplitDate || "选择开封日期"}}</view>
+          </picker>
+        </view>
+        <view class="field split-field">
+          <view class="field-label">开封后期限（选填，按说明书或包装填写）</view>
+          <picker range="{{openingSplitModeLabels}}" value="{{openingSplitModeIndex}}" disabled="{{openingSplitBusy}}" bindchange="onSplitLimitModeChange">
+            <view class="picker-box">{{openingSplitModeLabels[openingSplitModeIndex]}}</view>
+          </picker>
+        </view>
+        <view class="field split-field" wx:if="{{openingSplitMode === 'day' || openingSplitMode === 'month'}}">
+          <view class="field-label">{{openingSplitMode === 'day' ? '开封后天数' : '开封后月数'}}</view>
+          <input class="input" type="number" value="{{openingSplitValue}}" disabled="{{openingSplitBusy}}" bindinput="onSplitLimitValueInput" placeholder="正整数" />
+        </view>
+        <view class="field split-field" wx:if="{{openingSplitMode === 'date'}}">
+          <view class="field-label">开封后截止日期</view>
+          <input class="input" value="{{openingSplitValue}}" disabled="{{openingSplitBusy}}" bindinput="onSplitLimitValueInput" placeholder="YYYY-MM-DD" />
+        </view>
+        <view class="field split-field" wx:if="{{openingSplitMode !== 'none'}}">
+          <view class="field-label">期限依据（选填）</view>
+          <input class="input" maxlength="120" value="{{openingSplitSource}}" disabled="{{openingSplitBusy}}" bindinput="onSplitLimitSourceInput" placeholder="例如：说明书第 8 页" />
+        </view>
+        <view class="hint">必须保留至少 1 个未开封单位；日期或期限不确定时，请对照实物说明书。</view>
+        <view class="split-actions">
+          <view class="btn btn-ghost" catchtap="onCancelOpenSplit">取消</view>
+          <view class="btn btn-primary {{openingSplitBusy ? 'disabled' : ''}}" catchtap="onConfirmOpenSplit">{{openingSplitBusy ? "保存中…" : "确认拆分并标记开封"}}</view>
+        </view>
+      </view>
       <view class="batch-edit-hint">点击编辑本批次 ›</view>
     </view>
   </view>
@@ -27,6 +71,29 @@
     <view class="section-title">说明书摘要</view>
     <view class="badge badge-ok leaflet-badge">{{leafletBadge}}</view>
     <view class="leaflet-text">{{leafletText}}</view>
+  </view>
+
+  <view class="card leaflet-photo-section">
+    <view class="row">
+      <view class="section-title">说明书照片</view>
+      <view class="photo-count">{{leafletPhotos.length}} 张</view>
+    </view>
+    <view class="hint">照片只在你主动选择并确认上传后保存到家庭私有图片空间；不会自动发给识别模型或联网资料服务。</view>
+    <view class="btn btn-ghost photo-upload {{photoUploading || photoBusyId !== '' ? 'disabled' : ''}}" bindtap="onAddLeafletPhoto">{{photoUploading ? "正在处理照片…" : "＋ 拍摄 / 选择说明书照片"}}</view>
+    <view class="photo-status" wx:if="{{photoStatus}}">{{photoStatus}}</view>
+    <view class="photo-error" wx:if="{{photoError}}">{{photoError}} <text class="photo-retry" bindtap="refreshLeafletPhotos">重新读取</text></view>
+    <view class="hint photo-loading" wx:if="{{photoLoading}}">正在读取照片列表…</view>
+    <view class="hint photo-empty" wx:if="{{!photoLoading && !photoError && leafletPhotos.length === 0}}">还没有保存的说明书照片。</view>
+    <view wx:for="{{leafletPhotos}}" wx:key="id" class="leaflet-photo-row">
+      <view class="photo-meta">
+        <view class="photo-title">{{item.sourceLabel}} · {{item.typeLabel}}</view>
+        <view class="hint">{{item.createdAt}} · {{item.sizeText}}</view>
+      </view>
+      <view class="photo-actions">
+        <view class="photo-action" data-id="{{item.id}}" bindtap="onPreviewLeafletPhoto">{{photoBusyId === item.id ? "处理中…" : "预览"}}</view>
+        <view class="photo-delete" data-id="{{item.id}}" bindtap="onDeleteLeafletPhoto">{{photoBusyId === item.id ? "处理中…" : "移除"}}</view>
+      </view>
+    </view>
   </view>
 
   <view class="card">
@@ -48,6 +115,30 @@
       </picker>
     </view>
     <view class="btn btn-ghost" bindtap="onSubmitNote">添加备注</view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="section-title">库存不足提醒</view>
+        <view class="hint">当前：{{stockStatusText}}。数量未知时会显示待核对。</view>
+      </view>
+      <switch checked="{{thresholdEnabled}}" bindchange="onThresholdToggle" />
+    </view>
+    <view wx:if="{{thresholdEnabled}}">
+      <view class="field">
+        <view class="field-label">低于或等于此数量时提醒</view>
+        <input class="input" type="number" value="{{thresholdQuantity}}" bindinput="onThresholdQuantityInput" placeholder="例如：2" />
+      </view>
+      <view class="field">
+        <view class="field-label">阈值单位</view>
+        <picker range="{{thresholdUnitLabels}}" value="{{thresholdUnitIndex}}" bindchange="onThresholdUnitChange">
+          <view class="picker-box">{{thresholdUnitLabels[thresholdUnitIndex]}}</view>
+        </picker>
+      </view>
+    </view>
+    <view class="btn btn-ghost" bindtap="onSaveThreshold">{{savingThreshold ? "保存中…" : "保存提醒设置"}}</view>
+    <view class="btn btn-primary {{restockBusy ? 'disabled' : ''}}" bindtap="onAddToRestock">{{restockBusy ? "正在加入…" : "加入补货清单"}}</view>
   </view>
 
   <view class="btn btn-ghost" bindtap="onTapEditMedicine">编辑药品资料</view>

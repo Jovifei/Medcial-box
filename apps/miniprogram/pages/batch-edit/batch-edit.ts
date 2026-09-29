@@ -6,6 +6,7 @@ import {
   isValidExpiryValue,
 } from "../../services/input-validation";
 import type {
+  AfterOpeningLimitInput,
   BatchPayload,
   ExpiryPrecision,
   MedicationBatchSummary,
@@ -31,8 +32,18 @@ interface BatchEditPageData {
   unitIndex: number;
   confirmedUnits: string;
   storageLocation: string;
+  openedState: "unknown" | "unopened" | "opened";
+  openedAt: string;
+  openingLimitMode: "none" | "day" | "month" | "date";
+  openingLimitValue: string;
+  openingLimitSource: string;
+  openingExpanded: boolean;
   unitLabels: string[];
   precisionLabels: string[];
+  openedStateLabels: string[];
+  openingLimitModeLabels: string[];
+  openedStateIndex: number;
+  openingLimitModeIndex: number;
 }
 
 function fillFromBatch(batch: MedicationBatchSummary): Partial<BatchEditPageData> {
@@ -49,6 +60,22 @@ function fillFromBatch(batch: MedicationBatchSummary): Partial<BatchEditPageData
     confirmedUnits:
       batch.confirmedUnitsPerPackage === null ? "" : String(batch.confirmedUnitsPerPackage),
     storageLocation: batch.storageLocation ?? "",
+    openedState: batch.openedState ?? "unknown",
+    openedAt: batch.openedAt ?? "",
+    openingLimitMode: batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+      ? "none"
+      : "date" in batch.afterOpeningLimit ? "date" : batch.afterOpeningLimit.unit,
+    openingLimitValue: batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+      ? ""
+      : "date" in batch.afterOpeningLimit ? batch.afterOpeningLimit.date : String(batch.afterOpeningLimit.value),
+    openingLimitSource: batch.afterOpeningLimit?.source ?? "",
+    openingExpanded: batch.openedState === "opened" || batch.afterOpeningLimit !== null && batch.afterOpeningLimit !== undefined,
+    openedStateIndex: Math.max(0, ["unknown", "unopened", "opened"].indexOf(batch.openedState ?? "unknown")),
+    openingLimitModeIndex: Math.max(0, ["none", "day", "month", "date"].indexOf(
+      batch.afterOpeningLimit === null || batch.afterOpeningLimit === undefined
+        ? "none"
+        : "date" in batch.afterOpeningLimit ? "date" : batch.afterOpeningLimit.unit,
+    )),
   };
 }
 
@@ -72,8 +99,18 @@ Page({
     unitIndex: 4,
     confirmedUnits: "",
     storageLocation: "",
+    openedState: "unknown" as BatchEditPageData["openedState"],
+    openedAt: "",
+    openingLimitMode: "none" as BatchEditPageData["openingLimitMode"],
+    openingLimitValue: "",
+    openingLimitSource: "",
+    openingExpanded: false,
     unitLabels: UNIT_LABELS,
     precisionLabels: PRECISION_LABELS,
+    openedStateLabels: ["未记录", "未开封", "已开封"],
+    openingLimitModeLabels: ["不记录", "开封后天数", "开封后月数", "指定截止日期"],
+    openedStateIndex: 0,
+    openingLimitModeIndex: 0,
   },
 
   onLoad(options: { medicineId?: string; batchId?: string }): void {
@@ -120,6 +157,30 @@ Page({
     this.setData({ quantityUnknown: event.detail.value });
   },
 
+  onOpenedStateChange(event: { detail: { value: string | number } }): void {
+    const index = Number(event.detail.value);
+    const openedState = (["unknown", "unopened", "opened"] as const)[index] ?? "unknown";
+    const patch: Partial<BatchEditPageData> = { openedState, openedStateIndex: index };
+    if (openedState !== "opened") {
+      patch.openedAt = "";
+      patch.openingLimitMode = "none";
+      patch.openingLimitModeIndex = 0;
+      patch.openingLimitValue = "";
+    }
+    this.setData(patch);
+  },
+
+  onOpeningLimitModeChange(event: { detail: { value: string | number } }): void {
+    const index = Number(event.detail.value);
+    const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
+    this.setData({ openingLimitMode, openingLimitModeIndex: index,
+      ...(openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
+  },
+
+  onToggleOpeningInfo(): void {
+    this.setData({ openingExpanded: !this.data.openingExpanded });
+  },
+
   buildPayload(): { payload: BatchPayload | null; error: string | null } {
     const data = this.data as BatchEditPageData;
     const precision = PRECISION_VALUES[data.precisionIndex] ?? "day";
@@ -131,6 +192,27 @@ Page({
       return { payload: null, error: "按月有效期需为真实月份 YYYY-MM" };
     }
     if (precision === "unknown") expiryValue = null;
+
+    if (data.openedAt.trim() !== "" && !isValidExpiryValue(data.openedAt.trim(), "day")) {
+      return { payload: null, error: "开封日期需为真实日期 YYYY-MM-DD" };
+    }
+    let afterOpeningLimit: AfterOpeningLimitInput | null = null;
+    if (data.openedState === "opened") {
+      const source = data.openingLimitSource.trim() === "" ? null : data.openingLimitSource.trim();
+      if (data.openingLimitMode === "day" || data.openingLimitMode === "month") {
+        const rawLimit = data.openingLimitValue.trim();
+        if (!isStrictPositiveInteger(rawLimit)) {
+          return { payload: null, error: "开封后期限需为正整数；不清楚时可保持不记录" };
+        }
+        afterOpeningLimit = { value: Number(rawLimit), unit: data.openingLimitMode, source };
+      } else if (data.openingLimitMode === "date") {
+        const date = data.openingLimitValue.trim();
+        if (!isValidExpiryValue(date, "day")) {
+          return { payload: null, error: "开封后截止日期需为真实日期 YYYY-MM-DD" };
+        }
+        afterOpeningLimit = { date, source };
+      }
+    }
 
     let quantity: number | null = null;
     if (!data.quantityUnknown) {
@@ -158,6 +240,9 @@ Page({
         unit: UNIT_VALUES[data.unitIndex] ?? "other",
         confirmedUnitsPerPackage: confirmedUnits,
         storageLocation: data.storageLocation.trim() === "" ? null : data.storageLocation.trim(),
+        openedState: data.openedState,
+        openedAt: data.openedState === "opened" && data.openedAt.trim() !== "" ? data.openedAt.trim() : null,
+        afterOpeningLimit,
       },
       error: null,
     };
@@ -206,7 +291,7 @@ Page({
     const confirmation = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "删除批次",
-        content: "批次删除后不可恢复（物理删除），确定删除？",
+        content: "该批次会移入最近删除，并可在 30 天内恢复。确认移入？",
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       });

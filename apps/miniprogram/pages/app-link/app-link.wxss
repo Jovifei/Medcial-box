@@ -1,0 +1,4 @@
+.page { padding-top: 32rpx; }
+.code-input { letter-spacing: 4rpx; font-weight: 700; }
+.result-text { margin-top: 18rpx; color: #315f46; font-size: 23rpx; line-height: 1.6; overflow-wrap: anywhere; }
+.safety-note { padding: 10rpx 8rpx; color: #7c867e; font-size: 21rpx; line-height: 1.6; }

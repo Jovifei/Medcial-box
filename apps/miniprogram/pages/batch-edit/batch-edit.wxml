@@ -40,11 +40,45 @@
       <view class="field-label">存放位置</view>
       <input class="input" data-field="storageLocation" bindinput="onFieldInput" value="{{storageLocation}}" placeholder="例如：客厅药箱" />
     </view>
+    <view class="opening-toggle" bindtap="onToggleOpeningInfo">{{openingExpanded ? "收起开封信息" : "＋ 开封管理（选填）"}}</view>
+    <view wx:if="{{openingExpanded}}">
+      <view class="field">
+        <view class="field-label">开封状态</view>
+        <picker range="{{openedStateLabels}}" value="{{openedStateIndex}}" bindchange="onOpenedStateChange">
+          <view class="picker-box">{{openedStateLabels[openedStateIndex]}}</view>
+        </picker>
+      </view>
+    </view>
+    <view wx:if="{{openingExpanded && openedState === 'opened'}}">
+      <view class="field">
+        <view class="field-label">开封日期（选填）</view>
+        <input class="input" data-field="openedAt" bindinput="onFieldInput" value="{{openedAt}}" placeholder="YYYY-MM-DD" />
+      </view>
+      <view class="field">
+        <view class="field-label">开封后期限（有依据时填写）</view>
+        <picker range="{{openingLimitModeLabels}}" value="{{openingLimitModeIndex}}" bindchange="onOpeningLimitModeChange">
+          <view class="picker-box">{{openingLimitModeLabels[openingLimitModeIndex]}}</view>
+        </picker>
+      </view>
+      <view class="field" wx:if="{{openingLimitMode === 'day' || openingLimitMode === 'month'}}">
+        <view class="field-label">{{openingLimitMode === 'day' ? '天数' : '月数'}}</view>
+        <input class="input" type="number" data-field="openingLimitValue" bindinput="onFieldInput" value="{{openingLimitValue}}" placeholder="正整数" />
+      </view>
+      <view class="field" wx:if="{{openingLimitMode === 'date'}}">
+        <view class="field-label">开封后截止日期</view>
+        <input class="input" data-field="openingLimitValue" bindinput="onFieldInput" value="{{openingLimitValue}}" placeholder="YYYY-MM-DD" />
+      </view>
+      <view class="field" wx:if="{{openingLimitMode !== 'none'}}">
+        <view class="field-label">期限依据</view>
+        <input class="input" data-field="openingLimitSource" bindinput="onFieldInput" value="{{openingLimitSource}}" placeholder="例如：说明书第 8 页" />
+      </view>
+      <view class="field-hint">期限不清楚时保持“不记录”；不会替你推断期限。</view>
+    </view>
   </view>
 
   <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
     {{submitting ? "保存中…" : (isEdit ? "保存批次" : "添加批次")}}
   </view>
-  <view class="btn btn-danger" wx:if="{{isEdit}}" bindtap="onDelete">删除该批次</view>
+  <view class="btn btn-danger" wx:if="{{isEdit}}" bindtap="onDelete">移入最近删除</view>
   <view class="hint footnote">批次数值为空表示"未知"，0 表示"确定耗尽"；导出时会显式标注。</view>
 </view>

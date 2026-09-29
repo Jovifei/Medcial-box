@@ -34,7 +34,7 @@ test("default export renders complete fields for an active medicine", async () =
   try {
     seedMedicines(
       pool,
-      [medicineRow({ id: "m-1" })],
+      [medicineRow({ id: "m-1", barcode_value: "690|123456" })],
       [batchRow({ id: "b-1", medicine_id: "m-1", quantity: 2, unit: "box", storage_location: "客厅药箱" })],
     );
 
@@ -56,6 +56,7 @@ test("default export renders complete fields for an active medicine", async () =
     assert.ok(markdown.includes("客厅药箱"), "storage location included by default (D1)");
     assert.ok(markdown.includes("2 盒"));
     assert.ok(markdown.includes("2099-12-31"));
+    assert.ok(markdown.includes("商品条码：690\\|123456"), "barcode is exported with Markdown escaping");
     assert.ok(markdown.includes("在用库存"));
     assert.ok(markdown.includes("本人已核对"), "confirmed leaflet rendered");
     assert.ok(markdown.includes("来源：包装内说明书"));
