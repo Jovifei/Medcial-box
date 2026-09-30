@@ -2,6 +2,7 @@
 
 - 当前结论：**S0 与 S1 已完成并验证通过，A03 的 Flutter 部分代码已改但本机无 Flutter SDK 未运行验证**；整体仍为 `PARTIAL`，S2/S3/S4/S5 未开始。
 - 基线：`codex/flutter-ui-prototype / 47d36e30`。本批次修复 A01、A02、A03（数据层）、A04、A07、A12，对应 [候选修复计划](plans/2026-09-30-candidate-hardening.md) 的 S0 + S1。
+- 本批次提交：`33b30a823edb322485116c219baa0d90cfc4af77`，已推送 `origin/codex/flutter-ui-prototype`（`47d36e3..33b30a8`）。
 - 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 51/51；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 3/3**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
 - 当前 NOT_RUN：Flutter `analyze`/`test`（本机无 Flutter SDK）、APK 构建、真机与微信开发者工具、真实消息送达、双账号双设备试用、ECS 部署。
 - 剩余问题：A05/A06/A08/A09/A10/A11/A13/A14/A15（S2/S3）；S4 功能补齐（连续照片草稿、小程序 CSV/PDF、成员提醒时刻）；A03 的 UI 层（运行期 401 统一失效、断网退出导航）。

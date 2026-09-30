@@ -7,7 +7,8 @@
 | 仓库 / 分支 | `Jovifei/Medcial-box` · `codex/flutter-ui-prototype` |
 | 修复批次 | **S0 + S1**（对应候选修复计划第一阶段） |
 | 基线提交 | `47d36e30d091d68d4b5a6d5bf3ad346ef0ab2792` |
-| 本批次提交 | 见本文件所在提交及其前一提交（代码 + 台账） |
+| 本批次提交 | **`33b30a823edb322485116c219baa0d90cfc4af77`**（`fix: restore backup fidelity and isolate session identity (S0/S1)`） |
+| 推送目标 | `origin/codex/flutter-ui-prototype`（已推送，`47d36e3..33b30a8`） |
 | 工作树 | `C:\Users\Admin\.codex\worktrees\flutter-ui-prototype\medcial_box` |
 | 涉及问题 | A01、A02、A03（数据层）、A04、A07、A12 |
 | 未涉及 | A05/A06/A08/A09/A10/A11/A13/A14/A15（属 S2/S3）、S4 功能补齐、S5 真实验收 |
