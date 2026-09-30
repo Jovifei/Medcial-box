@@ -52,28 +52,48 @@ export class ApiError extends Error {
 
 const TOKEN_STORAGE_KEY = "home_medicine_session_token";
 
+/**
+ * 内存令牌镜像：本地存储读写可能因为配额已满或权限异常而抛错，
+ * 令牌必须仍然在本次会话内生效，否则请求会静默丢失 Authorization 头。
+ */
+let memoryToken = "";
+
 export function readToken(): string {
+  if (memoryToken !== "") return memoryToken;
   try {
-    return (wx.getStorageSync(TOKEN_STORAGE_KEY) as string) || "";
+    const stored = (wx.getStorageSync(TOKEN_STORAGE_KEY) as string) || "";
+    memoryToken = stored;
+    return stored;
   } catch {
     return "";
   }
 }
 
 export function storeToken(token: string): void {
+  memoryToken = token;
   try {
-    wx.setStorageSync(TOKEN_STORAGE_KEY, token);
+    if (token === "") {
+      wx.removeStorageSync(TOKEN_STORAGE_KEY);
+    } else {
+      wx.setStorageSync(TOKEN_STORAGE_KEY, token);
+    }
   } catch {
-    // 本地存储不可用时忽略：会话仅本次启动内有效。
+    // 存储不可用时保留内存副本，本次启动内请求仍然带令牌。
   }
 }
 
 export function clearToken(): void {
+  memoryToken = "";
   try {
     wx.removeStorageSync(TOKEN_STORAGE_KEY);
   } catch {
     // ignore
   }
+}
+
+/** 仅供测试使用：重置内存与持久令牌，模拟冷启动。 */
+export function __resetTokenMemoryForTest(): void {
+  memoryToken = "";
 }
 
 interface RequestOptions {

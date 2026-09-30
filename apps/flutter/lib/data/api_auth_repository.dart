@@ -43,7 +43,11 @@ class ApiAuthRepository {
     required this.api,
     required this.secretStore,
     this.localStore,
+    this.onIdentitySwitch,
   });
+
+  /// 身份切换（换账号/换家庭）前统一清理内存与本机数据；为空时退回仅清理本机存储。
+  final Future<void> Function()? onIdentitySwitch;
 
   static const accessTokenKey = 'home_medicine.auth.access_token';
   static const pendingPollTokenKey = 'home_medicine.auth.pending_poll_token';
@@ -86,8 +90,8 @@ class ApiAuthRepository {
     if (state == 'approved' && json['token'] is String) {
       // The approval flow can connect a different account on a device that
       // previously held another household's offline snapshot. Drop that data
-      // before accepting the new credential; it can be fetched again online.
-      await localStore?.clearFamilyData();
+      // (memory included) before accepting the new credential.
+      await _clearIdentityData();
       await secretStore.write(accessTokenKey, json['token']! as String);
       await secretStore.delete(pendingPollTokenKey);
     } else if (state == 'expired') {
@@ -117,13 +121,23 @@ class ApiAuthRepository {
     );
   }
 
+  Future<void> _clearIdentityData() async {
+    if (onIdentitySwitch != null) {
+      await onIdentitySwitch!();
+      return;
+    }
+    await localStore?.clearFamilyData();
+  }
+
   Future<void> logout() async {
     try {
       await api.post('/api/v1/auth/logout');
     } finally {
+      // 即使服务端撤销失败（含断网），本机也必须切到未登录状态：
+      // 先清身份数据，再删令牌，避免停留在无令牌的已登录界面（A03）。
+      await _clearIdentityData();
       await secretStore.delete(accessTokenKey);
       await secretStore.delete(pendingPollTokenKey);
-      await localStore?.clearFamilyData();
     }
   }
 }
@@ -135,9 +149,12 @@ class InvitationPreview {
 }
 
 class ApiFamilyRepository {
-  ApiFamilyRepository({required this.api, required this.localStore});
+  ApiFamilyRepository({required this.api, required this.localStore, this.onFamilyChanged});
   final ApiClient api;
   final LocalAppStore localStore;
+
+  /// 加入或创建另一个家庭前清理上一个家庭的库存快照（含内存）。
+  final Future<void> Function()? onFamilyChanged;
 
   Future<FamilyRecord> getCurrentFamily() async {
     final json = await api.get('/api/v1/families/current') as Map<String, dynamic>;
@@ -148,6 +165,7 @@ class ApiFamilyRepository {
 
   Future<FamilyRecord> createFamily(String name) async {
     await api.post('/api/v1/families', body: {'name': name});
+    await _clearPreviousFamilySnapshot();
     return getCurrentFamily();
   }
 
@@ -165,7 +183,17 @@ class ApiFamilyRepository {
 
   Future<FamilyRecord> acceptInvitation(String code) async {
     await api.post('/api/v1/families/invitations/accept', body: {'code': code.trim()});
+    // 加入新家庭：丢弃上一个家庭的库存快照，稍后重新同步（A03）。
+    await _clearPreviousFamilySnapshot();
     return getCurrentFamily();
+  }
+
+  Future<void> _clearPreviousFamilySnapshot() async {
+    if (onFamilyChanged != null) {
+      await onFamilyChanged!();
+      return;
+    }
+    await localStore.clearFamilyData();
   }
 
   Future<String> createInvitation() async {

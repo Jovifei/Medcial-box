@@ -2,6 +2,7 @@
 // 服务端没有任何公开测试登录接口；AppID/AppSecret 只存在于服务端环境变量。
 import { api, clearToken, readToken, storeToken } from "./api";
 import { ApiError } from "./api";
+import { clearSessionScope, writeSessionScope } from "./session-scope";
 
 export interface LoginResult {
   token: string;
@@ -44,13 +45,17 @@ export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {
   const existing = readToken();
   if (existing !== "") {
     try {
-      await api.getAuthMe();
+      // auth/me 同时用于固化本机身份命名空间（草稿按 userId+familyId 隔离）。
+      const me = await api.getAuthMe();
+      writeSessionScope({ userId: me.user.id, familyId: me.family?.id ?? "" });
       return existing;
     } catch (error) {
       if (!(error instanceof ApiError) || (error.statusCode !== 401 && error.code !== "UNAUTHORIZED" && error.code !== "SESSION_EXPIRED")) {
         throw error;
       }
       clearToken();
+      // 会话失效即作废本机身份，草稿键不得继续指向上一个账号。
+      clearSessionScope();
     }
   }
   if (options.allowInteractive === false) {
@@ -69,5 +74,6 @@ export async function logout(): Promise<void> {
     if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
   } finally {
     clearToken();
+    clearSessionScope();
   }
 }

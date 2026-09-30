@@ -1,10 +1,21 @@
 import { createHash, randomUUID } from "node:crypto";
 import type {
+  DispositionStatus,
   FamilyInventorySettings,
   FamilyMedicineBackup,
   MedicationSummary,
 } from "@home-medicine/contracts";
-import { validateMedicineInput, type ValidatedMedicineFields } from "../inputs.js";
+import { validateMedicineInput, type ValidatedBatchFields, type ValidatedMedicineFields } from "../inputs.js";
+
+export interface ValidatedBackupBatchFields extends ValidatedBatchFields {
+  /** 已处理批次恢复后必须保持 handled，不得复活为正常库存。 */
+  dispositionStatus: DispositionStatus;
+}
+
+export interface ValidatedBackupMedicineFields extends Omit<ValidatedMedicineFields, "batches"> {
+  isArchived: boolean;
+  batches: ValidatedBackupBatchFields[];
+}
 
 export interface ValidatedFamilyMedicineBackup {
   schemaVersion: 1;
@@ -12,7 +23,7 @@ export interface ValidatedFamilyMedicineBackup {
   exportedAt: string;
   familyName: string;
   inventorySettings: FamilyInventorySettings;
-  medicines: Array<ValidatedMedicineFields & { isArchived: boolean }>;
+  medicines: ValidatedBackupMedicineFields[];
 }
 
 export type BackupValidationResult =
@@ -68,9 +79,9 @@ function containsPrivateFields(value: unknown): boolean {
 }
 
 /** Create a fresh additive-only household snapshot; IDs/versions/private notes are omitted. */
-export function createFamilyMedicineBackup(
+export function createFamilyMedicineBackup<T extends MedicationSummary>(
   familyName: string,
-  medicines: readonly (MedicationSummary & Record<string, unknown>)[],
+  medicines: readonly T[],
   inventorySettings: FamilyInventorySettings,
   exportedAt = new Date(),
 ): FamilyMedicineBackup {
@@ -108,6 +119,7 @@ export function createFamilyMedicineBackup(
         openedState: batch.openedState ?? "unknown",
         openedAt: batch.openedAt ?? null,
         afterOpeningLimit: batch.afterOpeningLimit ?? null,
+        dispositionStatus: batch.dispositionStatus ?? "active",
       })),
     })),
   };
@@ -131,7 +143,7 @@ export function validateFamilyMedicineBackup(raw: unknown): BackupValidationResu
     if (!isValidIsoTimestampOrNull(settings.nextStocktakeAt)) errors.push("下次盘点时间格式不正确");
   }
   if (!Array.isArray(raw.medicines) || raw.medicines.length > 500) errors.push("药品列表格式不正确或超过 500 项");
-  const medicines: Array<ValidatedMedicineFields & { isArchived: boolean }> = [];
+  const medicines: ValidatedBackupMedicineFields[] = [];
   if (Array.isArray(raw.medicines) && raw.medicines.length <= 500) {
     raw.medicines.forEach((item, index) => {
       if (!isRecord(item)) {
@@ -147,7 +159,21 @@ export function validateFamilyMedicineBackup(raw: unknown): BackupValidationResu
         errors.push(`第 ${index + 1} 项药品：${parsed.message}`);
         return;
       }
-      medicines.push({ ...parsed.value, isArchived: item.isArchived === true });
+      const rawBatches = Array.isArray(item.batches) ? item.batches : [];
+      let dispositionValid = true;
+      const batches: ValidatedBackupBatchFields[] = parsed.value.batches.map((batch, batchIndex) => {
+        const rawBatch = isRecord(rawBatches[batchIndex]) ? rawBatches[batchIndex] : {};
+        const claimed = rawBatch.dispositionStatus;
+        if (claimed === undefined || claimed === null) return { ...batch, dispositionStatus: "active" as const };
+        if (claimed !== "active" && claimed !== "handled") {
+          errors.push(`第 ${index + 1} 项药品第 ${batchIndex + 1} 个批次处置状态不合法`);
+          dispositionValid = false;
+          return { ...batch, dispositionStatus: "active" as const };
+        }
+        return { ...batch, dispositionStatus: claimed };
+      });
+      if (!dispositionValid) return;
+      medicines.push({ ...parsed.value, isArchived: item.isArchived === true, batches });
     });
   }
   if (errors.length > 0) return { ok: false, errors };

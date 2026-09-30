@@ -5,6 +5,27 @@ import ts from "typescript";
 
 const root = path.resolve(import.meta.dirname, "..");
 
+/**
+ * 测试替身身份：默认让所有页面共享同一个 userId/familyId，
+ * 从而保持"同一用户连续操作"的既有语义；需要验证跨账号隔离的用例
+ * 通过 modules 注入自己的替身来覆盖。
+ */
+export const TEST_SESSION_SCOPE = { userId: "test-user", familyId: "test-family" };
+
+export function makeSessionScopeModule(scope = TEST_SESSION_SCOPE) {
+  let active = scope;
+  return {
+    readSessionScope: () => (active === null ? null : { ...active }),
+    writeSessionScope: (next) => { active = next; },
+    clearSessionScope: () => { active = null; },
+    scopedStorageKey: (namespace, entityId = "") =>
+      active === null ? null : `${namespace}:${active.userId}:${active.familyId === "" ? "no-family" : active.familyId}:${entityId === "" ? "new" : entityId}`,
+    __resetSessionScopeForTest: () => { active = null; },
+  };
+}
+
+const SESSION_SCOPE_ALIAS = "session-scope";
+
 export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = setTimeout } = {}) {
   const filename = path.join(root, relativePath);
   const source = fs.readFileSync(filename, "utf8");
@@ -34,6 +55,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
   const module = { exports };
   const requireMock = (id) => {
     if (Object.hasOwn(modules, id)) return modules[id];
+    if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
     throw new Error(`Unexpected module import in test: ${id}`);
   };
@@ -62,6 +84,7 @@ export function loadService(relativePath, { modules = {}, wx = {} } = {}) {
   const module = { exports };
   const requireMock = (id) => {
     if (Object.hasOwn(modules, id)) return modules[id];
+    if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     throw new Error(`Unexpected service import in test: ${id}`);
   };
   const serviceWx = { showModal(options) { options?.success?.({ confirm: true }); }, ...wx };

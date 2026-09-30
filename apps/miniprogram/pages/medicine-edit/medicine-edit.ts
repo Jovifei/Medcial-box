@@ -1,5 +1,6 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { readSessionScope, scopedStorageKey } from "../../services/session-scope";
 import { confirmIngredientOverlap, findVerifiedIngredientMatches } from "../../services/ingredient-matches";
 import type {
   ExpiryPrecision,
@@ -48,6 +49,8 @@ interface MedicineEditPageData {
   isDirty: boolean;
   leaveSheetVisible: boolean;
   draftAvailable: boolean;
+  /** 本机存在属于其他账号/家庭（或旧版本无归属）的草稿：保留但不自动恢复。 */
+  draftForeign: boolean;
   statusBarHeight: number;
   navBarHeight: number;
   navRightGap: number;
@@ -95,13 +98,44 @@ interface StoredMedicineDraft {
   medicineId: string;
   savedAt: string;
   fields: MedicineDraftValues;
+  /** 缺失即代表旧版本草稿：不属于任何已知账号，不得自动迁移。 */
+  ownerUserId?: string;
+  ownerFamilyId?: string;
 }
 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
 const NATIVE_LEAVE_WARNING = "此表单有未保存修改。离开后会保留本机草稿；如要放弃修改，请使用页面左上角返回按钮。";
 
-function draftStorageKey(medicineId: string): string {
+/**
+ * 草稿键必须绑定当前 userId + familyId；没有可用身份时返回 null，
+ * 由调用方禁用草稿读写（绝不退回全局键，否则就是跨账号共享数据）。
+ */
+function draftStorageKey(medicineId: string): string | null {
+  return scopedStorageKey("medicine-edit-draft", medicineId || "new");
+}
+
+/** 旧版本草稿键：没有身份命名空间，永不被读取，仅用于提示"本机存在旧草稿"。 */
+function legacyDraftKey(medicineId: string): string {
   return `medicine-edit-draft:${medicineId || "new"}`;
+}
+
+/** 草稿归属：用于识别"属于其他账号/家庭"或"旧版本无归属"的草稿。 */
+interface DraftOwnership {
+  ownerUserId?: string;
+  ownerFamilyId?: string;
+}
+
+function currentOwnership(): DraftOwnership {
+  const scope = readSessionScope();
+  return scope === null ? {} : { ownerUserId: scope.userId, ownerFamilyId: scope.familyId };
+}
+
+function draftBelongsToCurrentSession(stored: DraftOwnership): boolean {
+  const scope = readSessionScope();
+  if (scope === null) return false;
+  // 旧版本草稿没有归属字段：一律视为不属于当前账号，不自动迁移也不擅自删除。
+  if (typeof stored.ownerUserId !== "string" || typeof stored.ownerFamilyId !== "string") return false;
+  return stored.ownerUserId === scope.userId && stored.ownerFamilyId === scope.familyId;
 }
 
 function draftValues(data: MedicineEditPageData): MedicineDraftValues {
@@ -297,6 +331,7 @@ Page({
     isDirty: false,
     leaveSheetVisible: false,
     draftAvailable: false,
+    draftForeign: false,
     statusBarHeight: 20,
     navBarHeight: 64,
     navRightGap: 48,
@@ -335,7 +370,7 @@ Page({
 
   /** 编辑已有药品时，识别必须等待资料加载完成，避免后返回的请求覆盖识别草稿。 */
   medicineLoadPromise: null as Promise<void> | null,
-  draftStorageKey: "",
+  draftStorageKey: null as string | null,
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
@@ -408,6 +443,9 @@ Page({
         version: medicine.version,
       });
       this.captureInitialSnapshot();
+      // ensureLoggedIn 固化了 userId/familyId：此刻重新定位草稿命名空间，
+      // 冷启动时（storage 尚无身份）才能读到属于当前账号的草稿。
+      this.refreshDraftScope();
     } catch (error) {
       showError(error);
     } finally {
@@ -434,19 +472,61 @@ Page({
     }
   },
 
-  loadStoredDraft(): void {
+  /** 身份就绪后重新定位草稿键并重读；绝不把上一个账号的草稿带过来。 */
+  refreshDraftScope(): void {
+    const key = draftStorageKey(this.data.medicineId as string);
+    if (key === this.draftStorageKey) return;
+    this.draftStorageKey = key;
+    this.loadStoredDraft();
+  },
+
+  /** 只探测旧草稿的存在，绝不读取其内容——读即等于迁移到当前账号。 */
+  hasLegacyDraft(): boolean {
     try {
-      const stored = wx.getStorageSync(this.draftStorageKey) as StoredMedicineDraft | undefined;
-      if (stored?.schemaVersion !== MEDICINE_DRAFT_SCHEMA_VERSION || stored.medicineId !== (this.data.medicineId as string) ||
-          typeof stored.fields?.name !== "string" || !Array.isArray(stored.fields.batches)) return;
+      const raw = wx.getStorageSync(legacyDraftKey(this.data.medicineId as string));
+      return raw !== undefined && raw !== null && raw !== "";
+    } catch {
+      return false;
+    }
+  },
+
+  loadStoredDraft(): void {
+    const key = this.draftStorageKey;
+    if (key === null) {
+      // 未固化身份（尚未完成登录）：不读写任何草稿，避免落到全局命名空间。
+      this.pendingStoredDraft = null;
+      this.setData({ draftAvailable: false, draftForeign: false });
+      return;
+    }
+    try {
+      const stored = wx.getStorageSync(key) as StoredMedicineDraft | undefined;
+      if (stored === undefined || stored === null) {
+        this.setData({ draftAvailable: false, draftForeign: this.hasLegacyDraft() });
+        return;
+      }
+      const usable = stored.schemaVersion === MEDICINE_DRAFT_SCHEMA_VERSION &&
+        stored.medicineId === (this.data.medicineId as string) &&
+        typeof stored.fields?.name === "string" && Array.isArray(stored.fields.batches);
+      if (!usable) {
+        this.setData({ draftAvailable: false, draftForeign: this.hasLegacyDraft() });
+        return;
+      }
+      if (!draftBelongsToCurrentSession(stored)) {
+        // 归属不同（旧账号/其他家庭/旧版本无归属）：保留文件但绝不自动恢复。
+        this.pendingStoredDraft = null;
+        this.setData({ draftAvailable: false, draftForeign: true });
+        return;
+      }
       this.pendingStoredDraft = stored.fields;
-      this.setData({ draftAvailable: true });
+      this.setData({ draftAvailable: true, draftForeign: false });
     } catch {
       this.pendingStoredDraft = null;
     }
   },
 
   persistCurrentDraft(updateBanner = true): void {
+    const key = this.draftStorageKey;
+    if (key === null) return;
     try {
       const data = this.data as MedicineEditPageData;
       const fields = draftValues(data);
@@ -455,10 +535,11 @@ Page({
         medicineId: data.medicineId,
         savedAt: new Date().toISOString(),
         fields,
+        ...currentOwnership(),
       };
-      wx.setStorageSync(this.draftStorageKey, stored);
+      wx.setStorageSync(key, stored);
       this.pendingStoredDraft = fields;
-      if (updateBanner) this.setData({ draftAvailable: true });
+      if (updateBanner) this.setData({ draftAvailable: true, draftForeign: false });
     } catch {
       wx.showToast({ title: "本机草稿保存失败，请先复制或完成保存", icon: "none" });
     }
@@ -466,8 +547,9 @@ Page({
 
   removeStoredDraft(): void {
     this.pendingStoredDraft = null;
-    try { wx.removeStorageSync(this.draftStorageKey); } catch { /* local draft cleanup is best effort */ }
-    this.setData({ draftAvailable: false });
+    const key = this.draftStorageKey;
+    try { if (key !== null) wx.removeStorageSync(key); } catch { /* local draft cleanup is best effort */ }
+    this.setData({ draftAvailable: false, draftForeign: false });
   },
 
   async onRestoreDraft(): Promise<void> {

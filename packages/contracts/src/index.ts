@@ -24,6 +24,7 @@ export type OpenedExpiryUnit = "day" | "month";
 export type StockStatus = "ok" | "low" | "unknown" | "exhausted";
 export type StocktakeInterval = "weekly" | "monthly" | "disabled";
 export type RestockStatus = "needed" | "purchased" | "dismissed";
+export type DispositionStatus = "active" | "handled";
 
 export type MemberRole = "owner" | "member";
 
@@ -280,7 +281,7 @@ export interface MedicationBatchSummary {
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
   storageLocation: string | null;
-  dispositionStatus?: "active" | "handled";
+  dispositionStatus?: DispositionStatus;
   openedState?: OpenedState;
   openedAt?: string | null;
   afterOpeningLimit?: AfterOpeningLimitInput | null;
@@ -449,12 +450,23 @@ export interface PendingReminderItem {
   action: "edit_batch" | "restock" | "stocktake" | "review_leaflet";
 }
 
+/** 备份中的批次输入：允许携带处置状态（正常创建/编辑请求不允许直接写入）。 */
+export interface BackupBatchInput extends CreateBatchInput {
+  /** 缺省视为 active（旧版备份兼容）；handled 批次恢复后不参与正常库存。 */
+  dispositionStatus?: DispositionStatus;
+}
+
+export interface BackupMedicineInput extends Omit<CreateMedicineInput, "batches"> {
+  isArchived?: boolean;
+  batches?: BackupBatchInput[];
+}
+
 export interface FamilyMedicineBackup {
   schemaVersion: 1;
   backupId: string;
   exportedAt: string;
   familyName: string;
-  medicines: Array<CreateMedicineInput & { isArchived?: boolean }>;
+  medicines: BackupMedicineInput[];
   inventorySettings: FamilyInventorySettings;
 }
 
@@ -463,6 +475,10 @@ export interface BackupPreviewResponse {
   duplicateBackup: boolean;
   confirmationToken?: string;
   inventorySettings?: FamilyInventorySettings;
+  /** 备份中将恢复为已处理（不参与正常库存与提醒）的批次数；缺省视为 0。 */
+  handledBatchCount?: number;
+  /** 恢复范围提示：当前固定仅恢复库存记录，不覆盖家庭盘点设置。 */
+  settingsPolicy?: "inventory_only";
   medicineCount: number;
   likelyMatches: Array<{ importedName: string; existingMedicineId: string; existingName: string }>;
   errors: string[];

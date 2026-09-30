@@ -60,6 +60,12 @@ class AppServices {
       );
       final medicines = ApiMedicineRepository(api: api, localStore: local);
       final reminders = LocalReminderService()..watch(medicines);
+      // 统一的身份切换清理：内存快照 + 本机家庭数据一起作废，
+      // 保证换账号/换家庭后看不到上一个家庭的库存（A03）。
+      Future<void> clearIdentityData() async {
+        medicines.clearSessionSnapshot();
+        await local.clearFamilyData();
+      }
       return AppServices._(
         apiBaseUrl: baseUrl,
         configurationError: null,
@@ -70,8 +76,13 @@ class AppServices {
           api: api,
           secretStore: secrets,
           localStore: local,
+          onIdentitySwitch: clearIdentityData,
         ),
-        families: ApiFamilyRepository(api: api, localStore: local),
+        families: ApiFamilyRepository(
+          api: api,
+          localStore: local,
+          onFamilyChanged: clearIdentityData,
+        ),
         medicines: medicines,
         workflow: ApiWorkflowRepository(api: api),
         demoMedicineRepository: DemoMedicineRepository(),

@@ -424,6 +424,109 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.equal(denied.state, "expired", "membership revocation before exchange prevents App session issuance");
     });
 
+    await t.test("backup restore round-trip preserves every field including handled batches across families (A01/A02)", async () => {
+      const source = await family();
+      const created = status(await request(source.owner, "POST", "/medicines", {
+        name: "往返保真药",
+        specification: "10mg×12片",
+        manufacturer: "测试制药",
+        approvalNumber: "国药准字H12345678",
+        barcodeValue: "6901234567890",
+        activeIngredients: ["布洛芬", "淀粉"],
+        purposeCategory: "解热镇痛",
+        leaflet: {
+          purposeSummary: "用于缓解轻至中度疼痛",
+          packageUsageSummary: "口服，一次1片，一日2次",
+          contraindicationsSummary: "对本品过敏者禁用",
+          precautionsSummary: "避免与其他解热镇痛药同用",
+          source: "药品包装拍照",
+          reviewStatus: "user_confirmed",
+        },
+        lowStockThreshold: { quantity: 2, unit: "box" },
+        batches: [
+          { lotNumber: "RT-L1", expiry: { value: "2027-12-31", precision: "day" }, quantity: 5, unit: "box", confirmedUnitsPerPackage: 12, storageLocation: "客厅药箱", openedState: "opened", openedAt: "2026-09-01", afterOpeningLimit: { value: 1, unit: "month", source: "说明书" } },
+          { lotNumber: "RT-L2", expiry: { value: "2028-03", precision: "month" }, quantity: 3, unit: "box", storageLocation: "卧室药箱", openedState: "unopened" },
+          { expiry: { value: null, precision: "unknown" }, quantity: 1, unit: "box", storageLocation: "冰箱" },
+        ],
+      }), 201);
+      await pool.query("UPDATE medicine_batches SET disposition_status = 'handled' WHERE id = $1", [created.batches[0].id]);
+      // DELETE /medicines/:id 才是归档（is_archived）；trash 是回收站软删除，不属于备份导出范围。
+      const archivedMedicine = await createMedicine(source.owner, [batch()], "往返归档药");
+      status(await request(source.owner, "DELETE", `/medicines/${archivedMedicine.id}`), 204);
+
+      const sourceMedicines = status(await request(source.owner, "GET", "/medicines?includeArchived=true"), 200).medicines;
+      assert.equal(sourceMedicines.length, 2);
+      const backup = status(await request(source.owner, "POST", "/backups/json"), 200);
+      const exportedMain = backup.medicines.find((item) => item.name === "往返保真药");
+      assert.equal(exportedMain.batches.find((item) => item.lotNumber === "RT-L1").dispositionStatus, "handled");
+      assert.equal(exportedMain.batches.find((item) => item.lotNumber === "RT-L2").dispositionStatus, "active");
+      assert.equal(backup.medicines.find((item) => item.name === "往返归档药").isArchived, true);
+
+      const preview = status(await request(source.owner, "POST", "/backups/preview", { backup }), 200);
+      assert.equal(preview.valid, true);
+      assert.equal(preview.handledBatchCount, 1, "preview must surface handled batches before restore");
+      assert.equal(preview.settingsPolicy, "inventory_only");
+
+      const tampered = structuredClone(backup);
+      tampered.medicines.find((item) => item.name === "往返保真药").batches.find((item) => item.lotNumber === "RT-L1").dispositionStatus = "active";
+      status(await request(source.owner, "POST", "/backups/restore", {
+        backup: tampered, confirmationToken: preview.confirmationToken, confirmed: true,
+      }), 409);
+
+      // 源药品移入回收站后恢复到同一家庭，单次登录即可完成全字段往返比对：
+      // 登录速率限制 30 次/分钟且按客户端地址共享，不为测试放宽产品限流。
+      for (const medicine of sourceMedicines) {
+        status(await request(source.owner, "POST", `/medicines/${medicine.id}/trash`), 204);
+      }
+      assert.deepEqual(status(await request(source.owner, "GET", "/medicines?includeArchived=true"), 200).medicines, []);
+      const restoreBackup = structuredClone(backup);
+      restoreBackup.backupId = randomUUID();
+      const targetPreview = status(await request(source.owner, "POST", "/backups/preview", { backup: restoreBackup }), 200);
+      const restored = status(await request(source.owner, "POST", "/backups/restore", {
+        backup: restoreBackup, confirmationToken: targetPreview.confirmationToken, confirmed: true,
+      }), 201);
+      assert.equal(restored.restoredCount, 2);
+      const targetMedicines = status(await request(source.owner, "GET", "/medicines?includeArchived=true"), 200).medicines;
+      assert.equal(targetMedicines.length, 2);
+
+      const batchKey = (item) => JSON.stringify([item.lotNumber ?? null, item.expiry?.value ?? null, item.expiry?.precision ?? null, item.quantity ?? null, item.unit ?? null, item.storageLocation ?? null]);
+      const normalizeMedicine = (medicine) => ({
+        name: medicine.name,
+        specification: medicine.specification,
+        manufacturer: medicine.manufacturer,
+        approvalNumber: medicine.approvalNumber,
+        barcodeValue: medicine.barcodeValue ?? null,
+        activeIngredients: medicine.activeIngredients,
+        purposeCategory: medicine.purposeCategory,
+        leaflet: medicine.leaflet,
+        lowStockThreshold: medicine.lowStockThreshold ?? null,
+        isArchived: medicine.isArchived,
+        batches: medicine.batches.map((item) => ({
+          key: batchKey(item),
+          lotNumber: item.lotNumber ?? null,
+          expiry: item.expiry,
+          quantity: item.quantity ?? null,
+          unit: item.unit,
+          confirmedUnitsPerPackage: item.confirmedUnitsPerPackage ?? null,
+          storageLocation: item.storageLocation ?? null,
+          openedState: item.openedState,
+          openedAt: item.openedAt ?? null,
+          afterOpeningLimit: item.afterOpeningLimit ?? null,
+          dispositionStatus: item.dispositionStatus ?? "active",
+        })).sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0)),
+      });
+      for (const expected of sourceMedicines) {
+        const actual = targetMedicines.find((item) => item.name === expected.name);
+        assert.ok(actual, `restored medicine missing: ${expected.name}`);
+        assert.deepEqual(normalizeMedicine(actual), normalizeMedicine(expected));
+      }
+
+      // 已处理库存不得复活为正常库存：handled 的 5 盒不计入余量（3 + 1 = 4）。
+      const targetMain = targetMedicines.find((item) => item.name === "往返保真药");
+      assert.equal(targetMain.batches.find((item) => item.lotNumber === "RT-L1").dispositionStatus, "handled");
+      assert.deepEqual(targetMain.stockStatus, { state: "ok", quantity: 4, unit: "box" });
+    });
+
     await t.test("HTTP auth/family/inventory CRUD, unknown versus zero, notes privacy and escaped export", async () => {
       const { owner, members: [member] } = await family(1);
       const outsider = (await family()).owner;

@@ -15,6 +15,16 @@ class ApiMedicineRepository extends ChangeNotifier {
   List<MedicineRecord> _medicines = const [];
   List<MedicineRecord> get medicines => List.unmodifiable(_medicines);
 
+  /// 会话切换（退出 / 换账号 / 换家庭）时必须调用：
+  /// 长期共享的 repository 内存快照若不清空，新会话会看到上一个家庭的库存（A03）。
+  void clearSessionSnapshot() {
+    _medicines = const [];
+    isOffline = false;
+    hasPendingWrites = false;
+    lastSyncedAt = null;
+    notifyListeners();
+  }
+
   Future<List<MedicineRecord>> listMedicines({bool includeArchived = false}) async {
     try {
       final json = await api.get(

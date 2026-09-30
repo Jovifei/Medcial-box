@@ -359,8 +359,11 @@ test("dirty medicine form offers keep, discard, and continue actions and retains
   page.onRequestLeave();
   page.onLeaveChoice({ currentTarget: { dataset: { choice: "keep" } } });
   assert.deepEqual(navigations, ["back"]);
-  const saved = storage.get("medicine-edit-draft:new");
+  const saved = storage.get("medicine-edit-draft:test-user:test-family:new");
   assert.equal(saved.fields.name, "本地草稿药");
+  // 草稿必须记录归属，否则换账号后无法判断它属于谁。
+  assert.equal(saved.ownerUserId, "test-user");
+  assert.equal(saved.ownerFamilyId, "test-family");
   const reopened = makePageContext(definition);
   reopened.onLoad({});
   assert.equal(reopened.data.draftAvailable, true);
@@ -1182,4 +1185,151 @@ test("notification page requests only available templates after the user taps", 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(calls, [["prompt", ["template-a"]], ["save", ["template-a"]]]);
   assert.match(page.data.statusText, /服务端已记录/);
+});
+
+test("A12: token survives local storage failures and follows session lifecycle", () => {
+  const service = loadApi({
+    wx: {
+      getStorageSync() { throw new Error("storage unavailable"); },
+      setStorageSync() { throw new Error("storage unavailable"); },
+      removeStorageSync() { throw new Error("storage unavailable"); },
+    },
+  });
+  service.storeToken("token-a");
+  assert.equal(service.readToken(), "token-a", "storage failure must not drop the session token");
+  service.__resetTokenMemoryForTest();
+  service.clearToken();
+  assert.equal(service.readToken(), "", "logout clears both the memory mirror and storage");
+});
+
+test("A12: requests keep Authorization even when local storage cannot be read", async () => {
+  const service = loadApi({
+    wx: {
+      getStorageSync() { throw new Error("storage unavailable"); },
+      setStorageSync() { throw new Error("storage unavailable"); },
+    },
+  });
+  service.storeToken("token-in-memory");
+  await service.api.getDevices();
+  const { authorization } = service.requests[0].header;
+  assert.ok(String(authorization).startsWith("Bearer "), `missing Authorization header: ${authorization}`);
+  assert.match(String(authorization), /token-in-memory/);
+});
+
+test("A04: another account cannot see or restore the previous household draft", () => {
+  const storage = new Map();
+  const session = { current: { userId: "user-a", familyId: "family-a" } };
+  const scopeModule = {
+    readSessionScope: () => (session.current === null ? null : { ...session.current }),
+    writeSessionScope: () => {},
+    clearSessionScope: () => { session.current = null; },
+    scopedStorageKey: (namespace, entityId = "") =>
+      session.current === null ? null : `${namespace}:${session.current.userId}:${session.current.familyId}:${entityId === "" ? "new" : entityId}`,
+    __resetSessionScopeForTest: () => { session.current = null; },
+  };
+  const pageModules = {
+    "../../services/api": { api: {}, ApiError: class ApiError extends Error {} },
+    "../../services/auth": { ensureLoggedIn: async () => {} },
+    "../../services/input-validation": {
+      isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+      isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+      isValidExpiryValue: () => true,
+    },
+    "session-scope": scopeModule,
+  };
+  const wxMock = {
+    getStorageSync(key) { return storage.get(key); },
+    setStorageSync(key, value) { storage.set(key, value); },
+    removeStorageSync(key) { storage.delete(key); },
+    navigateBack() {},
+  };
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", { modules: pageModules, wx: wxMock });
+
+  const first = makePageContext(definition);
+  first.onLoad({});
+  first.onFieldInput({ currentTarget: { dataset: { field: "name" } }, detail: { value: "A家庭的私人草稿" } });
+  first.onRequestLeave();
+  first.onLeaveChoice({ currentTarget: { dataset: { choice: "keep" } } });
+  const firstKey = "medicine-edit-draft:user-a:family-a:new";
+  assert.equal(storage.get(firstKey).fields.name, "A家庭的私人草稿");
+
+  // 换账号（含换家庭）：同一设备上的新会话不得再看到上一家庭的草稿。
+  session.current = { userId: "user-b", familyId: "family-b" };
+  const second = makePageContext(definition);
+  second.onLoad({});
+  assert.equal(second.data.draftAvailable, false, "previous household draft must not be offered to another account");
+  assert.equal(second.data.draftForeign, false);
+  second.onRestoreDraft();
+  assert.equal(second.data.name, "", "restoring a draft must never pull another account's data");
+  second.onFieldInput({ currentTarget: { dataset: { field: "name" } }, detail: { value: "B家庭自己的草稿" } });
+  second.onRequestLeave();
+  second.onLeaveChoice({ currentTarget: { dataset: { choice: "keep" } } });
+  assert.equal(storage.get("medicine-edit-draft:user-b:family-b:new").fields.name, "B家庭自己的草稿");
+  assert.equal(storage.get(firstKey).fields.name, "A家庭的私人草稿", "original household draft stays intact for its owner");
+});
+
+test("A04: legacy unattributed drafts are isolated, not migrated to the new account", () => {
+  const storage = new Map();
+  // 旧版本的全局键草稿：归属不明，绝不能被新会话继承。
+  storage.set("medicine-edit-draft:new", {
+    schemaVersion: 1,
+    medicineId: "",
+    savedAt: "2026-09-01T00:00:00.000Z",
+    fields: {
+      name: "旧版本草稿（归属不明）",
+      specification: "",
+      manufacturer: "",
+      approvalNumber: "",
+      barcodeValue: "",
+      ingredients: "",
+      purposeCategory: "",
+      leafletPurpose: "",
+      leafletUsage: "",
+      leafletContraindications: "",
+      leafletPrecautions: "",
+      leafletSource: "",
+      verified: false,
+      batches: [{
+        lotNumber: "",
+        expiryValue: "",
+        precisionIndex: 2,
+        quantityText: "",
+        unitIndex: 6,
+        unitsPerPackageText: "",
+        storageLocation: "",
+        openedStateIndex: 0,
+        openingLimitModeIndex: 0,
+        openingLimitValueText: "",
+        openingLimitUnitIndex: 0,
+        openingLimitDate: "",
+        openingExpanded: false,
+      }],
+      purposeIndex: 0,
+      scannedBarcode: "",
+    },
+  });
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": { api: {}, ApiError: class ApiError extends Error {} },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: () => true,
+        isStrictPositiveInteger: () => true,
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: {
+      getStorageSync(key) { return storage.get(key); },
+      setStorageSync(key, value) { storage.set(key, value); },
+      removeStorageSync(key) { storage.delete(key); },
+      navigateBack() {},
+    },
+  });
+  const page = makePageContext(definition);
+  page.onLoad({});
+  assert.equal(page.data.draftAvailable, false);
+  assert.equal(page.data.draftForeign, true, "legacy draft must be surfaced as foreign, never auto-applied");
+  page.onRestoreDraft();
+  assert.equal(page.data.name, "", "legacy draft content must not reach the new account form");
+  assert.ok(storage.has("medicine-edit-draft:new"), "legacy draft is preserved, not silently deleted");
 });

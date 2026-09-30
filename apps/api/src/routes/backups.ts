@@ -1,13 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
-import type { FamilyMedicineBackup, BackupPreviewResponse, BackupRestoreResponse } from "@home-medicine/contracts";
+import type { BackupPreviewResponse, BackupRestoreResponse } from "@home-medicine/contracts";
 import { requireFamily, sha256Hex } from "../auth/session.js";
 import { createRateLimiter } from "../rate-limit.js";
 import { insertBatch } from "../repositories/batches.js";
 import { archiveMedicine, insertMedicine, listMedicines } from "../repositories/medicines.js";
-import { validateMedicineInput } from "../inputs.js";
 import { buildFamilyMedicineSummaries } from "./medicines.js";
-import { hashFamilyMedicineBackup, validateFamilyMedicineBackup } from "../services/backup-snapshot.js";
+import {
+  createFamilyMedicineBackup,
+  hashFamilyMedicineBackup,
+  validateFamilyMedicineBackup,
+} from "../services/backup-snapshot.js";
 import type { Database } from "../types.js";
 import { errorBody, TransactionConflictError } from "../types.js";
 
@@ -35,37 +38,7 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
       lastStocktakeAt: setting?.last_stocktake_at == null ? null : new Date(setting.last_stocktake_at).toISOString(),
       nextStocktakeAt: null,
     } as const;
-    const snapshot: FamilyMedicineBackup = {
-      schemaVersion: 1,
-      backupId: crypto.randomUUID(),
-      exportedAt: new Date().toISOString(),
-      familyName,
-      inventorySettings,
-      medicines: medicines.map((medicine) => ({
-        name: medicine.name,
-        specification: medicine.specification,
-        manufacturer: medicine.manufacturer,
-        approvalNumber: medicine.approvalNumber,
-        barcodeValue: medicine.barcodeValue,
-        activeIngredients: medicine.activeIngredients,
-        purposeCategory: medicine.purposeCategory,
-        leaflet: medicine.leaflet,
-        lowStockThreshold: medicine.lowStockThreshold,
-        isArchived: medicine.isArchived,
-        batches: medicine.batches.map((batch) => ({
-          lotNumber: batch.lotNumber,
-          expiry: batch.expiry,
-          quantity: batch.quantity,
-          unit: batch.unit,
-          confirmedUnitsPerPackage: batch.confirmedUnitsPerPackage,
-          storageLocation: batch.storageLocation,
-          openedState: batch.openedState,
-          openedAt: batch.openedAt,
-          afterOpeningLimit: batch.afterOpeningLimit,
-        })),
-      })),
-    };
-    return snapshot;
+    return createFamilyMedicineBackup(familyName, medicines, inventorySettings);
   });
 
   app.post("/api/v1/backups/preview", { bodyLimit: 12 * 1024 * 1024 }, async (request, reply) => {
@@ -119,11 +92,17 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
         likelyMatches.push({ importedName: imported.name, existingMedicineId: match.id, existingName: match.name });
       }
     }
+    const handledBatchCount = validation.value.medicines.reduce(
+      (total, medicine) => total + medicine.batches.filter((item) => item.dispositionStatus === "handled").length,
+      0,
+    );
     return {
       valid: true,
       duplicateBackup: existingReceipt.rowCount !== 0,
       ...(confirmationToken === undefined ? {} : { confirmationToken }),
       inventorySettings: validation.value.inventorySettings,
+      handledBatchCount,
+      settingsPolicy: "inventory_only",
       medicineCount: validation.value.medicines.length,
       likelyMatches,
       errors: [],
@@ -172,15 +151,17 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
         );
         if (receipt.rowCount === 0) throw new TransactionConflictError(409, BACKUP_ALREADY_IMPORTED);
         let count = 0;
-        for (const rawMedicine of validation.value.medicines) {
-          const parsed = validateMedicineInput(rawMedicine);
-          if (!parsed.ok) throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", parsed.message));
-          const medicine = await insertMedicine(tx, ctx.familyId, parsed.value, ctx.userId);
-          for (const fields of parsed.value.batches) {
-            await insertBatch(tx, medicine.id, ctx.familyId, fields, ctx.userId);
+        // 恢复直接消费 validateFamilyMedicineBackup 产出的内部已验证类型，
+        // 不得再按外部请求格式二次解析（否则有效期/说明书/处置状态会静默丢失）。
+        for (const medicine of validation.value.medicines) {
+          const inserted = await insertMedicine(tx, ctx.familyId, medicine, ctx.userId);
+          for (const batchFields of medicine.batches) {
+            await insertBatch(tx, inserted.id, ctx.familyId, batchFields, ctx.userId, {
+              dispositionStatus: batchFields.dispositionStatus,
+            });
           }
-          if (rawMedicine.isArchived) {
-            await archiveMedicine(tx, medicine.id, ctx.familyId, ctx.userId);
+          if (medicine.isArchived) {
+            await archiveMedicine(tx, inserted.id, ctx.familyId, ctx.userId);
           }
           count += 1;
         }

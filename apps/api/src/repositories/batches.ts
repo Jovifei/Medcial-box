@@ -1,5 +1,5 @@
 // medicine_batches 表仓储：批次冗余 family_id，端点用单查询完成归属校验。
-import type { AfterOpeningLimitInput, ExpiryPrecision, OpenedState, QuantityUnit } from "@home-medicine/contracts";
+import type { AfterOpeningLimitInput, DispositionStatus, ExpiryPrecision, OpenedState, QuantityUnit } from "@home-medicine/contracts";
 import type { MedicationBatchSummary } from "@home-medicine/contracts";
 import type { QueryRunner } from "../types.js";
 import { describeExpiry } from "../domain/expiry.js";
@@ -216,10 +216,11 @@ export async function insertBatch(
   familyId: string,
   fields: ValidatedBatchFields,
   userId: string,
+  options: { dispositionStatus?: DispositionStatus } = {},
 ): Promise<MedicineBatchRow> {
   const result = await database.query<MedicineBatchRow>(
-    `INSERT INTO medicine_batches (medicine_id, family_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, storage_location, opened_state, opened_at, after_opening_limit, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `INSERT INTO medicine_batches (medicine_id, family_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, storage_location, opened_state, opened_at, after_opening_limit, disposition_status, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING ${BATCH_COLUMNS}`,
     [
       medicineId,
@@ -234,6 +235,7 @@ export async function insertBatch(
       fields.openedState,
       fields.openedAt,
       fields.afterOpeningLimit === null ? null : JSON.stringify(fields.afterOpeningLimit),
+      options.dispositionStatus ?? "active",
       userId,
       userId,
     ],

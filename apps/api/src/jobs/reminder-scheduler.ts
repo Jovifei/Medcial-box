@@ -80,6 +80,60 @@ interface ClaimedDelivery {
   medicine_deleted_at: Date | string | null;
   batch_deleted_at: Date | string | null;
   disposition_status: string;
+  /** 领取时复核的成员关系；移除成员后必须为真拦下，绝不调用发送器。 */
+  is_member: boolean;
+}
+
+/**
+ * 作废孤儿任务：收件人已不属于该家庭（被移除或已退出）时，
+ * 排队中的提醒必须停止，并把对应的订阅授权也释放掉。
+ * 这同时覆盖成员移除流程之外的历史数据。
+ */
+export async function blockDeliveriesForDepartedMembers(database: Database): Promise<number> {
+  const blocked = await database.query<{ id: string }>(
+    `UPDATE reminder_deliveries d
+     SET status = 'blocked', last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
+     WHERE d.status IN ('queued', 'failed', 'sending')
+       AND NOT EXISTS (
+         SELECT 1 FROM family_members fm
+         WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id
+       )
+     RETURNING d.id`,
+  );
+  if (blocked.rowCount === 0) return 0;
+  await database.query(
+    `UPDATE wechat_subscription_grants g
+     SET consumed_at = COALESCE(g.consumed_at, now())
+     WHERE g.consumed_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM family_members fm
+         WHERE fm.family_id = g.family_id AND fm.user_id = g.user_id
+       )`,
+  );
+  return blocked.rowCount ?? 0;
+}
+
+/**
+ * 成员被移除或主动退出时立即取消其排队任务与未使用的订阅授权，
+ * 让"不再属于这个家庭"在同一事务内生效，而不是等到下一轮调度。
+ */
+export async function cancelDeliveriesForMember(
+  database: { query: Database["query"] },
+  familyId: string,
+  userId: string,
+): Promise<void> {
+  await database.query(
+    `UPDATE reminder_deliveries
+     SET status = 'blocked', last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
+     WHERE family_id = $1 AND user_id = $2 AND status IN ('queued', 'failed', 'sending')`,
+    [familyId, userId],
+  );
+  await database.query(
+    `UPDATE wechat_subscription_grants
+     SET consumed_at = COALESCE(consumed_at, now())
+     WHERE family_id = $1 AND user_id = $2 AND consumed_at IS NULL`,
+    [familyId, userId],
+  );
 }
 
 async function claimDeliveries(database: Database, now: Date): Promise<ClaimedDelivery[]> {
@@ -103,7 +157,11 @@ async function claimDeliveries(database: Database, now: Date): Promise<ClaimedDe
       `SELECT d.id, d.user_id, u.openid, d.medicine_id, m.name AS medicine_name,
               d.batch_id, d.deadline_date::text, d.days_before, d.attempts,
               m.is_archived, m.deleted_at AS medicine_deleted_at,
-              b.deleted_at AS batch_deleted_at, b.disposition_status
+              b.deleted_at AS batch_deleted_at, b.disposition_status,
+              EXISTS (
+                SELECT 1 FROM family_members fm
+                WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id
+              ) AS is_member
        FROM reminder_deliveries d
        JOIN users u ON u.id = d.user_id
        JOIN medicines m ON m.id = d.medicine_id AND m.family_id = d.family_id
@@ -152,11 +210,18 @@ export async function dispatchDueReminderMessages(
     }
   }
 
+  // 先作废已经不属于任何家庭的任务，再领取，避免旧任务消耗新授权。
+  await blockDeliveriesForDepartedMembers(database);
   const claimed = await claimDeliveries(database, now);
   let sent = 0;
   let failed = 0;
   for (const delivery of claimed) {
     const currentDeadline = currentDeadlinesByBatch.get(delivery.batch_id);
+    // 发送前的最后一道复核：领取之后才被移除的成员也必须被拦下。
+    if (!delivery.is_member) {
+      await database.query("UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'NOT_A_MEMBER' WHERE id = $1", [delivery.id]);
+      continue;
+    }
     const obsolete = delivery.is_archived || delivery.medicine_deleted_at !== null || delivery.batch_deleted_at !== null ||
       delivery.disposition_status === "handled" || currentDeadline === undefined || currentDeadline === null || currentDeadline !== delivery.deadline_date;
     if (obsolete) {

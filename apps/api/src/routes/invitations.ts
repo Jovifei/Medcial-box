@@ -28,6 +28,7 @@ import {
   updateMemberRoleByUserId,
 } from "../repositories/families.js";
 import { consumeInvite, findInviteByTokenHash, insertInvite } from "../repositories/invites.js";
+import { cancelDeliveriesForMember } from "../jobs/reminder-scheduler.js";
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 
@@ -216,10 +217,16 @@ export async function registerInvitationRoutes(
             errorBody("FORBIDDEN", "不能移除家庭 owner"),
           );
         }
+        const removedUserId = target.user_id ?? "";
+        if (removedUserId === "") {
+          throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        }
         const deleted = await deleteMemberById(tx, memberId, ctx.familyId);
         if (!deleted) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }
+        // 同一事务内作废被移除成员的排队提醒与授权（A07）：离开即不该再收到消息。
+        await cancelDeliveriesForMember(tx, ctx.familyId, removedUserId);
       });
       return reply.code(204).send();
     } catch (error) {
@@ -280,6 +287,8 @@ export async function registerInvitationRoutes(
         if (!deleted) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }
+        // 退出即取消本人待发提醒与授权（A07）。
+        await cancelDeliveriesForMember(tx, ctx.familyId, auth.userId);
       });
       return reply.code(204).send();
     } catch (error) {

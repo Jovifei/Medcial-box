@@ -17,6 +17,10 @@
       <view class="btn btn-primary" bindtap="onRestoreDraft">恢复草稿</view>
     </view>
   </view>
+  <view class="card draft-card" wx:elif="{{draftForeign}}">
+    <view class="section-title">本机还有其他账号的草稿</view>
+    <view class="field-hint">为避免串数据，未自动恢复。请用原账号登录后继续填写，或直接新建；旧草稿仍按原账号保留在本机。</view>
+  </view>
   <view class="card photo-card">
     <view class="section-title">{{isEdit ? "编辑药品" : "添加家里的药"}}</view>
     <view class="field-hint">先拍药盒，识别后核对；有效期在另一面时可稍后补拍或手填。</view>
