@@ -253,6 +253,8 @@ export function createDefaultReminderTemplateConfig(): ReminderTemplateConfig {
     appSecret: process.env.WECHAT_APP_SECRET ?? "",
     templateId: process.env.WECHAT_REMINDER_TEMPLATE_ID ?? "",
     fieldMap: readFieldMap(process.env.WECHAT_REMINDER_FIELD_MAP),
+    doseTemplateId: process.env.WECHAT_DOSE_REMINDER_TEMPLATE_ID ?? "",
+    doseFieldMap: readFieldMap(process.env.WECHAT_DOSE_REMINDER_FIELD_MAP),
     miniprogramState: process.env.WECHAT_MINIPROGRAM_STATE,
   });
 }

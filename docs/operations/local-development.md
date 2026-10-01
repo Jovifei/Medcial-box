@@ -31,13 +31,13 @@
 
 ## 微信账号和服务端发布
 
-本地 `project.config.json` 使用 `touristappid` 占位。通过账号审核后，由项目所有者在受控本地配置实际 AppID 和后端 AppSecret，检查 HTTPS request/upload/download 域名白名单，再验证微信登录和真机拍照。不要修改线上网站反向代理、DNS、服务器或证书来完成本地 P0。
+`project.config.json` 已填入药箱专用 AppID（`wx1f6dd99d28aab8e5`，公开客户端标识）。后端登录交换还需要服务端 AppSecret：由项目所有者在 `deploy/.env.local`（Git 忽略）的 `WECHAT_APP_SECRET` 填写，不出现在命令行、聊天记录或小程序包。HTTPS request/upload/download 域名白名单在真机联调前核对；本地开发者工具调试回环 API 时关闭域名校验即可。
 
 `wx.shareFileMessage` 需要本地或临时文件路径。开发者工具预览不算最终分享验收；P3 必须在真实微信客户端验证 `.md` 文件，并保留复制文本功能。
 
 ## 已隔离的本机 Docker 登录试验
 
-本机已有其他项目容器时，使用独立项目名和未占用的回环端口。将私有 `deploy/.env.local` 放在 Git 忽略范围内：`POSTGRES_PASSWORD` 是本项目数据库密码，`WECHAT_APP_ID` 是小程序公开标识，`WECHAT_APP_SECRET` 是唯一的微信服务端密钥；后者只由所有者在本机文件内填写，不出现在命令行或小程序包。
+本机已有其他项目容器时，使用独立项目名和未占用的回环端口。将私有 `deploy/.env.local` 放在 Git 忽略范围内：`POSTGRES_PASSWORD` 是本项目数据库密码，`WECHAT_APP_ID` 是小程序公开标识（药箱专用 `wx1f6dd99d28aab8e5`），`WECHAT_APP_SECRET` 是唯一的微信服务端密钥；后者只由所有者在本机文件内填写，不出现在命令行或小程序包。服药提醒模板（R4）在 mp 后台「功能 → 订阅消息」申请后，把模板 ID 填入 `WECHAT_DOSE_REMINDER_TEMPLATE_ID`，并把 `WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED=true` 打开；模板未配置时服药提醒如实不可用，计划与今日安排不受影响。
 
 ```powershell
 docker compose --env-file deploy/.env.local -p medbox-local-trial -f deploy/docker-compose.yml config --quiet

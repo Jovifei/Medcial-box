@@ -1,6 +1,6 @@
 {
   "description": "Jovi 家庭药箱小程序",
-  "appid": "touristappid",
+  "appid": "wx1f6dd99d28aab8e5",
   "projectname": "jovi-home-medicine-cabinet",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
