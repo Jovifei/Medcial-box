@@ -152,3 +152,56 @@
 .sheet-option-title { color: #24352c; font-size: 29rpx; font-weight: 680; }
 .sheet-option-hint { margin-top: 6rpx; color: #718078; font-size: 21rpx; line-height: 1.45; }
 .sheet-arrow { color: #7c8b80; font-size: 42rpx; }
+
+/* —— 人群/用途整理标签（R2-b）：蓝=成人、绿=儿童、紫=用途，灰=+N；状态同时用文字表达 —— */
+.tag-filter-row {
+  margin-top: 12rpx;
+}
+
+.tag-chip.selected {
+  background: #3f7d5c;
+  color: #ffffff;
+  border-color: #3f7d5c;
+}
+
+.sort-picker {
+  display: inline-block;
+}
+
+.sort-chip {
+  color: #3f7d5c;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin: 8rpx 0;
+}
+
+.medicine-tag {
+  font-size: 22rpx;
+  line-height: 1.5;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.medicine-tag.pop-adult {
+  color: #1d5fd1;
+  background: #e3edfb;
+}
+
+.medicine-tag.pop-child {
+  color: #2f7d4f;
+  background: #e2f2e8;
+}
+
+.medicine-tag.purpose {
+  color: #6b3fa0;
+  background: #efe7f9;
+}
+
+.medicine-tag.more {
+  color: #596a60;
+  background: #eef1ee;
+}

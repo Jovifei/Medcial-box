@@ -61,6 +61,14 @@ export interface MedicationBatchSummary {
 export interface MedicationSummary {
   id: string;
   name: string;
+  /** 人群整理标签（可多选）；空数组 = 未标注。 */
+  populationTags?: Array<"adult" | "child">;
+  /** 用途整理标签（可多选）。 */
+  purposeTags?: string[];
+  /** 标签来源：人工填写 / 资料候选 / 导入。 */
+  tagSource?: "manual" | "catalog" | "imported";
+  /** 药盒封面照片 id；null 表示没有照片。 */
+  coverPhotoId?: string | null;
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;

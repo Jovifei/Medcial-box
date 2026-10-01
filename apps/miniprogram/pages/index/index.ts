@@ -20,6 +20,15 @@ interface CabinetItem {
   needsInfo: boolean;
   searchText: string;
   isExample: boolean;
+  /** 人群整理标签（展示文案，kind 用于配色：蓝=成人、绿=儿童）。 */
+  populationTags: Array<{ kind: "adult" | "child"; label: string }>;
+  /** 用途整理标签（展示文案，紫色）。 */
+  purposeTags: string[];
+  /** 卡片上最多显示 3 个标签，其余合并为 +N。 */
+  displayTags: Array<{ kind: string; label: string }>;
+  extraTagCount: number;
+  /** 最早管理截止日期（未知为 null，排序时置末）。 */
+  earliestDate: string | null;
 }
 
 type CabinetFilter = "all" | "expiring" | "low" | "missing";
@@ -92,7 +101,25 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
       .filter((value): value is string => typeof value === "string")
       .join(" ").toLocaleLowerCase(),
     isExample: false,
+    populationTags: medicine.populationTags?.map((tag) => ({ kind: tag, label: tag === "adult" ? "成人" : "儿童" })) ?? [],
+    purposeTags: (medicine.purposeTags ?? []).map((tag) => PURPOSE_TAG_LABELS[tag] ?? tag),
+    displayTags: [],
+    extraTagCount: 0,
+    earliestDate: dateRecords.length > 0 ? dateRecords[0].date : null,
   };
+}
+
+const PURPOSE_TAG_LABELS: Record<string, string> = {
+  fever: "发热", cough: "咳嗽", throat: "咽喉", nasal: "鼻部", gastro: "胃肠",
+  pain: "疼痛", topical: "外用", allergy: "过敏", other: "其他",
+};
+
+function withDisplayTags(item: CabinetItem): CabinetItem {
+  const merged = [
+    ...item.populationTags.map((tag) => ({ kind: `pop-${tag.kind}`, label: tag.label })),
+    ...item.purposeTags.map((label) => ({ kind: "purpose", label })),
+  ];
+  return { ...item, displayTags: merged.slice(0, 3), extraTagCount: Math.max(0, merged.length - 3) };
 }
 
 interface IndexPageData {
@@ -106,6 +133,11 @@ interface IndexPageData {
   keyword: string;
   filterKind: CabinetFilter;
   filters: Array<{ id: CabinetFilter; label: string; count: number }>;
+  selectedPopulations: string[];
+  selectedPurposes: string[];
+  sortKey: string;
+  sortLabels: string[];
+  sortIndex: number;
   familyName: string;
   items: CabinetItem[];
   allItems: CabinetItem[];
@@ -125,6 +157,14 @@ Page({
     keyword: "",
     filterKind: "all" as CabinetFilter,
     filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
+    /** 人群多选：空数组 = 不筛选；同维度任一匹配即命中。 */
+    selectedPopulations: [] as string[],
+    /** 用途多选：空数组 = 不筛选。 */
+    selectedPurposes: [] as string[],
+    /** 排序：最早管理截止升序（默认）/降序/名称；未知日期始终置末。 */
+    sortKey: "deadline_asc",
+    sortLabels: ["最早截止在前", "最早截止在后", "名称 A-Z"],
+    sortIndex: 0,
     familyName: "",
     items: [] as CabinetItem[],
     allItems: [] as CabinetItem[],
@@ -220,15 +260,53 @@ Page({
   applyFilter(): void {
     const data = this.data as IndexPageData;
     const keyword = data.keyword.trim().toLocaleLowerCase();
-    const items = data.allItems.filter((item) => {
+    const filtered = data.allItems.filter((item) => {
       const matchesKeyword = keyword === "" || item.searchText.includes(keyword);
       const matchesFilter = data.filterKind === "all" ||
         (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
         (data.filterKind === "low" && item.stockState === "low") ||
         (data.filterKind === "missing" && item.needsInfo);
-      return matchesKeyword && matchesFilter;
+      // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
+      const matchesPopulation = data.selectedPopulations.length === 0 ||
+        item.populationTags.some((tag) => data.selectedPopulations.includes(tag.kind));
+      const matchesPurpose = data.selectedPurposes.length === 0 ||
+        item.purposeTags.some((label) => data.selectedPurposes.includes(label));
+      return matchesKeyword && matchesFilter && matchesPopulation && matchesPurpose;
     });
-    this.setData({ items, isFiltered: keyword !== "" || data.filterKind !== "all" });
+    const items = filtered.map(withDisplayTags).sort((left, right) => {
+      if (data.sortKey === "name") return left.name.localeCompare(right.name, "zh-Hans-CN");
+      const leftDate = left.earliestDate ?? "9999-12-31";
+      const rightDate = right.earliestDate ?? "9999-12-31";
+      const compared = leftDate.localeCompare(rightDate);
+      return data.sortKey === "deadline_desc" ? -compared : compared;
+    });
+    const tagFiltersActive = data.selectedPopulations.length > 0 || data.selectedPurposes.length > 0 || data.sortKey !== "deadline_asc";
+    this.setData({ items, isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
+  },
+
+  onTogglePopulation(event: { currentTarget: { dataset: { value?: string } } }): void {
+    const value = event.currentTarget.dataset.value;
+    if (!value) return;
+    const current = (this.data as IndexPageData).selectedPopulations;
+    const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+    this.setData({ selectedPopulations: next });
+    this.applyFilter();
+  },
+
+  onTogglePurpose(event: { currentTarget: { dataset: { value?: string } } }): void {
+    const value = event.currentTarget.dataset.value;
+    if (!value) return;
+    const current = (this.data as IndexPageData).selectedPurposes;
+    const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+    this.setData({ selectedPurposes: next });
+    this.applyFilter();
+  },
+
+  onSortChange(event: { detail: { value: string | number } }): void {
+    const index = Number(event.detail.value);
+    const keys = ["deadline_asc", "deadline_desc", "name"];
+    this.setData({ sortIndex: index, sortKey: keys[index] ?? "deadline_asc" });
+    this.applyFilter();
   },
 
   onSelectFilter(event: { currentTarget: { dataset: { kind?: CabinetFilter } } }): void {
@@ -240,7 +318,7 @@ Page({
   },
 
   onClearFilters(): void {
-    this.setData({ keyword: "", filterKind: "all" });
+    this.setData({ keyword: "", filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0 });
     this.applyFilter();
   },
 
