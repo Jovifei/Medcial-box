@@ -46,11 +46,12 @@ function medicine(overrides = {}) {
   };
 }
 
-test("app navigation exposes medicine, pending, and mine tabs", () => {
+test("app navigation exposes the four tabs including medication plans", () => {
   const config = JSON.parse(fs.readFileSync(appJsonPath, "utf8"));
-  assert.deepEqual(config.tabBar.list.map((item) => item.text), ["药箱", "待处理", "我的"]);
+  assert.deepEqual(config.tabBar.list.map((item) => item.text), ["药箱", "用药计划", "待处理", "我的"]);
   assert.deepEqual(config.tabBar.list.map((item) => item.pagePath), [
     "pages/index/index",
+    "pages/medication-plans/medication-plans",
     "pages/pending/pending",
     "pages/mine/mine",
   ]);

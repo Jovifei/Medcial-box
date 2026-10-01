@@ -10,6 +10,7 @@
     "pages/export-preview/export-preview",
     "pages/invite/invite",
     "pages/pending/pending",
+    "pages/medication-plans/medication-plans",
     "pages/mine/mine",
     "pages/family-settings/family-settings",
     "pages/app-link/app-link",
@@ -32,9 +33,22 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/index/index", "text": "药箱" },
-      { "pagePath": "pages/pending/pending", "text": "待处理" },
-      { "pagePath": "pages/mine/mine", "text": "我的" }
+      {
+        "pagePath": "pages/index/index",
+        "text": "药箱"
+      },
+      {
+        "pagePath": "pages/medication-plans/medication-plans",
+        "text": "用药计划"
+      },
+      {
+        "pagePath": "pages/pending/pending",
+        "text": "待处理"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
     ]
   },
   "sitemapLocation": "sitemap.json",

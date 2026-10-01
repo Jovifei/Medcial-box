@@ -1,0 +1,8 @@
+<view class="page">
+  <view class="card">
+    <view class="section-title">今日安排</view>
+    <view wx:if="{{!loggedIn}}" class="hint">登录后可以在这里查看家人的服药安排。</view>
+    <view wx:else class="hint">还没有用药计划。第一版用药计划（照护对象、每日时间点、服用确认）在后续阶段提供；目前可在药品详情里设置到期提醒。</view>
+  </view>
+  <view wx:if="{{!loggedIn}}" class="btn btn-primary" bindtap="goLogin">去登录</view>
+</view>
