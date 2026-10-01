@@ -30,6 +30,8 @@ const UNIT_SHORT: Record<QuantityUnit, string> = {
   sachet: "袋",
   bottle: "瓶",
   box: "盒",
+  blister: "板",
+  ml: "毫升",
   other: "份",
 };
 

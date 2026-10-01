@@ -4,6 +4,14 @@ import type { ExpiryPrecision } from "./api-types";
  * 输入框中的库存数量必须是完整的、非负的安全整数。
  * Number.parseInt("12abc", 10) 会得到 12，因此这里先校验完整字符串。
  */
+/**
+ * 非负数量，允许最多 3 位小数（毫升）。计件单位请继续用
+ * isStrictNonNegativeInteger，由页面按单位选择。
+ */
+export function isNonNegativeDecimalQuantity(value: string): boolean {
+  return /^(0|[1-9]\d{0,8})(\.\d{1,3})?$/.test(value);
+}
+
 export function isStrictNonNegativeInteger(value: string): boolean {
   const raw = value.trim();
   if (!/^\d+$/.test(raw)) return false;

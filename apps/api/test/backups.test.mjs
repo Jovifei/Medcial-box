@@ -39,7 +39,9 @@ test("backup validation rejects unsupported schema, missing names, and private f
     medicines: [{ name: "药", batches: [] }],
   };
   assert.equal(module.validateFamilyMedicineBackup(validBase).ok, true);
-  assert.equal(module.validateFamilyMedicineBackup({ ...validBase, schemaVersion: 2 }).ok, false);
+  // v1 与 v2 都可恢复；未知版本拒绝。
+  assert.equal(module.validateFamilyMedicineBackup({ ...validBase, schemaVersion: 2 }).ok, true);
+  assert.equal(module.validateFamilyMedicineBackup({ ...validBase, schemaVersion: 3 }).ok, false);
   assert.equal(module.validateFamilyMedicineBackup({ ...validBase, medicines: [{ name: "", batches: [] }] }).ok, false);
   assert.equal(module.validateFamilyMedicineBackup({ ...validBase, sessionToken: "secret" }).ok, false);
   assert.equal(module.validateFamilyMedicineBackup({ ...validBase, inventorySettings: { ...validBase.inventorySettings, lastStocktakeAt: "not-a-date" } }).ok, false);

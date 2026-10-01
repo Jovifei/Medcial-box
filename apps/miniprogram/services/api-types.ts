@@ -3,7 +3,11 @@
 
 export type ExpiryPrecision = "day" | "month" | "unknown";
 
-export type QuantityUnit = "tablet" | "capsule" | "sachet" | "bottle" | "box" | "other";
+/** 计件单位：数量必须是非负整数。 */
+export type CountQuantityUnit = "tablet" | "capsule" | "sachet" | "bottle" | "box" | "blister" | "other";
+/** 计量单位：毫升，最多 3 位小数。 */
+export type MeasuredQuantityUnit = "ml";
+export type QuantityUnit = CountQuantityUnit | MeasuredQuantityUnit;
 
 export type OpenedState = "unknown" | "unopened" | "opened";
 export type OpenedExpiryUnit = "day" | "month";

@@ -502,7 +502,8 @@ export interface BackupMedicineInput extends Omit<CreateMedicineInput, "batches"
 }
 
 export interface FamilyMedicineBackup {
-  schemaVersion: 1;
+  /** v1：整数数量与旧单位；v2：定点数量（ml 三位小数）与 ml/blister 单位。 */
+  schemaVersion: 1 | 2;
   backupId: string;
   exportedAt: string;
   familyName: string;

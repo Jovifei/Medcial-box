@@ -18,7 +18,8 @@ export interface ValidatedBackupMedicineFields extends Omit<ValidatedMedicineFie
 }
 
 export interface ValidatedFamilyMedicineBackup {
-  schemaVersion: 1;
+  /** v1：整数数量与旧单位；v2：定点数量（ml 三位小数）与 ml/blister 单位。 */
+  schemaVersion: 1 | 2;
   backupId: string;
   exportedAt: string;
   familyName: string;
@@ -86,7 +87,7 @@ export function createFamilyMedicineBackup<T extends MedicationSummary>(
   exportedAt = new Date(),
 ): FamilyMedicineBackup {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     backupId: randomUUID(),
     exportedAt: exportedAt.toISOString(),
     familyName,
@@ -129,7 +130,9 @@ export function validateFamilyMedicineBackup(raw: unknown): BackupValidationResu
   const errors: string[] = [];
   if (!isRecord(raw)) return { ok: false, errors: ["备份内容必须是 JSON 对象"] };
   if (containsPrivateFields(raw)) errors.push("备份包含登录凭据或个人私有字段");
-  if (raw.schemaVersion !== 1) errors.push("不支持的备份版本");
+  // v1（旧版整数数量）继续可恢复；v2 是定点数量与 ml/blister 之后的版本。
+  // 未知版本直接拒绝，绝不静默当作最新版解析。
+  if (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) errors.push("不支持的备份版本");
   if (typeof raw.backupId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.backupId)) {
     errors.push("backupId 格式不正确");
   }

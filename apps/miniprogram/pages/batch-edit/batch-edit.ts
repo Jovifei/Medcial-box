@@ -4,6 +4,7 @@ import {
   isStrictNonNegativeInteger,
   isStrictPositiveInteger,
   isValidExpiryValue,
+  isNonNegativeDecimalQuantity,
 } from "../../services/input-validation";
 import type {
   AfterOpeningLimitInput,
@@ -13,8 +14,8 @@ import type {
   QuantityUnit,
 } from "../../services/api-types";
 
-const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "other"];
-const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "其他"];
+const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other"];
+const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他"];
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
 
@@ -174,7 +175,25 @@ Page({
   },
 
   onUnitChange(event: { detail: { value: string | number } }): void {
-    this.setData({ unitIndex: Number(event.detail.value) });
+    const nextIndex = Number(event.detail.value);
+    const nextUnit = UNIT_VALUES[nextIndex];
+    const currentUnit = UNIT_VALUES[this.data.unitIndex];
+    if (nextUnit === currentUnit) return;
+    // 单位切换守卫：数字不换算，由用户确认后生效，避免 2 片悄悄变成 2 盒。
+    const hasValue = this.data.quantity !== "" || this.data.confirmedUnits !== "" || this.data.quantityUnknown;
+    if (!hasValue) {
+      this.setData({ unitIndex: nextIndex });
+      return;
+    }
+    wx.showModal({
+      title: "切换单位",
+      content: "单位不会自动换算已填的数字。例如把 2 片改成 2 盒，保存后仍是 2。请核对后再保存。",
+      confirmText: "仍要切换",
+      cancelText: "保持原单位",
+      success: (result) => {
+        if (result.confirm) this.setData({ unitIndex: nextIndex });
+      },
+    });
   },
 
   onUnknownChange(event: { detail: { value: boolean } }): void {
@@ -241,19 +260,34 @@ Page({
     let quantity: number | null = null;
     if (!data.quantityUnknown) {
       const raw = data.quantity.trim();
-      if (!isStrictNonNegativeInteger(raw)) {
+      const unit = UNIT_VALUES[data.unitIndex] ?? "other";
+      if (unit === "ml") {
+        // 毫升最多 3 位小数；保存前归一到定点，避免浮点尾数入库。
+        if (!isNonNegativeDecimalQuantity(raw)) {
+          return { payload: null, error: "毫升数量需为不小于 0 的数字，最多 3 位小数，或打开“数量未知”开关" };
+        }
+        quantity = Math.round(Number(raw) * 1000) / 1000;
+      } else if (!isStrictNonNegativeInteger(raw)) {
         return { payload: null, error: "数量需为不小于 0 的整数，或打开“数量未知”开关" };
+      } else {
+        quantity = Number(raw);
       }
-      quantity = Number(raw);
     }
 
     let confirmedUnits: number | null = null;
     if (data.confirmedUnits.trim() !== "") {
       const rawUnits = data.confirmedUnits.trim();
-      if (!isStrictPositiveInteger(rawUnits)) {
+      const unit = UNIT_VALUES[data.unitIndex] ?? "other";
+      if (unit === "ml") {
+        if (!isNonNegativeDecimalQuantity(rawUnits) || Number(rawUnits) <= 0) {
+          return { payload: null, error: "每瓶毫升数需为大于 0 的数字（仅在本人确认后填写）" };
+        }
+        confirmedUnits = Math.round(Number(rawUnits) * 1000) / 1000;
+      } else if (!isStrictPositiveInteger(rawUnits)) {
         return { payload: null, error: "每包装换算数需为正整数（仅在本人确认后填写）" };
+      } else {
+        confirmedUnits = Number(rawUnits);
       }
-      confirmedUnits = Number(rawUnits);
     }
 
     return {
