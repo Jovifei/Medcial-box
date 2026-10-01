@@ -3,7 +3,9 @@
 - 当前阶段：按 [2026-10-01 双端录入体验与用药计划实施方案](plans/2026-10-01-dual-client-experience-and-medication.md) 推进 **R0 数据修复**；优先级固定为 数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
 - R0 进度：**A01/A02/A04/A05/A07/A08/A12/A14/A15 已修复并有行为测试与真实 PG 证据**（小程序 56/56、PG 19/19 + 4/4）；**A06、A09 为 Flutter 改动，本机无 Flutter SDK 未验证**，R0 待 Flutter 环境收口后进入 R1。详见 [R0 就绪核对报告](reports/2026-10-01-r0-readiness.md)。
 - 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 56/56；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 4/4**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
-- 当前 NOT_RUN：Flutter `analyze`/`test`/`build apk`（本机无 Flutter SDK）、真机与微信开发者工具、真实订阅消息送达、双账号双手机试用、ECS 独立部署。
+- 当前 NOT_RUN：Flutter `analyze`/`test`/`build apk`（本机无 Flutter SDK）、真机预览与上传（需专用 AppID 并登录开发者工具）、真实订阅消息送达、双账号双手机试用、ECS 独立部署。
+- 本机**新增小程序官方编译器门禁**：`npm run check:miniprogram` 调用开发者工具自带的 `wcc`／`wcsc` 逐个编译 WXML／WXSS（当前 **39 个文件全部通过**）。微信开发者工具版本 `2.02.2609231`。
+- **BLOCKED_ENV**：`wechatide` CLI 无法启动 IDE——CLI 内部调用 `reg.exe` 被本机安全策略列入程序黑名单（提示不可批准、不可绕过）。解除方式：安全中心 → 命令安全 → 程序黑名单移除 `reg.exe`；之后首次启动开发者工具还需扫码登录并允许「设备连接 CLI」授权。完成后即可用 CLI 跑编译／预览／自动化。
 - R1 已启动：**R1-1 后端数据层完成**（迁移 `013` 定点数量 + `ml`／`blister`，真实 PG 新套件 6/6，既有 19/19 + 4/4 无回归）；R1-2 标签、R1-3 照片、R1-4 双端同步、R1-5 备份版本、R1-6 单位切换守卫待做。详见 [R1 数量进展报告](reports/2026-10-01-r1-quantity-progress.md)。
 - R2–R5 未开始：页面体验（四导航与卡片筛选排序、录入核对页、药品详情、游客引导）、用药计划（照护对象与确认历史）、通知与更新、家庭试用。
 - 主目录 `E:\project\medcial_box` 的原有未提交改动未触碰；本轮只在候选工作树内改动。

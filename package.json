@@ -19,6 +19,7 @@
     "test:integration": "npm run build --workspace @home-medicine/api && node scripts/run-integration.mjs",
     "prepare:mini": "node scripts/prepare-miniprogram.mjs",
     "check:staging": "node scripts/check-staging.mjs",
+    "check:miniprogram": "node scripts/check-miniprogram-compile.mjs",
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace @home-medicine/api"
   },
