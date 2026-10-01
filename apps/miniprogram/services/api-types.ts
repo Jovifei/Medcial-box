@@ -280,6 +280,8 @@ export interface DosageNoteListResponse {
 
 export interface FamilyMemberSummary {
   id: string;
+  /** 成员账号标识：照护授权按它指定被授权人。 */
+  userId: string;
   role: "owner" | "member";
   /** 展示名：昵称或按加入顺序生成的稳定标签（成员 1…）。 */
   displayName: string;
@@ -411,4 +413,126 @@ export interface LeafletPhotoSummary {
   source: string;
   createdAt: string;
   url: string;
+}
+
+// —— 用药计划（R3）——
+
+export interface CareProfileSummary {
+  id: string;
+  displayName: string;
+  linkedUserId: string | null;
+  canManage?: boolean;
+  isPrivate: boolean;
+}
+
+export interface MedicationPlanPayload {
+  careProfileId: string;
+  medicineId?: string | null;
+  medicineName: string;
+  dosageText: string;
+  timeSlots: string[];
+  weekdays?: string[];
+  startDate: string;
+  endDate?: string | null;
+}
+
+export interface MedicationPlanSummary {
+  id: string;
+  careProfileId: string;
+  careProfileName: string;
+  medicineId: string | null;
+  medicineName: string;
+  dosageText: string;
+  weekdays: string[];
+  startDate: string;
+  endDate: string | null;
+  status: "active" | "paused" | "ended";
+  version: number;
+  timeSlots: string[];
+}
+
+export interface ScheduleEntry {
+  occurrenceId: string;
+  planId: string;
+  careProfileId: string;
+  careProfileName: string;
+  medicineName: string;
+  dosageText: string;
+  time: string;
+  status: "pending" | "taken" | "skipped";
+}
+
+export interface ScheduleResponse {
+  date: string;
+  entries: ScheduleEntry[];
+}
+
+export interface MedicationPlanUpdatePayload {
+  medicineName?: string;
+  dosageText?: string;
+  timeSlots?: string[];
+  weekdays?: string[];
+  startDate?: string;
+  endDate?: string | null;
+}
+
+export interface MedicationPlanUpdateResponse {
+  planId: string;
+  version: number;
+  timeSlots: string[];
+  note: string;
+}
+
+export interface MedicationPlanDetailResponse {
+  plan: MedicationPlanSummary;
+  canManage: boolean;
+}
+
+export interface PlanHistoryEvent {
+  action: "taken" | "skipped";
+  actor: string | null;
+  at: string;
+}
+
+export interface PlanHistoryRecord {
+  occurrenceId: string;
+  date: string;
+  time: string;
+  status: "pending" | "taken" | "skipped";
+  corrected: boolean;
+  events: PlanHistoryEvent[];
+}
+
+export interface PlanHistoryResponse {
+  planId: string;
+  medicineName: string;
+  history: PlanHistoryRecord[];
+}
+
+export interface CareGrantSummary {
+  memberUserId: string;
+  displayName: string;
+  canView: boolean;
+  canManage: boolean;
+}
+
+export interface DoseReminderDelivery {
+  date: string;
+  time: string;
+  status: "queued" | "sending" | "sent" | "failed" | "blocked" | "cancelled";
+  statusLabel: string;
+  sentAt: string | null;
+}
+
+export interface DoseReminderStatusResponse {
+  available: boolean;
+  reason: string | null;
+  templateId: string;
+  deliveries: DoseReminderDelivery[];
+}
+
+export interface CareGrantListResponse {
+  careProfileId: string;
+  displayName: string;
+  grants: CareGrantSummary[];
 }

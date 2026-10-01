@@ -5,6 +5,7 @@ import type { DeviceSessionSummary } from "../../services/api-types";
 
 const ROUTES: Record<string, string> = {
   family: "/pages/family-settings/family-settings",
+  care: "/pages/care-profiles/care-profiles",
   invite: "/pages/invite/invite",
   app: "/pages/app-link/app-link",
   notifications: "/pages/notification-settings/notification-settings",
@@ -13,6 +14,7 @@ const ROUTES: Record<string, string> = {
   restock: "/pages/restock/restock",
   trash: "/pages/trash/trash",
   audit: "/pages/audit/audit",
+  release: "/pages/release-notes/release-notes",
 };
 
 interface DeviceView extends DeviceSessionSummary { kindLabel: string }

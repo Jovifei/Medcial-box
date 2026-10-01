@@ -67,6 +67,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "FAMILY_NOT_FOUND"
   | "VERSION_CONFLICT"
+  | "PLAN_ENDED"
   | "ALREADY_IN_FAMILY"
   | "INVITATION_EXPIRED"
   | "INVITATION_USED"

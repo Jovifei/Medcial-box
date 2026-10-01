@@ -10,6 +10,10 @@ export interface ReminderTemplateConfig {
   appSecret: string;
   templateId: string;
   fieldMap: ReminderTemplateFieldMap;
+  /** 服药提醒使用独立模板（R4），缺省时服药提醒不可用但库存提醒不受影响。 */
+  doseTemplateId: string;
+  doseFieldMap: ReminderTemplateFieldMap;
+  doseAvailable: boolean;
   miniprogramState: "developer" | "trial" | "formal";
   templates: Array<{ templateId: string; title: string; available: boolean }>;
   reason?: string;
@@ -23,8 +27,21 @@ export interface ReminderMessage {
   eventLabel: string;
 }
 
+/** 服药提醒消息：不携带药名或剂量，只提示有待确认的安排。 */
+export interface DoseReminderMessage {
+  openid: string;
+  page: string;
+  doseDate: string;
+  timeText: string;
+}
+
 export interface SubscribeMessageSender {
   send(message: ReminderMessage): Promise<{ messageId: string }>;
+}
+
+export interface DoseMessageSender {
+  /** 与库存提醒分开命名，避免两类消息的实现互相覆盖。 */
+  sendDose(message: DoseReminderMessage): Promise<{ messageId: string }>;
 }
 
 export class SubscribeMessageUnavailableError extends Error {}
@@ -45,6 +62,9 @@ export function createReminderTemplateConfig(input: {
   appSecret: string;
   templateId: string;
   fieldMap?: Partial<ReminderTemplateFieldMap>;
+  /** 服药提醒模板（可缺省：此时服药提醒不可用，库存提醒照常工作）。 */
+  doseTemplateId?: string;
+  doseFieldMap?: Partial<ReminderTemplateFieldMap>;
   miniprogramState?: string;
 }): ReminderTemplateConfig {
   const fields = {
@@ -54,8 +74,17 @@ export function createReminderTemplateConfig(input: {
   };
   const fieldsValid = Object.values(fields).every((field) => field !== null) &&
     new Set(Object.values(fields)).size === 3;
-  const configured = input.appId.trim() !== "" && input.appSecret.trim() !== "" &&
-    input.templateId.trim() !== "" && fieldsValid;
+  const credentialsReady = input.appId.trim() !== "" && input.appSecret.trim() !== "";
+  const configured = credentialsReady && input.templateId.trim() !== "" && fieldsValid;
+  const doseFields = {
+    title: safeField(input.doseFieldMap?.title ?? DEFAULT_FIELDS.title),
+    time: safeField(input.doseFieldMap?.time ?? DEFAULT_FIELDS.time),
+    remark: safeField(input.doseFieldMap?.remark ?? DEFAULT_FIELDS.remark),
+  };
+  const doseFieldsValid = Object.values(doseFields).every((field) => field !== null) &&
+    new Set(Object.values(doseFields)).size === 3;
+  const doseTemplateId = (input.doseTemplateId ?? "").trim();
+  const doseConfigured = credentialsReady && doseTemplateId !== "" && doseFieldsValid;
   const miniprogramState = input.miniprogramState === "developer" || input.miniprogramState === "trial"
     ? input.miniprogramState
     : "formal";
@@ -67,11 +96,32 @@ export function createReminderTemplateConfig(input: {
     fieldMap: fieldsValid
       ? fields as ReminderTemplateFieldMap
       : DEFAULT_FIELDS,
+    doseTemplateId,
+    doseFieldMap: doseFieldsValid
+      ? doseFields as ReminderTemplateFieldMap
+      : DEFAULT_FIELDS,
+    doseAvailable: doseConfigured,
     miniprogramState,
-    templates: configured
-      ? [{ templateId: input.templateId, title: "家庭药箱待处理提醒", available: true }]
-      : [],
+    templates: [
+      ...(configured ? [{ templateId: input.templateId, title: "家庭药箱待处理提醒", available: true }] : []),
+      ...(doseConfigured ? [{ templateId: doseTemplateId, title: "用药安排待确认", available: true }] : []),
+    ],
     ...(!configured ? { reason: "尚未配置可用的微信订阅模板和字段映射" } : {}),
+  };
+}
+
+/**
+ * 服药提醒正文：按方案默认只写"有一项用药安排待确认"，
+ * 不写药名、剂量或任何就诊信息，避免通知内容泄露。
+ */
+export function buildDoseReminderMessageData(
+  message: Pick<DoseReminderMessage, "doseDate" | "timeText">,
+  fields: ReminderTemplateFieldMap,
+): Record<string, { value: string }> {
+  return {
+    [fields.title]: { value: "有一项用药安排待确认" },
+    [fields.time]: { value: `${message.doseDate} ${message.timeText}` },
+    [fields.remark]: { value: "点击打开用药计划确认" },
   };
 }
 
@@ -97,7 +147,7 @@ interface SendResponse {
   msgid?: unknown;
 }
 
-export class WechatSubscribeMessageSender implements SubscribeMessageSender {
+export class WechatSubscribeMessageSender implements SubscribeMessageSender, DoseMessageSender {
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
 
@@ -109,6 +159,28 @@ export class WechatSubscribeMessageSender implements SubscribeMessageSender {
 
   async send(message: ReminderMessage): Promise<{ messageId: string }> {
     if (!this.config.available) throw new SubscribeMessageUnavailableError("subscription template is not configured");
+    return this.postSubscribe({
+      touser: message.openid,
+      template_id: this.config.templateId,
+      page: message.page,
+      miniprogram_state: this.config.miniprogramState,
+      data: buildReminderMessageData(message, this.config.fieldMap),
+    });
+  }
+
+  /** 服药提醒走独立模板与正文（不携带药名或剂量）。 */
+  async sendDose(message: DoseReminderMessage): Promise<{ messageId: string }> {
+    if (!this.config.doseAvailable) throw new SubscribeMessageUnavailableError("dose subscription template is not configured");
+    return this.postSubscribe({
+      touser: message.openid,
+      template_id: this.config.doseTemplateId,
+      page: message.page === "" ? "pages/medication-plans/medication-plans" : message.page,
+      miniprogram_state: this.config.miniprogramState,
+      data: buildDoseReminderMessageData(message, this.config.doseFieldMap),
+    });
+  }
+
+  private async postSubscribe(body: Record<string, unknown>): Promise<{ messageId: string }> {
     const accessToken = await this.getAccessToken();
     const url = new URL("https://api.weixin.qq.com/cgi-bin/message/subscribe/send");
     url.searchParams.set("access_token", accessToken);
@@ -117,13 +189,7 @@ export class WechatSubscribeMessageSender implements SubscribeMessageSender {
       response = await this.fetchFn(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          touser: message.openid,
-          template_id: this.config.templateId,
-          page: message.page,
-          miniprogram_state: this.config.miniprogramState,
-          data: buildReminderMessageData(message, this.config.fieldMap),
-        }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(8_000),
       });
     } catch {

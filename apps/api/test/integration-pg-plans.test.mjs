@@ -200,6 +200,111 @@ test("real PostgreSQL: medication plans with care profiles (R3)", {
       const history = (await pool.query("SELECT count(*)::int AS count FROM dose_occurrences WHERE plan_id = $1", [plan.planId])).rows[0].count;
       assert.ok(history >= 1, "ending a plan keeps historical occurrences");
     });
+    await t.test("plan detail and history expose corrections without rewriting them", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles", { displayName: "我自己", linkedUserId: group.owner.id }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "复查用药", dosageText: "每次 2 粒",
+        timeSlots: ["08:00"], startDate: "2026-01-01",
+      }), 201);
+
+      const detail = status(await request(group.owner, "GET", `/medication-plans/${plan.planId}`), 200);
+      assert.deepEqual(detail.plan.timeSlots, ["08:00"]);
+      assert.equal(detail.plan.status, "active");
+      assert.equal(detail.canManage, true);
+
+      const schedule = status(await request(group.owner, "GET", `/medication-plans/schedule?date=${shanghaiToday()}`), 200);
+      const occurrenceId = schedule.entries[0].occurrenceId;
+      status(await request(group.owner, "POST", `/dose-occurrences/${occurrenceId}/confirm`, { action: "taken", idempotencyKey: `k1-${randomUUID()}` }), 200);
+      status(await request(group.owner, "POST", `/dose-occurrences/${occurrenceId}/confirm`, { action: "skipped", idempotencyKey: `k2-${randomUUID()}` }), 200);
+
+      const history = status(await request(group.owner, "GET", `/medication-plans/${plan.planId}/history`), 200);
+      assert.equal(history.medicineName, "复查用药");
+      const record = history.history.find((item) => item.occurrenceId === occurrenceId);
+      assert.equal(record.status, "skipped", "latest state wins");
+      assert.equal(record.events.length, 2, "both events are kept");
+      assert.deepEqual(record.events.map((item) => item.action), ["taken", "skipped"]);
+      assert.equal(record.corrected, true, "corrections are flagged, never collapsed");
+    });
+
+    await t.test("editing a plan only changes future occurrences and keeps history", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles", { displayName: "我自己", linkedUserId: group.owner.id }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "早晚药", dosageText: "1 粒",
+        timeSlots: ["08:00", "20:00"], startDate: "2026-01-01",
+      }), 201);
+
+      const today = shanghaiToday();
+      status(await request(group.owner, "GET", `/medication-plans/schedule?date=${today}`), 200);
+      const beforeCount = (await pool.query("SELECT count(*)::int AS count FROM dose_occurrences WHERE plan_id = $1", [plan.planId])).rows[0].count;
+      assert.equal(beforeCount, 2);
+
+      const conflict = await request(group.owner, "PUT", `/medication-plans/${plan.planId}`, { version: 99, timeSlots: ["08:00"] });
+      assert.equal(conflict.statusCode, 409, conflict.body);
+
+      const updated = status(await request(group.owner, "PUT", `/medication-plans/${plan.planId}`, {
+        version: 1, timeSlots: ["08:00", "21:00"], dosageText: "每次 2 粒",
+      }), 200);
+      assert.equal(updated.version, 2);
+      assert.deepEqual(updated.timeSlots, ["08:00", "21:00"]);
+
+      // 已物化的 20:00 记录保留（历史不被删）
+      const kept = (await pool.query(
+        "SELECT time_of_day::text AS time FROM dose_occurrences WHERE plan_id = $1 AND dose_date = $2 ORDER BY time_of_day",
+        [plan.planId, today],
+      )).rows.map((row) => row.time.slice(0, 5));
+      assert.deepEqual(kept, ["08:00", "20:00"], "history must survive a schedule edit");
+
+      // 明天只按新的时间点物化
+      const tomorrow = status(await request(group.owner, "GET", `/medication-plans/schedule?date=${shanghaiDate(1)}`), 200);
+      assert.deepEqual(tomorrow.entries.map((item) => item.time), ["08:00", "21:00"]);
+
+      const detail = status(await request(group.owner, "GET", `/medication-plans/${plan.planId}`), 200);
+      assert.equal(detail.plan.dosageText, "每次 2 粒");
+      assert.equal(detail.plan.version, 2);
+    });
+
+    await t.test("grants can be listed and revoked; revocation removes access immediately", async () => {
+      const group = await family(1);
+      const member = group.members[0];
+      const child = status(await request(group.owner, "POST", "/care-profiles", { displayName: "孩子" }), 201);
+      status(await request(group.owner, "POST", `/care-profiles/${child.id}/grants`, { memberUserId: member.id, canManage: true }), 200);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: child.id, medicineName: "退烧药", dosageText: "5ml",
+        timeSlots: ["08:00"], startDate: "2026-01-01",
+      }), 201);
+
+      const listed = status(await request(group.owner, "GET", `/care-profiles/${child.id}/grants`), 200);
+      assert.equal(listed.grants.length, 1);
+      assert.equal(listed.grants[0].memberUserId, member.id);
+      assert.equal(listed.grants[0].canManage, true);
+
+      // 非管理者不能查看授权
+      const other = group.members[0];
+      assert.equal(other.id, member.id);
+      const schedule = status(await request(member, "GET", `/medication-plans/schedule?date=${shanghaiToday()}`), 200);
+      assert.equal(schedule.entries.length, 1);
+      const occurrenceId = schedule.entries[0].occurrenceId;
+
+      status(await request(group.owner, "DELETE", `/care-profiles/${child.id}/grants/${member.id}`), 200);
+      assert.deepEqual(status(await request(member, "GET", "/care-profiles"), 200).careProfiles, [], "revoked member loses visibility");
+      const denied = await request(member, "POST", `/dose-occurrences/${occurrenceId}/confirm`, { action: "taken", idempotencyKey: `k-${randomUUID()}` });
+      assert.equal(denied.statusCode, 403, denied.body);
+      assert.ok(plan.planId);
+    });
+
+    await t.test("an ended plan cannot be edited", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles", { displayName: "我自己", linkedUserId: group.owner.id }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "短期药", dosageText: "1 粒", timeSlots: ["08:00"], startDate: "2026-01-01",
+      }), 201);
+      status(await request(group.owner, "POST", `/medication-plans/${plan.planId}/end`, { version: 1 }), 200);
+      const denied = await request(group.owner, "PUT", `/medication-plans/${plan.planId}`, { version: 2, dosageText: "2 粒" });
+      assert.equal(denied.statusCode, 409, denied.body);
+      assert.equal(denied.json().error.code, "PLAN_ENDED");
+    });
   } finally {
     if (app !== undefined) await app.close();
     await fixture.close();

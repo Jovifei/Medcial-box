@@ -1,0 +1,84 @@
+<view class="page">
+  <view class="card" wx:if="{{errorMessage !== ''}}">
+    <view class="section-title">暂时无法加载</view>
+    <view class="hint">{{errorMessage}}</view>
+    <view class="btn btn-ghost" bindtap="refresh">重新加载</view>
+  </view>
+
+  <block wx:if="{{plan !== null}}">
+    <view class="card">
+      <view class="plan-top">
+        <view class="plan-medicine">{{plan.medicineName}}</view>
+        <view class="plan-status {{plan.status}}">{{statusLabel}}</view>
+      </view>
+      <view class="plan-line">照护对象：{{plan.careProfileName}}</view>
+      <view class="plan-line">剂量：{{plan.dosageText}}</view>
+      <view class="plan-line">{{weekdayText}} {{plan.timeSlots.join(" / ")}}</view>
+      <view class="plan-line">{{rangeText}}</view>
+      <view class="hint permission-note" wx:if="{{!canManage}}">你对该计划只有查看权限，不能修改或确认。</view>
+    </view>
+
+    <view class="section-label">修改计划</view>
+    <view class="card" wx:if="{{!editing}}">
+      <view class="hint">改期或调整时间点只影响之后的安排，已有服药记录保持原样。</view>
+      <view class="plan-actions">
+        <view class="action-btn ghost" wx:if="{{canManage && plan.status !== 'ended'}}" bindtap="onStartEdit">修改</view>
+        <view class="action-btn ghost" wx:if="{{canManage && plan.status === 'active'}}" data-action="pause" bindtap="onChangeStatus">{{working ? "处理中…" : "暂停"}}</view>
+        <view class="action-btn primary" wx:if="{{canManage && plan.status === 'paused'}}" data-action="resume" bindtap="onChangeStatus">{{working ? "处理中…" : "恢复"}}</view>
+        <view class="action-btn ghost" wx:if="{{canManage && plan.status !== 'ended'}}" data-action="end" bindtap="onChangeStatus">结束计划</view>
+      </view>
+    </view>
+
+    <view class="card" wx:else>
+      <view class="field">
+        <view class="field-label">剂量说明</view>
+        <input class="input" value="{{dosageText}}" data-field="dosageText" bindinput="onEditInput" placeholder="例如：每次 5ml，饭后" />
+      </view>
+      <view class="field">
+        <view class="field-label">每日时间点（1-6 个）</view>
+        <view class="time-add-row">
+          <input class="input time-input" value="{{timeInput}}" data-field="timeInput" bindinput="onEditInput" placeholder="HH:MM" />
+          <view class="action-btn primary" bindtap="onAddTimeSlot">添加</view>
+        </view>
+        <view class="slot-list" wx:if="{{timeSlots.length > 0}}">
+          <view class="slot-chip" wx:for="{{timeSlots}}" wx:key="*this">
+            {{item}}
+            <text class="slot-remove" data-time="{{item}}" bindtap="onRemoveTimeSlot">×</text>
+          </view>
+        </view>
+      </view>
+      <view class="field">
+        <view class="field-label">起始日期</view>
+        <picker mode="date" value="{{startDate}}" data-field="startDate" bindchange="onEditDateChange">
+          <view class="picker-box">{{startDate}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">结束日期（选填）</view>
+        <picker mode="date" value="{{endDate}}" data-field="endDate" bindchange="onEditDateChange">
+          <view class="picker-box">{{endDate === '' ? '长期' : endDate}}</view>
+        </picker>
+      </view>
+      <view class="btn btn-primary {{saving ? 'disabled' : ''}}" bindtap="onSubmitEdit">{{saving ? "保存中…" : "保存修改"}}</view>
+      <view class="btn btn-ghost" bindtap="onCancelEdit">取消</view>
+    </view>
+
+    <view class="section-label">服药记录</view>
+    <view class="card" wx:if="{{historyEmpty}}">
+      <view class="hint">还没有服药记录。确认后这里会按时间倒序展示，纠正也会留下事件。</view>
+    </view>
+    <view wx:for="{{history}}" wx:key="occurrenceId" class="card history-card">
+      <view class="history-top">
+        <view class="history-when">{{item.date}} {{item.time}}</view>
+        <view class="history-status {{item.status}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="history-events">{{item.eventText}}</view>
+      <view class="history-corrected" wx:if="{{item.corrected}}">这条记录被纠正过，前后两次操作都保留。</view>
+    </view>
+    <view class="hint" wx:if="{{note !== ''}}">{{note}}</view>
+  </block>
+
+  <view class="card" wx:if="{{plan === null && errorMessage === ''}}">
+    <view class="hint">正在读取计划…</view>
+  </view>
+</view>

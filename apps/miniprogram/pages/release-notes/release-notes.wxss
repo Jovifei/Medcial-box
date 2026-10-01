@@ -1,0 +1,74 @@
+.page {
+  padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+  background: #f5f7f4;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 32rpx;
+  border: 1rpx solid #e4ebe5;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.section-label {
+  margin: 8rpx 0 16rpx 4rpx;
+  font-size: 24rpx;
+  color: #7c867e;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #24382e;
+  margin-bottom: 16rpx;
+}
+
+.hint {
+  font-size: 25rpx;
+  color: #596a60;
+  line-height: 1.6;
+}
+
+.note-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.note-version {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #24382e;
+}
+
+.note-badge {
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: #e2f2e8;
+  color: #2f7d4f;
+  font-size: 21rpx;
+}
+
+.note-date {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #7c867e;
+}
+
+.note-item {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  color: #52685c;
+  line-height: 1.7;
+}
+
+.safety-note {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: #7c867e;
+  line-height: 1.6;
+  text-align: center;
+}

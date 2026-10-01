@@ -20,7 +20,17 @@ import type {
   MedicineRecognitionResponse,
   InvitationPreviewResponse,
   FamilyInventorySettings,
+  CareProfileSummary,
   FamilyMedicineBackup,
+  MedicationPlanPayload,
+  MedicationPlanUpdatePayload,
+  MedicationPlanUpdateResponse,
+  MedicationPlanSummary,
+  MedicationPlanDetailResponse,
+  PlanHistoryResponse,
+  DoseReminderStatusResponse,
+  CareGrantListResponse,
+  ScheduleResponse,
   MedicineCandidatesResponse,
   TransferOwnershipResponse,
   NotificationPendingResponse,
@@ -506,5 +516,67 @@ export const api = {
 
   restoreJsonBackup(backup: FamilyMedicineBackup, confirmationToken: string): Promise<RestoreJsonBackupResponse> {
     return request({ method: "POST", path: "/api/v1/backups/restore", payload: { backup, confirmationToken, confirmed: true } });
+  },
+
+  // —— 用药计划（R3）：后端接口见 routes/medication-plans.ts ——
+
+  createCareProfile(payload: { displayName: string; linkedUserId?: string }): Promise<CareProfileSummary> {
+    return request({ method: "POST", path: "/api/v1/care-profiles", payload });
+  },
+
+  listCareProfiles(): Promise<{ careProfiles: CareProfileSummary[] }> {
+    return request({ method: "GET", path: "/api/v1/care-profiles" });
+  },
+
+  createCareGrant(careProfileId: string, payload: { memberUserId: string; canManage: boolean }): Promise<{ careProfileId: string; memberUserId: string; canManage: boolean }> {
+    return request({ method: "POST", path: `/api/v1/care-profiles/${careProfileId}/grants`, payload });
+  },
+
+  listCareGrants(careProfileId: string): Promise<CareGrantListResponse> {
+    return request({ method: "GET", path: `/api/v1/care-profiles/${careProfileId}/grants` });
+  },
+
+  revokeCareGrant(careProfileId: string, memberUserId: string): Promise<{ careProfileId: string; memberUserId: string; removed: boolean }> {
+    return request({ method: "DELETE", path: `/api/v1/care-profiles/${careProfileId}/grants/${memberUserId}` });
+  },
+
+  /** status 缺省为未结束；传 "all" 或 "ended" 可查看已结束的计划。 */
+  listMedicationPlans(status?: "all" | "ended"): Promise<{ plans: MedicationPlanSummary[] }> {
+    const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request({ method: "GET", path: `/api/v1/medication-plans${suffix}` });
+  },
+
+  getMedicationPlan(planId: string): Promise<MedicationPlanDetailResponse> {
+    return request({ method: "GET", path: `/api/v1/medication-plans/${planId}` });
+  },
+
+  updateMedicationPlan(planId: string, payload: MedicationPlanUpdatePayload & { version: number }): Promise<MedicationPlanUpdateResponse> {
+    return request({ method: "PUT", path: `/api/v1/medication-plans/${planId}`, payload: toPayload(payload) });
+  },
+
+  getMedicationPlanHistory(planId: string): Promise<PlanHistoryResponse> {
+    return request({ method: "GET", path: `/api/v1/medication-plans/${planId}/history` });
+  },
+
+  /** 服药提醒状态：模板可用性与最近发送结果（R4）。 */
+  getDoseReminderStatus(): Promise<DoseReminderStatusResponse> {
+    return request({ method: "GET", path: "/api/v1/medication-plans/reminders/status" });
+  },
+
+  createMedicationPlan(payload: MedicationPlanPayload): Promise<{ planId: string; careProfileId: string; status: string; version: number }> {
+    return request({ method: "POST", path: "/api/v1/medication-plans", payload: toPayload(payload) });
+  },
+
+  changeMedicationPlanStatus(planId: string, action: "pause" | "resume" | "end", version: number): Promise<{ planId: string; status: string; version: number }> {
+    return request({ method: "POST", path: `/api/v1/medication-plans/${planId}/${action}`, payload: { version } });
+  },
+
+  getMedicationSchedule(date?: string): Promise<ScheduleResponse> {
+    const suffix = date ? `?date=${encodeURIComponent(date)}` : "";
+    return request({ method: "GET", path: `/api/v1/medication-plans/schedule${suffix}` });
+  },
+
+  confirmDoseOccurrence(occurrenceId: string, action: "taken" | "skipped", idempotencyKey: string): Promise<{ occurrenceId: string; status: "pending" | "taken" | "skipped"; replayed: boolean }> {
+    return request({ method: "POST", path: `/api/v1/dose-occurrences/${occurrenceId}/confirm`, payload: { action, idempotencyKey } });
   },
 };

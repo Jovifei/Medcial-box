@@ -64,6 +64,8 @@ export async function registerFamilyRoutes(
         role: asMemberRole(auth?.role ?? "member"),
         members: members.map((member, index) => ({
           id: member.id,
+          // 家庭成员的账号标识：照护授权需要按 memberUserId 指定被授权人。
+          userId: member.user_id,
           role: asMemberRole(member.role),
           displayName: member.nickname ?? `成员 ${index + 1}`,
           isSelf: auth !== null && member.user_id === auth.userId,

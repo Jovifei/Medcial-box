@@ -57,6 +57,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
     if (Object.hasOwn(modules, id)) return modules[id];
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
+    if (id.endsWith("app-update")) return loadService("services/app-update.ts", { wx: pageWx });
     throw new Error(`Unexpected module import in test: ${id}`);
   };
   const sandbox = {

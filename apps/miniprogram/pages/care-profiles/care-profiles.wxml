@@ -1,0 +1,95 @@
+<view class="page">
+  <view class="card" wx:if="{{errorMessage !== ''}}">
+    <view class="section-title">暂时无法加载</view>
+    <view class="hint">{{errorMessage}}</view>
+    <view class="btn btn-ghost" bindtap="refresh">重新加载</view>
+  </view>
+
+  <view class="card intro-card">
+    <view class="section-title">照护对象与共享权限</view>
+    <view class="hint">关联自己账号的照护对象是本人私有计划，家人看不到，家庭管理员也没有特权。孩子或老人不关联账号，由创建者管理，可以把查看或代记权限授权给指定家人。</view>
+  </view>
+
+  <view class="card" wx:if="{{loading}}">
+    <view class="hint">正在读取照护对象…</view>
+  </view>
+  <view class="card" wx:elif="{{profiles.length === 0 && errorMessage === ''}}">
+    <view class="section-title">还没有照护对象</view>
+    <view class="hint">先创建“我自己”或“孩子”，再回到用药计划创建安排。</view>
+  </view>
+
+  <view wx:for="{{profiles}}" wx:key="id" class="card profile-card">
+    <view class="profile-top">
+      <view class="profile-name">{{item.displayName}}</view>
+      <view class="profile-kind {{item.isPrivate ? 'private' : 'shared'}}">{{item.kindLabel}}</view>
+    </view>
+    <view class="profile-line">你的权限：{{item.accessLabel}}</view>
+    <view class="profile-line">授权情况：{{item.grantsText}}</view>
+    <view class="grant-row" wx:for="{{item.grants}}" wx:for-item="grant" wx:key="memberUserId">
+      <view class="grant-info">
+        <view class="grant-name">{{grant.displayName}}</view>
+        <view class="hint">{{grant.canManage ? "可代记" : "仅查看"}}</view>
+      </view>
+      <view class="btn btn-danger revoke-button" wx:if="{{item.canManage}}"
+        data-profile="{{item.id}}" data-member="{{grant.memberUserId}}" data-name="{{grant.displayName}}"
+        bindtap="onRevokeGrant">{{workingProfileId === item.id ? "撤销中…" : "撤销"}}</view>
+    </view>
+    <view class="profile-actions" wx:if="{{!item.isPrivate && item.canManage}}">
+      <view class="action-btn ghost" data-id="{{item.id}}" bindtap="onOpenGrant">授权给家人</view>
+    </view>
+  </view>
+
+  <view class="hint" wx:if="{{note !== ''}}">{{note}}</view>
+  <view class="safety-note">撤销授权只影响之后的可见性，已经产生的服药记录仍然保留在家庭里。</view>
+  <view class="bottom-spacer"></view>
+  <view class="floating-add" bindtap="onOpenForm">＋ 新建照护对象</view>
+
+  <view class="form-layer" wx:if="{{formVisible}}" catchtouchmove="noop">
+    <view class="form-mask" bindtap="onCloseForm"></view>
+    <view class="form-sheet" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title">新建照护对象</view>
+      <view class="field">
+        <view class="field-label">名称</view>
+        <input class="input" value="{{displayName}}" bindinput="onNameInput" placeholder="例如：我自己、孩子、奶奶" />
+      </view>
+      <view class="field">
+        <view class="row-line">
+          <view class="field-label">关联我自己的账号（本人私有）</view>
+          <switch checked="{{linkSelf}}" bindchange="onLinkSelfChange" />
+        </view>
+        <view class="hint">勾选后只有本人可见可管理；不勾选则是家人共用的照护对象，可授权给家人代记。</view>
+      </view>
+      <view class="btn btn-primary {{saving ? 'disabled' : ''}}" bindtap="onSubmit">{{saving ? "保存中…" : "保存"}}</view>
+      <view class="btn btn-ghost" bindtap="onCloseForm">取消</view>
+    </view>
+  </view>
+
+  <view class="form-layer" wx:if="{{grantProfileId !== ''}}" catchtouchmove="noop">
+    <view class="form-mask" bindtap="onCloseGrant"></view>
+    <view class="form-sheet" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title">授权给家人</view>
+      <view class="hint sheet-hint">只有查看权限时家人能看到安排但不能代记；代记权限可以代为确认服用。</view>
+      <view class="field" wx:if="{{memberNames.length === 0}}">
+        <view class="hint">家庭里还没有其他成员，先去“我的 → 邀请家人加入”。</view>
+      </view>
+      <block wx:else>
+        <view class="field">
+          <view class="field-label">选择家人</view>
+          <picker range="{{memberNames}}" range-key="displayName" value="{{grantMemberIndex}}" bindchange="onGrantMemberChange">
+            <view class="picker-box">{{memberNames[grantMemberIndex].displayName}}</view>
+          </picker>
+        </view>
+        <view class="field">
+          <view class="row-line">
+            <view class="field-label">允许代为记录</view>
+            <switch checked="{{grantCanManage}}" bindchange="onGrantManageChange" />
+          </view>
+        </view>
+        <view class="btn btn-primary {{granting ? 'disabled' : ''}}" bindtap="onSubmitGrant">{{granting ? "保存中…" : "确认授权"}}</view>
+      </block>
+      <view class="btn btn-ghost" bindtap="onCloseGrant">取消</view>
+    </view>
+  </view>
+</view>

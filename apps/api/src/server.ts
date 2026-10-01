@@ -3,6 +3,7 @@ import { createDatabaseAdapter, createDatabasePool } from "./db.js";
 import { applyMigrations } from "./db/migrations.js";
 import { createDefaultReminderTemplateConfig, WechatSubscribeMessageSender } from "./services/subscribe-messages.js";
 import { startReminderScheduler } from "./jobs/reminder-scheduler.js";
+import { startDoseReminderScheduler } from "./jobs/dose-reminder-scheduler.js";
 import { startLeafletPhotoCleanup } from "./jobs/leaflet-photo-cleanup.js";
 import { PrivatePhotoStore } from "./services/private-photo-store.js";
 
@@ -21,9 +22,11 @@ async function main(): Promise<void> {
     const privatePhotoStore = new PrivatePhotoStore();
     const app = await buildServer({ database, reminderTemplateConfig: reminderConfig, privatePhotoStore });
     let stopReminderScheduler: (() => void) | null = null;
+    let stopDoseReminderScheduler: (() => void) | null = null;
     let stopLeafletPhotoCleanup: (() => void) | null = null;
     app.addHook("onClose", async () => {
       stopReminderScheduler?.();
+      stopDoseReminderScheduler?.();
       stopLeafletPhotoCleanup?.();
       await pool.end();
     });
@@ -32,6 +35,9 @@ async function main(): Promise<void> {
     const host = process.env.API_HOST ?? "127.0.0.1";
     await app.listen({ host, port });
     stopReminderScheduler = startReminderScheduler(database, reminderSender, reminderConfig, {
+      warn: (message) => app.log.warn(message),
+    });
+    stopDoseReminderScheduler = startDoseReminderScheduler(database, reminderSender, reminderConfig, {
       warn: (message) => app.log.warn(message),
     });
     stopLeafletPhotoCleanup = startLeafletPhotoCleanup(database, privatePhotoStore, (message) => app.log.warn(message));

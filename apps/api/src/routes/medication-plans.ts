@@ -14,6 +14,12 @@ import { randomUUID } from "node:crypto";
 import { errorBody } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import type { Database } from "../types.js";
+import {
+  cancelDoseRemindersForMember,
+  cancelDoseRemindersForOccurrence,
+  cancelDoseRemindersForPlan,
+} from "../jobs/dose-reminder-scheduler.js";
+import type { ReminderTemplateConfig } from "../services/subscribe-messages.js";
 
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 type Weekday = (typeof WEEKDAYS)[number];
@@ -65,6 +71,15 @@ async function accessFor(
   return { canView: grant.rows[0].can_view || grant.rows[0].can_manage, canManage: grant.rows[0].can_manage };
 }
 
+/** 当前生效的时间点（归档的只保留历史，不再物化）。 */
+async function loadSlots(database: Pick<Database, "query">, planId: string): Promise<Array<{ id: string; time: string }>> {
+  const slots = await database.query<{ id: string; time_of_day: string }>(
+    "SELECT id, time_of_day::text AS time_of_day FROM plan_time_slots WHERE plan_id = $1 AND archived_at IS NULL ORDER BY time_of_day",
+    [planId],
+  );
+  return slots.rows.map((row) => ({ id: row.id, time: row.time_of_day.slice(0, 5) }));
+}
+
 async function loadProfile(database: Pick<Database, "query">, familyId: string, profileId: string): Promise<CareProfileRow | null> {
   const rows = await database.query<CareProfileRow>(
     "SELECT id, display_name, linked_user_id, created_by FROM care_profiles WHERE id = $1 AND family_id = $2",
@@ -91,6 +106,7 @@ function profileLabel(profile: CareProfileRow): string {
 export async function registerMedicationPlanRoutes(
   app: FastifyInstance,
   database: Database,
+  templateConfig?: ReminderTemplateConfig,
 ): Promise<void> {
   // —— 照护对象 ——
 
@@ -172,6 +188,50 @@ export async function registerMedicationPlanRoutes(
     return { careProfileId: profile.id, memberUserId, canManage };
   });
 
+  app.get<{ Params: { careProfileId: string } }>("/api/v1/care-profiles/:careProfileId/grants", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const profile = await loadProfile(database, ctx.familyId, request.params.careProfileId);
+    if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
+    const access = await accessFor(database, profile, ctx.userId);
+    if (!access.canManage) return reply.code(403).send(errorBody("FORBIDDEN", "只有该照护对象的管理者可以查看授权"));
+    const rows = await database.query<{ member_user_id: string; nickname: string | null; can_view: boolean; can_manage: boolean }>(
+      `SELECT g.member_user_id, u.nickname, g.can_view, g.can_manage
+       FROM care_grants g JOIN family_members m ON m.user_id = g.member_user_id AND m.family_id = g.family_id
+       LEFT JOIN users u ON u.id = g.member_user_id
+       WHERE g.care_profile_id = $1 ORDER BY u.nickname NULLS LAST`,
+      [profile.id],
+    );
+    return {
+      careProfileId: profile.id,
+      displayName: profile.display_name,
+      grants: rows.rows.map((row) => ({
+        memberUserId: row.member_user_id,
+        displayName: row.nickname ?? "家人",
+        canView: row.can_view,
+        canManage: row.can_manage,
+      })),
+    };
+  });
+
+  app.delete<{ Params: { careProfileId: string; memberUserId: string } }>("/api/v1/care-profiles/:careProfileId/grants/:memberUserId", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const profile = await loadProfile(database, ctx.familyId, request.params.careProfileId);
+    if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
+    const access = await accessFor(database, profile, ctx.userId);
+    if (!access.canManage) return reply.code(403).send(errorBody("FORBIDDEN", "只有该照护对象的管理者可以撤销授权"));
+    const removed = await database.query(
+      "DELETE FROM care_grants WHERE care_profile_id = $1 AND member_user_id = $2 AND family_id = $3",
+      [profile.id, request.params.memberUserId, ctx.familyId],
+    );
+    // 撤销后该成员立刻看不到该对象的计划与服药安排；已产生的记录保留在家庭内。
+    if ((removed.rowCount ?? 0) > 0) {
+      await cancelDoseRemindersForMember(database, ctx.familyId, request.params.memberUserId);
+    }
+    return { careProfileId: profile.id, memberUserId: request.params.memberUserId, removed: (removed.rowCount ?? 0) > 0 };
+  });
+
   // —— 计划 ——
 
   app.post("/api/v1/medication-plans", async (request, reply) => {
@@ -228,15 +288,18 @@ export async function registerMedicationPlanRoutes(
     return reply.code(201).send({ planId, careProfileId: profile.id, status: "active", version: 1 });
   });
 
-  app.get("/api/v1/medication-plans", async (request, reply) => {
+  // status 缺省只看未结束；status=all 或 ended 可显式查看已结束的计划（保留历史入口）。
+  app.get<{ Querystring: { status?: string } }>("/api/v1/medication-plans", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
+    const rawStatus = typeof request.query.status === "string" ? request.query.status : "";
+    const statusFilter = rawStatus === "all" ? "" : rawStatus === "ended" ? "AND p.status = 'ended'" : "AND p.status <> 'ended'";
     const plans = await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
       `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
               p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
               c.display_name, c.linked_user_id, c.created_by
        FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
-       WHERE p.family_id = $1 AND p.status <> 'ended'
+       WHERE p.family_id = $1 ${statusFilter}
        ORDER BY p.created_at`,
       [ctx.familyId],
     );
@@ -245,10 +308,7 @@ export async function registerMedicationPlanRoutes(
       const profile: CareProfileRow = { id: plan.care_profile_id, display_name: plan.display_name, linked_user_id: plan.linked_user_id, created_by: plan.created_by };
       const access = await accessFor(database, profile, ctx.userId);
       if (!access.canView) continue;
-      const slots = await database.query<{ time_of_day: string }>(
-        "SELECT time_of_day::text AS time_of_day FROM plan_time_slots WHERE plan_id = $1 ORDER BY time_of_day",
-        [plan.id],
-      );
+      const slots = await loadSlots(database, plan.id);
       visible.push({
         id: plan.id,
         careProfileId: plan.care_profile_id,
@@ -261,7 +321,7 @@ export async function registerMedicationPlanRoutes(
         endDate: plan.end_date,
         status: plan.status,
         version: plan.version,
-        timeSlots: slots.rows.map((row) => row.time_of_day.slice(0, 5)),
+        timeSlots: slots.map((slot) => slot.time),
       });
     }
     return { plans: visible };
@@ -307,8 +367,194 @@ export async function registerMedicationPlanRoutes(
       [plan.id, ctx.familyId, nextStatus, ctx.userId, expectedVersion],
     );
     if (updated.rowCount === 0) return reply.code(409).send(errorBody("VERSION_CONFLICT", "计划已被他人修改，请刷新后重试"));
+    // 暂停或结束后，尚未发出的服药提醒立即取消（一次性授权退还给用户）。
+    if (nextStatus !== "active") {
+      await cancelDoseRemindersForPlan(database, plan.id);
+    }
     return { planId: plan.id, status: nextStatus, version: updated.rows[0].version };
   }
+
+  // —— 计划详情、编辑与历史 ——
+
+  interface PlanContext {
+    ctx: { userId: string; familyId: string };
+    plan: PlanRow & { display_name: string; linked_user_id: string | null; created_by: string };
+    profile: CareProfileRow;
+    access: AccessContext;
+  }
+
+  async function loadPlanContext(
+    request: FastifyRequest<{ Params: { planId: string } }>,
+    reply: FastifyReply,
+  ): Promise<PlanContext | null> {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return null;
+    const plan = (await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
+      `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
+              p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
+              c.display_name, c.linked_user_id, c.created_by
+       FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
+       WHERE p.id = $1 AND p.family_id = $2`,
+      [request.params.planId, ctx.familyId],
+    )).rows[0];
+    if (plan === undefined) {
+      reply.code(404).send(errorBody("NOT_FOUND", "计划不存在"));
+      return null;
+    }
+    const profile: CareProfileRow = {
+      id: plan.care_profile_id,
+      display_name: plan.display_name,
+      linked_user_id: plan.linked_user_id,
+      created_by: plan.created_by,
+    };
+    const access = await accessFor(database, profile, ctx.userId);
+    return { ctx, plan, profile, access };
+  }
+
+  app.get<{ Params: { planId: string } }>("/api/v1/medication-plans/:planId", async (request, reply) => {
+    const loaded = await loadPlanContext(request, reply);
+    if (loaded === null) return;
+    if (!loaded.access.canView) return reply.code(403).send(errorBody("FORBIDDEN", "没有查看该计划的权限"));
+    const slots = await loadSlots(database, loaded.plan.id);
+    return {
+      plan: {
+        id: loaded.plan.id,
+        careProfileId: loaded.plan.care_profile_id,
+        careProfileName: loaded.plan.display_name,
+        medicineId: loaded.plan.medicine_id,
+        medicineName: loaded.plan.medicine_name,
+        dosageText: loaded.plan.dosage_text,
+        weekdays: loaded.plan.weekdays ?? [],
+        startDate: loaded.plan.start_date,
+        endDate: loaded.plan.end_date,
+        status: loaded.plan.status,
+        version: loaded.plan.version,
+        timeSlots: slots.map((slot) => slot.time),
+      },
+      canManage: loaded.access.canManage,
+    };
+  });
+
+  app.put<{ Params: { planId: string } }>("/api/v1/medication-plans/:planId", async (request, reply) => {
+    const loaded = await loadPlanContext(request, reply);
+    if (loaded === null) return;
+    if (!loaded.access.canManage) return reply.code(403).send(errorBody("FORBIDDEN", "没有修改该计划的权限"));
+    const body = request.body as Record<string, unknown> | null;
+    const expectedVersion = typeof body?.version === "number" ? body.version : null;
+    if (expectedVersion === null) return reply.code(400).send(errorBody("VALIDATION_ERROR", "version 必填"));
+    if (loaded.plan.status === "ended") return reply.code(409).send(errorBody("PLAN_ENDED", "已结束的计划不能再修改"));
+
+    const next = {
+      medicineName: loaded.plan.medicine_name,
+      dosageText: loaded.plan.dosage_text,
+      weekdays: loaded.plan.weekdays ?? [...WEEKDAYS],
+      startDate: loaded.plan.start_date,
+      endDate: loaded.plan.end_date,
+      timeSlots: (await loadSlots(database, loaded.plan.id)).map((slot) => slot.time),
+    };
+
+    if (body?.medicineName !== undefined) {
+      const value = String(body.medicineName).trim();
+      if (value === "" || value.length > 80) return reply.code(400).send(errorBody("VALIDATION_ERROR", "药名必填（可手填或从药箱选择）"));
+      next.medicineName = value;
+    }
+    if (body?.dosageText !== undefined) {
+      const value = String(body.dosageText).trim();
+      if (value === "" || value.length > 80) return reply.code(400).send(errorBody("VALIDATION_ERROR", "剂量说明必填（例如每次 5ml）"));
+      next.dosageText = value;
+    }
+    if (body?.startDate !== undefined) {
+      const value = String(body.startDate).trim();
+      if (!DATE_PATTERN.test(value)) return reply.code(400).send(errorBody("VALIDATION_ERROR", "startDate 需为 YYYY-MM-DD"));
+      next.startDate = value;
+    }
+    if (body?.endDate !== undefined && body.endDate !== null) {
+      const value = String(body.endDate).trim();
+      if (value !== "" && !DATE_PATTERN.test(value)) return reply.code(400).send(errorBody("VALIDATION_ERROR", "endDate 需为 YYYY-MM-DD"));
+      next.endDate = value === "" ? null : value;
+    }
+    if (next.endDate !== null && next.endDate < next.startDate) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "结束日期不能早于开始日期"));
+    }
+    if (body?.weekdays !== undefined) {
+      const raw = Array.isArray(body.weekdays) ? (body.weekdays as unknown[]) : null;
+      if (raw === null) return reply.code(400).send(errorBody("VALIDATION_ERROR", "weekdays 需为数组"));
+      const list = raw.filter((day): day is Weekday => (WEEKDAYS as readonly string[]).includes(day as string));
+      if (list.length === 0) return reply.code(400).send(errorBody("VALIDATION_ERROR", "至少需要选择一天"));
+      next.weekdays = list;
+    }
+    if (body?.timeSlots !== undefined) {
+      const raw = Array.isArray(body.timeSlots) ? (body.timeSlots as unknown[]) : null;
+      if (raw === null) return reply.code(400).send(errorBody("VALIDATION_ERROR", "timeSlots 需为数组"));
+      const list = raw.map((slot) => String(slot)).filter((slot) => TIME_PATTERN.test(slot));
+      if (list.length === 0 || list.length > 6) return reply.code(400).send(errorBody("VALIDATION_ERROR", "每日时间点需 1-6 个，格式 HH:MM"));
+      if (new Set(list).size !== list.length) return reply.code(400).send(errorBody("VALIDATION_ERROR", "时间点不能重复"));
+      next.timeSlots = list;
+    }
+
+    const result = await database.withTransaction(async (tx: Pick<Database, "query">) => {
+      const updated = await tx.query<{ version: number }>(
+        `UPDATE medication_plans SET medicine_name = $3, dosage_text = $4, weekdays = $5,
+                start_date = $6, end_date = $7, updated_by = $8, updated_at = now(), version = version + 1
+         WHERE id = $1 AND family_id = $2 AND version = $9 RETURNING version`,
+        [loaded.plan.id, loaded.ctx.familyId, next.medicineName, next.dosageText, next.weekdays,
+          next.startDate, next.endDate, loaded.ctx.userId, expectedVersion],
+      );
+      if (updated.rowCount === 0) return { conflict: true as const };
+      const desired = new Set(next.timeSlots);
+      // 归档被移除的时间点：已生成的服药实例与确认事件保留，只是不再产生新的安排。
+      await tx.query(
+        "UPDATE plan_time_slots SET archived_at = now() WHERE plan_id = $1 AND archived_at IS NULL AND time_of_day::text NOT IN (SELECT unnest($2::text[]))",
+        [loaded.plan.id, [...desired].map((slot) => `${slot}:00`)],
+      );
+      for (const slot of desired) {
+        await tx.query(
+          `INSERT INTO plan_time_slots (plan_id, time_of_day) VALUES ($1, $2::time)
+           ON CONFLICT (plan_id, time_of_day) DO UPDATE SET archived_at = NULL`,
+          [loaded.plan.id, `${slot}:00`],
+        );
+      }
+      return { conflict: false as const, version: updated.rows[0].version };
+    });
+    if (result.conflict) return reply.code(409).send(errorBody("VERSION_CONFLICT", "计划已被他人修改，请刷新后重试"));
+    return {
+      planId: loaded.plan.id,
+      version: result.version,
+      timeSlots: [...next.timeSlots].sort(),
+      note: "修改只影响之后的安排，已有服药记录保持不变",
+    };
+  });
+
+  app.get<{ Params: { planId: string }; Querystring: { limit?: string } }>("/api/v1/medication-plans/:planId/history", async (request, reply) => {
+    const loaded = await loadPlanContext(request, reply);
+    if (loaded === null) return;
+    if (!loaded.access.canView) return reply.code(403).send(errorBody("FORBIDDEN", "没有查看该计划记录的权限"));
+    const limit = Math.min(Math.max(Number(request.query.limit ?? 50) || 50, 1), 200);
+    const occurrences = await database.query<{ id: string; dose_date: string; time_of_day: string; status: string }>(
+      `SELECT id, dose_date::text AS dose_date, time_of_day::text AS time_of_day, status
+       FROM dose_occurrences WHERE plan_id = $1 ORDER BY dose_date DESC, time_of_day DESC LIMIT $2`,
+      [loaded.plan.id, limit],
+    );
+    const history = [];
+    for (const occurrence of occurrences.rows) {
+      const events = await database.query<{ action: "taken" | "skipped"; actor: string | null; created_at: string }>(
+        `SELECT c.action, u.nickname AS actor, to_char(c.created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI') AS created_at
+         FROM dose_confirmations c LEFT JOIN users u ON u.id = c.acted_by
+         WHERE c.occurrence_id = $1 ORDER BY c.created_at`,
+        [occurrence.id],
+      );
+      history.push({
+        occurrenceId: occurrence.id,
+        date: occurrence.dose_date,
+        time: occurrence.time_of_day.slice(0, 5),
+        status: occurrence.status,
+        // 纠正以新事件追加：events 长度大于 1 说明这条记录被改过。
+        corrected: events.rows.length > 1,
+        events: events.rows.map((event) => ({ action: event.action, actor: event.actor, at: event.created_at })),
+      });
+    }
+    return { planId: loaded.plan.id, medicineName: loaded.plan.medicine_name, history };
+  });
 
   // —— 今日安排（按需物化） ——
 
@@ -335,18 +581,15 @@ export async function registerMedicationPlanRoutes(
       const profile: CareProfileRow = { id: plan.care_profile_id, display_name: plan.display_name, linked_user_id: plan.linked_user_id, created_by: plan.created_by };
       const access = await accessFor(database, profile, ctx.userId);
       if (!access.canView) continue;
-      const slots = await database.query<{ id: string; time_of_day: string }>(
-        "SELECT id, time_of_day::text AS time_of_day FROM plan_time_slots WHERE plan_id = $1 ORDER BY time_of_day",
-        [plan.id],
-      );
-      for (const slot of slots.rows) {
+      const slots = await loadSlots(database, plan.id);
+      for (const slot of slots) {
         // 懒物化：该计划×时间点在当天首次被查看时生成 pending 实例。
         const materialized = await database.query<{ id: string; status: "pending" | "taken" | "skipped" }>(
           `INSERT INTO dose_occurrences (family_id, plan_id, slot_id, care_profile_id, dose_date, time_of_day)
            SELECT $1, $2, $3, $4, $5, $6::time
            WHERE NOT EXISTS (SELECT 1 FROM dose_occurrences WHERE slot_id = $3 AND dose_date = $5)
            RETURNING id, status`,
-          [ctx.familyId, plan.id, slot.id, plan.care_profile_id, date, slot.time_of_day],
+          [ctx.familyId, plan.id, slot.id, plan.care_profile_id, date, slot.time],
         );
         const existing = materialized.rows[0] ??
           (await database.query<{ id: string; status: "pending" | "taken" | "skipped" }>(
@@ -360,7 +603,7 @@ export async function registerMedicationPlanRoutes(
           careProfileName: plan.display_name,
           medicineName: plan.medicine_name,
           dosageText: plan.dosage_text,
-          time: slot.time_of_day.slice(0, 5),
+          time: slot.time,
           status: existing.status,
         });
       }
@@ -408,6 +651,42 @@ export async function registerMedicationPlanRoutes(
 
     if (result.error === "not_found") return reply.code(404).send(errorBody("NOT_FOUND", "服药安排不存在"));
     if (result.error === "forbidden") return reply.code(403).send(errorBody("FORBIDDEN", "没有确认该服药安排的权限"));
+    // 已确认就不需要再提醒：取消排队中的消息，避免"确认后仍收到提醒"。
+    if (!result.replayed) {
+      await cancelDoseRemindersForOccurrence(database, request.params.occurrenceId);
+    }
     return { occurrenceId: request.params.occurrenceId, status: result.status, replayed: result.replayed };
+  });
+
+  // —— 服药提醒状态（R4）：页面如实展示模板可用性与最近发送结果 ——
+
+  app.get("/api/v1/medication-plans/reminders/status", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const available = templateConfig?.doseAvailable ?? false;
+    const rows = await database.query<{ dose_date: string; time_of_day: string; status: string; sent_at: string | null }>(
+      `SELECT dose_date::text AS dose_date, time_of_day::text AS time_of_day, status,
+              to_char(sent_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI') AS sent_at
+       FROM dose_reminder_deliveries
+       WHERE family_id = $1 AND user_id = $2
+       ORDER BY created_at DESC LIMIT 20`,
+      [ctx.familyId, ctx.userId],
+    );
+    const labels: Record<string, string> = {
+      queued: "等待发送", sending: "发送中", sent: "已发送",
+      failed: "发送失败", blocked: "已拦截", cancelled: "已取消",
+    };
+    return {
+      available,
+      reason: available ? null : "服药提醒模板尚未在药箱专用账号下配置；计划与今日安排仍可正常使用",
+      templateId: templateConfig?.doseTemplateId ?? "",
+      deliveries: rows.rows.map((row) => ({
+        date: row.dose_date,
+        time: row.time_of_day.slice(0, 5),
+        status: row.status,
+        statusLabel: labels[row.status] ?? row.status,
+        sentAt: row.sent_at,
+      })),
+    };
   });
 }

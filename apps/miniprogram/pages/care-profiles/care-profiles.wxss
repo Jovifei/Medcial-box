@@ -1,0 +1,262 @@
+.page {
+  padding: 32rpx 32rpx calc(180rpx + env(safe-area-inset-bottom));
+  background: #f5f7f4;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 32rpx;
+  border: 1rpx solid #e4ebe5;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #24382e;
+  margin-bottom: 16rpx;
+}
+
+.hint {
+  font-size: 25rpx;
+  color: #596a60;
+  line-height: 1.6;
+}
+
+.profile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #24382e;
+}
+
+.profile-kind {
+  flex: none;
+  margin-left: 16rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.profile-kind.private {
+  color: #1d5fd1;
+  background: #e3edfb;
+}
+
+.profile-kind.shared {
+  color: #2f7d4f;
+  background: #e2f2e8;
+}
+
+.profile-line {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #52685c;
+}
+
+.grant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #eef1ee;
+}
+
+.grant-name {
+  font-size: 26rpx;
+  color: #24382e;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.action-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 24rpx;
+  font-size: 28rpx;
+}
+
+.action-btn.ghost {
+  background: #ffffff;
+  border: 1rpx solid #cfdcd3;
+  color: #3f7d5c;
+}
+
+.safety-note {
+  font-size: 22rpx;
+  color: #7c867e;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.bottom-spacer {
+  height: 40rpx;
+}
+
+.floating-add {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: calc(40rpx + env(safe-area-inset-bottom));
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  border-radius: 32rpx;
+  background: #3f7d5c;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(63, 125, 92, 0.28);
+}
+
+/* —— 弹层 —— */
+
+.form-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.form-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 32, 25, 0.42);
+}
+
+.form-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 88vh;
+  padding: 24rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+  border-radius: 32rpx 32rpx 0 0;
+  background: #f5f7f4;
+  overflow-y: auto;
+}
+
+.sheet-handle {
+  width: 88rpx;
+  height: 8rpx;
+  margin: 0 auto 20rpx;
+  border-radius: 999rpx;
+  background: #d5ded7;
+}
+
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #24382e;
+  text-align: center;
+}
+
+.sheet-hint {
+  margin: 10rpx 0 24rpx;
+  text-align: center;
+}
+
+.field {
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #e4ebe5;
+}
+
+.field-label {
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #52685c;
+}
+
+.row-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.row-line .field-label {
+  margin-bottom: 0;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 88rpx;
+  padding: 0 18rpx;
+  border-radius: 16rpx;
+  background: #f7f9f7;
+  border: 1rpx solid #e1e7e1;
+  font-size: 27rpx;
+  color: #24382e;
+}
+
+.picker-box {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 18rpx;
+  border-radius: 16rpx;
+  background: #f7f9f7;
+  border: 1rpx solid #e1e7e1;
+  font-size: 27rpx;
+  color: #24382e;
+}
+
+/* —— 按钮 —— */
+
+.btn {
+  height: 96rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  margin-bottom: 16rpx;
+}
+
+.btn-primary {
+  background: #3f7d5c;
+  color: #ffffff;
+}
+
+.btn-ghost {
+  background: #ffffff;
+  border: 1rpx solid #cfdcd3;
+  color: #52685c;
+}
+
+.btn-danger {
+  background: #fdf5f5;
+  border: 1rpx solid #eccfcf;
+  color: #b4544f;
+}
+
+.btn.disabled {
+  opacity: 0.55;
+}
+
+.revoke-button {
+  flex: none;
+  min-width: 140rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  font-size: 25rpx;
+  margin-bottom: 0;
+}

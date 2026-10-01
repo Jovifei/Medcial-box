@@ -8,12 +8,13 @@
     <view class="hint" wx:if="{{errorMessage}}">{{errorMessage}} <text class="retry-link" bindtap="onRetry">重试</text></view>
   </view>
 
-  <view class="section-label">常用功能</view>
-  <view class="menu-card" bindtap="onOpenItem" data-route="app"><view><view class="menu-title">连接 Android App</view><view class="menu-hint">在小程序确认 App 的临时连接码</view></view><view class="menu-arrow">›</view></view>
+  <view class="section-label">家庭与照护</view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="family"><view><view class="menu-title">我的家庭</view><view class="menu-hint">成员、角色与盘点设置</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="care"><view><view class="menu-title">照护对象与共享权限</view><view class="menu-hint">本人私有计划、孩子或老人的代记授权</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="invite"><view><view class="menu-title">邀请家人加入</view><view class="menu-hint">生成一次性邀请码</view></view><view class="menu-arrow">›</view></view>
+  <view class="section-label">提醒与设备</view>
   <view class="menu-card" bindtap="onOpenItem" data-route="notifications"><view><view class="menu-title">提醒设置</view><view class="menu-hint">查看待处理项目并主动订阅微信提醒</view></view><view class="menu-arrow">›</view></view>
-  <view class="menu-card" bindtap="onOpenItem" data-route="restock"><view><view class="menu-title">补货清单</view><view class="menu-hint">记录需要补充的家庭库存</view></view><view class="menu-arrow">›</view></view>
-  <view class="menu-card" bindtap="onOpenItem" data-route="export"><view><view class="menu-title">导出药箱清单</view><view class="menu-hint">预览并分享 Markdown 文件</view></view><view class="menu-arrow">›</view></view>
-  <view class="menu-card" bindtap="onOpenItem" data-route="backup"><view><view class="menu-title">备份与恢复</view><view class="menu-hint">JSON 备份、导入预览和恢复</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="app"><view><view class="menu-title">连接 Android App</view><view class="menu-hint">在小程序确认 App 的临时连接码</view></view><view class="menu-arrow">›</view></view>
   <view class="section-label">已登录设备</view>
   <view class="card devices-card">
     <view class="hint" wx:if="{{devicesLoading}}">正在读取设备授权…</view>
@@ -31,11 +32,15 @@
     </view>
   </view>
   <view class="section-label">数据管理</view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="restock"><view><view class="menu-title">补货清单</view><view class="menu-hint">记录需要补充的家庭库存</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="export"><view><view class="menu-title">导出药箱清单</view><view class="menu-hint">预览并分享 Markdown 文件</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="backup"><view><view class="menu-title">备份与恢复</view><view class="menu-hint">JSON 备份、导入预览和恢复</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="trash"><view><view class="menu-title">最近删除</view><view class="menu-hint">30 天内恢复删除的药品或批次</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="audit"><view><view class="menu-title">家庭变更记录</view><view class="menu-hint">查看成员对库存所做的修改</view></view><view class="menu-arrow">›</view></view>
   <view class="section-label">应用信息</view>
-  <view class="menu-card">
-    <view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}；新版本就绪后会提示重启，每个版本只提醒一次</view></view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="release">
+    <view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}；可重新查看本版本说明，新版本就绪后会提示重启</view></view>
+    <view class="menu-arrow">›</view>
   </view>
   <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
 </view>

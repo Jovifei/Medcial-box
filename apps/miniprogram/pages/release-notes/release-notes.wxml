@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="card current-card">
+    <view class="section-title">当前版本 {{appVersion}}</view>
+    <view class="hint">小程序在新版本就绪后会提示重启；重启前请先保存未完成的录入。App 使用受控发布入口，确认后才安装。</view>
+  </view>
+
+  <view class="section-label">版本说明</view>
+  <view wx:for="{{notes}}" wx:key="version" class="card note-card">
+    <view class="note-top">
+      <view class="note-version">{{item.version}}</view>
+      <view class="note-badge" wx:if="{{item.isCurrent}}">当前版本</view>
+    </view>
+    <view class="note-date">{{item.date}}</view>
+    <view class="note-item" wx:for="{{item.items}}" wx:for-item="line" wx:key="*this">· {{line}}</view>
+  </view>
+
+  <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
+</view>
