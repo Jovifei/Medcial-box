@@ -33,5 +33,9 @@
   <view class="section-label">数据管理</view>
   <view class="menu-card" bindtap="onOpenItem" data-route="trash"><view><view class="menu-title">最近删除</view><view class="menu-hint">30 天内恢复删除的药品或批次</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="audit"><view><view class="menu-title">家庭变更记录</view><view class="menu-hint">查看成员对库存所做的修改</view></view><view class="menu-arrow">›</view></view>
+  <view class="section-label">应用信息</view>
+  <view class="menu-card">
+    <view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}；新版本就绪后会提示重启，每个版本只提醒一次</view></view>
+  </view>
   <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
 </view>

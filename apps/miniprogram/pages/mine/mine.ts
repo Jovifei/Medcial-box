@@ -1,3 +1,4 @@
+import { APP_VERSION } from "../../services/app-update";
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type { DeviceSessionSummary } from "../../services/api-types";
@@ -18,7 +19,7 @@ interface DeviceView extends DeviceSessionSummary { kindLabel: string }
 
 Page({
   data: {
-    familyName: "", roleLabel: "", loading: true, errorMessage: "",
+    familyName: "", roleLabel: "", loading: true, errorMessage: "", appVersion: APP_VERSION,
     devices: [] as DeviceView[], devicesLoading: true, devicesError: "", revokingDeviceId: "",
   },
 

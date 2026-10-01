@@ -806,6 +806,7 @@ test("mine page lists sessions, protects the current Mini Program session, and r
         revokeAndroidDevice: async (id) => { calls.push(id); devices = devices.filter((device) => device.id !== id); return { revoked: true }; },
       }, ApiError: class ApiError extends Error {} },
       "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/app-update": { APP_VERSION: "test-0.0.0" },
     },
     wx: { showModal(options) { options.success({ confirm: true }); } },
   });
