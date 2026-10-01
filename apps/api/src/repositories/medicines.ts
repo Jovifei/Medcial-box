@@ -30,6 +30,7 @@ export interface MedicineRow {
   population_tags: string[] | null;
   purpose_tags: string[] | null;
   tag_source: string;
+  cover_photo_id: string | null;
   is_archived: boolean;
   /** numeric(14,3)：pg 返回字符串。 */
   low_stock_threshold_quantity: number | string | null;
@@ -39,7 +40,7 @@ export interface MedicineRow {
 }
 
 const MEDICINE_COLUMNS =
-  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version";
+  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, cover_photo_id, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version";
 
 /** text[] 列经 pg 返回字符串数组；null/异常一律按空数组处理。 */
 function textArray(value: unknown): string[] {
@@ -75,6 +76,7 @@ export function toMedicineSummary(
     populationTags: textArray(row.population_tags) as MedicationSummary["populationTags"],
     purposeTags: textArray(row.purpose_tags) as MedicationSummary["purposeTags"],
     tagSource: (row.tag_source ?? "manual") as MedicationSummary["tagSource"],
+    coverPhotoId: row.cover_photo_id ?? null,
     leaflet: {
       purposeSummary: row.leaflet_purpose_summary ?? null,
       packageUsageSummary: row.leaflet_package_usage_summary ?? null,

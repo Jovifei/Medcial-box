@@ -11,6 +11,7 @@ if (!process.env.TEST_DATABASE_URL) {
     "apps/api/test/integration-pg-reminders.test.mjs",
     "apps/api/test/integration-pg-quantity.test.mjs",
     "apps/api/test/integration-pg-tags.test.mjs",
+    "apps/api/test/integration-pg-photos.test.mjs",
   ];
   let status = 0;
   for (const suite of suites) {

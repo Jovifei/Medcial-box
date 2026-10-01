@@ -45,6 +45,14 @@ export type PurposeTag =
   | "allergy"
   | "other";
 
+/**
+ * 照片用途：
+ * - box_front 药盒正面（识别药品用，可设为封面）
+ * - expiry    包装有效期（绑定具体库存批次）
+ * - leaflet   说明书（单独展示，不充当封面）
+ */
+export type PhotoPurpose = "box_front" | "expiry" | "leaflet";
+
 /** 标签来源：人工填写 / 资料候选 / 导入。 */
 export type TagSource = "manual" | "catalog" | "imported";
 
@@ -325,6 +333,8 @@ export interface MedicationSummary {
   purposeTags?: PurposeTag[];
   /** 标签来源，便于区分人工填写与资料候选。 */
   tagSource?: TagSource;
+  /** 药盒封面照片 id；null 表示没有照片。 */
+  coverPhotoId?: string | null;
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;

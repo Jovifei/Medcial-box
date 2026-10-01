@@ -12,6 +12,26 @@ import { createTestGateway } from "./helpers/fake-wechat.mjs";
 import { isolatedPostgres } from "./helpers/isolated-pg.mjs";
 
 const url = process.env.TEST_DATABASE_URL?.trim() ?? "";
+/** 上海日历日（可偏移天数）：时间敏感的提醒用例不能依赖固定日期，否则真实时间一过就腐化。 */
+function shanghaiDate(offsetDays) {
+  const real = new Date();
+  const shanghai = new Date(real.getTime() + 8 * 3600 * 1000);
+  const shifted = new Date(Date.UTC(shanghai.getUTCFullYear(), shanghai.getUTCMonth(), shanghai.getUTCDate() + offsetDays));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * 调度时刻：取"真实时间（或当日上海 09:30，保证在提醒窗口内）之后一分钟"。
+ * 比真实时间晚一点，才能覆盖刚由同一轮调度写入的 next_attempt_at = now()。
+ */
+function reminderDispatchNow() {
+  const real = new Date();
+  const shanghai = new Date(real.getTime() + 8 * 3600 * 1000);
+  const windowStart = Date.UTC(shanghai.getUTCFullYear(), shanghai.getUTCMonth(), shanghai.getUTCDate(), 1, 30);
+  const base = real.getTime() >= windowStart ? real.getTime() : windowStart;
+  return new Date(base + 60_000);
+}
+
 const required = process.env.REQUIRE_POSTGRES_TESTS === "1";
 
 function status(response, expected) {
@@ -62,7 +82,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       const { owner, members: [member], id: familyId } = await family(1);
       status(await request(owner, "POST", "/medicines", {
         name: "提醒成员测试药",
-        batches: [{ quantity: 2, unit: "box", expiry: { value: "2026-10-01", precision: "day" }, storageLocation: "药箱" }],
+        batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(0), precision: "day" }, storageLocation: "药箱" }],
       }), 201);
       // 两位成员都授权订阅，确保"没有发送"不是因为缺少可用授权。
       status(await request(owner, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
@@ -78,7 +98,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
           firstRecipients.push(message.openid);
           return { messageId: `a07-${firstRecipients.length}` };
         },
-      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      }, reminderConfig, reminderDispatchNow());
       assert.equal(first.sent, 1, JSON.stringify(first));
       assert.equal(first.failed, 1, JSON.stringify(first));
       const retryRow = (await pool.query(
@@ -96,7 +116,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
           afterRemoval.push(message.openid);
           return { messageId: `a07-post-${afterRemoval.length}` };
         },
-      }, reminderConfig, new Date("2026-10-01T04:15:00Z"));
+      }, reminderConfig, new Date(reminderDispatchNow().getTime() + 15 * 60_000));
       assert.deepEqual(afterRemoval, [], `removed member must not be messaged: ${JSON.stringify(afterRemoval)}`);
       assert.equal(second.sent, 0, JSON.stringify(second));
 
@@ -127,7 +147,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       const { owner, members: [member], id: familyId } = await family(1);
       status(await request(owner, "POST", "/medicines", {
         name: "退出成员测试药",
-        batches: [{ quantity: 2, unit: "box", expiry: { value: "2026-10-01", precision: "day" } }],
+        batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(0), precision: "day" } }],
       }), 201);
       status(await request(member, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
       const memberOpenid = (await pool.query("SELECT openid FROM users WHERE id = $1", [member.id])).rows[0].openid;
@@ -139,7 +159,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
           before.push(message.openid);
           return { messageId: `leave-${before.length}` };
         },
-      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      }, reminderConfig, reminderDispatchNow());
       assert.equal((await pool.query(
         "SELECT count(*)::int AS count FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2 AND status = 'failed'",
         [familyId, member.id],
@@ -148,7 +168,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       const after = [];
       await dispatchDueReminderMessages(database, {
         send: async (message) => { after.push(message.openid); return { messageId: `leave-post-${after.length}` }; },
-      }, reminderConfig, new Date("2026-10-01T04:15:00Z"));
+      }, reminderConfig, new Date(reminderDispatchNow().getTime() + 15 * 60_000));
       assert.deepEqual(after, [], `member who left must not be messaged: ${JSON.stringify(after)}`);
       const pending = (await pool.query(
         "SELECT status, last_error_code FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2 AND status IN ('queued', 'failed', 'sending')",
@@ -160,7 +180,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       const { owner } = await family(0);
       const medicine = status(await request(owner, "POST", "/medicines", {
         name: "过时提醒测试药",
-        batches: [{ quantity: 2, unit: "box", expiry: { value: "2026-10-31", precision: "day" } }],
+        batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(30), precision: "day" } }],
       }), 201);
       status(await request(owner, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
 
@@ -171,7 +191,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
           labels.push(message.eventLabel);
           throw new Error("synthetic gateway failure");
         },
-      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      }, reminderConfig, reminderDispatchNow());
       assert.equal(first.queued, 1, JSON.stringify(first));
       assert.equal(first.failed, 1, JSON.stringify(first));
       assert.deepEqual(labels, ["30 天后到期"]);
@@ -181,7 +201,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       )).rows;
       assert.equal(queuedRow.length, 1);
       assert.equal(queuedRow[0].status, "failed");
-      assert.equal(queuedRow[0].deadline, "2026-10-31");
+      assert.equal(queuedRow[0].deadline, shanghaiDate(30));
 
       // 10 月 3 日重试：只剩 28 天，已经不是"30 天后到期"这件事，不得补发。
       const lateLabels = [];
@@ -190,7 +210,7 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
           lateLabels.push(message.eventLabel);
           return { messageId: "late" };
         },
-      }, reminderConfig, new Date("2026-10-03T04:00:00Z"));
+      }, reminderConfig, new Date(reminderDispatchNow().getTime() + 2 * 24 * 3600_000));
       assert.deepEqual(lateLabels, [], `a stale milestone must not be delivered: ${JSON.stringify(lateLabels)}`);
       assert.equal(second.sent, 0, JSON.stringify(second));
       const rows = (await pool.query(

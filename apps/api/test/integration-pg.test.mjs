@@ -11,6 +11,27 @@ import { createTestGateway } from "./helpers/fake-wechat.mjs";
 import { isolatedPostgres, contend, bounded, signal } from "./helpers/isolated-pg.mjs";
 
 const url = process.env.TEST_DATABASE_URL?.trim() ?? "";
+
+/** 上海日历日（可偏移天数）：时间敏感的提醒用例不能依赖固定日期，否则真实时间一过就腐化。 */
+function shanghaiDate(offsetDays) {
+  const real = new Date();
+  const shanghai = new Date(real.getTime() + 8 * 3600 * 1000);
+  const shifted = new Date(Date.UTC(shanghai.getUTCFullYear(), shanghai.getUTCMonth(), shanghai.getUTCDate() + offsetDays));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * 调度时刻：取"真实时间（或当日上海 09:30，保证在提醒窗口内）之后一分钟"。
+ * 比真实时间晚一点，才能覆盖刚由同一轮调度写入的 next_attempt_at = now()。
+ */
+function reminderDispatchNow() {
+  const real = new Date();
+  const shanghai = new Date(real.getTime() + 8 * 3600 * 1000);
+  const windowStart = Date.UTC(shanghai.getUTCFullYear(), shanghai.getUTCMonth(), shanghai.getUTCDate(), 1, 30);
+  const base = real.getTime() >= windowStart ? real.getTime() : windowStart;
+  return new Date(base + 60_000);
+}
+
 const required = process.env.REQUIRE_POSTGRES_TESTS === "1";
 const batch = (quantity = 2) => ({ quantity, unit: "box", lotNumber: randomUUID(), expiry: { value: "2099-12", precision: "month" }, storageLocation: "药箱" });
 const medicineLock = /SELECT[\s\S]*FROM medicines[\s\S]*FOR UPDATE/;
@@ -259,7 +280,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
         barcodeValue: "6901234567890",
         lowStockThreshold: { quantity: 2, unit: "box" },
         batches: [
-          { quantity: 2, unit: "box", expiry: { value: "2027-01", precision: "month" }, openedState: "opened", openedAt: "2026-09-01", afterOpeningLimit: { value: 1, unit: "month", source: "包装说明" } },
+          { quantity: 2, unit: "box", expiry: { value: "2027-01", precision: "month" }, openedState: "opened", openedAt: shanghaiDate(-30), afterOpeningLimit: { value: 30, unit: "day", source: "包装说明" } },
           { quantity: 1, unit: "box", expiry: { value: "2099-12", precision: "month" }, openedState: "unopened" },
         ],
       }), 201);
@@ -272,16 +293,17 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
           sentReminders.push(message);
           return { messageId: `synthetic-${sentReminders.length}` };
         },
-      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      }, reminderConfig, reminderDispatchNow());
       const reminderRows = (await pool.query("SELECT status, deadline_date::text, last_error_code FROM reminder_deliveries ORDER BY created_at")).rows;
       assert.equal(dispatched.sent, 1, JSON.stringify({ dispatched, sentReminders, reminderRows }));
-      assert.equal(sentReminders[0].deadlineDate, "2026-10-01", "the earlier opening deadline drives the reminder");
+      const today = shanghaiDate(0);
+      assert.equal(sentReminders[0].deadlineDate, today, "the earlier opening deadline drives the reminder");
       assert.equal(sentReminders[0].medicineName, "开封期限测试药");
       const med = status(await request(owner, "GET", `/medicines/${created.id}`), 200);
       assert.equal(med.barcodeValue, "6901234567890");
       assert.equal(med.lowStockThreshold.quantity, 2);
-      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).openedExpiryDate, "2026-10-01");
-      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).managementExpiryDate, "2026-10-01");
+      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).openedExpiryDate, today);
+      assert.equal(med.batches.find((entry) => entry.id === created.batches[0].id).managementExpiryDate, today);
       assert.equal(med.stockStatus.state, "ok");
 
       assert.deepEqual(status(await request(owner, "GET", "/families/settings"), 200).settings, {
@@ -292,7 +314,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       const firstSession = status(await request(owner, "POST", "/families/stocktakes"), 201).stocktake;
       assert.equal(firstSession.items.length, 2);
       const openedBatch = med.batches.find((entry) => entry.openedState === "opened");
-      assert.equal(firstSession.items.find((entry) => entry.batchId === openedBatch.id).managementExpiryDate, "2026-10-01");
+      assert.equal(firstSession.items.find((entry) => entry.batchId === openedBatch.id).managementExpiryDate, today);
       const changed = status(await request(member, "PUT", `/medicines/${med.id}/batches/${openedBatch.id}`, {
         ...openedBatch, quantity: 3,
       }), 200);
@@ -349,7 +371,8 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
 
       const backup = status(await request(owner, "POST", "/backups/json"), 200);
       assert.equal(backup.medicines[0].barcodeValue, "6901234567890");
-      assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.value, 1);
+      assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.value, 30);
+      assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.unit, "day");
       assert.equal(JSON.stringify(backup).includes("dosage"), false);
       backup.inventorySettings.stocktakeInterval = "monthly";
       const preview = status(await request(owner, "POST", "/backups/preview", { backup }), 200);
