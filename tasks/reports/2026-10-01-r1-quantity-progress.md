@@ -33,6 +33,27 @@
 
 改造中发现的连带修正：审计事件 `changes` 里的 numeric 以字符串保存（触发器既有行为），测试改为显式归一后比较。
 
+## 已完成：R1-2 人群／用途标签（后端）
+
+### 迁移 014（新增）
+
+| 改动 | 细节 |
+|---|---|
+| 标签列 | `medicines.population_tags text[]`、`purpose_tags text[]`（默认空数组 = 未标注）；`tag_source`（`manual`／`catalog`／`imported`），默认 `manual` |
+| 元素白名单 | `population_tags <@ ARRAY['adult','child']`、`purpose_tags <@ ARRAY['fever','cough','throat','nasal','gastro','pain','topical','allergy','other']`，数据库兜底 |
+| 筛选索引 | 两列各建 GIN 索引，供药箱多选筛选使用 |
+
+### 服务端
+
+- contracts：新增 `PopulationTag`、`PurposeTag`、`TagSource`；`CreateMedicineInput` 与 `MedicationSummary` 增加标签字段（向后兼容，旧客户端忽略即可）。
+- inputs：新增 `tagList` 校验（白名单、去重、非数组报错）；空数组语义为"未标注"。
+- 仓储：`insertMedicine`／`updateMedicine` 读写标签列；summary 输出 `populationTags`／`purposeTags`／`tagSource`。
+- 旧 `purposeCategory` 自由文本完全保留，与标签并存，不被覆盖。
+
+### 验证
+
+新增真实 PG 套件 `integration-pg-tags.test.mjs` **5/5**（迁移列与白名单、标签去重与多选往返、清空为未标注、旧自由文本存活、非法/非数组 400、`@>` 包含语义筛选）。既有套件无回归：数量 6/6、提醒 4/4、主套件 19/19。API 单元 182 PASS（含两处参数索引断言更新）。
+
 ## R1 尚未完成（下一步）
 
 | 子项 | 内容 |

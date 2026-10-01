@@ -30,6 +30,24 @@ export type StocktakeInterval = "weekly" | "monthly" | "disabled";
 export type RestockStatus = "needed" | "purchased" | "dismissed";
 export type DispositionStatus = "active" | "handled";
 
+/** 人群整理标签：空数组表示"未标注"；成人可与儿童同时标记。 */
+export type PopulationTag = "adult" | "child";
+
+/** 用途整理标签：家庭整理用，不代表适应症判断。 */
+export type PurposeTag =
+  | "fever"
+  | "cough"
+  | "throat"
+  | "nasal"
+  | "gastro"
+  | "pain"
+  | "topical"
+  | "allergy"
+  | "other";
+
+/** 标签来源：人工填写 / 资料候选 / 导入。 */
+export type TagSource = "manual" | "catalog" | "imported";
+
 export type MemberRole = "owner" | "member";
 
 export type ApiErrorCode =
@@ -259,6 +277,8 @@ export interface SplitBatchResponse {
 
 export interface CreateMedicineInput {
   name: string;
+  populationTags?: PopulationTag[];
+  purposeTags?: PurposeTag[];
   specification?: string | null;
   manufacturer?: string | null;
   approvalNumber?: string | null;
@@ -299,6 +319,12 @@ export interface MedicationBatchSummary {
 export interface MedicationSummary {
   id: string;
   name: string;
+  /** 人群整理标签（可多选）；空数组 = 未标注。 */
+  populationTags?: PopulationTag[];
+  /** 用途整理标签（可多选）。 */
+  purposeTags?: PurposeTag[];
+  /** 标签来源，便于区分人工填写与资料候选。 */
+  tagSource?: TagSource;
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;

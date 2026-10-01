@@ -9,7 +9,7 @@
  * - 逐个文件编译而不是整包，便于精确定位到具体页面；
  * - 该脚本不替代 IDE 预览，只回答"官方编译器能否通过"。
  */
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";

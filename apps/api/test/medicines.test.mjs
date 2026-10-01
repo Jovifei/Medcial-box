@@ -124,7 +124,10 @@ test("creating a medicine with an initial batch returns version 1 and derived st
     const insertMedicine = pool.callsMatching(/INSERT INTO medicines/)[0];
     assert.equal(insertMedicine.params[0], "family-1");
     assert.equal(insertMedicine.params[5], "6901234567890");
-    assert.equal(insertMedicine.params[16], "user-1");
+    // 标签列在 purpose_category 之后插入（$15/$16），created_by 因此后移两位。
+    assert.deepEqual(insertMedicine.params[14], []);
+    assert.deepEqual(insertMedicine.params[15], []);
+    assert.equal(insertMedicine.params[18], "user-1");
     const insertBatch = pool.callsMatching(/INSERT INTO medicine_batches/)[0];
     assert.equal(insertBatch.params[0], "m-new");
     assert.equal(insertBatch.params[1], "family-1");
@@ -212,8 +215,10 @@ test("updating a medicine bumps the version when the expected version matches", 
     const update = pool.callsMatching(/UPDATE medicines SET/)[0];
     assert.equal(update.params[0], "m-1");
     assert.equal(update.params[1], "family-1");
-    assert.equal(update.params[18], "user-1");
-    assert.equal(update.params[19], 1);
+    assert.deepEqual(update.params[15], []);
+    assert.deepEqual(update.params[16], []);
+    assert.equal(update.params[20], "user-1");
+    assert.equal(update.params[21], 1);
   } finally {
     await app.close();
   }

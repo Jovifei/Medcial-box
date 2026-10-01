@@ -7,6 +7,8 @@
 import type {
   AfterOpeningLimitInput,
   ExpiryPrecision,
+  PopulationTag,
+  PurposeTag,
   OpenedState,
   QuantityUnit,
   RestockStatus,
@@ -46,6 +48,23 @@ const OPENED_LIMIT_UNITS = ["day", "month"] as const;
 const STOCKTAKE_INTERVALS: readonly StocktakeInterval[] = ["weekly", "monthly", "disabled"];
 const STOCKTAKE_OUTCOMES = ["unchanged", "adjusted", "empty", "handled", "deferred"] as const;
 const RESTOCK_STATUSES: readonly RestockStatus[] = ["needed", "purchased", "dismissed"];
+
+const POPULATION_TAGS = ["adult", "child"] as const;
+const PURPOSE_TAGS = ["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "other"] as const;
+
+/** 标签数组：去重、去空、白名单校验；空数组表示"未标注"。 */
+function tagList<T extends string>(value: unknown, field: string, allowed: readonly T[]): T[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new InputError(`${field} 必须是数组`);
+  const seen = new Set<T>();
+  for (const item of value) {
+    if (typeof item !== "string" || !allowed.includes(item as T)) {
+      throw new InputError(`${field} 含不支持的标签`);
+    }
+    seen.add(item as T);
+  }
+  return [...seen];
+}
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -316,6 +335,10 @@ export function validateBatchSplitInput(raw: unknown): ValidationResult<Validate
 
 export interface ValidatedMedicineFields {
   name: string;
+  /** 人群整理标签；空数组 = 未标注。 */
+  populationTags: PopulationTag[];
+  /** 用途整理标签。 */
+  purposeTags: PurposeTag[];
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
@@ -382,6 +405,8 @@ function parseMedicine(raw: Record<string, unknown>): ValidatedMedicineFields {
 
   return {
     name,
+    populationTags: tagList(raw.populationTags, "populationTags", POPULATION_TAGS),
+    purposeTags: tagList(raw.purposeTags, "purposeTags", PURPOSE_TAGS),
     specification: text(raw.specification, "specification"),
     manufacturer: text(raw.manufacturer, "manufacturer"),
     approvalNumber: text(raw.approvalNumber, "approvalNumber"),

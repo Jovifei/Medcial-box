@@ -27,6 +27,9 @@ export interface MedicineRow {
   leaflet_precautions_summary: string | null;
   leaflet_source: string | null;
   leaflet_review_status: string;
+  population_tags: string[] | null;
+  purpose_tags: string[] | null;
+  tag_source: string;
   is_archived: boolean;
   /** numeric(14,3)：pg 返回字符串。 */
   low_stock_threshold_quantity: number | string | null;
@@ -36,7 +39,12 @@ export interface MedicineRow {
 }
 
 const MEDICINE_COLUMNS =
-  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version";
+  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version";
+
+/** text[] 列经 pg 返回字符串数组；null/异常一律按空数组处理。 */
+function textArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
 
 export function toMedicineSummary(
   row: MedicineRow,
@@ -64,6 +72,9 @@ export function toMedicineSummary(
     barcodeValue: row.barcode_value ?? null,
     activeIngredients: parseJsonArray(row.active_ingredients),
     purposeCategory: row.purpose_category ?? null,
+    populationTags: textArray(row.population_tags) as MedicationSummary["populationTags"],
+    purposeTags: textArray(row.purpose_tags) as MedicationSummary["purposeTags"],
+    tagSource: (row.tag_source ?? "manual") as MedicationSummary["tagSource"],
     leaflet: {
       purposeSummary: row.leaflet_purpose_summary ?? null,
       packageUsageSummary: row.leaflet_package_usage_summary ?? null,
@@ -127,8 +138,8 @@ export async function insertMedicine(
   userId: string,
 ): Promise<MedicineRow> {
   const result = await database.query<MedicineRow>(
-    `INSERT INTO medicines (family_id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, low_stock_threshold_quantity, low_stock_threshold_unit, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    `INSERT INTO medicines (family_id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, low_stock_threshold_quantity, low_stock_threshold_unit, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'manual', $17, $18, $19, $20)
      RETURNING ${MEDICINE_COLUMNS}`,
     [
       familyId,
@@ -145,6 +156,8 @@ export async function insertMedicine(
       fields.leafletPrecautionsSummary,
       fields.leafletSource,
       fields.leafletReviewStatus,
+      fields.populationTags,
+      fields.purposeTags,
       fields.lowStockThreshold?.quantity ?? null,
       fields.lowStockThreshold?.unit ?? null,
       userId,
@@ -173,10 +186,11 @@ export async function updateMedicine(
        leaflet_purpose_summary = $10, leaflet_package_usage_summary = $11,
        leaflet_contraindications_summary = $12, leaflet_precautions_summary = $13,
        leaflet_source = $14, leaflet_review_status = $15,
-       low_stock_threshold_quantity = CASE WHEN $16 THEN $17 ELSE low_stock_threshold_quantity END,
-       low_stock_threshold_unit = CASE WHEN $16 THEN $18 ELSE low_stock_threshold_unit END,
-       updated_by = $19, version = version + 1, updated_at = now()
-     WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL AND version = $20
+       population_tags = $16, purpose_tags = $17,
+       low_stock_threshold_quantity = CASE WHEN $18 THEN $19 ELSE low_stock_threshold_quantity END,
+       low_stock_threshold_unit = CASE WHEN $18 THEN $20 ELSE low_stock_threshold_unit END,
+       updated_by = $21, version = version + 1, updated_at = now()
+     WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL AND version = $22
      RETURNING ${MEDICINE_COLUMNS}`,
     [
       medicineId,
@@ -194,6 +208,8 @@ export async function updateMedicine(
       fields.leafletPrecautionsSummary,
       fields.leafletSource,
       fields.leafletReviewStatus,
+      fields.populationTags,
+      fields.purposeTags,
       fields.lowStockThresholdProvided,
       fields.lowStockThreshold?.quantity ?? null,
       fields.lowStockThreshold?.unit ?? null,
