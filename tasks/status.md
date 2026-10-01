@@ -1,5 +1,7 @@
 # 当前状态 · 2026-10-01 双端录入体验与用药计划（R3/R4 服务端与小程序完成，R5 待真机）
 
+- **2026-10-02 模拟器实跑通过**：`wechatide` CLI skill 通道首次打通（CodeBuddy 客户端已授权、工具已登录 Jovi），项目导入开发者工具后在模拟器内完成**全链路实跑**：真实 wx.login（开发网关）→ 建家庭 → 录药 → 详情 → 创建计划 → 今日安排确认 → 计划详情历史 → 版本说明；console 无错误，PG 逐条核验一致。新增 `scripts/dev-simulator-server.mjs`（真实 API + 真实 PG + 开发网关，端口 13300；本机 3000 被其他项目占用）。发现并修复 `dist/` 陈旧导致的 auth/me 404（教训：跑 dist 前先构建）。证据 14 张截图 + 报告：[模拟器实跑报告](reports/2026-10-02-simulator-run.md)。
+
 - **2026-10-02 更新**：药箱专用 AppID 已确认（`wx1f6dd99d28aab8e5`，公开客户端标识，已填入 `project.config.json`）。服药提醒模板环境变量接线补齐（`WECHAT_DOSE_REMINDER_TEMPLATE_ID` / `WECHAT_DOSE_REMINDER_FIELD_MAP` / `WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED`，含 compose 传递与 env 样例）。剩余人工步骤：① AppSecret 由所有者填入服务端 `deploy/.env.local`（不进聊天/仓库）；② mp 后台申请订阅消息模板并回填模板 ID；③ 开发者工具扫码登录后真机预览。`wechatide` CLI 仍被 `reg.exe` 黑名单阻塞。
 - **本次更新（R3 + R4）**：R3 用药计划全链路完成并验证（后端详情/编辑/历史/授权接口 + 小程序今日安排、全部计划、计划详情、照护对象与共享权限页）；R4 服药提醒服务端链路完成（迁移 `018`、排队/复核/取消调度器、订阅与发送结果展示）并完成版本介绍与更新链路。**当前 PASS**：根 `lint`/`typecheck`/`build`；小程序 **96/96**；API 单元 **184**；工具 6/6；**严格真实 PostgreSQL 59/59**（19+4+6+5+6+10+9）；官方编译器门禁 **47 个文件全部通过**。详见 [R3/R4 交付与测试报告](reports/2026-10-01-r3-r4-medication-and-reminders.md)。
 - 本轮修复的真实缺陷：① 今日安排客户端未排序（已按时间升序）；② 改期删除时间点会级联删掉服药历史（迁移 `017` 改为归档时间点，历史保留、未来按新时间点物化）。
