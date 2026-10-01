@@ -21,6 +21,7 @@ import { createDefaultMedicineCatalogProvider, type MedicineCatalogProvider } fr
 import { createDefaultReminderTemplateConfig, type ReminderTemplateConfig } from "./services/subscribe-messages.js";
 import { registerReminderRoutes } from "./routes/reminders.js";
 import { registerLeafletPhotoRoutes } from "./routes/leaflet-photos.js";
+import { registerMedicationPlanRoutes } from "./routes/medication-plans.js";
 import { registerBackupRoutes } from "./routes/backups.js";
 import { PrivatePhotoStore } from "./services/private-photo-store.js";
 
@@ -66,6 +67,7 @@ export async function buildServer(options: BuildServerOptions) {
   await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider());
   await registerReminderRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());
   await registerLeafletPhotoRoutes(app, options.database, options.privatePhotoStore ?? new PrivatePhotoStore());
+  await registerMedicationPlanRoutes(app, options.database);
   await registerBackupRoutes(app, options.database);
 
   return app;
