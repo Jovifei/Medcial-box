@@ -36,27 +36,57 @@ class _StocktakePageState extends State<StocktakePage> {
     try {
       final result = await widget.repository.listMedicines();
       if (!mounted) return;
-      medicines = result;
-      for (final medicine in result) {
-        for (final batch in medicine.batches) {
-          lines.putIfAbsent(batch.id, () => _StocktakeLineState(
-            medicine: medicine,
-            batch: batch,
-            outcome: 'deferred',
-            quantityController: TextEditingController(text: batch.quantity?.toString() ?? ''),
-          ));
-        }
-      }
+      _applySnapshot(result);
       setState(() => loading = false);
     } catch (exception) {
       if (mounted) setState(() { loading = false; error = friendlyApiError(exception); });
     }
   }
 
+  /// 用服务端最新数据替换每行的批次快照（而不是保留旧快照），
+  /// 这样冲突后重新提交携带的是新版本；用户的输入保留但标记需重新核对。
+  void _applySnapshot(List<MedicineRecord> result) {
+    medicines = result;
+    final next = <String, _StocktakeLineState>{};
+    for (final medicine in result) {
+      for (final batch in medicine.batches) {
+        final existing = lines[batch.id];
+        if (existing == null) {
+          next[batch.id] = _StocktakeLineState(
+            medicine: medicine,
+            batch: batch,
+            outcome: 'deferred',
+            quantityController: TextEditingController(text: batch.quantity?.toString() ?? ''),
+          );
+          continue;
+        }
+        final versionChanged = existing.batch.version != batch.version;
+        existing
+          ..medicine = medicine
+          ..batch = batch;
+        if (versionChanged && !existing.saved) existing.serverChanged = true;
+        next[batch.id] = existing;
+      }
+    }
+    // 服务端已删除的行不再参与本次盘点。
+    for (final entry in lines.entries) {
+      if (!next.containsKey(entry.key)) entry.value.quantityController.dispose();
+    }
+    lines
+      ..clear()
+      ..addAll(next);
+  }
+
   Future<void> _submit() async {
     if (submitting) return;
     final payload = <Map<String, Object?>>[];
     for (final line in lines.values) {
+      // 已保存的项不再重复提交；真正需要重试的是冲突、未找到和尚未提交的项。
+      if (line.saved) continue;
+      if (line.serverChanged) {
+        _showError('“${line.medicine.name}”的批次已被家人修改，请核对最新数量后再保存。');
+        return;
+      }
       final int? quantity;
       if (line.outcome == 'adjusted') {
         quantity = int.tryParse(line.quantityController.text.trim());
@@ -76,13 +106,32 @@ class _StocktakePageState extends State<StocktakePage> {
         'quantity': ?quantity,
       });
     }
+    if (payload.isEmpty) {
+      _showError('没有需要提交的盘点项。');
+      return;
+    }
     setState(() => submitting = true);
     try {
-      results = await widget.workflow.submitStocktakeItems(widget.stocktakeId, payload);
-      await widget.repository.listMedicines();
-      if (mounted) setState(() {});
-      final conflicts = results.where((item) => item['outcome'] == 'conflict' || item['outcome'] == 'not_found').length;
-      _showError(conflicts == 0 ? '盘点结果已保存。' : '$conflicts 项发生并发变化，请刷新后核对冲突项。');
+      final submitted = await widget.workflow.submitStocktakeItems(widget.stocktakeId, payload);
+      results = submitted;
+      for (final item in submitted) {
+        final batchId = item['batchId'];
+        if (batchId is! String) continue;
+        final line = lines[batchId];
+        if (line == null) continue;
+        if (item['outcome'] == 'saved') {
+          line
+            ..saved = true
+            ..serverChanged = false;
+        }
+      }
+      // 刷新快照：冲突项据此拿到服务端最新版本，下次提交不再重复发旧版本。
+      final refreshed = await widget.repository.listMedicines();
+      if (!mounted) return;
+      _applySnapshot(refreshed);
+      setState(() {});
+      final conflicts = submitted.where((item) => item['outcome'] == 'conflict' || item['outcome'] == 'not_found').length;
+      _showError(conflicts == 0 ? '盘点结果已保存。' : '$conflicts 项发生并发变化，已刷新最新版本，请重新核对冲突项。');
     } catch (exception) {
       if (mounted) _showError(friendlyApiError(exception));
     } finally {
@@ -91,7 +140,8 @@ class _StocktakePageState extends State<StocktakePage> {
   }
 
   Future<void> _complete() async {
-    if (results.isEmpty || results.any((item) => item['outcome'] == 'conflict')) {
+    final unresolved = results.where((item) => item['outcome'] != 'saved').length;
+    if (results.isEmpty || unresolved > 0) {
       _showError('请先保存盘点结果，并处理并发冲突。');
       return;
     }
@@ -174,7 +224,12 @@ class _StocktakePageState extends State<StocktakePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(line.medicine.name, style: Theme.of(context).textTheme.titleMedium),
+          Row(
+            children: [
+              Expanded(child: Text(line.medicine.name, style: Theme.of(context).textTheme.titleMedium)),
+              if (line.saved) const Text('已保存', style: TextStyle(color: AppColors.leaf)),
+            ],
+          ),
           Text('批号：${line.batch.lotNumber ?? '未记录'} · 当前：${line.batch.quantityDisplay}'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
@@ -193,8 +248,13 @@ class _StocktakePageState extends State<StocktakePage> {
             const SizedBox(height: 8),
             TextField(controller: line.quantityController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '实际余量（${unitLabel(line.batch.unit)}）')),
           ],
+          if (line.serverChanged)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('家人已修改该批次：已载入最新版本，请重新核对后再保存。', style: TextStyle(color: AppColors.terracotta)),
+            ),
           if (conflict)
-            const Padding(padding: EdgeInsets.only(top: 8), child: Text('家人同时修改了该批次；请刷新并重新核对。', style: TextStyle(color: AppColors.terracotta))),
+            const Padding(padding: EdgeInsets.only(top: 8), child: Text('家人同时修改了该批次；已载入最新版本，请重新核对后再次保存。', style: TextStyle(color: AppColors.terracotta))),
         ],
       ),
     );
@@ -210,8 +270,13 @@ class _StocktakePageState extends State<StocktakePage> {
 
 class _StocktakeLineState {
   _StocktakeLineState({required this.medicine, required this.batch, required this.outcome, required this.quantityController});
-  final MedicineRecord medicine;
-  final BatchRecord batch;
+  /// 药品与批次快照必须可替换：刷新后要按服务端最新版本重新提交（A06）。
+  MedicineRecord medicine;
+  BatchRecord batch;
   final TextEditingController quantityController;
   String outcome;
+  /// 已成功保存：重试时不再重复提交这一项。
+  bool saved = false;
+  /// 刷新后发现服务端版本已变化：提示用户重新核对，而不是继续提交旧版本。
+  bool serverChanged = false;
 }

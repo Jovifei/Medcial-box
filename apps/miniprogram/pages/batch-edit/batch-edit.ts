@@ -22,6 +22,10 @@ interface BatchEditPageData {
   medicineId: string;
   batchId: string;
   isEdit: boolean;
+  /** 编辑路由已锁定但批次尚未加载完成：此时保存必须被拦下。 */
+  batchLoading: boolean;
+  /** 加载失败：停留在编辑路由（绝不退回新增），等用户重试。 */
+  loadFailed: boolean;
   version: number;
   submitting: boolean;
   lotNumber: string;
@@ -89,6 +93,8 @@ Page({
     medicineId: "",
     batchId: "",
     isEdit: false,
+    batchLoading: false,
+    loadFailed: false,
     version: 1,
     submitting: false,
     lotNumber: "",
@@ -113,6 +119,9 @@ Page({
     openingLimitModeIndex: 0,
   },
 
+  /** 批次加载 promise：测试与重试都依赖它确定加载结束时刻。 */
+  batchLoadPromise: null as Promise<void> | null,
+
   onLoad(options: { medicineId?: string; batchId?: string }): void {
     if (!options.medicineId) {
       wx.showToast({ title: "缺少药品参数", icon: "none" });
@@ -120,7 +129,12 @@ Page({
       return;
     }
     this.setData({ medicineId: options.medicineId });
-    if (options.batchId) this.loadBatch(options.medicineId, options.batchId);
+    if (options.batchId) {
+      // 路由带 batchId 即刻锁定"编辑"目标：不能等请求回来才决定操作类型，
+      // 否则慢加载期间保存会误转成新增批次。
+      this.setData({ isEdit: true, batchId: options.batchId, batchLoading: true, loadFailed: false });
+      this.batchLoadPromise = this.loadBatch(options.medicineId, options.batchId);
+    }
   },
 
   async loadBatch(medicineId: string, batchId: string): Promise<void> {
@@ -129,14 +143,24 @@ Page({
       const medicine = await api.getMedicine(medicineId);
       const batch = medicine.batches.find((item) => item.id === batchId);
       if (batch === undefined) {
-        wx.showToast({ title: "批次不存在或不可见", icon: "none" });
-        setTimeout(() => wx.navigateBack(), 900);
+        // 批次不可见时留在编辑路由并提供重试；绝不静默变成新增。
+        this.setData({ batchLoading: false, loadFailed: true });
+        wx.showToast({ title: "批次不存在或不可见，请返回后刷新", icon: "none", duration: 2800 });
         return;
       }
-      this.setData(fillFromBatch(batch));
+      this.setData({ ...fillFromBatch(batch), batchLoading: false, loadFailed: false });
     } catch (error) {
+      this.setData({ batchLoading: false, loadFailed: true });
       showError(error);
     }
+  },
+
+  async onRetryLoad(): Promise<void> {
+    const data = this.data as BatchEditPageData;
+    if (!data.isEdit || data.batchId === "" || data.batchLoading) return;
+    this.setData({ batchLoading: true, loadFailed: false });
+    this.batchLoadPromise = this.loadBatch(data.medicineId, data.batchId);
+    await this.batchLoadPromise;
   },
 
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
@@ -251,6 +275,15 @@ Page({
   async onSubmit(): Promise<void> {
     const data = this.data as BatchEditPageData;
     if (data.submitting) return;
+    // 编辑目标未就绪时禁止提交：加载中等待，加载失败先重试，绝不落到新增分支。
+    if (data.isEdit && (data.batchLoading || data.loadFailed)) {
+      wx.showToast({
+        title: data.batchLoading ? "正在加载批次，请稍候" : "批次尚未加载成功，请先重试",
+        icon: "none",
+        duration: 2400,
+      });
+      return;
+    }
     const built = this.buildPayload();
     if (built.payload === null) {
       wx.showToast({ title: built.error ?? "输入不合法", icon: "none", duration: 2800 });
@@ -287,7 +320,7 @@ Page({
 
   async onDelete(): Promise<void> {
     const data = this.data as BatchEditPageData;
-    if (!data.isEdit) return;
+    if (!data.isEdit || data.batchLoading || data.loadFailed) return;
     const confirmation = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "删除批次",

@@ -1,4 +1,13 @@
 <view class="page">
+  <view class="card" wx:if="{{batchLoading}}">
+    <view class="section-title">正在加载批次…</view>
+    <view class="field-hint">加载完成前不能保存，避免把编辑误记成新增批次。</view>
+  </view>
+  <view class="card" wx:elif="{{loadFailed}}">
+    <view class="section-title">批次未能加载</view>
+    <view class="field-hint">可能是网络中断或该批次已被删除。请重试；此页面不会变成新增。</view>
+    <view class="btn btn-ghost" bindtap="onRetryLoad">重新加载</view>
+  </view>
   <view class="card">
     <view class="section-title">{{isEdit ? "编辑批次" : "新增批次"}}</view>
 
@@ -76,9 +85,9 @@
     </view>
   </view>
 
-  <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-    {{submitting ? "保存中…" : (isEdit ? "保存批次" : "添加批次")}}
+  <view class="btn btn-primary {{submitting || batchLoading || loadFailed ? 'disabled' : ''}}" bindtap="onSubmit">
+    {{submitting ? "保存中…" : (batchLoading ? "加载中，暂不能保存" : (loadFailed ? "请先重新加载" : (isEdit ? "保存批次" : "添加批次")))}}
   </view>
-  <view class="btn btn-danger" wx:if="{{isEdit}}" bindtap="onDelete">移入最近删除</view>
+  <view class="btn btn-danger" wx:if="{{isEdit && !batchLoading && !loadFailed}}" bindtap="onDelete">移入最近删除</view>
   <view class="hint footnote">批次数值为空表示"未知"，0 表示"确定耗尽"；导出时会显式标注。</view>
 </view>

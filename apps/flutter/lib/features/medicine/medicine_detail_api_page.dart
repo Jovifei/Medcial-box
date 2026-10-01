@@ -73,16 +73,22 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
   }
 
   Future<void> _editQuantity(MedicineRecord medicine, BatchRecord batch) async {
-    final quantity = await showAppSheet<int?>(
+    final result = await showAppSheet<_QuantityResult>(
       context,
       title: '修改余量',
       builder: (_) => _QuantityForm(initialQuantity: batch.quantity),
     );
-    if (quantity == null && batch.quantity == null) return;
+    // 关闭面板 = 取消：不产生任何写请求（此前"取消"与"未知留空"都返回 null，
+    // 会把关闭面板误当成写入）。
+    if (result == null || result.cancelled) return;
     if (!mounted) return;
     setState(() => submitting = true);
     try {
-      await widget.repository.updateBatch(medicine.id, batch.copyWith(quantity: quantity));
+      // 明确未知写 null，明确 0 写 0，两者都必须真的落库。
+      final updated = result.quantity == null
+          ? batch.copyWith(clearQuantity: true)
+          : batch.copyWith(quantity: result.quantity);
+      await widget.repository.updateBatch(medicine.id, updated);
       _reload();
     } catch (error) {
       if (mounted) _error(error);
@@ -534,6 +540,15 @@ class _BatchDraftFormState extends State<_BatchDraftForm> {
   );
 }
 
+/// 余量面板的显式结果：区分"取消"、"明确未知（null）"和"明确数值（含 0）"。
+class _QuantityResult {
+  const _QuantityResult({required this.cancelled, this.quantity});
+  const _QuantityResult.dismissed() : cancelled = true, quantity = null;
+  const _QuantityResult.value(this.quantity) : cancelled = false;
+  final bool cancelled;
+  final int? quantity;
+}
+
 class _QuantityForm extends StatefulWidget {
   const _QuantityForm({required this.initialQuantity});
   final int? initialQuantity;
@@ -557,8 +572,11 @@ class _QuantityFormState extends State<_QuantityForm> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量请输入 0 或正整数，未知留空。')));
           return;
         }
-        Navigator.pop(context, value);
+        // 留空是"明确未知"（写 null），关闭面板才是取消。
+        Navigator.pop(context, _QuantityResult.value(value));
       }),
+      const SizedBox(height: 8),
+      SoftButton(label: '取消', onPressed: () => Navigator.pop(context, const _QuantityResult.dismissed())),
     ],
   );
 }

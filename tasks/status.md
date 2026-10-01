@@ -1,8 +1,8 @@
 # 当前状态 · 2026-10-01 双端录入体验与用药计划（R0 进行中）
 
 - 当前阶段：按 [2026-10-01 双端录入体验与用药计划实施方案](plans/2026-10-01-dual-client-experience-and-medication.md) 推进 **R0 数据修复**；优先级固定为 数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
-- R0 进度：**恢复保真与身份隔离已完成并验证**（提交 `33b30a8` / `3bf458b`，已推送 `origin/codex/flutter-ui-prototype`）；**编辑与提醒回归未完成**（A05、A06、A08、A09、A14、A15 待修），R0 门禁未通过，暂不进入 R1。详见 [R0 就绪核对报告](reports/2026-10-01-r0-readiness.md)。
-- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 51/51；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 3/3**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
+- R0 进度：**A01/A02/A04/A05/A07/A08/A12/A14/A15 已修复并有行为测试与真实 PG 证据**（小程序 56/56、PG 19/19 + 4/4）；**A06、A09 为 Flutter 改动，本机无 Flutter SDK 未验证**，R0 待 Flutter 环境收口后进入 R1。详见 [R0 就绪核对报告](reports/2026-10-01-r0-readiness.md)。
+- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 56/56；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 4/4**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
 - 当前 NOT_RUN：Flutter `analyze`/`test`/`build apk`（本机无 Flutter SDK）、真机与微信开发者工具、真实订阅消息送达、双账号双手机试用、ECS 独立部署。
 - R1–R5 未开始：库存模型（ml／板、确认换算、照片、标签）、页面体验（四导航与卡片筛选）、用药计划（照护对象与确认历史）、通知与更新、家庭试用。
 - 主目录 `E:\project\medcial_box` 的原有未提交改动未触碰；本轮只在候选工作树内改动。

@@ -201,6 +201,8 @@ class BatchRecord {
 
   BatchRecord copyWith({
     int? quantity,
+    /// 显式清空余量（写 null = "数量未知"），与"不改动"区分开。
+    bool clearQuantity = false,
     String? unit,
     String? openedState,
     String? openedAt,
@@ -214,7 +216,7 @@ class BatchRecord {
     expiryValue: expiryValue,
     expiryPrecision: expiryPrecision,
     expiryState: expiryState,
-    quantity: quantity ?? this.quantity,
+    quantity: clearQuantity ? null : (quantity ?? this.quantity),
     unit: unit ?? this.unit,
     confirmedUnitsPerPackage: confirmedUnitsPerPackage,
     storageLocation: storageLocation ?? this.storageLocation,

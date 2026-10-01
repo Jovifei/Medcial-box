@@ -1187,7 +1187,261 @@ test("notification page requests only available templates after the user taps", 
   assert.match(page.data.statusText, /服务端已记录/);
 });
 
+test("A05: slow batch load never turns an edit into a new batch", async () => {
+  const creates = [];
+  const updates = [];
+  const toasts = [];
+  let releaseLoad;
+  const loadGate = new Promise((resolve) => { releaseLoad = resolve; });
+  const loadedMedicine = {
+    id: "medicine-1",
+    name: "测试药",
+    batches: [{
+      id: "batch-1", lotNumber: "L1", expiry: { value: "2027-12-31", precision: "day" },
+      quantity: 2, unit: "box", confirmedUnitsPerPackage: null, storageLocation: null,
+      openedState: "unopened", openedAt: null, afterOpeningLimit: null, version: 4,
+    }],
+  };
+  const { definition } = loadPage("pages/batch-edit/batch-edit.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          getMedicine: async () => { await loadGate; return loadedMedicine; },
+          createBatch: async (...args) => { creates.push(args); return {}; },
+          updateBatch: async (...args) => { updates.push(args); return {}; },
+        },
+        ApiError: class ApiError extends Error {},
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: { showToast: (options) => toasts.push(options.title), navigateBack() {} },
+  });
+  const page = makePageContext(definition);
+  page.onLoad({ medicineId: "medicine-1", batchId: "batch-1" });
+
+  // 路由一进来就必须锁定编辑身份，而不是等请求回来才确定。
+  assert.equal(page.data.isEdit, true);
+  assert.equal(page.data.batchId, "batch-1");
+  assert.equal(page.data.batchLoading, true);
+
+  page.onFieldInput({ currentTarget: { dataset: { field: "quantity" } }, detail: { value: "3" } });
+  await page.onSubmit();
+  assert.deepEqual(creates, [], "saving during a slow load must never create a new batch");
+  assert.deepEqual(updates, [], "nothing may be written before the batch is loaded");
+  assert.match(toasts.join(" | "), /正在加载/);
+
+  releaseLoad();
+  await page.batchLoadPromise;
+  assert.equal(page.data.batchLoading, false);
+  assert.equal(page.data.quantity, "2", "loaded values replace the provisional input");
+  page.onFieldInput({ currentTarget: { dataset: { field: "quantity" } }, detail: { value: "3" } });
+  await page.onSubmit();
+  assert.deepEqual(creates, [], "a loaded edit target still must not create");
+  assert.equal(updates.length, 1);
+  assert.deepEqual(updates[0].slice(0, 2), ["medicine-1", "batch-1"]);
+  assert.equal(updates[0][2].version, 4);
+});
+
+test("A05: a failed load keeps the edit target and blocks saving instead of falling back to create", async () => {
+  const creates = [];
+  const updates = [];
+  const toasts = [];
+  const { definition } = loadPage("pages/batch-edit/batch-edit.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          getMedicine: async () => { throw new Error("network down"); },
+          createBatch: async (...args) => { creates.push(args); return {}; },
+          updateBatch: async (...args) => { updates.push(args); return {}; },
+        },
+        ApiError: class ApiError extends Error {},
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: { showToast: (options) => toasts.push(options.title), navigateBack() {} },
+  });
+  const page = makePageContext(definition);
+  page.onLoad({ medicineId: "medicine-1", batchId: "batch-1" });
+  await page.batchLoadPromise;
+
+  assert.equal(page.data.isEdit, true, "a failed load must not downgrade the route to create");
+  assert.equal(page.data.loadFailed, true);
+  await page.onSubmit();
+  assert.deepEqual(creates, [], "a failed load must never fall back to creating a batch");
+  assert.deepEqual(updates, []);
+
+  // 重试成功后仍走编辑提交（同一路由，不允许降级为新增）。
+  assert.equal(typeof page.onRetryLoad, "function");
+});
+
+test("A14: a late recognition response never refills fields the user cleared", async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const draft = {
+    name: "识别出的药名",
+    specification: "10片",
+    manufacturer: "识别厂家",
+    approvalNumber: null,
+    purposeCategory: null,
+    lotNumber: "LOT-R",
+    expiryValue: "2027-12-31",
+    expiryPrecision: "day",
+  };
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          recognizeMedicine: async () => {
+            await gate;
+            return { draft, warnings: [], requiresConfirmation: true };
+          },
+        },
+        ApiError: class ApiError extends Error {},
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: {
+      chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
+      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      showToast() {},
+      showModal(options) { options?.success?.({ confirm: true }); },
+    },
+  });
+  const page = makePageContext(definition);
+  page.onLoad({});
+  const pending = page.onRecognizePhoto("camera");
+  // 识别飞行中用户输入再清空：清空是显式修改，晚到的响应不得覆盖。
+  page.onFieldInput({ currentTarget: { dataset: { field: "name" } }, detail: { value: "我写的药名" } });
+  page.onFieldInput({ currentTarget: { dataset: { field: "name" } }, detail: { value: "" } });
+  release();
+  await pending;
+
+  assert.equal(page.data.name, "", "explicitly cleared field must stay cleared");
+  assert.equal(page.data.specification, "10片", "untouched empty fields may still be filled");
+});
+
+test("A14: a late recognition response does not write into a batch the user removed", async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const draft = {
+    name: null, specification: null, manufacturer: null, approvalNumber: null, purposeCategory: null,
+    lotNumber: "LOT-LATE",
+    expiryValue: "2027-12-31",
+    expiryPrecision: "day",
+  };
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          recognizeMedicine: async () => {
+            await gate;
+            return { draft, warnings: [], requiresConfirmation: true };
+          },
+        },
+        ApiError: class ApiError extends Error {},
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: {
+      chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
+      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      showToast() {},
+      showModal(options) { options?.success?.({ confirm: true }); },
+    },
+  });
+  const page = makePageContext(definition);
+  page.onLoad({});
+  page.onAddBatch();
+  assert.equal(page.data.batches.length, 2);
+  const pending = page.onRecognizePhoto("camera");
+  // 飞行中用户删掉第一个批次：晚到响应不能错位写进剩下的批次。
+  page.onRemoveBatch({ currentTarget: { dataset: { index: "0" } } });
+  assert.equal(page.data.batches.length, 1);
+  release();
+  await pending;
+
+  assert.equal(page.data.batches[0].lotNumber, "", "late response must not land in another batch");
+  assert.equal(page.data.batches[0].expiryValue, "", "late response must not overwrite the remaining batch dates");
+});
+
+test("A15: confirming a candidate never re-attributes hand-written leaflet text to a supplier", () => {
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": { api: {}, ApiError: class ApiError extends Error {} },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+    wx: { showToast() {} },
+  });
+  const candidate = {
+    name: "候选药",
+    specification: null,
+    manufacturer: null,
+    approvalNumber: null,
+    barcodeValue: null,
+    activeIngredients: [],
+    leaflet: {
+      purposeSummary: "供应商写的用途",
+      packageUsageSummary: null,
+      contraindicationsSummary: null,
+      precautionsSummary: null,
+      source: "极速数据",
+      reviewStatus: "unverified",
+    },
+    source: "极速数据",
+    sourceUpdatedAt: null,
+    matchReasons: [],
+  };
+  // 用户已经手写了一段用途说明（来源是药盒照片，不是供应商）。
+  const page = makePageContext(definition, {
+    data: {
+      ...structuredClone(definition.data),
+      leafletPurpose: "我自己照包装写的用途",
+      leafletSource: "药盒照片",
+      candidate,
+      candidates: [candidate],
+    },
+  });
+  page.onApplyCandidate();
+  assert.equal(page.data.leafletPurpose, "我自己照包装写的用途", "existing text must not be overwritten");
+  assert.equal(page.data.leafletSource, "药盒照片",
+    "source must not be re-attributed to the supplier when the content is the user's own");
+
+  // 用户说明书字段全空时，才允许随内容一起带上供应商来源。
+  const emptyPage = makePageContext(definition, {
+    data: { ...structuredClone(definition.data), candidate, candidates: [candidate] },
+  });
+  emptyPage.onApplyCandidate();
+  assert.equal(emptyPage.data.leafletPurpose, "供应商写的用途");
+  assert.equal(emptyPage.data.leafletSource, "极速数据", "content and its source move together");
+});
+
 test("A12: token survives local storage failures and follows session lifecycle", () => {
+
   const service = loadApi({
     wx: {
       getStorageSync() { throw new Error("storage unavailable"); },

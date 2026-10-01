@@ -370,6 +370,13 @@ Page({
 
   /** 编辑已有药品时，识别必须等待资料加载完成，避免后返回的请求覆盖识别草稿。 */
   medicineLoadPromise: null as Promise<void> | null,
+  /**
+   * 字段修改版本：用户显式改过（含清空为 ""）的字段，晚到的识别/候选响应不得覆盖。
+   * 键为 setData 路径（"name"、"batches[0].expiryValue"…）。
+   */
+  touchedFields: {} as Record<string, number>,
+  /** 识别请求代次：只接受最新一次请求的响应，旧响应直接丢弃。 */
+  recognitionToken: 0,
   draftStorageKey: null as string | null,
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
@@ -614,9 +621,15 @@ Page({
     wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: "/pages/index/index" }) });
   },
 
+  /** 标记字段被用户显式修改（含清空）：这是"我已决定这里的值"的唯一依据。 */
+  markFieldTouched(fieldPath: string): void {
+    this.touchedFields[fieldPath] = (this.touchedFields[fieldPath] ?? 0) + 1;
+  },
+
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
+    this.markFieldTouched(field);
     this.setData({ [field]: event.detail.value });
     this.updateDirtyState();
   },
@@ -778,11 +791,30 @@ Page({
     if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
     if (data.ingredients.trim() === "" && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
     if (candidate.leaflet !== null) {
+      // 内容与来源必须同源：用户自己写过的说明书文字不能被改写成供应商来源。
+      const hasOwnLeafletText = [
+        data.leafletPurpose,
+        data.leafletUsage,
+        data.leafletContraindications,
+        data.leafletPrecautions,
+      ].some((text) => text.trim() !== "");
+      const candidateHasLeafletText = [
+        candidate.leaflet.purposeSummary,
+        candidate.leaflet.packageUsageSummary,
+        candidate.leaflet.contraindicationsSummary,
+        candidate.leaflet.precautionsSummary,
+      ].some((text) => (text ?? "").trim() !== "");
       if (data.leafletPurpose.trim() === "") fields.leafletPurpose = candidate.leaflet.purposeSummary ?? "";
       if (data.leafletUsage.trim() === "") fields.leafletUsage = candidate.leaflet.packageUsageSummary ?? "";
       if (data.leafletContraindications.trim() === "") fields.leafletContraindications = candidate.leaflet.contraindicationsSummary ?? "";
       if (data.leafletPrecautions.trim() === "") fields.leafletPrecautions = candidate.leaflet.precautionsSummary ?? "";
-      fields.leafletSource = candidate.source;
+      if (!hasOwnLeafletText && candidateHasLeafletText) {
+        // 整段内容都来自候选项：来源随内容一起替换。
+        fields.leafletSource = candidate.source;
+      } else if (hasOwnLeafletText && candidateHasLeafletText) {
+        // 混合内容：保留用户原来的来源，不把整段归因给供应商。
+        wx.showToast({ title: "已补全说明书内容；来源保持为你原来的记录", icon: "none" });
+      }
       fields.verified = false;
       fields.optionalExpanded = true;
     }
@@ -807,6 +839,11 @@ Page({
   ): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
     if (initialData.recognizing || initialData.submitting) return;
+    // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
+    // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
+    const token = ++this.recognitionToken;
+    const touchedSnapshot = { ...this.touchedFields };
+    const batchShape = initialData.batches.map((batch) => batch.id ?? "");
     this.setData({ recognizing: true });
     try {
       if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
@@ -837,16 +874,21 @@ Page({
       this.setData({ recognitionHint: "正在识别药盒，请稍候…" });
       await ensureLoggedIn();
       const result = await api.recognizeMedicine(imageBase64, mimeType);
+      // 过期响应（期间又发起过识别/已加载别的药品）直接丢弃。
+      if (token !== this.recognitionToken) return;
       const draft = result.draft;
       const current = this.data as MedicineEditPageData;
       const first = current.batches[0];
+      // 只有用户自上次快照以来没有改过这个字段，才允许识别结果填入。
+      const untouched = (fieldPath: string): boolean =>
+        (this.touchedFields[fieldPath] ?? 0) === (touchedSnapshot[fieldPath] ?? 0);
       const fields: Record<string, unknown> = {
         recognitionHint: result.warnings.length > 0
           ? `识别完成，请逐项核对。${result.warnings.join("；")}`
           : "识别完成，请对照包装核对后保存。有效期在另一面时可再拍一次。",
       };
       for (const key of ["name", "specification", "manufacturer", "approvalNumber", "purposeCategory"] as const) {
-        if (current[key].trim() === "" && draft[key] !== null && draft[key] !== "") {
+        if (untouched(key) && current[key].trim() === "" && draft[key] !== null && draft[key] !== "") {
           fields[key] = draft[key];
           if (key === "purposeCategory") {
             const optionIndex = PURPOSE_OPTIONS.indexOf(draft[key]);
@@ -857,11 +899,16 @@ Page({
       if (draft.specification || draft.manufacturer || draft.approvalNumber) {
         fields.optionalExpanded = true;
       }
-      if (first) {
-        if (first.lotNumber.trim() === "" && draft.lotNumber) {
+      // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
+      // 也不能把晚到的识别结果写进被删除/新增后的另一个批次。
+      const shapeUnchanged = current.batches.length === batchShape.length &&
+        current.batches.every((batch, index) => (batch.id ?? "") === batchShape[index]);
+      if (first && shapeUnchanged) {
+        if (untouched("batches[0].lotNumber") && first.lotNumber.trim() === "" && draft.lotNumber) {
           fields["batches[0].lotNumber"] = draft.lotNumber;
         }
-        if ((first.precisionIndex === 2 || first.expiryValue.trim() === "") &&
+        if (untouched("batches[0].expiryValue") &&
+          (first.precisionIndex === 2 || first.expiryValue.trim() === "") &&
           draft.expiryValue && draft.expiryPrecision && draft.expiryPrecision !== "unknown") {
           fields["batches[0].expiryValue"] = draft.expiryValue;
           fields["batches[0].precisionIndex"] = PRECISION_VALUES.indexOf(draft.expiryPrecision);
@@ -893,6 +940,7 @@ Page({
     const index = event.currentTarget.dataset.index;
     const field = event.currentTarget.dataset.field;
     if (index === undefined || field === undefined || field === "") return;
+    this.markFieldTouched(`batches[${index}].${field}`);
     this.setData({ [`batches[${index}].${field}`]: event.detail.value });
     this.updateDirtyState();
   },
@@ -900,6 +948,8 @@ Page({
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
+    // 精度改变意味着有效期语义由用户重新指定，识别不得再改写该批次日期。
+    this.markFieldTouched(`batches[${index}].expiryValue`);
     this.setData({ [`batches[${index}].precisionIndex`]: Number(event.detail.value) });
     this.updateDirtyState();
   },

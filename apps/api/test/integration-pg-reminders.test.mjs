@@ -156,6 +156,51 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       )).rows;
       assert.deepEqual(pending, [], `leaving must cancel queued deliveries: ${JSON.stringify(pending)}`);
     });
+    await t.test("stale milestone retries are cancelled instead of delivered (A08)", async () => {
+      const { owner } = await family(0);
+      const medicine = status(await request(owner, "POST", "/medicines", {
+        name: "过时提醒测试药",
+        batches: [{ quantity: 2, unit: "box", expiry: { value: "2026-10-31", precision: "day" } }],
+      }), 201);
+      status(await request(owner, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
+
+      // 10 月 1 日：距离 10 月 31 日还有 30 天 → 命中"30 天后到期"里程碑，首次投递失败留下重试。
+      const labels = [];
+      const first = await dispatchDueReminderMessages(database, {
+        send: async (message) => {
+          labels.push(message.eventLabel);
+          throw new Error("synthetic gateway failure");
+        },
+      }, reminderConfig, new Date("2026-10-01T04:00:00Z"));
+      assert.equal(first.queued, 1, JSON.stringify(first));
+      assert.equal(first.failed, 1, JSON.stringify(first));
+      assert.deepEqual(labels, ["30 天后到期"]);
+      const queuedRow = (await pool.query(
+        "SELECT status, days_before, deadline_date::text AS deadline FROM reminder_deliveries WHERE medicine_id = $1",
+        [medicine.id],
+      )).rows;
+      assert.equal(queuedRow.length, 1);
+      assert.equal(queuedRow[0].status, "failed");
+      assert.equal(queuedRow[0].deadline, "2026-10-31");
+
+      // 10 月 3 日重试：只剩 28 天，已经不是"30 天后到期"这件事，不得补发。
+      const lateLabels = [];
+      const second = await dispatchDueReminderMessages(database, {
+        send: async (message) => {
+          lateLabels.push(message.eventLabel);
+          return { messageId: "late" };
+        },
+      }, reminderConfig, new Date("2026-10-03T04:00:00Z"));
+      assert.deepEqual(lateLabels, [], `a stale milestone must not be delivered: ${JSON.stringify(lateLabels)}`);
+      assert.equal(second.sent, 0, JSON.stringify(second));
+      const rows = (await pool.query(
+        "SELECT status, last_error_code FROM reminder_deliveries WHERE medicine_id = $1",
+        [medicine.id],
+      )).rows;
+      assert.equal(rows.length, 1, "the stale event must not spawn a replacement");
+      assert.equal(rows[0].status, "blocked");
+      assert.equal(rows[0].last_error_code, "STALE_MILESTONE");
+    });
   } finally {
     if (app !== undefined) await app.close();
     await fixture.close();

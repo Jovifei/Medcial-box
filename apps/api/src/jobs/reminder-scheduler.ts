@@ -222,6 +222,16 @@ export async function dispatchDueReminderMessages(
       await database.query("UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'NOT_A_MEMBER' WHERE id = $1", [delivery.id]);
       continue;
     }
+    // 里程碑复核：重试时当前剩余天数必须仍等于原事件天数（A08）。
+    // 例如"30 天后到期"的任务不能在只剩 28 天时补发——过时事件取消，而不是消耗新的订阅机会。
+    const daysLeft = daysUntilExpiry({ value: delivery.deadline_date, precision: "day" }, now);
+    if (daysLeft === null || daysLeft !== delivery.days_before) {
+      await database.query(
+        "UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'STALE_MILESTONE' WHERE id = $1",
+        [delivery.id],
+      );
+      continue;
+    }
     const obsolete = delivery.is_archived || delivery.medicine_deleted_at !== null || delivery.batch_deleted_at !== null ||
       delivery.disposition_status === "handled" || currentDeadline === undefined || currentDeadline === null || currentDeadline !== delivery.deadline_date;
     if (obsolete) {
