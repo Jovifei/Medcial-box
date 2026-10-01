@@ -8,6 +8,7 @@ import type { QueryRunner } from "../types.js";
 import { parseJsonArray } from "../types.js";
 import { mostSevereState, summarizeExpiryState } from "../domain/expiry.js";
 import { calculateStockStatus } from "../domain/medicine-inventory.js";
+import { decimalOrNull } from "../domain/decimal.js";
 import type { ValidatedMedicineFields } from "../inputs.js";
 import type { MedicationBatchSummary } from "@home-medicine/contracts";
 
@@ -27,7 +28,8 @@ export interface MedicineRow {
   leaflet_source: string | null;
   leaflet_review_status: string;
   is_archived: boolean;
-  low_stock_threshold_quantity: number | null;
+  /** numeric(14,3)：pg 返回字符串。 */
+  low_stock_threshold_quantity: number | string | null;
   low_stock_threshold_unit: string | null;
   deleted_at: Date | string | null;
   version: number;
@@ -45,11 +47,12 @@ export function toMedicineSummary(
     batches.length > 0
       ? mostSevereState(batches.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state))
       : "unknown";
+  const thresholdQuantity = decimalOrNull(row.low_stock_threshold_quantity);
   const threshold: LowStockThresholdInput | null =
-    row.low_stock_threshold_quantity == null || row.low_stock_threshold_unit == null
+    thresholdQuantity === null || row.low_stock_threshold_unit == null
       ? null
       : {
-          quantity: row.low_stock_threshold_quantity,
+          quantity: thresholdQuantity,
           unit: row.low_stock_threshold_unit as LowStockThresholdInput["unit"],
         };
   return {

@@ -225,8 +225,9 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.equal(semanticAudit.actor_id, owner.id);
       assert.equal(semanticAudit.entity_type, "batch");
       assert.equal(semanticAudit.entity_id, split.openedBatch.id);
-      assert.equal(semanticAudit.changes.openedQuantity, 3);
-      assert.equal(semanticAudit.changes.remainingQuantity, 5);
+      // 审计事件里的 numeric 以字符串保存（触发器既有行为）：比较前显式归一为数字。
+      assert.equal(Number(semanticAudit.changes.openedQuantity), 3);
+      assert.equal(Number(semanticAudit.changes.remainingQuantity), 5);
 
       const auditCount = (await pool.query("SELECT count(*)::int AS count FROM audit_events WHERE entity_id = ANY($1::uuid[])", [[sourceBefore.id, split.openedBatch.id]])).rows[0].count;
       status(await request(owner, "POST", `/medicines/${medicine.id}/batches/${sourceBefore.id}/open-split`, {

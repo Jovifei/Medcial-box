@@ -24,8 +24,13 @@ const QUANTITY_UNITS: readonly QuantityUnit[] = [
   "sachet",
   "bottle",
   "box",
+  "blister",
+  "ml",
   "other",
 ];
+
+/** 只有毫升允许小数（最多 3 位）；其余单位都是计件单位。 */
+const MEASURED_UNITS = new Set<QuantityUnit>(["ml"]);
 
 const EXPIRY_PRECISIONS: readonly ExpiryPrecision[] = ["day", "month", "unknown"];
 
@@ -58,6 +63,49 @@ function text(value: unknown, field: string, fallback: string | null = null): st
   if (typeof value !== "string") throw new InputError(`${field} 必须是文本`);
   const trimmed = value.trim();
   return trimmed === "" ? fallback : trimmed;
+}
+
+/**
+ * 数量校验：毫升最多 3 位小数，计件单位必须是非负整数。
+ * 返回值为定点安全 number（最多 3 位小数），null 表示"数量未知"。
+ */
+function quantityOrNull(value: unknown, field: string, unit: QuantityUnit): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new InputError(`${field} 必须是数字`);
+  }
+  if (value < 0) throw new InputError(`${field} 不能为负数`);
+  if (MEASURED_UNITS.has(unit)) {
+    const scaled = Math.round(value * 1000);
+    if (Math.abs(scaled - value * 1000) > 1e-6) {
+      throw new InputError(`${field} 最多支持 3 位小数`);
+    }
+    return scaled / 1000;
+  }
+  if (!Number.isInteger(value)) {
+    throw new InputError(`${field} 在计件单位下必须是整数`);
+  }
+  if (value > MAX_POSTGRES_INTEGER) {
+    throw new InputError(`${field} 超出可保存范围`);
+  }
+  return value;
+}
+
+function positiveQuantityOrNull(value: unknown, field: string, unit: QuantityUnit): number | null {
+  const parsed = quantityOrNull(value, field, unit);
+  if (parsed !== null && parsed <= 0) throw new InputError(`${field} 必须大于 0`);
+  return parsed;
+}
+
+/** 盘点项数量：单位由批次决定，这里先做定点校验，路由层按批次单位复核整数性。 */
+function stocktakeQuantityOrNull(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new InputError("quantity 必须是非负数字");
+  }
+  const scaled = Math.round(value * 1000);
+  if (Math.abs(scaled - value * 1000) > 1e-6) throw new InputError("quantity 最多支持 3 位小数");
+  return scaled / 1000;
 }
 
 function intOrNull(value: unknown, field: string, min: number): number | null {
@@ -150,6 +198,7 @@ function parseAfterOpeningLimit(value: unknown): AfterOpeningLimitInput | null {
 
 function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
   const lotNumber = text(raw.lotNumber, "lotNumber");
+  const unit = oneOf(raw.unit, "unit", QUANTITY_UNITS, "other");
 
   let expiryValue: string | null = null;
   let expiryPrecision: ExpiryPrecision = "unknown";
@@ -185,9 +234,9 @@ function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
     lotNumber,
     expiryValue,
     expiryPrecision,
-    quantity: intOrNull(raw.quantity, "quantity", 0),
-    unit: oneOf(raw.unit, "unit", QUANTITY_UNITS, "other"),
-    confirmedUnitsPerPackage: intOrNull(raw.confirmedUnitsPerPackage, "confirmedUnitsPerPackage", 1),
+    quantity: quantityOrNull(raw.quantity, "quantity", unit),
+    unit,
+    confirmedUnitsPerPackage: positiveQuantityOrNull(raw.confirmedUnitsPerPackage, "confirmedUnitsPerPackage", unit),
     storageLocation: text(raw.storageLocation, "storageLocation"),
     openedState,
     openedAt,
@@ -290,10 +339,10 @@ function parseLowStockThreshold(value: unknown): { quantity: number; unit: Quant
   if (typeof value.unit !== "string" || !QUANTITY_UNITS.includes(value.unit as QuantityUnit)) {
     throw new InputError("lowStockThreshold.unit 不合法");
   }
-  return {
-    quantity: requireInt(value.quantity, "lowStockThreshold.quantity", 0),
-    unit: value.unit as QuantityUnit,
-  };
+  const unit = value.unit as QuantityUnit;
+  const quantity = quantityOrNull(value.quantity, "lowStockThreshold.quantity", unit);
+  if (quantity === null) throw new InputError("lowStockThreshold.quantity 不能为空");
+  return { quantity, unit };
 }
 
 function parseMedicine(raw: Record<string, unknown>): ValidatedMedicineFields {
@@ -476,7 +525,7 @@ export function validateStocktakeItemsInput(
         throw new InputError("outcome 不合法");
       }
       const outcome = entry.outcome as (typeof STOCKTAKE_OUTCOMES)[number];
-      const quantity = intOrNull(entry.quantity, "quantity", 0);
+      const quantity = stocktakeQuantityOrNull(entry.quantity);
       if (outcome === "adjusted" && quantity === null) {
         throw new InputError("adjusted 必须提供非负整数 quantity");
       }
@@ -515,7 +564,7 @@ export function validateRestockInput(raw: unknown): ValidationResult<ValidatedRe
       ok: true,
       value: {
         medicineId,
-        desiredQuantity: intOrNull(raw.desiredQuantity, "desiredQuantity", 0),
+        desiredQuantity: quantityOrNull(raw.desiredQuantity, "desiredQuantity", raw.unit as QuantityUnit),
         unit: raw.unit as QuantityUnit,
         status: oneOf(raw.status, "status", RESTOCK_STATUSES, "needed"),
       },

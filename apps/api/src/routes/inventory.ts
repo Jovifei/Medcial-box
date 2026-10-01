@@ -11,6 +11,7 @@ import { lockMedicineInFamily, findMedicineInFamily, bumpMedicineVersion } from 
 import { toBatchSummary } from "../repositories/batches.js";
 import type { Database, QueryRunner } from "../types.js";
 import { errorBody, toIso, TransactionConflictError } from "../types.js";
+import { decimalOrNull } from "../domain/decimal.js";
 import {
   validateFamilyInventorySettingsInput,
   validateRestockInput,
@@ -65,7 +66,8 @@ interface StocktakeItemRow {
   batch_id: string;
   medicine_id: string;
   medicine_name: string;
-  quantity: number | null;
+  /** numeric(14,3)：pg 返回字符串，读取时经 decimalOrNull 转换。 */
+  quantity: number | string | null;
   unit: QuantityUnit;
   expiry_value: string | null;
   expiry_precision: string;
@@ -107,7 +109,7 @@ function stocktakeItemSummary(row: StocktakeItemRow) {
     lot_number: null,
     expiry_value: row.expiry_value,
     expiry_precision: row.expiry_precision,
-    quantity: row.quantity,
+    quantity: decimalOrNull(row.quantity),
     unit: row.unit,
     confirmed_units_per_package: null,
     storage_location: null,
@@ -122,7 +124,7 @@ function stocktakeItemSummary(row: StocktakeItemRow) {
     batchId: row.batch_id,
     medicineId: row.medicine_id,
     medicineName: row.medicine_name,
-    quantity: row.quantity,
+    quantity: decimalOrNull(row.quantity),
     unit: row.unit,
     expiry: { value: row.expiry_value, precision: row.expiry_precision },
     openedState: row.opened_state,
@@ -137,7 +139,7 @@ interface RestockRow {
   id: string;
   medicine_id: string;
   medicine_name: string;
-  desired_quantity: number | null;
+  desired_quantity: number | string | null;
   unit: QuantityUnit;
   status: RestockStatus;
   created_at: Date | string;
@@ -153,7 +155,7 @@ function restockSummary(row: RestockRow) {
     id: row.id,
     medicineId: row.medicine_id,
     medicineName: row.medicine_name,
-    desiredQuantity: row.desired_quantity,
+    desiredQuantity: decimalOrNull(row.desired_quantity),
     unit: row.unit,
     status: row.status,
     createdAt: toIso(row.created_at),
@@ -296,7 +298,7 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
             outcomes.push({ batchId: item.batchId, outcome: "not_found" });
             continue;
           }
-          const current = await tx.query<{ id: string; version: number; quantity: number | null }>(
+          const current = await tx.query<{ id: string; version: number; quantity: number | string | null }>(
             `SELECT b.id, b.version, b.quantity FROM medicine_batches b
              JOIN medicines m ON m.id = b.medicine_id AND m.family_id = b.family_id
              WHERE b.id = $1 AND b.medicine_id = $2 AND b.family_id = $3 AND b.deleted_at IS NULL
@@ -504,11 +506,11 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
       name: string;
       deleted_at: Date | string;
       expires_at: Date | string;
-      quantity: number | null;
+      quantity: number | string | null;
       unit: QuantityUnit | null;
     }>(
       `SELECT 'medicine'::text AS type, m.id, m.id AS medicine_id, m.name, m.deleted_at,
-              m.deleted_at + interval '30 days' AS expires_at, NULL::integer AS quantity, NULL::text AS unit
+              m.deleted_at + interval '30 days' AS expires_at, NULL::numeric AS quantity, NULL::text AS unit
        FROM medicines m WHERE m.family_id = $1 AND m.deleted_at > now() - interval '30 days'
        UNION ALL
        SELECT 'batch'::text AS type, b.id, b.medicine_id, m.name, b.deleted_at,
@@ -526,7 +528,7 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
         name: row.name,
         deletedAt: toIso(row.deleted_at),
         expiresAt: toIso(row.expires_at),
-        quantity: row.quantity,
+        quantity: decimalOrNull(row.quantity),
         unit: row.unit,
       })),
     };

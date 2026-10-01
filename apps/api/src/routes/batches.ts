@@ -5,6 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Database } from "../types.js";
 import { errorBody, TransactionConflictError } from "../types.js";
+import { decimalOrNull } from "../domain/decimal.js";
 import { requireFamily } from "../auth/session.js";
 import {
   deleteBatch,
@@ -140,13 +141,14 @@ export async function registerBatchRoutes(
         if (existing.version !== parsed.value.version) {
           throw new TransactionConflictError(409, CONFLICT_BODY);
         }
-        if (existing.quantity === null || existing.quantity === 0) {
+        const existingQuantity = decimalOrNull(existing.quantity);
+        if (existingQuantity === null || existingQuantity === 0) {
           throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "数量未知或为零的批次不能拆分"));
         }
         if (existing.opened_state !== "unopened" || existing.disposition_status !== "active") {
           throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "只有未开封且未处理的批次可以拆分"));
         }
-        if (parsed.value.openedQuantity >= existing.quantity) {
+        if (parsed.value.openedQuantity >= existingQuantity) {
           throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "开封数量必须小于当前批次数量"));
         }
 

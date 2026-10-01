@@ -4,6 +4,7 @@ import type { MedicationBatchSummary } from "@home-medicine/contracts";
 import type { QueryRunner } from "../types.js";
 import { describeExpiry } from "../domain/expiry.js";
 import { calculateEffectiveExpiryDate, calculateOpenedExpiryDate, describeManagementExpiry } from "../domain/medicine-inventory.js";
+import { decimalOrNull } from "../domain/decimal.js";
 import type { ValidatedBatchFields } from "../inputs.js";
 
 export interface MedicineBatchRow {
@@ -12,9 +13,10 @@ export interface MedicineBatchRow {
   lot_number: string | null;
   expiry_value: string | null;
   expiry_precision: string;
-  quantity: number | null;
+  /** numeric(14,3)：pg 返回字符串，读取时必须经 decimalOrNull 转换。 */
+  quantity: number | string | null;
   unit: string;
-  confirmed_units_per_package: number | null;
+  confirmed_units_per_package: number | string | null;
   storage_location: string | null;
   opened_state: string;
   opened_at: string | Date | null;
@@ -83,9 +85,9 @@ export function toBatchSummary(
     lotNumber: row.lot_number ?? null,
     expiry,
     expiryState: describeExpiry(expiry, now),
-    quantity: row.quantity ?? null,
+    quantity: decimalOrNull(row.quantity),
     unit: row.unit as QuantityUnit,
-    confirmedUnitsPerPackage: row.confirmed_units_per_package ?? null,
+    confirmedUnitsPerPackage: decimalOrNull(row.confirmed_units_per_package),
     storageLocation: row.storage_location ?? null,
     openedState: row.opened_state as OpenedState,
     openedAt,
