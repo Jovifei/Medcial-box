@@ -58,6 +58,8 @@ interface MedicationPlansPageData {
   formVisible: boolean;
   careProfiles: CareProfileSummary[];
   careProfileIndex: number;
+  /** 从药品详情带入的药品身份（只带 ID，剂量与时间仍手填）。 */
+  medicineId: string;
   medicineName: string;
   dosageText: string;
   startDate: string;
@@ -131,6 +133,7 @@ Page({
     formVisible: false,
     careProfiles: [] as CareProfileSummary[],
     careProfileIndex: 0,
+    medicineId: "",
     medicineName: "",
     dosageText: "",
     startDate: shanghaiDate(0),
@@ -150,7 +153,16 @@ Page({
     deliveries: [] as DoseReminderDelivery[],
   } as MedicationPlansPageData,
 
-  onLoad(): void {
+  onLoad(options: { medicineId?: string; medicineName?: string }): void {
+    // 从药品详情进入时只带入药品身份：剂量与时间点仍由用户填写。
+    const medicineId = options.medicineId ?? "";
+    if (medicineId !== "") {
+      this.setData({
+        formVisible: true,
+        medicineId,
+        medicineName: options.medicineName ?? "",
+      });
+    }
     this.refresh();
   },
 
@@ -458,6 +470,7 @@ Page({
       await ensureLoggedIn();
       await api.createMedicationPlan({
         careProfileId: profile.id,
+        medicineId: data.medicineId === "" ? null : data.medicineId,
         medicineName,
         dosageText,
         timeSlots: data.timeSlots,
@@ -467,7 +480,7 @@ Page({
       });
       wx.showToast({ title: "计划已保存", icon: "success" });
       this.setData({
-        formVisible: false, medicineName: "", dosageText: "", timeSlots: [], endDate: "",
+        formVisible: false, medicineId: "", medicineName: "", dosageText: "", timeSlots: [], endDate: "",
         everyDay: true, selectedWeekdays: [], startDate: shanghaiDate(0),
       });
       await this.refresh();

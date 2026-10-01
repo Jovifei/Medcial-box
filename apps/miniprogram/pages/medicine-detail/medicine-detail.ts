@@ -65,6 +65,12 @@ interface MedicineDetailPageData {
   leafletText: string;
   leafletBadge: string;
   leafletPhotos: LeafletPhotoView[];
+  /** 药盒封面（R2-d 剩余）：私有图片需带鉴权下载，不能直接给 <image> 远程地址。 */
+  coverPhotoPath: string;
+  coverPhotoLoading: boolean;
+  coverPhotoError: string;
+  /** 折叠区域（方案 §5.6）：说明书与来源、个人备注、低库存设置。 */
+  sections: { leaflet: boolean; notes: boolean; stock: boolean };
   photoLoading: boolean;
   photoUploading: boolean;
   photoBusyId: string;
@@ -218,6 +224,10 @@ Page({
     leafletText: "",
     leafletBadge: "",
     leafletPhotos: [] as LeafletPhotoView[],
+    coverPhotoPath: "",
+    coverPhotoLoading: false,
+    coverPhotoError: "",
+    sections: { leaflet: false, notes: false, stock: false },
     photoLoading: false,
     photoUploading: false,
     photoBusyId: "",
@@ -274,7 +284,7 @@ Page({
       const medicine = await api.getMedicine(medicineId);
       const notes = await api.listDosageNotes(medicineId);
       this.applyData(medicine, notes.notes);
-      await this.refreshLeafletPhotos();
+      await Promise.all([this.refreshLeafletPhotos(), this.refreshCoverPhoto()]);
     } catch (error) {
       showError(error);
     } finally {
@@ -329,6 +339,29 @@ Page({
       this.setData({ leafletPhotos: [], photoError: message });
     } finally {
       this.setData({ photoLoading: false });
+    }
+  },
+
+  /**
+   * 药盒封面：私有图片接口需要 Bearer 鉴权，<image> 无法直接带 header，
+   * 因此用 wx.downloadFile 带授权头下载到本地临时文件再展示；
+   * 失败时只提示，不影响详情其余内容。
+   */
+  async refreshCoverPhoto(): Promise<void> {
+    const data = this.data as MedicineDetailPageData;
+    const coverId = data.medicineSummary?.coverPhotoId ?? null;
+    if (data.medicineId === "" || coverId === null || coverId === undefined || coverId === "") {
+      this.setData({ coverPhotoPath: "", coverPhotoError: "" });
+      return;
+    }
+    this.setData({ coverPhotoLoading: true, coverPhotoError: "" });
+    try {
+      await ensureLoggedIn();
+      const tempFilePath = await api.downloadLeafletPhoto(data.medicineId, coverId);
+      this.setData({ coverPhotoPath: tempFilePath, coverPhotoLoading: false });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "封面图片读取失败";
+      this.setData({ coverPhotoPath: "", coverPhotoError: message, coverPhotoLoading: false });
     }
   },
 
@@ -749,6 +782,50 @@ Page({
 
   onTapExport(): void {
     wx.navigateTo({ url: "/pages/export-preview/export-preview" });
+  },
+
+  /**
+   * 只带入药品身份（ID 与名称）：剂量和时间必须由用户自己填写，
+   * 不做任何自动推导。
+   */
+  onTapCreatePlan(): void {
+    const data = this.data as MedicineDetailPageData;
+    const id = data.medicineId;
+    if (id === "") return;
+    const name = encodeURIComponent(data.medicineSummary?.name ?? data.name);
+    wx.navigateTo({ url: `/pages/medication-plans/medication-plans?medicineId=${id}&medicineName=${name}` });
+  },
+
+  onToggleSection(event: { currentTarget: { dataset: { section?: string } } }): void {
+    const section = event.currentTarget.dataset.section;
+    if (section !== "leaflet" && section !== "notes" && section !== "stock") return;
+    const sections = (this.data as MedicineDetailPageData).sections;
+    this.setData({ [`sections.${section}`]: !sections[section] });
+  },
+
+  async onDeleteMedicine(): Promise<void> {
+    const medicineId = (this.data as MedicineDetailPageData).medicineId;
+    const confirmation = await new Promise<boolean>((resolve) => {
+      wx.showModal({
+        title: "删除药品",
+        content: "删除后进入最近删除，30 天内可在“我的 → 最近删除”恢复。确定删除？",
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve(false),
+      });
+    });
+    if (!confirmation) return;
+    try {
+      await ensureLoggedIn();
+      await api.deleteMedicine(medicineId);
+      wx.showToast({ title: "已删除", icon: "success" });
+      setTimeout(() => wx.navigateBack(), 700);
+    } catch (error) {
+      showError(error);
+    }
+  },
+
+  onTapAudit(): void {
+    wx.navigateTo({ url: "/pages/audit/audit" });
   },
 
   onNoteInput(event: { detail: { value: string } }): void {

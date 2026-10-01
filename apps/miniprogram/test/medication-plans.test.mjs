@@ -451,3 +451,20 @@ test("版本与更新页列出版本说明并标记已读", async () => {
   assert.equal(page.data.appVersion, notes[0].version);
   assert.ok(storage.size >= 1, "打开本页应标记已读");
 });
+
+test("从药品详情进入时只带入药品身份，剂量与时间仍需填写", async () => {
+  const { load, calls } = loadPlansPage();
+  const page = load();
+  page.onLoad({ medicineId: "medicine-7", medicineName: "儿童退烧药" });
+  await page.refresh();
+  assert.equal(page.data.formVisible, true, "直接进入创建表单");
+  assert.equal(page.data.medicineId, "medicine-7");
+  assert.equal(page.data.medicineName, "儿童退烧药");
+  assert.equal(page.data.dosageText, "", "剂量不自动推导");
+  assert.deepEqual([...page.data.timeSlots], [], "时间点不自动推导");
+
+  page.setData({ dosageText: "每次 5ml", timeSlots: ["08:00"] });
+  await page.onSubmitPlan();
+  const payload = calls.find(([kind]) => kind === "createPlan")[1];
+  assert.equal(payload.medicineId, "medicine-7");
+});

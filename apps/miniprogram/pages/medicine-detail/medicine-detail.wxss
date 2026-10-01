@@ -20,6 +20,105 @@
   line-height: 1.6;
 }
 
+/* 折叠区域与更多菜单（方案 §5） */
+.section-header {
+  align-items: flex-start;
+}
+
+.section-toggle {
+  flex: none;
+  margin-left: 16rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef1ee;
+  color: #52685c;
+  font-size: 22rpx;
+}
+
+.quick-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.quick-action {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #cfdcd3;
+  color: #3f7d5c;
+  font-size: 27rpx;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 12rpx;
+}
+
+.batch-action-link {
+  font-size: 24rpx;
+  color: #3f7d5c;
+}
+
+.section-label {
+  margin: 8rpx 0 16rpx 4rpx;
+  font-size: 24rpx;
+  color: #7c867e;
+}
+
+.menu-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  margin-bottom: 16rpx;
+  border-radius: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #e4ebe5;
+}
+
+.menu-title {
+  font-size: 28rpx;
+  color: #24382e;
+}
+
+.menu-hint {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #7c867e;
+}
+
+.menu-arrow {
+  color: #a5b0a8;
+  font-size: 32rpx;
+}
+
+/* 药盒封面：私有图片，下载到本地临时文件后展示 */
+.cover-box {
+  margin-top: 20rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  background: #f2f5f2;
+}
+
+.cover-image {
+  width: 100%;
+  height: 320rpx;
+  display: block;
+}
+
+.cover-placeholder {
+  height: 120rpx;
+  line-height: 120rpx;
+  text-align: center;
+  color: #7c867e;
+  font-size: 23rpx;
+}
+
 .link-btn {
   color: #3f7d5c;
   font-size: 23rpx;

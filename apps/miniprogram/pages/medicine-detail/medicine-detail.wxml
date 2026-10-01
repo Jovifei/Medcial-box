@@ -6,6 +6,11 @@
       <text class="medicine-tag {{tag.kind}}" wx:for="{{displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
     </view>
     <view class="med-meta">{{metaText}}</view>
+    <view class="cover-box" wx:if="{{coverPhotoPath !== ''}}">
+      <image class="cover-image" src="{{coverPhotoPath}}" mode="aspectFill" />
+    </view>
+    <view class="cover-box cover-placeholder" wx:elif="{{coverPhotoLoading}}">正在读取药盒封面…</view>
+    <view class="hint" wx:if="{{coverPhotoError !== ''}}">{{coverPhotoError}}</view>
   </view>
 
   <view class="card">
@@ -24,6 +29,9 @@
       <view class="batch-line">{{item.storageText}}</view>
       <view class="batch-line opening-warning" wx:if="{{item.needsOpeningInfo}}">开封期限待补充</view>
       <view class="batch-line" wx:if="{{item.confirmedText !== ''}}">{{item.confirmedText}}</view>
+      <view class="batch-actions">
+        <view class="batch-action-link" data-id="{{item.id}}" catchtap="onTapEditBatch">修改余量</view>
+      </view>
       <view class="btn btn-ghost batch-action" wx:if="{{item.canMarkOpened}}" data-id="{{item.id}}" catchtap="onMarkOpened">
         {{busyBatchId === item.id ? "保存中…" : "标记今天已开封"}}
       </view>
@@ -77,10 +85,15 @@
   </view>
 
   <view class="card leaflet-photo-section">
-    <view class="row">
-      <view class="section-title">说明书照片</view>
-      <view class="photo-count">{{leafletPhotos.length}} 张</view>
+    <view class="row section-header" data-section="leaflet" bindtap="onToggleSection">
+      <view>
+        <view class="section-title">说明书与来源</view>
+        <view class="hint">{{leafletPhotos.length}} 张照片 · {{leafletBadge}}</view>
+      </view>
+      <view class="section-toggle">{{sections.leaflet ? "收起" : "展开"}}</view>
     </view>
+    <view class="hint">{{leafletText}}</view>
+    <block wx:if="{{sections.leaflet}}">
     <view class="hint">照片只在你主动选择并确认上传后保存到家庭私有图片空间；不会自动发给识别模型或联网资料服务。</view>
     <view class="btn btn-ghost photo-upload {{photoUploading || photoBusyId !== '' ? 'disabled' : ''}}" bindtap="onAddLeafletPhoto">{{photoUploading ? "正在处理照片…" : "＋ 拍摄 / 选择说明书照片"}}</view>
     <view class="photo-status" wx:if="{{photoStatus}}">{{photoStatus}}</view>
@@ -97,10 +110,15 @@
         <view class="photo-delete" data-id="{{item.id}}" bindtap="onDeleteLeafletPhoto">{{photoBusyId === item.id ? "处理中…" : "移除"}}</view>
       </view>
     </view>
+    </block>
   </view>
 
   <view class="card">
-    <view class="section-title">个人剂量备注</view>
+    <view class="row section-header" data-section="notes" bindtap="onToggleSection">
+      <view class="section-title">个人剂量备注</view>
+      <view class="section-toggle">{{sections.notes ? "收起" : "展开"}}</view>
+    </view>
+    <block wx:if="{{sections.notes}}">
     <view class="hint">实际每日剂量由成员各自记录；默认仅本人可见，选择"全家可见"后其他成员可读。</view>
     <view wx:for="{{notes}}" wx:key="id" class="note-card">
       <view class="row">
@@ -118,14 +136,20 @@
       </picker>
     </view>
     <view class="btn btn-ghost" bindtap="onSubmitNote">添加备注</view>
+    </block>
   </view>
 
   <view class="card">
-    <view class="row">
+    <view class="row section-header" data-section="stock" bindtap="onToggleSection">
       <view>
-        <view class="section-title">库存不足提醒</view>
+        <view class="section-title">低库存设置</view>
         <view class="hint">当前：{{stockStatusText}}。数量未知时会显示待核对。</view>
       </view>
+      <view class="section-toggle">{{sections.stock ? "收起" : "展开"}}</view>
+    </view>
+    <block wx:if="{{sections.stock}}">
+    <view class="row">
+      <view class="field-label">启用库存不足提醒</view>
       <switch checked="{{thresholdEnabled}}" bindchange="onThresholdToggle" />
     </view>
     <view wx:if="{{thresholdEnabled}}">
@@ -142,9 +166,22 @@
     </view>
     <view class="btn btn-ghost" bindtap="onSaveThreshold">{{savingThreshold ? "保存中…" : "保存提醒设置"}}</view>
     <view class="btn btn-primary {{restockBusy ? 'disabled' : ''}}" bindtap="onAddToRestock">{{restockBusy ? "正在加入…" : "加入补货清单"}}</view>
+    </block>
   </view>
 
-  <view class="btn btn-ghost" bindtap="onTapEditMedicine">编辑药品资料</view>
-  <view class="btn btn-ghost" bindtap="onTapExport">导出 Markdown</view>
-  <view class="btn btn-danger" bindtap="onArchiveMedicine">归档该药品</view>
+  <view class="card">
+    <view class="section-title">快捷操作</view>
+    <view class="quick-row">
+      <view class="quick-action" bindtap="onTapAddBatch">＋ 新增库存</view>
+      <view class="quick-action" bindtap="onTapCreatePlan">创建用药计划</view>
+    </view>
+    <view class="hint">创建用药计划只带入药品身份，剂量与时间点仍需你填写。</view>
+  </view>
+
+  <view class="section-label">更多</view>
+  <view class="menu-card" bindtap="onTapEditMedicine"><view><view class="menu-title">编辑药品资料</view><view class="menu-hint">名称、规格、厂家与说明书</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onTapExport"><view><view class="menu-title">导出 Markdown</view><view class="menu-hint">生成可分享的药箱清单</view></view><view class="menu-arrow">›</view></view>
+  <view class="menu-card" bindtap="onTapAudit"><view><view class="menu-title">变更记录</view><view class="menu-hint">查看家庭对该药品的修改记录</view></view><view class="menu-arrow">›</view></view>
+  <view class="btn btn-ghost" bindtap="onArchiveMedicine">归档该药品</view>
+  <view class="btn btn-danger" bindtap="onDeleteMedicine">删除该药品</view>
 </view>

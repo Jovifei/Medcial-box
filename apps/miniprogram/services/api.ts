@@ -338,6 +338,11 @@ export const api = {
     });
   },
 
+  /** 删除药品：软删除进入回收站，30 天内可恢复。 */
+  deleteMedicine(medicineId: string): Promise<null> {
+    return request({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
+  },
+
   archiveMedicine(medicineId: string): Promise<null> {
     return request<null>({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
   },
