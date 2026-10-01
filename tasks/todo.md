@@ -37,6 +37,8 @@
   - [x] R4-c 更新链路：功能介绍每版本仅一次（最多三项）、"我的 → 版本与更新"可再次查看、小程序 UpdateManager 提示重启；用例 2/2。
   - [ ] **R4-d 真实微信模板送达、Android 双渠道通知与精确闹钟**：需药箱专用 AppID 与 Flutter SDK，本机 **NOT_RUN／BLOCKED_PLATFORM**。
 - [ ] **R5 家庭试用**：双端整体回归、独立测试部署、两账号两手机完整流程（需专用 AppID、两台设备与 Flutter APK，本机 **NOT_RUN**）。
+  - [x] R5-a 验收 runbook 就绪：[R5 家庭试用验收清单](reports/2026-10-01-r5-family-trial-checklist.md)（独立部署 / 账号与家庭 / 录入与库存 / 备份恢复 / 用药计划 / 通知与更新 / 双端回归 / 证据留存，共 8 节 40 项，含前置人工项与阻塞标注）。
+  - [ ] R5-b 真机执行与证据留存：待 AppSecret、订阅模板 ID、开发者工具扫码登录、两台设备（Flutter 项另待 SDK）。
 
 ### R0 状态
 

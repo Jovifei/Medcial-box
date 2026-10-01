@@ -3,7 +3,8 @@
 - **2026-10-02 更新**：药箱专用 AppID 已确认（`wx1f6dd99d28aab8e5`，公开客户端标识，已填入 `project.config.json`）。服药提醒模板环境变量接线补齐（`WECHAT_DOSE_REMINDER_TEMPLATE_ID` / `WECHAT_DOSE_REMINDER_FIELD_MAP` / `WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED`，含 compose 传递与 env 样例）。剩余人工步骤：① AppSecret 由所有者填入服务端 `deploy/.env.local`（不进聊天/仓库）；② mp 后台申请订阅消息模板并回填模板 ID；③ 开发者工具扫码登录后真机预览。`wechatide` CLI 仍被 `reg.exe` 黑名单阻塞。
 - **本次更新（R3 + R4）**：R3 用药计划全链路完成并验证（后端详情/编辑/历史/授权接口 + 小程序今日安排、全部计划、计划详情、照护对象与共享权限页）；R4 服药提醒服务端链路完成（迁移 `018`、排队/复核/取消调度器、订阅与发送结果展示）并完成版本介绍与更新链路。**当前 PASS**：根 `lint`/`typecheck`/`build`；小程序 **96/96**；API 单元 **184**；工具 6/6；**严格真实 PostgreSQL 59/59**（19+4+6+5+6+10+9）；官方编译器门禁 **47 个文件全部通过**。详见 [R3/R4 交付与测试报告](reports/2026-10-01-r3-r4-medication-and-reminders.md)。
 - 本轮修复的真实缺陷：① 今日安排客户端未排序（已按时间升序）；② 改期删除时间点会级联删掉服药历史（迁移 `017` 改为归档时间点，历史保留、未来按新时间点物化）。
-- **NOT_RUN/BLOCKED**：R4 真实微信模板送达需药箱专用 AppID（`BLOCKED_PLATFORM`，计划与今日安排不受影响）；Android 双渠道通知与精确闹钟、R0 收口 A06/A09 与 A03 UI 层需 Flutter SDK；R5 双账号两手机试用需专用 AppID 与两台设备。
+- **NOT_RUN/BLOCKED**：R4 真实微信模板送达需药箱专用 AppID（`BLOCKED_PLATFORM`，计划与今日安排不受影响）；Android 双渠道通知与精确闹钟、R0 收口 A06/A09 与 A03 UI 层需 Flutter SDK；R5 双账号两手机试用需两台设备。
+- **R5 准备就绪**：验收 runbook 已落地——[R5 家庭试用验收清单](reports/2026-10-01-r5-family-trial-checklist.md)（8 节 40 项：独立部署、账号与家庭、录入与库存、备份恢复、用药计划、通知与更新、双端回归、证据留存，前置人工项与阻塞项已标注）。所有可自动化部分已全部完成，剩余均为外部授权/设备依赖。
 
 ---
 
