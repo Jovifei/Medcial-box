@@ -2,6 +2,9 @@
   <view class="card">
     <view class="med-name">{{name}}</view>
     <view class="med-spec">{{specText}}</view>
+    <view class="tag-row" wx:if="{{displayTags.length > 0}}">
+      <text class="medicine-tag {{tag.kind}}" wx:for="{{displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
+    </view>
     <view class="med-meta">{{metaText}}</view>
   </view>
 

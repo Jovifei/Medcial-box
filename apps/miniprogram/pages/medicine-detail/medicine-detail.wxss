@@ -126,3 +126,33 @@
   font-size: 25rpx;
   line-height: 1.6;
 }
+
+/* —— 整理标签（R2-d）：与药箱首页同一套配色语义 —— */
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin: 10rpx 0;
+}
+
+.medicine-tag {
+  font-size: 22rpx;
+  line-height: 1.5;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.medicine-tag.pop-adult {
+  color: #1d5fd1;
+  background: #e3edfb;
+}
+
+.medicine-tag.pop-child {
+  color: #2f7d4f;
+  background: #e2f2e8;
+}
+
+.medicine-tag.purpose {
+  color: #6b3fa0;
+  background: #efe7f9;
+}

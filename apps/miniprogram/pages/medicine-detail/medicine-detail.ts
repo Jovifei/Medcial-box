@@ -59,6 +59,8 @@ interface MedicineDetailPageData {
   loading: boolean;
   name: string;
   specText: string;
+  /** 人群/用途整理标签（R2-d）：kind 决定配色，蓝=成人、绿=儿童、紫=用途。 */
+  displayTags: Array<{ kind: string; label: string }>;
   metaText: string;
   leafletText: string;
   leafletBadge: string;
@@ -163,6 +165,19 @@ function toNoteView(note: DosageNoteSummary): NoteView {
   };
 }
 
+const PURPOSE_TAG_LABELS: Record<string, string> = {
+  fever: "发热", cough: "咳嗽", throat: "咽喉", nasal: "鼻部", gastro: "胃肠",
+  pain: "疼痛", topical: "外用", allergy: "过敏", other: "其他",
+};
+
+/** 详情页标签行：蓝=成人、绿=儿童、紫=用途；不作为适龄或适应症判断。 */
+function buildDisplayTags(medicine: MedicationSummary): Array<{ kind: string; label: string }> {
+  return [
+    ...(medicine.populationTags ?? []).map((tag) => ({ kind: tag === "adult" ? "pop-adult" : "pop-child", label: tag === "adult" ? "成人" : "儿童" })),
+    ...(medicine.purposeTags ?? []).map((tag) => ({ kind: "purpose", label: PURPOSE_TAG_LABELS[tag] ?? tag })),
+  ];
+}
+
 function toLeafletPhotoView(photo: LeafletPhotoSummary): LeafletPhotoView {
   const sourceLabels: Record<string, string> = { package_leaflet: "包装内说明书" };
   const size = photo.sizeBytes < 1024 * 1024
@@ -198,6 +213,7 @@ Page({
     loading: true,
     name: "",
     specText: "",
+    displayTags: [] as Array<{ kind: string; label: string }>,
     metaText: "",
     leafletText: "",
     leafletBadge: "",
@@ -286,6 +302,7 @@ Page({
       medicineSummary: medicine,
       name: medicine.name,
       specText: medicine.specification ?? "规格未记录",
+      displayTags: buildDisplayTags(medicine),
       metaText: metaParts.length === 0 ? "暂无补充资料" : metaParts.join("；"),
       leafletText: leaflet.text,
       leafletBadge: leaflet.badge,
