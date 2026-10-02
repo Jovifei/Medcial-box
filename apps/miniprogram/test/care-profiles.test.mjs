@@ -133,3 +133,55 @@ test("取消确认则不撤销", async () => {
   await page.onRevokeGrant({ currentTarget: { dataset: { profile: "profile-child", member: "user-2", name: "妈妈" } } });
   assert.equal(calls.some(([kind]) => kind === "revoke"), false);
 });
+
+test("R18：查看者只展示自身访问级别，不枚举他人授权", async () => {
+  const grantCalls = [];
+  const { load } = loadCareProfilesPage({
+    api: {
+      listCareProfiles: async () => ({ careProfiles: [
+        { id: "p-view", displayName: "孩子", linkedUserId: null, canManage: false, isPrivate: false },
+      ] }),
+      listCareGrants: async (id) => { grantCalls.push(id); return { grants: [] }; },
+    },
+  });
+  const page = load();
+  await page.refresh();
+  assert.equal(page.data.profiles[0].accessLabel, "仅查看");
+  assert.match(page.data.profiles[0].grantsText, /仅有查看权限/);
+  assert.deepEqual(grantCalls, [], "查看者不应请求授权名单");
+});
+
+test("R18：管理者读取授权名单被拒（403）时如实说明无权", async () => {
+  const { load } = loadCareProfilesPage({
+    api: {
+      listCareProfiles: async () => ({ careProfiles: [
+        { id: "p-mgr", displayName: "老人", linkedUserId: null, canManage: true, isPrivate: false },
+      ] }),
+      listCareGrants: async () => { const error = new ApiError("无权"); error.statusCode = 403; throw error; },
+    },
+  });
+  const page = load();
+  await page.refresh();
+  assert.match(page.data.profiles[0].grantsText, /无权查看/);
+});
+
+test("R18：授权名单读取失败与确实无授权分开呈现", async () => {
+  const { load } = loadCareProfilesPage({
+    api: {
+      listCareProfiles: async () => ({ careProfiles: [
+        { id: "p-fail", displayName: "老人", linkedUserId: null, canManage: true, isPrivate: false },
+        { id: "p-empty", displayName: "孩子", linkedUserId: null, canManage: true, isPrivate: false },
+      ] }),
+      listCareGrants: async (id) => {
+        if (id === "p-fail") throw new ApiError("网络异常");
+        return { grants: [] };
+      },
+    },
+  });
+  const page = load();
+  await page.refresh();
+  const byId = {};
+  for (const profile of page.data.profiles) byId[profile.id] = profile;
+  assert.match(byId["p-fail"].grantsText, /读取失败/);
+  assert.equal(byId["p-empty"].grantsText, "仅创建者可见", "确实没有授权时才显示仅创建者可见");
+});

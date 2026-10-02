@@ -13,6 +13,31 @@ import { loadPage, loadService, makePageContext } from "./runtime.mjs";
 /** 页面在独立 vm 中运行，抛出这个类的实例才能被 `instanceof ApiError` 识别。 */
 class ApiError extends Error {}
 
+/** app.json 里注册的底部导航页；navigateTo 到这些页在真实微信下会失败。 */
+const TAB_BAR_PAGES = new Set([
+  "/pages/index/index",
+  "/pages/medication-plans/medication-plans",
+  "/pages/pending/pending",
+  "/pages/mine/mine",
+]);
+
+/**
+ * 遵守真实平台限制的 navigateTo 替身：指向 tabBar 页时如实 fail 并标记 blocked，
+ * 使"用 navigateTo 打开底部导航页"的回归在测试里立刻暴露。
+ */
+function makeStrictNavigateTo(record) {
+  return (options) => {
+    const path = (options?.url ?? "").split("?")[0];
+    const blocked = TAB_BAR_PAGES.has(path);
+    record.push({ url: options?.url, blocked });
+    if (blocked) {
+      options?.fail?.({ errMsg: "navigateTo:fail can not navigate to a tabbar page" });
+      return;
+    }
+    options?.success?.({});
+  };
+}
+
 function shanghaiDate(offsetDays) {
   const shanghai = new Date(Date.now() + 8 * 3600 * 1000);
   const shifted = new Date(Date.UTC(shanghai.getUTCFullYear(), shanghai.getUTCMonth(), shanghai.getUTCDate() + offsetDays));
@@ -214,80 +239,14 @@ test("计划卡片把星期与时间合并成可读文案", async () => {
   assert.equal(page.data.plans[1].statusLabel, "已暂停");
 });
 
-test("创建计划校验时间点格式、去重与上限", async () => {
-  const { load, state, calls, toasts } = loadPlansPage();
-  state.careProfiles = [{ id: "profile-1", displayName: "我自己", linkedUserId: null, isPrivate: true }];
+test("创建计划入口跳到独立创建页（不得 navigateTo 底部导航页）", () => {
+  const record = [];
+  const { load } = loadPlansPage({ wx: { navigateTo: makeStrictNavigateTo(record) } });
   const page = load();
-  await page.refresh();
-
-  page.data.timeInput = "8:5";
-  page.onAddTimeSlot();
-  assert.equal(page.data.timeSlots.length, 0, "非法时间不入库");
-
-  page.data.timeInput = "08:00";
-  page.onAddTimeSlot();
-  page.data.timeInput = "08:00";
-  page.onAddTimeSlot();
-  assert.deepEqual([...page.data.timeSlots], ["08:00"], "重复时间点不入库");
-
-  for (const time of ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"]) {
-    page.data.timeInput = time;
-    page.onAddTimeSlot();
-  }
-  assert.equal(page.data.timeSlots.length, 6, "每日最多 6 个时间点");
-  assert.ok(toasts.includes("每日最多 6 个时间点"));
-
-  page.data.medicineName = "儿童退烧药";
-  page.data.dosageText = "每次 5ml";
-  await page.onSubmitPlan();
-  const payload = calls.find(([kind]) => kind === "createPlan")?.[1];
-  assert.ok(payload, "应提交创建请求");
-  assert.equal(payload.careProfileId, "profile-1");
-  assert.equal(payload.endDate, null, "未填结束日期应表示长期");
-  assert.equal(payload.weekdays, undefined, "每天时不下发 weekdays");
-});
-
-test("指定星期但未选任何一天时阻止提交", async () => {
-  const { load, state, calls, toasts } = loadPlansPage();
-  state.careProfiles = [{ id: "profile-1", displayName: "我自己", linkedUserId: null, isPrivate: true }];
-  const page = load();
-  await page.refresh();
-  page.setData({ medicineName: "儿童退烧药", dosageText: "每次 5ml", timeSlots: ["08:00"], everyDay: false, selectedWeekdays: [] });
-  await page.onSubmitPlan();
-  assert.equal(calls.some(([kind]) => kind === "createPlan"), false);
-  assert.ok(toasts.includes("指定星期需至少选择一天，或改回每天"));
-});
-
-test("结束日期早于开始日期时阻止提交", async () => {
-  const { load, state, calls, toasts } = loadPlansPage();
-  state.careProfiles = [{ id: "profile-1", displayName: "我自己", linkedUserId: null, isPrivate: true }];
-  const page = load();
-  await page.refresh();
-  page.setData({
-    medicineName: "儿童退烧药",
-    dosageText: "每次 5ml",
-    timeSlots: ["08:00"],
-    startDate: "2026-10-10",
-    endDate: "2026-10-01",
-  });
-  await page.onSubmitPlan();
-  assert.equal(calls.some(([kind]) => kind === "createPlan"), false);
-  assert.ok(toasts.includes("结束日期不能早于开始日期"));
-});
-
-test("第一位使用者先自动创建“我自己”照护对象再打开表单", async () => {
-  const { load, state, calls } = loadPlansPage();
-  state.careProfiles = [];
-  const page = load();
-  await page.refresh();
-  assert.equal(page.data.hasAnyProfile, false);
-  await page.onOpenCreateForm();
-  // R19：本人档案走服务端绑定身份的 self 接口，不再由客户端传 linkedUserId。
-  const created = calls.find(([kind]) => kind === "ensureSelfProfile");
-  assert.ok(created, "应调用 ensureSelfCareProfile 而非旧的 createCareProfile");
-  assert.equal(created[1], "我自己");
-  assert.equal(calls.some(([kind]) => kind === "createProfile"), false, "不得再走客户端猜测身份的旧接口");
-  assert.equal(page.data.formVisible, true);
+  page.onOpenCreateForm();
+  assert.equal(record.length, 1);
+  assert.equal(record[0].url, "/pages/plan-create/plan-create");
+  assert.equal(record[0].blocked, false, "创建入口不得指向 tabBar 页");
 });
 
 test("接口失败时展示错误卡片而不是空白页", async () => {
@@ -461,19 +420,88 @@ test("版本与更新页列出版本说明并标记已读", async () => {
   assert.ok(storage.size >= 1, "打开本页应标记已读");
 });
 
-test("从药品详情进入时只带入药品身份，剂量与时间仍需填写", async () => {
+// —— R13：回前台合并刷新，今日模式跨日更新，用户手选日期保持 ——
+
+test("onShow 合并为一次刷新", async () => {
   const { load, calls } = loadPlansPage();
   const page = load();
-  page.onLoad({ medicineId: "medicine-7", medicineName: "儿童退烧药" });
-  await page.refresh();
-  assert.equal(page.data.formVisible, true, "直接进入创建表单");
-  assert.equal(page.data.medicineId, "medicine-7");
-  assert.equal(page.data.medicineName, "儿童退烧药");
-  assert.equal(page.data.dosageText, "", "剂量不自动推导");
-  assert.deepEqual([...page.data.timeSlots], [], "时间点不自动推导");
-
-  page.setData({ dosageText: "每次 5ml", timeSlots: ["08:00"] });
-  await page.onSubmitPlan();
-  const payload = calls.find(([kind]) => kind === "createPlan")[1];
-  assert.equal(payload.medicineId, "medicine-7");
+  assert.equal(calls.some(([kind]) => kind === "schedule"), false, "构造后不应预先请求日程");
+  await page.onShow();
+  assert.equal(calls.filter(([kind]) => kind === "schedule").length, 1, "onShow 合并为一次刷新");
 });
+
+test("今日模式回前台跨零点自动前进到今天", async () => {
+  const { load, calls } = loadPlansPage();
+  const page = load();
+  page.followToday = true;
+  page.setData({ date: shanghaiDate(-1) });
+  await page.onShow();
+  assert.equal(page.data.date, shanghaiDate(0), "跨零点后应回到今天");
+  assert.deepEqual(calls.find(([kind]) => kind === "schedule")[1], shanghaiDate(0));
+});
+
+test("用户手选日期后回前台保持所选日期，不自动前进", async () => {
+  const { load, calls } = loadPlansPage();
+  const page = load();
+  const chosen = shanghaiDate(2);
+  page.followToday = false;
+  page.setData({ date: chosen });
+  await page.onShow();
+  assert.equal(page.data.date, chosen, "手选日期必须保持");
+  assert.deepEqual(calls.find(([kind]) => kind === "schedule")[1], chosen);
+});
+
+test("手动切回今天会恢复今日模式", async () => {
+  const { load } = loadPlansPage();
+  const page = load();
+  page.followToday = false;
+  page.setData({ date: shanghaiDate(3) });
+  // 向前 3 天回到今天
+  page.onShiftDate({ currentTarget: { dataset: { delta: "-3" } } });
+  assert.equal(page.followToday, true, "切回今天应恢复今日模式");
+  assert.equal(page.data.date, shanghaiDate(0));
+});
+
+// —— R11：旧响应作废，加载时锁定确认，提交前核对当前实例与日期归属 ——
+
+test("切换日期时旧响应作废，不覆盖新日期数据", async () => {
+  const resolvers = [];
+  const { load } = loadPlansPage({
+    api: {
+      getMedicationSchedule: (date) => new Promise((resolve) => resolvers.push({ date, resolve })),
+    },
+  });
+  const page = load();
+  const first = page.refresh();
+  page.setData({ date: shanghaiDate(1) });
+  const second = page.refresh();
+  // 让两次刷新都推进到发起日程请求（refresh 先 await 登录），再控制返回顺序。
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // 先放行较旧请求，再放行较新请求：旧的必须被丢弃。
+  resolvers[0].resolve({ date: resolvers[0].date, entries: [entry({ occurrenceId: "stale" })] });
+  resolvers[1].resolve({ date: resolvers[1].date, entries: [entry({ occurrenceId: "fresh" })] });
+  await Promise.all([first, second]);
+  assert.equal(page.data.entries.length, 1, "只应保留最新响应");
+  assert.equal(page.data.entries[0].occurrenceId, "fresh", "只应保留最新响应");
+  assert.equal(page.data.loading, false, "最新响应负责解除加载态");
+});
+
+test("加载中锁定确认按钮，避免对旧列表误操作", async () => {
+  const { load, state, calls } = loadPlansPage();
+  state.entries = [entry({ occurrenceId: "occ-1", status: "pending" })];
+  const page = load();
+  await page.refresh();
+  page.setData({ loading: true });
+  await page.onConfirmDose({ currentTarget: { dataset: { id: "occ-1", action: "taken" } } });
+  assert.equal(calls.some(([kind]) => kind === "confirm"), false, "加载中不应写入");
+});
+
+test("实例已不在当前日期列表时作废点击", async () => {
+  const { load, state, calls } = loadPlansPage();
+  state.entries = [entry({ occurrenceId: "occ-1", status: "pending" })];
+  const page = load();
+  await page.refresh();
+  await page.onConfirmDose({ currentTarget: { dataset: { id: "occ-missing", action: "taken" } } });
+  assert.equal(calls.some(([kind]) => kind === "confirm"), false, "不属于当前列表的实例不应写入");
+});
+

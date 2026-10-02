@@ -31,17 +31,12 @@
   </scroll-view>
 
   <scroll-view class="filter-row tag-filter-row" scroll-x="true" show-scrollbar="false">
-    <view class="filter-chip tag-chip {{selectedPopulations.indexOf('adult') >= 0 ? 'selected' : ''}}" data-value="adult" bindtap="onTogglePopulation">成人</view>
-    <view class="filter-chip tag-chip {{selectedPopulations.indexOf('child') >= 0 ? 'selected' : ''}}" data-value="child" bindtap="onTogglePopulation">儿童</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('发热') >= 0 ? 'selected' : ''}}" data-value="发热" bindtap="onTogglePurpose">发热</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('咳嗽') >= 0 ? 'selected' : ''}}" data-value="咳嗽" bindtap="onTogglePurpose">咳嗽</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('咽喉') >= 0 ? 'selected' : ''}}" data-value="咽喉" bindtap="onTogglePurpose">咽喉</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('鼻部') >= 0 ? 'selected' : ''}}" data-value="鼻部" bindtap="onTogglePurpose">鼻部</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('胃肠') >= 0 ? 'selected' : ''}}" data-value="胃肠" bindtap="onTogglePurpose">胃肠</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('疼痛') >= 0 ? 'selected' : ''}}" data-value="疼痛" bindtap="onTogglePurpose">疼痛</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('外用') >= 0 ? 'selected' : ''}}" data-value="外用" bindtap="onTogglePurpose">外用</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('过敏') >= 0 ? 'selected' : ''}}" data-value="过敏" bindtap="onTogglePurpose">过敏</view>
-    <view class="filter-chip tag-chip {{selectedPurposes.indexOf('其他') >= 0 ? 'selected' : ''}}" data-value="其他" bindtap="onTogglePurpose">其他</view>
+    <view class="filter-chip tag-chip {{item.selected ? 'selected' : ''}}"
+      wx:for="{{populationChips}}" wx:key="value"
+      data-value="{{item.value}}" bindtap="onTogglePopulation">{{item.label}}</view>
+    <view class="filter-chip tag-chip {{item.selected ? 'selected' : ''}}"
+      wx:for="{{purposeChips}}" wx:key="value"
+      data-value="{{item.value}}" bindtap="onTogglePurpose">{{item.label}}</view>
     <picker class="sort-picker" range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange">
       <view class="filter-chip sort-chip">排序：{{sortLabels[sortIndex]}} ▾</view>
     </picker>

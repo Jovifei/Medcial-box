@@ -129,16 +129,35 @@ class ApiAuthRepository {
     await localStore?.clearFamilyData();
   }
 
-  Future<void> logout() async {
+  /// 退出登录（R10）：本机一定切到未登录态，服务端撤销失败单独返回、不阻断本地清理。
+  ///
+  /// - 服务端撤销失败（含断网）不再上抛中断流程，而是把友好文案作为返回值交给界面单独告知；
+  /// - 每个清理步骤各自 try/catch：清理钩子抛错也保证后续令牌删除照常执行，
+  ///   不会停留在"无令牌却仍是已登录界面"的状态。
+  /// 返回服务端撤销的错误信息；本机清理成功且服务端也撤销成功时返回 null。
+  Future<String?> logout() async {
+    String? revokeError;
     try {
       await api.post('/api/v1/auth/logout');
-    } finally {
-      // 即使服务端撤销失败（含断网），本机也必须切到未登录状态：
-      // 先清身份数据，再删令牌，避免停留在无令牌的已登录界面（A03）。
-      await _clearIdentityData();
-      await secretStore.delete(accessTokenKey);
-      await secretStore.delete(pendingPollTokenKey);
+    } catch (error) {
+      revokeError = friendlyApiError(error);
     }
+    try {
+      await _clearIdentityData();
+    } catch (_) {
+      // 清理钩子失败也要继续删令牌：本机退出优先于任何单步异常。
+    }
+    try {
+      await secretStore.delete(accessTokenKey);
+    } catch (_) {
+      // 令牌删除失败不再抛出，避免调用方因此跳过导航；下一次读取会因缺失令牌回到连接页。
+    }
+    try {
+      await secretStore.delete(pendingPollTokenKey);
+    } catch (_) {
+      // 同上：待连接令牌残留不影响已退出状态。
+    }
+    return revokeError;
   }
 }
 

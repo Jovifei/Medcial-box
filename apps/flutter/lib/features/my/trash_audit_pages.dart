@@ -32,7 +32,8 @@ class _TrashPageState extends State<TrashPage> {
     if (confirmed != true || !mounted) return;
     try {
       await widget.workflow.restoreTrashItem(item['type'] as String, item['id'] as String);
-      await widget.medicines.listMedicines(includeArchived: true);
+      // 只刷新活动库存（R15）：含归档查询会把归档记录写回共享快照，污染首页与到期提醒。
+      await widget.medicines.listMedicines();
       if (mounted) setState(() => items = widget.workflow.listTrash());
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyApiError(error))));

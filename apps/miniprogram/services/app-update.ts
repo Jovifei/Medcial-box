@@ -3,10 +3,13 @@
  * - APP_VERSION 由发布流程维护，"我的 → 版本与更新"展示；
  * - watchForUpdates 使用 wx.getUpdateManager：新版本就绪后提示用户重启，
  *   每个版本只提示一次（按版本号记 storage），不静默重启——
- *   用户可能还有未保存的草稿，重启前应先保存；
+ *   重启前若有未保存草稿，给出「保存并重启 / 放弃草稿并重启 / 稍后」三选，
+ *   保存失败则延期更新（R14），不把"提示先保存"当成保存措施；
  * - 功能介绍（release notes）每个版本只自动弹一次，"版本与更新"可再次查看；
  *   每次最多展示三项重点改进，不写营销话术。
  */
+
+import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
 export const APP_VERSION = "0.2.0-s0s1r1";
 
@@ -82,16 +85,66 @@ export function watchForUpdates(): void {
     markPrompted(APP_VERSION);
     wx.showModal({
       title: "新版本已就绪",
-      content: `新版本（${APP_VERSION}）已下载完成。如有未保存的录入内容，请先保存，再点击重启应用完成更新。`,
-      confirmText: "重启更新",
+      content: `新版本（${APP_VERSION}）已下载完成。重启会关闭当前页面；如正在填写计划或药品信息，请先处理未保存的草稿。`,
+      confirmText: "处理并重启",
       cancelText: "稍后",
       success: (result) => {
-        if (result.confirm) manager.applyUpdate();
+        if (result.confirm) void confirmRestart(manager);
       },
     });
   });
   manager.onUpdateFailed(() => {
     wx.showToast({ title: "新版本下载失败，可删除小程序后重新打开", icon: "none", duration: 3000 });
+  });
+}
+
+/**
+ * 重启前处理未保存草稿（R14）：有脏草稿时给出「保存并重启 / 放弃草稿并重启 / 稍后」三选；
+ * 保存失败则延期更新（不重启），把选择权交回用户。无草稿时直接重启。
+ */
+async function confirmRestart(manager: { applyUpdate: () => void }): Promise<void> {
+  const draft = peekDirtyDraft();
+  if (draft === null) {
+    manager.applyUpdate();
+    return;
+  }
+  if (typeof wx.showActionSheet !== "function") {
+    // 极少数环境没有 action sheet：退回二选一，默认不重启以保护草稿。
+    wx.showModal({
+      title: "有未保存的草稿",
+      content: `${draft.label}重启会丢失它。是否放弃草稿并重启？`,
+      confirmText: "放弃并重启",
+      cancelText: "稍后",
+      success: (result) => {
+        if (result.confirm) {
+          clearDirtyDraft();
+          manager.applyUpdate();
+        }
+      },
+    });
+    return;
+  }
+  wx.showActionSheet({
+    itemList: ["保存并重启", "放弃草稿并重启", "稍后再说"],
+    success: async (choice) => {
+      const tapIndex = choice.tapIndex;
+      if (tapIndex === 2) return; // 稍后再说：继续编辑，不重启。
+      if (tapIndex === 1) {
+        clearDirtyDraft();
+        manager.applyUpdate();
+        return;
+      }
+      try {
+        await draft.save();
+        clearDirtyDraft();
+        manager.applyUpdate();
+      } catch {
+        wx.showToast({ title: "保存失败，已延期更新；请稍后重试或手动保存", icon: "none", duration: 3000 });
+      }
+    },
+    fail: () => {
+      // 用户取消 action sheet：视为"稍后再说"，不重启。
+    },
   });
 }
 

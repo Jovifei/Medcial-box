@@ -1,0 +1,5 @@
+@import "../medication-plans/medication-plans.wxss";
+
+.sheet-title {
+  margin-top: 8rpx;
+}

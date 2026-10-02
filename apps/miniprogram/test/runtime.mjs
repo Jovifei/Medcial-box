@@ -41,6 +41,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
     redirectTo() {},
     navigateBack() {},
     reLaunch() {},
+    switchTab() {},
     scanCode() {},
     requestSubscribeMessage() {},
     getSystemInfoSync() { return { statusBarHeight: 20 }; },
@@ -67,6 +68,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
     if (id.endsWith("app-update")) return loadService("services/app-update.ts", { wx: pageWx });
+    if (id.endsWith("draft-guard")) return loadService("services/draft-guard.ts", { wx: pageWx });
     throw new Error(`Unexpected module import in test: ${id}`);
   };
   const sandbox = {
@@ -95,6 +97,7 @@ export function loadService(relativePath, { modules = {}, wx = {} } = {}) {
   const requireMock = (id) => {
     if (Object.hasOwn(modules, id)) return modules[id];
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
+    if (id.endsWith("draft-guard")) return loadService("services/draft-guard.ts", { wx: serviceWx });
     throw new Error(`Unexpected service import in test: ${id}`);
   };
   const serviceWx = { showModal(options) { options?.success?.({ confirm: true }); }, ...wx };

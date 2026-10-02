@@ -47,6 +47,8 @@ class LocalReminderService {
     final now = tz.TZDateTime.now(tz.local);
     final scheduled = <int>{};
     for (final medicine in medicines) {
+      // 归档药品不再提醒（R15）：导出含归档查询也不应让已归档记录触发到期通知。
+      if (medicine.isArchived) continue;
       for (final batch in medicine.batches) {
         if (!shouldScheduleLocalExpiryReminder(batch)) continue;
         final expiry = DateTime.tryParse(batch.managementExpiryDate ?? '');

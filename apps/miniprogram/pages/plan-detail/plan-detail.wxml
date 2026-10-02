@@ -13,7 +13,7 @@
       </view>
       <view class="plan-line">照护对象：{{plan.careProfileName}}</view>
       <view class="plan-line">剂量：{{plan.dosageText}}</view>
-      <view class="plan-line">{{weekdayText}} {{plan.timeSlots.join(" / ")}}</view>
+      <view class="plan-line">{{weekdayText}} {{slotText}}</view>
       <view class="plan-line">{{rangeText}}</view>
       <view class="hint permission-note" wx:if="{{!canManage}}">你对该计划只有查看权限，不能修改或确认。</view>
     </view>

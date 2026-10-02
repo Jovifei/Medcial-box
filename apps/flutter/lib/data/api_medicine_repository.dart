@@ -15,9 +15,18 @@ class ApiMedicineRepository extends ChangeNotifier {
   List<MedicineRecord> _medicines = const [];
   List<MedicineRecord> get medicines => List.unmodifiable(_medicines);
 
+  /// 会话代次（R10）：退出 / 换账号 / 换家庭时自增。
+  /// 在途请求在回填内存或本机缓存前比对代次；不一致说明结果属于上一个会话，
+  /// 必须丢弃，绝不把旧家庭的库存写回新会话（"清空后旧请求仍回灌"）。
+  int _session = 0;
+
+  bool _isCurrentSession(int captured) => captured == _session;
+
   /// 会话切换（退出 / 换账号 / 换家庭）时必须调用：
   /// 长期共享的 repository 内存快照若不清空，新会话会看到上一个家庭的库存（A03）。
   void clearSessionSnapshot() {
+    // 先自增代次，让此刻仍在途的请求回填时自动作废（R10）。
+    _session += 1;
     _medicines = const [];
     isOffline = false;
     hasPendingWrites = false;
@@ -26,6 +35,7 @@ class ApiMedicineRepository extends ChangeNotifier {
   }
 
   Future<List<MedicineRecord>> listMedicines({bool includeArchived = false}) async {
+    final session = _session;
     try {
       final json = await api.get(
         '/api/v1/medicines${includeArchived ? '?includeArchived=true' : ''}',
@@ -34,6 +44,8 @@ class ApiMedicineRepository extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(MedicineRecord.fromJson)
           .toList(growable: false);
+      // 请求在途时会话已切换：丢弃这份属于旧会话的结果，不回填内存/缓存（R10）。
+      if (!_isCurrentSession(session)) return medicines;
       _medicines = result;
       isOffline = false;
       lastSyncedAt = DateTime.now();
@@ -44,6 +56,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     } on ApiNetworkException {
       final cached = await localStore.readInventory();
       if (cached == null) rethrow;
+      if (!_isCurrentSession(session)) return medicines;
       _medicines = cached;
       isOffline = true;
       lastSyncedAt = await localStore.readLastSyncedAt();
@@ -53,14 +66,16 @@ class ApiMedicineRepository extends ChangeNotifier {
   }
 
   Future<MedicineRecord> getMedicine(String id) async {
+    final session = _session;
     try {
       final json = await api.get('/api/v1/medicines/$id');
       final medicine = MedicineRecord.fromJson(json as Map<String, dynamic>);
-      await _upsertMedicine(medicine);
+      await _upsertMedicine(medicine, session: session);
       return medicine;
     } on ApiNetworkException {
       final cached = _findCached(id);
       if (cached == null) rethrow;
+      if (!_isCurrentSession(session)) return cached;
       isOffline = true;
       lastSyncedAt ??= await localStore.readLastSyncedAt();
       return cached;
@@ -68,13 +83,15 @@ class ApiMedicineRepository extends ChangeNotifier {
   }
 
   Future<MedicineRecord> createMedicine(Map<String, Object?> payload) async {
+    final session = _session;
     final json = await api.post('/api/v1/medicines', body: payload) as Map<String, dynamic>;
     final medicine = MedicineRecord.fromJson(json);
-    await _upsertMedicine(medicine, prepend: true);
+    await _upsertMedicine(medicine, prepend: true, session: session);
     return medicine;
   }
 
   Future<MedicineRecord> updateMedicine(MedicineRecord medicine) async {
+    final session = _session;
     final payload = <String, Object?>{
       'name': medicine.name,
       'specification': medicine.specification,
@@ -95,7 +112,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     final json = await api.put('/api/v1/medicines/${medicine.id}', payload)
         as Map<String, dynamic>;
     final updated = MedicineRecord.fromJson(json);
-    await _upsertMedicine(updated);
+    await _upsertMedicine(updated, session: session);
     return updated;
   }
 
@@ -103,6 +120,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     String medicineId,
     Map<String, Object?> payload,
   ) async {
+    final session = _session;
     final json = await api.post('/api/v1/medicines/$medicineId/batches', body: payload)
         as Map<String, dynamic>;
     final batch = BatchRecord.fromJson(json);
@@ -111,7 +129,7 @@ class ApiMedicineRepository extends ChangeNotifier {
       await _upsertMedicine(existing.copyWith(
         batches: [...existing.batches, batch],
         version: existing.version + 1,
-      ));
+      ), session: session);
     }
     return batch;
   }
@@ -120,6 +138,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     String medicineId,
     BatchRecord batch,
   ) async {
+    final session = _session;
     final json = await api.put(
       '/api/v1/medicines/$medicineId/batches/${batch.id}',
       _batchUpdatePayload(batch),
@@ -134,6 +153,7 @@ class ApiMedicineRepository extends ChangeNotifier {
               .toList(growable: false),
           version: medicine.version + 1,
         ),
+        session: session,
       );
     }
     return updated;
@@ -146,6 +166,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     required String openedAt,
     AfterOpeningLimit? afterOpeningLimit,
   }) async {
+    final session = _session;
     if (batch.openedState != 'unopened') {
       throw const ApiException(
         statusCode: 409,
@@ -198,11 +219,12 @@ class ApiMedicineRepository extends ChangeNotifier {
       batches: batches,
       version: medicine.version + 1,
     );
-    await _upsertMedicine(updated);
+    await _upsertMedicine(updated, session: session);
     return updated;
   }
 
   Future<void> deleteBatch(String medicineId, String batchId) async {
+    final session = _session;
     await api.delete('/api/v1/medicines/$medicineId/batches/$batchId');
     final medicine = _findCached(medicineId);
     if (medicine != null) {
@@ -211,14 +233,17 @@ class ApiMedicineRepository extends ChangeNotifier {
           batches: medicine.batches.where((batch) => batch.id != batchId).toList(),
           version: medicine.version + 1,
         ),
+        session: session,
       );
     }
   }
 
   Future<void> archiveMedicine(String id) async {
+    final session = _session;
     await api.delete('/api/v1/medicines/$id');
+    if (!_isCurrentSession(session)) return;
     _medicines = _medicines.where((medicine) => medicine.id != id).toList();
-    await _persistCache();
+    await _persistCache(session: session);
     notifyListeners();
   }
 
@@ -227,20 +252,21 @@ class ApiMedicineRepository extends ChangeNotifier {
     required String content,
     String visibility = 'private',
   }) async {
+    final session = _session;
     final json = await api.post(
       '/api/v1/medicines/$medicineId/dosage-notes',
       body: {'content': content, 'visibility': visibility},
     ) as Map<String, dynamic>;
     final note = DosageNoteRecord.fromJson(json);
     final medicine = _findCached(medicineId);
-    if (medicine != null) {
+    if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
           .map((item) => item.id == medicineId
               ? item.copyWith(dosageNotes: [...item.dosageNotes, note])
               : item)
           .toList(growable: false);
       // Private dosage notes are intentionally excluded from the plain local cache.
-      await _persistCache();
+      await _persistCache(session: session);
       notifyListeners();
     }
     return note;
@@ -251,13 +277,14 @@ class ApiMedicineRepository extends ChangeNotifier {
     DosageNoteRecord note, {
     required String content,
   }) async {
+    final session = _session;
     final json = await api.put(
       '/api/v1/medicines/$medicineId/dosage-notes/${note.id}',
       {'content': content, 'visibility': note.visibility, 'version': note.version},
     ) as Map<String, dynamic>;
     final updated = DosageNoteRecord.fromJson(json);
     final medicine = _findCached(medicineId);
-    if (medicine != null) {
+    if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
           .map((item) => item.id == medicineId
               ? item.copyWith(
@@ -267,13 +294,14 @@ class ApiMedicineRepository extends ChangeNotifier {
                 )
               : item)
           .toList(growable: false);
-      await _persistCache();
+      await _persistCache(session: session);
       notifyListeners();
     }
     return updated;
   }
 
   Future<List<DosageNoteRecord>> listDosageNotes(String medicineId) async {
+    final session = _session;
     final json = await api.get('/api/v1/medicines/$medicineId/dosage-notes')
         as Map<String, dynamic>;
     final notes = (json['notes'] as List<dynamic>? ?? [])
@@ -281,7 +309,7 @@ class ApiMedicineRepository extends ChangeNotifier {
         .map(DosageNoteRecord.fromJson)
         .toList(growable: false);
     final medicine = _findCached(medicineId);
-    if (medicine != null) {
+    if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
           .map((item) => item.id == medicineId ? item.copyWith(dosageNotes: notes) : item)
           .toList(growable: false);
@@ -290,9 +318,18 @@ class ApiMedicineRepository extends ChangeNotifier {
     return notes;
   }
 
-  Future<void> _persistCache() => localStore.saveInventory(_medicines);
+  Future<void> _persistCache({int? session}) {
+    // 会话已切换时不写缓存，避免旧会话数据落到本机（R10）。
+    if (session != null && !_isCurrentSession(session)) return Future.value();
+    return localStore.saveInventory(_medicines);
+  }
 
-  Future<void> _upsertMedicine(MedicineRecord medicine, {bool prepend = false}) async {
+  Future<void> _upsertMedicine(
+    MedicineRecord medicine, {
+    bool prepend = false,
+    int? session,
+  }) async {
+    if (session != null && !_isCurrentSession(session)) return;
     final existingIndex = _medicines.indexWhere((item) => item.id == medicine.id);
     if (existingIndex >= 0) {
       final copy = List<MedicineRecord>.of(_medicines);
@@ -303,7 +340,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     } else {
       _medicines = [..._medicines, medicine];
     }
-    await _persistCache();
+    await _persistCache(session: session);
     isOffline = false;
     notifyListeners();
   }

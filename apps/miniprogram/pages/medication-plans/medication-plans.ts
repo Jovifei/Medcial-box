@@ -55,21 +55,7 @@ interface MedicationPlansPageData {
   profileFilter: string;
   planStatusFilter: "all" | "active" | "paused" | "ended";
   hasAnyProfile: boolean;
-  formVisible: boolean;
   careProfiles: CareProfileSummary[];
-  careProfileIndex: number;
-  /** 从药品详情带入的药品身份（只带 ID，剂量与时间仍手填）。 */
-  medicineId: string;
-  medicineName: string;
-  dosageText: string;
-  startDate: string;
-  endDate: string;
-  timeInput: string;
-  timeSlots: string[];
-  everyDay: boolean;
-  selectedWeekdays: string[];
-  weekdayOptions: Array<{ value: string; label: string }>;
-  creating: boolean;
   confirmingId: string;
   reminderAvailable: boolean;
   reminderTemplateId: string;
@@ -130,20 +116,7 @@ Page({
     profileFilter: "",
     planStatusFilter: "all",
     hasAnyProfile: false,
-    formVisible: false,
     careProfiles: [] as CareProfileSummary[],
-    careProfileIndex: 0,
-    medicineId: "",
-    medicineName: "",
-    dosageText: "",
-    startDate: shanghaiDate(0),
-    endDate: "",
-    timeInput: "",
-    timeSlots: [] as string[],
-    everyDay: true,
-    selectedWeekdays: [] as string[],
-    weekdayOptions: WEEKDAY_OPTIONS,
-    creating: false,
     confirmingId: "",
     reminderAvailable: false,
     reminderTemplateId: "",
@@ -153,27 +126,33 @@ Page({
     deliveries: [] as DoseReminderDelivery[],
   } as MedicationPlansPageData,
 
-  onLoad(options: { medicineId?: string; medicineName?: string }): void {
-    // 从药品详情进入时只带入药品身份：剂量与时间点仍由用户填写。
-    const medicineId = options.medicineId ?? "";
-    if (medicineId !== "") {
-      this.setData({
-        formVisible: true,
-        medicineId,
-        medicineName: options.medicineName ?? "",
-      });
+  /** 请求代号：每次 refresh 自增，用于作废旧响应（非渲染字段）。 */
+  requestSeq: 0,
+  /** 今日模式：为 true 时回前台跨零点自动前进日期；用户手选日期后置 false。 */
+  followToday: true,
+
+  async onShow(): Promise<void> {
+    // 回前台与写入返回统一走这里合并刷新：今日模式跨零点自动前进，用户手选日期保持不变。
+    // 首次进入时 onLoad 之后必然触发 onShow，因此不在 onLoad 里重复请求。
+    if (this.followToday) {
+      const today = shanghaiDate(0);
+      if ((this.data as MedicationPlansPageData).date !== today) {
+        this.setData({ date: today });
+      }
     }
-    this.refresh();
+    await this.refresh();
   },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    const requestedDate = (this.data as MedicationPlansPageData).date;
     this.setData({ loading: true, errorMessage: "" });
     try {
       await ensureLoggedIn();
-      const data = this.data as MedicationPlansPageData;
       // 计划列表始终拉全量（含已结束），状态筛选在客户端做，避免切换时漏掉历史。
+      // 日期用请求发起时捕获的值，避免加载途中被再次切换导致张冠李戴。
       const [schedule, plans, careProfiles] = await Promise.all([
-        api.getMedicationSchedule(data.date),
+        api.getMedicationSchedule(requestedDate),
         api.listMedicationPlans("all"),
         api.listCareProfiles(),
       ]);
@@ -184,6 +163,8 @@ Page({
         templateId: "",
         deliveries: [] as DoseReminderDelivery[],
       }));
+      // 旧响应作废：仅当本次请求仍是最新一次、且日期未被再次切换时才写入。
+      if (seq !== this.requestSeq || requestedDate !== (this.data as MedicationPlansPageData).date) return;
       this.setData({
         // 后端已按时间排序；客户端再排一次，避免不同来源的顺序差异把早晚弄反。
         entries: [...schedule.entries]
@@ -202,6 +183,8 @@ Page({
       });
       this.applyFilters();
     } catch (error) {
+      // 旧请求的失败不该覆盖新请求的结果。
+      if (seq !== this.requestSeq || requestedDate !== (this.data as MedicationPlansPageData).date) return;
       const message = error instanceof ApiError ? error.message : "加载失败，请重试";
       this.setData({ loading: false, errorMessage: message });
     }
@@ -298,19 +281,25 @@ Page({
     const delta = Number(event.currentTarget.dataset.delta ?? 0);
     const [year, month, day] = (this.data as MedicationPlansPageData).date.split("-").map(Number);
     const shifted = new Date(Date.UTC(year, month - 1, day + delta)).toISOString().slice(0, 10);
+    // 手动切到今天则恢复今日模式；切到其它日期则保留用户选择，回前台不再自动前进。
+    this.followToday = shifted === shanghaiDate(0);
     this.setData({ date: shifted });
     this.refresh();
   },
 
   /** 已服用/跳过：幂等键由操作本身生成，重试不会重复记账。 */
   async onConfirmDose(event: { currentTarget: { dataset: { id?: string; action?: string } } }): Promise<void> {
-    const data = this.data as MedicationPlansPageData;
     const id = event.currentTarget.dataset.id;
     const action = event.currentTarget.dataset.action;
-    if (!id || (action !== "taken" && action !== "skipped") || data.confirmingId !== "") return;
-    // 纠正已有状态时需要用户明确确认，避免手滑改写历史。
+    if (!id || (action !== "taken" && action !== "skipped")) return;
+    const data = this.data as MedicationPlansPageData;
+    // 加载中或已有确认在进行时锁定，避免对旧列表/切换中的日期误操作。
+    if (data.loading || data.confirmingId !== "") return;
+    // 提交前核对当前实例：只确认仍属于当前展示日期列表的记录。
     const target = data.entries.find((item) => item.occurrenceId === id);
-    if (target && target.status !== "pending") {
+    if (!target) return;
+    // 纠正已有状态时需要用户明确确认，避免手滑改写历史。
+    if (target.status !== "pending") {
       const confirmed = await new Promise<boolean>((resolve) => {
         wx.showModal({
           title: "纠正记录",
@@ -320,6 +309,13 @@ Page({
         });
       });
       if (!confirmed) return;
+      // 弹窗期间可能切了日期或已刷新：重新核对实例与日期归属。
+      const current = this.data as MedicationPlansPageData;
+      if (current.loading || current.confirmingId !== "") return;
+      if (!current.entries.some((item) => item.occurrenceId === id)) {
+        wx.showToast({ title: "列表已更新，请重新确认", icon: "none", duration: 2800 });
+        return;
+      }
     }
     this.setData({ confirmingId: id });
     try {
@@ -367,132 +363,11 @@ Page({
 
   // —— 创建计划 ——
 
-  async onOpenCreateForm(): Promise<void> {
-    const data = this.data as MedicationPlansPageData;
-    if (data.careProfiles.length === 0) {
-      // 第一位使用者先为自己创建照护对象（本人计划默认私有）。
-      await this.createSelfProfile();
-      return;
-    }
-    this.setData({ formVisible: true });
-  },
-
-  async createSelfProfile(): Promise<void> {
-    this.setData({ loading: true });
-    try {
-      await ensureLoggedIn();
-      await api.ensureSelfCareProfile("我自己");
-      await this.refresh();
-      this.setData({ formVisible: true });
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "创建照护对象失败";
-      wx.showToast({ title: message, icon: "none", duration: 2800 });
-      this.setData({ loading: false });
-    }
-  },
-
-  onCloseCreateForm(): void {
-    this.setData({ formVisible: false });
-  },
-
-  onFormInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
-    const field = event.currentTarget.dataset.field;
-    if (!field) return;
-    this.setData({ [field]: event.detail.value });
-  },
-
-  onFormDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
-    const field = event.currentTarget.dataset.field;
-    if (!field) return;
-    this.setData({ [field]: event.detail.value });
-  },
-
-  onCareProfileChange(event: { detail: { value: string | number } }): void {
-    this.setData({ careProfileIndex: Number(event.detail.value) });
-  },
-
-  onEveryDayChange(event: { detail: { value: boolean } }): void {
-    this.setData({ everyDay: event.detail.value, selectedWeekdays: [] });
-  },
-
-  onToggleWeekday(event: { currentTarget: { dataset: { value?: string } } }): void {
-    const value = event.currentTarget.dataset.value;
-    if (!value) return;
-    const current = (this.data as MedicationPlansPageData).selectedWeekdays;
-    const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
-    this.setData({ selectedWeekdays: next, everyDay: next.length === 7 });
-  },
-
-  onAddTimeSlot(): void {
-    const data = this.data as MedicationPlansPageData;
-    const raw = data.timeInput.trim();
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) {
-      wx.showToast({ title: "时间格式需为 HH:MM，例如 08:00", icon: "none" });
-      return;
-    }
-    if (data.timeSlots.includes(raw)) {
-      wx.showToast({ title: "该时间点已添加", icon: "none" });
-      return;
-    }
-    if (data.timeSlots.length >= 6) {
-      wx.showToast({ title: "每日最多 6 个时间点", icon: "none" });
-      return;
-    }
-    this.setData({ timeSlots: [...data.timeSlots, raw].sort(), timeInput: "" });
-  },
-
-  onRemoveTimeSlot(event: { currentTarget: { dataset: { time?: string } } }): void {
-    const time = event.currentTarget.dataset.time;
-    if (!time) return;
-    this.setData({ timeSlots: (this.data as MedicationPlansPageData).timeSlots.filter((item) => item !== time) });
-  },
-
-  async onSubmitPlan(): Promise<void> {
-    const data = this.data as MedicationPlansPageData;
-    if (data.creating) return;
-    const profile = data.careProfiles[data.careProfileIndex];
-    if (!profile) return;
-    const medicineName = data.medicineName.trim();
-    const dosageText = data.dosageText.trim();
-    if (medicineName === "") { wx.showToast({ title: "请填写药品名称", icon: "none" }); return; }
-    if (dosageText === "") { wx.showToast({ title: "请填写剂量说明，例如每次 1 片", icon: "none" }); return; }
-    if (data.timeSlots.length === 0) { wx.showToast({ title: "请至少添加一个每日时间点", icon: "none" }); return; }
-    if (!data.everyDay && data.selectedWeekdays.length === 0) {
-      wx.showToast({ title: "指定星期需至少选择一天，或改回每天", icon: "none" });
-      return;
-    }
-    if (data.endDate !== "" && data.endDate < data.startDate) {
-      wx.showToast({ title: "结束日期不能早于开始日期", icon: "none" });
-      return;
-    }
-    this.setData({ creating: true });
-    try {
-      await ensureLoggedIn();
-      await api.createMedicationPlan({
-        careProfileId: profile.id,
-        medicineId: data.medicineId === "" ? null : data.medicineId,
-        medicineName,
-        dosageText,
-        timeSlots: data.timeSlots,
-        weekdays: data.everyDay ? undefined : data.selectedWeekdays,
-        startDate: data.startDate,
-        endDate: data.endDate === "" ? null : data.endDate,
-      });
-      wx.showToast({ title: "计划已保存", icon: "success" });
-      this.setData({
-        formVisible: false, medicineId: "", medicineName: "", dosageText: "", timeSlots: [], endDate: "",
-        everyDay: true, selectedWeekdays: [], startDate: shanghaiDate(0),
-      });
-      await this.refresh();
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "保存失败，请重试";
-      wx.showToast({ title: message, icon: "none", duration: 2800 });
-    } finally {
-      this.setData({ creating: false });
-    }
-  },
-
-  noop(): void {
-    // 阻止表单弹层点击穿透。
+  /**
+   * 创建流程走独立非 tab 页：本页是 tabBar 页，弹层表单与底部导航体验冲突，
+   * 且药品详情无法用 navigateTo 携带身份进入 tabBar 页（R12）。
+   */
+  onOpenCreateForm(): void {
+    wx.navigateTo({ url: "/pages/plan-create/plan-create" });
   },
 });

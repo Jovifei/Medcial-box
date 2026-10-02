@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../models/medicine_models.dart';
 import 'api_client.dart';
 
 class FamilySettingsRecord {
@@ -229,6 +230,32 @@ class ApiWorkflowRepository {
       },
     ) as Map<String, dynamic>;
     return result['markdown'] as String;
+  }
+
+  /// 只读拉取药品清单（可选含归档）用于导出（R15）：
+  /// 本仓库无共享内存快照，因此不会像 ApiMedicineRepository.listMedicines 那样
+  /// 把归档记录写回活动库存、污染首页或触发归档药品的到期提醒。
+  Future<List<MedicineRecord>> fetchMedicinesForExport({
+    bool includeArchived = false,
+  }) async {
+    final result = await api.get(
+      '/api/v1/medicines${includeArchived ? '?includeArchived=true' : ''}',
+    ) as Map<String, dynamic>;
+    return (result['medicines'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(MedicineRecord.fromJson)
+        .toList(growable: false);
+  }
+
+  /// 只读拉取某药品的剂量备注用于导出（R15）：不写入共享快照。
+  Future<List<DosageNoteRecord>> fetchDosageNotesForExport(String medicineId) async {
+    final result = await api.get(
+      '/api/v1/medicines/$medicineId/dosage-notes',
+    ) as Map<String, dynamic>;
+    return (result['notes'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(DosageNoteRecord.fromJson)
+        .toList(growable: false);
   }
 
   Future<Map<String, dynamic>> createJsonBackup() async =>

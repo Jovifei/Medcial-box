@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -73,5 +74,57 @@ void main() {
     expect(repository.medicines, isEmpty,
         reason: 'another account must not see the previous household inventory');
     expect(repository.lastSyncedAt, isNull);
+  });
+
+  test('in-flight listMedicines from a previous session does not backfill after switch (R10)', () async {
+    final gate = Completer<void>();
+    final local = MemoryInventoryLocalStore();
+    final repository = ApiMedicineRepository(
+      api: ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => null,
+        client: MockClient((request) async {
+          await gate.future;
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'medicines': [
+                {'id': 'stale', 'name': '旧会话的药', 'batches': []},
+              ],
+            })),
+            200,
+          );
+        }),
+      ),
+      localStore: local,
+    );
+    final pending = repository.listMedicines();
+    // 请求仍在途时发生会话切换（退出 / 换账号 / 换家庭）。
+    repository.clearSessionSnapshot();
+    gate.complete();
+    final result = await pending;
+    expect(result, isEmpty, reason: '旧会话的晚到响应不得作为结果回填');
+    expect(repository.medicines, isEmpty, reason: '内存快照不得被旧会话响应污染');
+    expect((await local.readInventory())?.isEmpty ?? true, isTrue,
+        reason: '本机缓存不得写入旧会话库存');
+  });
+
+  test('logout reports a server revoke failure separately while still clearing the device (R10)', () async {
+    final local = MemoryInventoryLocalStore();
+    await local.saveFamily(
+      FamilyRecord(id: 'family-a', name: '旧家庭', role: 'member'),
+    );
+    final repository = ApiAuthRepository(
+      api: ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => null,
+        client: MockClient((request) async => throw http.ClientException('offline')),
+      ),
+      secretStore: MemorySecretStore(),
+      localStore: local,
+    );
+    final revokeNote = await repository.logout();
+    expect(revokeNote, isNotNull, reason: '服务端撤销失败要单独告知，而不是被吞掉');
+    expect(await local.readFamily(), isNull,
+        reason: '服务端撤销失败仍必须把本机切到未登录态');
   });
 }

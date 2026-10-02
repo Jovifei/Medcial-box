@@ -66,6 +66,12 @@ class AppServices {
         medicines.clearSessionSnapshot();
         await local.clearFamilyData();
       }
+      // 401 表示会话已在服务端失效：清理内存快照/本机家庭数据并删除令牌，
+      // 让 BootGate 下次进入时路由到连接页，而不是停留在过期会话上（R10）。
+      api.onUnauthorized = () async {
+        await clearIdentityData();
+        await secrets.delete(ApiAuthRepository.accessTokenKey);
+      };
       return AppServices._(
         apiBaseUrl: baseUrl,
         configurationError: null,

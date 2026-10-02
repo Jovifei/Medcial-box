@@ -81,6 +81,24 @@ test("medicine list search matches manufacturer, ingredients, and storage locati
   }
 });
 
+test("R17：筛选标签选中态在 TS 预计算，模板只读取字段", () => {
+  const { definition } = loadPage("pages/index/index.ts", {
+    modules: {
+      "../../services/api": { api: {}, ApiError: class ApiError extends Error {}, readToken: () => "token" },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+    },
+  });
+  const page = makePageContext(definition);
+  assert.equal(page.data.purposeChips.every((chip) => chip.selected === false), true, "初始都未选中");
+  page.onTogglePurpose({ currentTarget: { dataset: { value: "发热" } } });
+  assert.equal(page.data.purposeChips.find((chip) => chip.value === "发热").selected, true, "选中态写入字段");
+  page.onTogglePopulation({ currentTarget: { dataset: { value: "child" } } });
+  assert.equal(page.data.populationChips.find((chip) => chip.value === "child").selected, true);
+  page.onClearFilters();
+  assert.equal(page.data.purposeChips.every((chip) => chip.selected === false), true, "清空后复位");
+  assert.equal(page.data.populationChips.every((chip) => chip.selected === false), true);
+});
+
 test("scan lookup stores a candidate for review and does not save medicine", async () => {
   const calls = [];
   const candidate = {

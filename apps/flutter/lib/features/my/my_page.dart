@@ -162,13 +162,25 @@ class _MyPageState extends State<MyPage> {
       ),
     );
     if (confirm != true || !mounted) return;
+    // 本机退出必须收口到未登录态：本地提醒关闭或服务端撤销失败都不得阻断跳转（R10）。
     try {
       await widget.services.reminders.disable();
-      await widget.services.auth!.logout();
-      if (mounted) context.go('/connect');
-    } catch (error) {
-      if (mounted) _showError(error);
+    } catch (_) {
+      // 提醒关闭失败不影响退出；下次进入会按服务端状态重新同步开关。
     }
+    String? revokeNote;
+    try {
+      revokeNote = await widget.services.auth!.logout();
+    } catch (error) {
+      // logout 已保证本机清理与令牌删除，这里只兜底极端异常，仍继续跳转。
+      revokeNote = friendlyApiError(error);
+    }
+    if (!mounted) return;
+    if (revokeNote != null) {
+      // 用根 ScaffoldMessenger 提示，跨路由仍可见：本机已退出，仅服务端撤销未完成。
+      _showMessage('已在本机退出；服务端会话撤销未完成：$revokeNote');
+    }
+    context.go('/connect');
   }
 
   void _showMessage(String message) {

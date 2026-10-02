@@ -12,6 +12,7 @@
     "pages/pending/pending",
     "pages/medication-plans/medication-plans",
     "pages/plan-detail/plan-detail",
+    "pages/plan-create/plan-create",
     "pages/release-notes/release-notes",
     "pages/care-profiles/care-profiles",
     "pages/mine/mine",

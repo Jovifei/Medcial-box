@@ -18,6 +18,38 @@ import 'restore_preview.dart';
 
 enum ExportKind { markdown, csv, pdf }
 
+/// 一次导出的不可变选项快照（R16）：与生成的文本、扩展名、MIME 一一绑定。
+/// 分享/复制只读取这份快照，绝不再读可变的页面状态，
+/// 杜绝"等旧预览完成后却按新 kind 命名/编码"的格式与隐私错配。
+class _ExportOptions {
+  const _ExportOptions({
+    required this.kind,
+    required this.includeDose,
+    required this.includeArchived,
+    required this.includeStorage,
+  });
+
+  final ExportKind kind;
+  final bool includeDose;
+  final bool includeArchived;
+  final bool includeStorage;
+
+  String get extension => _extension(kind);
+
+  String get mimeType => switch (kind) {
+    ExportKind.markdown => 'text/markdown',
+    ExportKind.csv => 'text/csv',
+    ExportKind.pdf => 'application/pdf',
+  };
+}
+
+/// 预览结果与生成它的选项绑定（R16）。
+class _ExportPreview {
+  const _ExportPreview({required this.options, required this.text});
+  final _ExportOptions options;
+  final String text;
+}
+
 class ExportApiPage extends StatefulWidget {
   const ExportApiPage({
     super.key,
@@ -37,120 +69,134 @@ class _ExportApiPageState extends State<ExportApiPage> {
   bool includeStorage = true;
   bool busy = false;
   Object? failure;
-  Future<String>? previewFuture;
+  Future<_ExportPreview>? previewFuture;
 
   @override
   void initState() {
     super.initState();
-    previewFuture = _makePreview();
+    previewFuture = _makePreview(_currentOptions());
   }
+
+  _ExportOptions _currentOptions() => _ExportOptions(
+    kind: kind,
+    includeDose: includeDose,
+    includeArchived: includeArchived,
+    includeStorage: includeStorage,
+  );
 
   Future<void> _refreshPreview() async {
     setState(() {
       failure = null;
-      previewFuture = _makePreview();
+      previewFuture = _makePreview(_currentOptions());
     });
   }
 
-  Future<String> _makePreview() async {
+  Future<_ExportPreview> _makePreview(_ExportOptions options) async {
     try {
-      if (kind == ExportKind.markdown || kind == ExportKind.pdf) {
-        return await widget.workflow.exportMarkdown(
-          includePersonalDosage: includeDose,
-          includeArchived: includeArchived,
-          includeStorageLocation: includeStorage,
-        );
-      }
-      final medicines = await widget.repository.listMedicines(
-        includeArchived: includeArchived,
-      );
-      final lines = <List<String>>[
-        [
-          '药品名称',
-          '规格',
-          '厂家',
-          '用途',
-          '批号',
-          '数量',
-          '包装有效期',
-          '开封状态',
-          '开封日期',
-          '开封后期限',
-          '管理期限',
-          '期限来源',
-          if (includeStorage) '存放位置',
-          if (includeDose) '个人备注',
-        ],
-      ];
-      for (final medicine in medicines) {
-        List<DosageNoteRecord> notes = const [];
-        if (includeDose) {
-          notes = await widget.repository.listDosageNotes(medicine.id);
-        }
-        final personal = notes
-            .where((note) => note.isMine)
-            .map((note) => note.content)
-            .join('；');
-        if (medicine.batches.isEmpty) {
-          lines.add([
-            medicine.name,
-            medicine.specificationDisplay,
-            medicine.manufacturer ?? '',
-            medicine.purpose,
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            if (includeStorage) '',
-            if (includeDose) personal,
-          ]);
-        }
-        for (final batch in medicine.batches) {
-          final afterLimit = batch.afterOpeningLimit == null
-              ? ''
-              : batch.afterOpeningLimit!.isDate
-              ? batch.afterOpeningLimit!.date ?? ''
-              : '${batch.afterOpeningLimit!.value ?? ''}${batch.afterOpeningLimit!.unit == 'month' ? '个月' : '天'}';
-          lines.add([
-            medicine.name,
-            medicine.specificationDisplay,
-            medicine.manufacturer ?? '',
-            medicine.purpose,
-            batch.lotNumber ?? '',
-            batch.quantity == null
-                ? '数量未知'
-                : '${batch.quantity}${_unit(batch.unit)}',
-            batch.expiryValue ?? '待补充',
-            _openedLabel(batch.openedState),
-            batch.openedAt ?? '',
-            afterLimit,
-            batch.managementExpiryDate ?? '',
-            batch.managementExpirySource ?? '',
-            if (includeStorage) batch.storageLocation ?? '',
-            if (includeDose) personal,
-          ]);
-        }
-      }
-      return lines.map((row) => row.map(_csvCell).join(',')).join('\r\n');
+      final text = options.kind == ExportKind.markdown || options.kind == ExportKind.pdf
+          ? await widget.workflow.exportMarkdown(
+              includePersonalDosage: options.includeDose,
+              includeArchived: options.includeArchived,
+              includeStorageLocation: options.includeStorage,
+            )
+          : await _buildCsv(options);
+      return _ExportPreview(options: options, text: text);
     } catch (error) {
       failure = error;
       rethrow;
     }
   }
 
+  /// CSV 用独立只读快照构建（R15）：不写入 repository 的活动库存，
+  /// 因此含归档的导出不会污染首页，也不会触发归档药品的到期提醒。
+  /// 全程只读不可变的 [options]，跨 await 也保持列数与内容一致（R16）。
+  Future<String> _buildCsv(_ExportOptions options) async {
+    final medicines = await widget.workflow.fetchMedicinesForExport(
+      includeArchived: options.includeArchived,
+    );
+    final lines = <List<String>>[
+      [
+        '药品名称',
+        '规格',
+        '厂家',
+        '用途',
+        '批号',
+        '数量',
+        '包装有效期',
+        '开封状态',
+        '开封日期',
+        '开封后期限',
+        '管理期限',
+        '期限来源',
+        if (options.includeStorage) '存放位置',
+        if (options.includeDose) '个人备注',
+      ],
+    ];
+    for (final medicine in medicines) {
+      List<DosageNoteRecord> notes = const [];
+      if (options.includeDose) {
+        notes = await widget.workflow.fetchDosageNotesForExport(medicine.id);
+      }
+      final personal = notes
+          .where((note) => note.isMine)
+          .map((note) => note.content)
+          .join('；');
+      if (medicine.batches.isEmpty) {
+        lines.add([
+          medicine.name,
+          medicine.specificationDisplay,
+          medicine.manufacturer ?? '',
+          medicine.purpose,
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          if (options.includeStorage) '',
+          if (options.includeDose) personal,
+        ]);
+      }
+      for (final batch in medicine.batches) {
+        final afterLimit = batch.afterOpeningLimit == null
+            ? ''
+            : batch.afterOpeningLimit!.isDate
+            ? batch.afterOpeningLimit!.date ?? ''
+            : '${batch.afterOpeningLimit!.value ?? ''}${batch.afterOpeningLimit!.unit == 'month' ? '个月' : '天'}';
+        lines.add([
+          medicine.name,
+          medicine.specificationDisplay,
+          medicine.manufacturer ?? '',
+          medicine.purpose,
+          batch.lotNumber ?? '',
+          batch.quantity == null
+              ? '数量未知'
+              : '${batch.quantity}${_unit(batch.unit)}',
+          batch.expiryValue ?? '待补充',
+          _openedLabel(batch.openedState),
+          batch.openedAt ?? '',
+          afterLimit,
+          batch.managementExpiryDate ?? '',
+          batch.managementExpirySource ?? '',
+          if (options.includeStorage) batch.storageLocation ?? '',
+          if (options.includeDose) personal,
+        ]);
+      }
+    }
+    return lines.map((row) => row.map(_csvCell).join(',')).join('\r\n');
+  }
+
   Future<void> _copy() async {
     try {
-      final text = await previewFuture!;
-      await Clipboard.setData(ClipboardData(text: text));
+      final preview = await previewFuture!;
+      await Clipboard.setData(ClipboardData(text: preview.text));
       if (mounted) {
         _message(
-          kind == ExportKind.pdf
+          preview.options.kind == ExportKind.pdf
               ? 'PDF 对应的清单文本已复制。'
-              : '${_extension(kind).toUpperCase()} 内容已复制。',
+              : '${preview.options.extension.toUpperCase()} 内容已复制。',
         );
       }
     } catch (error) {
@@ -161,33 +207,26 @@ class _ExportApiPageState extends State<ExportApiPage> {
   Future<void> _shareFile() async {
     setState(() => busy = true);
     try {
-      final text = await previewFuture!;
+      // 绑定同一份预览的选项：扩展名、MIME 与内容来自同一次生成，绝不混用（R16）。
+      final preview = await previewFuture!;
+      final options = preview.options;
       final directory = await getTemporaryDirectory();
       final file = File(
-        '${directory.path}/medicine-inventory-${DateTime.now().millisecondsSinceEpoch}.${_extension(kind)}',
+        '${directory.path}/medicine-inventory-${DateTime.now().millisecondsSinceEpoch}.${options.extension}',
       );
-      if (kind == ExportKind.pdf) {
+      if (options.kind == ExportKind.pdf) {
         final fontBytes = await rootBundle.load(
           'assets/fonts/MedBoxSansSC-Regular.ttf',
         );
-        final pdfBytes = await buildInventoryPdf(text, fontBytes);
+        final pdfBytes = await buildInventoryPdf(preview.text, fontBytes);
         await file.writeAsBytes(pdfBytes, flush: true);
       } else {
-        await file.writeAsString(text, encoding: utf8, flush: true);
+        await file.writeAsString(preview.text, encoding: utf8, flush: true);
       }
       if (!mounted) return;
       await SharePlus.instance.share(
         ShareParams(
-          files: [
-            XFile(
-              file.path,
-              mimeType: switch (kind) {
-                ExportKind.markdown => 'text/markdown',
-                ExportKind.csv => 'text/csv',
-                ExportKind.pdf => 'application/pdf',
-              },
-            ),
-          ],
+          files: [XFile(file.path, mimeType: options.mimeType)],
           subject: '家庭药箱库存清单',
           text: '家庭药箱库存记录，仅供核对。库存存在不代表适合服用。',
         ),
@@ -264,7 +303,8 @@ class _ExportApiPageState extends State<ExportApiPage> {
       );
       if (confirmed != true || !mounted) return;
       final result = await widget.workflow.restoreJsonBackup(backup, confirmationToken);
-      await widget.repository.listMedicines(includeArchived: true);
+      // 只刷新活动库存（R15）：含归档的查询会把归档记录写回共享快照，污染首页与提醒。
+      await widget.repository.listMedicines();
       if (mounted) {
         _message('恢复完成：新增 ${result['restoredCount'] ?? '已处理'} 项。');
         await _refreshPreview();
@@ -298,28 +338,35 @@ class _ExportApiPageState extends State<ExportApiPage> {
                 title: const Text('包含个人剂量备注'),
                 subtitle: const Text('默认关闭；仅导出当前用户有权查看的个人备注'),
                 value: includeDose,
-                onChanged: (v) {
-                  setState(() => includeDose = v);
-                  _refreshPreview();
-                },
+                // 分享/备份/恢复进行中锁定选项，避免生成途中被改动导致格式或隐私错配（R16）。
+                onChanged: busy
+                    ? null
+                    : (v) {
+                        setState(() => includeDose = v);
+                        _refreshPreview();
+                      },
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('包含归档记录'),
                 value: includeArchived,
-                onChanged: (v) {
-                  setState(() => includeArchived = v);
-                  _refreshPreview();
-                },
+                onChanged: busy
+                    ? null
+                    : (v) {
+                        setState(() => includeArchived = v);
+                        _refreshPreview();
+                      },
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('包含存放位置'),
                 value: includeStorage,
-                onChanged: (v) {
-                  setState(() => includeStorage = v);
-                  _refreshPreview();
-                },
+                onChanged: busy
+                    ? null
+                    : (v) {
+                        setState(() => includeStorage = v);
+                        _refreshPreview();
+                      },
               ),
               const SizedBox(height: 5),
               SegmentedButton<ExportKind>(
@@ -332,10 +379,12 @@ class _ExportApiPageState extends State<ExportApiPage> {
                   ButtonSegment(value: ExportKind.pdf, label: Text('PDF')),
                 ],
                 selected: {kind},
-                onSelectionChanged: (values) {
-                  setState(() => kind = values.first);
-                  _refreshPreview();
-                },
+                onSelectionChanged: busy
+                    ? null
+                    : (values) {
+                        setState(() => kind = values.first);
+                        _refreshPreview();
+                      },
               ),
             ],
           ),
@@ -360,13 +409,13 @@ class _ExportApiPageState extends State<ExportApiPage> {
                   ),
                   IconButton(
                     tooltip: '刷新预览',
-                    onPressed: _refreshPreview,
+                    onPressed: busy ? null : _refreshPreview,
                     icon: const Icon(Icons.refresh_rounded),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              FutureBuilder<String>(
+              FutureBuilder<_ExportPreview>(
                 future: previewFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
@@ -387,7 +436,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
                     );
                   }
                   return SelectableText(
-                    snapshot.data ?? '',
+                    snapshot.data?.text ?? '',
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       height: 1.5,

@@ -42,12 +42,27 @@ H0数量模型、字段与备份保真、Flutter门禁已有进展，继续沿�
 ## S4：会话、导航、草稿与导出（R10–R19）
 
 - [ ] Flutter会话代次保护所有读取回填/缓存/通知；401/离家/退出统一失效。清理钩子失败仍确保令牌清除和导航，服务器撤销错误单独告知。
-- [ ] 小程序独立计划创建页承接药品身份，tab只负责列表；onShow刷新与日期请求代次保护，加载期间不确认旧实例。
-- [ ] 全部模板选择状态/时间文字在TS预计算；更新前注册编辑状态，保存/放弃/继续，保存失败延期重启；草稿绑定账号/家庭/照护权限。
+  - R10 · Flutter · 代码已写：`api_medicine_repository` 会话代次守卫所有回填/缓存写入；`api_auth_repository.logout` 分步清理各自 try/catch 并单独返回服务端撤销错误；`api_client` 401→`onUnauthorized`；`app_services` 挂钩失效；`my_page` 退出后仍导航到 `/connect` 并单独提示撤销未完成。**验证 NOT_RUN**：本机无 Dart/Flutter SDK，`flutter analyze/test` 未运行，仅括号平衡启发式核对，不得记为 PASS。
+- [x] 小程序独立计划创建页承接药品身份，tab只负责列表；onShow刷新与日期请求代次保护，加载期间不确认旧实例。
+  - R11/R12/R13 · 小程序 · **PASS（自动化门禁）**：新增 `pages/plan-create`（保存后 `switchTab`，绝不 `navigateTo` tab 页）；`medication-plans` 加请求代次＋`onShow` 合并刷新＋加载期锁定确认；`medicine-detail` 改走独立创建页。设备端日期乱序/午夜/tab返回走查留待 S5。
+- [x] 全部模板选择状态/时间文字在TS预计算；更新前注册编辑状态，保存/放弃/继续，保存失败延期重启；草稿绑定账号/家庭/照护权限。
+  - R14/R17 · 小程序 · **PASS（自动化门禁）**：`services/draft-guard` 注册表；`plan-create`/`plan-detail` 编辑态登记＋原生 `enableAlertBeforeUnload`；`app-update` 保存/放弃/继续三选、保存失败延期重启；`index.wxml`/`medication-plans.wxml`/`plan-detail.wxml` 的 `.indexOf`/`.join` 方法表达式改 TS 预计算。WCC 生成模板真机显示留待 S5。
 - [ ] Flutter导出独立只读快照，绑定不可变选项/字节/扩展名/列；分享发出期间锁定，不把归档查询回填活动仓库。
-- [ ] 只读授权清单无权与空/失败区分；修正self测试替身并断言真实绑定语义。
+  - R15/R16 · Flutter · 代码已写：`api_workflow_repository` 只读 `fetchMedicinesForExport`/`fetchDosageNotesForExport`（不碰共享快照）；`export_api_page` 用 `_ExportOptions`/`_ExportPreview` 绑定不可变选项↔文本↔扩展名↔MIME，`busy` 期间锁定 SegmentedButton/Switch/刷新；`local_reminder_service` 过滤归档；trash/restore 刷新改活动列表。**验证 NOT_RUN**：无 Dart SDK。分享格式/隐私乱序真机走查留待 S5。
+- [x] 只读授权清单无权与空/失败区分；修正self测试替身并断言真实绑定语义。
+  - R18/R19 · 小程序 · **PASS（自动化门禁）**：`care-profiles` 区分 403/网络失败/确实无授权，查看者只展示自身访问级别；`medication-plans.test` self 替身改 `ensureSelfCareProfile` 真实身份绑定语义并断言本人私有。
 
 验收：日期乱序、tab返回/午夜、详情创建、旧请求晚到/401/断网退出、盘点重试、更新草稿恢复、分享格式/隐私乱序、WCC生成模板显示。小屏/大字体/键盘和连续点击分别走查。
+
+### S4 门禁台账（2026-10-02）
+
+- 源码身份：分支 `codex/flutter-ui-prototype`；S1/S2/S3 已提交（`268cf62`/`7987d77`/`7a94f50`）；S4 为 HEAD `7a94f50` 之上的未提交工作区 diff（Flutter 10 文件＋小程序页面/服务/测试＋新增 `plan-create/`、`draft-guard.ts`、`app-update.test.mjs`、`plan-create.test.mjs`）。
+- 目录 `E:\project\medcial_box\apps\miniprogram`：
+  - `npm test` → exit 0（tests 146 / pass 146 / fail 0）。
+  - `npm run typecheck`（`tsc -p tsconfig.json --noEmit`）→ exit 0。
+  - `npm run lint`（`eslint app.ts pages services typings --ext .ts --max-warnings=0`）→ exit 0。
+- Flutter 门禁（`analyze`/`test`/`build apk`）→ **NOT_RUN**：`command -v flutter`、`command -v dart` 均无 SDK；R10/R15/R16 仅代码完成，无真实验证，记 NOT_RUN（非 PASS、非 BLOCKED）。
+- 真机/真微信验收（code2session、两账号隔离、分享格式与隐私乱序、WCC 生成模板显示、小屏/大字体/键盘/连点走查）→ 本轮未执行，统一留待 S5 真实家庭试用。
 
 ## S5：双端功能与真实验收
 

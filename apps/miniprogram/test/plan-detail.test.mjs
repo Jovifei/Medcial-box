@@ -46,6 +46,8 @@ function loadPlanDetailPage({ api = {}, wx = {} } = {}) {
   const calls = [];
   const modals = [];
   const toasts = [];
+  const alerts = [];
+  const draftGuard = { registered: [], cleared: 0 };
   const state = {
     detail: { plan: plan(), canManage: true },
     history: { planId: "plan-1", medicineName: "儿童退烧药", history: [record()] },
@@ -66,15 +68,21 @@ function loadPlanDetailPage({ api = {}, wx = {} } = {}) {
     modules: {
       "../../services/api": { api: { ...defaults, ...api }, ApiError },
       "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/draft-guard": {
+        registerDirtyDraft: (draft) => { draftGuard.registered.push(draft); },
+        clearDirtyDraft: () => { draftGuard.cleared += 1; },
+      },
     },
     wx: {
       showModal(options) { modals.push(options); options?.success?.({ confirm: true }); },
       showToast(options) { toasts.push(options.title); },
       navigateBack() {},
+      enableAlertBeforeUnload(options) { alerts.push(["enable", options?.message]); },
+      disableAlertBeforeUnload() { alerts.push(["disable"]); },
       ...wx,
     },
   });
-  return { definition, state, calls, modals, toasts, load: () => makePageContext(definition) };
+  return { definition, state, calls, modals, toasts, alerts, draftGuard, load: () => makePageContext(definition) };
 }
 
 test("详情页展示计划摘要与纠正过的服药记录", async () => {
@@ -83,6 +91,7 @@ test("详情页展示计划摘要与纠正过的服药记录", async () => {
   await page.onLoad({ planId: "plan-1" });
   assert.equal(page.data.plan.medicineName, "儿童退烧药");
   assert.equal(page.data.weekdayText, "每天");
+  assert.equal(page.data.slotText, "08:00 / 20:00", "R17：时间点文案在 TS 预计算");
   assert.equal(page.data.rangeText, "2026-10-01 起（长期）");
   assert.equal(page.data.history.length, 1);
   assert.equal(page.data.history[0].statusLabel, "本次跳过");
@@ -172,4 +181,76 @@ test("只有查看权限时不暴露修改入口", async () => {
   assert.equal(page.data.canManage, false);
   page.onStartEdit();
   assert.equal(page.data.editing, false, "无管理权限不能进入编辑");
+});
+
+test("R14：编辑改动后登记草稿守卫并开启原生离开提示，保存成功后释放", async () => {
+  const { load, draftGuard, alerts } = loadPlanDetailPage();
+  const page = load();
+  await page.onLoad({ planId: "plan-1" });
+  page.onStartEdit();
+  assert.equal(draftGuard.registered.length, 0, "刚进入编辑但未改动不应登记草稿");
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "每次 10ml" } });
+  assert.equal(draftGuard.registered.length, 1, "改动后登记草稿守卫");
+  assert.match(draftGuard.registered[0].label, /未保存/);
+  assert.ok(alerts.some(([kind]) => kind === "enable"), "改动后开启原生离开提示");
+  await page.onSubmitEdit();
+  assert.ok(draftGuard.cleared >= 1, "保存成功后清除草稿守卫");
+  assert.ok(alerts.some(([kind]) => kind === "disable"), "保存成功后关闭离开提示");
+});
+
+test("R14：草稿守卫的保存动作直接提交编辑，供更新重启前调用", async () => {
+  const { load, calls, draftGuard } = loadPlanDetailPage();
+  const page = load();
+  await page.onLoad({ planId: "plan-1" });
+  page.onStartEdit();
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "每次 10ml" } });
+  const draft = draftGuard.registered.at(-1);
+  assert.ok(draft, "改动后应有已登记的草稿");
+  await draft.save();
+  const update = calls.find(([kind]) => kind === "update");
+  assert.ok(update, "草稿保存真正调用更新接口，而不是只提示");
+  assert.equal(update[2].dosageText, "每次 10ml");
+  assert.equal(update[2].version, 3, "草稿保存也带当前版本号");
+});
+
+test("R14：草稿保存失败时抛错，交由更新链路延期，不静默丢弃", async () => {
+  const { load, draftGuard } = loadPlanDetailPage({
+    api: {
+      updateMedicationPlan: async () => {
+        const error = new ApiError("网络异常");
+        throw error;
+      },
+    },
+  });
+  const page = load();
+  await page.onLoad({ planId: "plan-1" });
+  page.onStartEdit();
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "每次 10ml" } });
+  const draft = draftGuard.registered.at(-1);
+  await assert.rejects(() => draft.save(), /网络异常/);
+});
+
+test("R14：取消编辑释放草稿守卫并关闭离开提示", async () => {
+  const { load, draftGuard, alerts } = loadPlanDetailPage();
+  const page = load();
+  await page.onLoad({ planId: "plan-1" });
+  page.onStartEdit();
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "每次 10ml" } });
+  assert.equal(draftGuard.registered.length, 1);
+  const clearedBefore = draftGuard.cleared;
+  page.onCancelEdit();
+  assert.equal(draftGuard.cleared, clearedBefore + 1, "取消编辑清除草稿守卫");
+  assert.ok(alerts.some(([kind]) => kind === "disable"), "取消编辑关闭离开提示");
+  assert.equal(page.data.editing, false);
+});
+
+test("R14：卸载页面时释放草稿守卫", async () => {
+  const { load, draftGuard } = loadPlanDetailPage();
+  const page = load();
+  await page.onLoad({ planId: "plan-1" });
+  page.onStartEdit();
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "每次 10ml" } });
+  const clearedBefore = draftGuard.cleared;
+  page.onUnload();
+  assert.equal(draftGuard.cleared, clearedBefore + 1, "onUnload 释放草稿守卫");
 });

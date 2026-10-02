@@ -121,6 +121,20 @@ const PURPOSE_TAG_LABELS: Record<string, string> = {
   pain: "疼痛", topical: "外用", allergy: "过敏", other: "其他",
 };
 
+/** R17：筛选标签在 TS 里预计算选中态，模板只读取字段，不在 WXML 里调用 indexOf。 */
+const POPULATION_CHIPS: Array<{ value: string; label: string }> = [
+  { value: "adult", label: "成人" }, { value: "child", label: "儿童" },
+];
+const PURPOSE_CHIPS: Array<{ value: string; label: string }> = [
+  { value: "发热", label: "发热" }, { value: "咳嗽", label: "咳嗽" }, { value: "咽喉", label: "咽喉" },
+  { value: "鼻部", label: "鼻部" }, { value: "胃肠", label: "胃肠" }, { value: "疼痛", label: "疼痛" },
+  { value: "外用", label: "外用" }, { value: "过敏", label: "过敏" }, { value: "其他", label: "其他" },
+];
+interface FilterChip { value: string; label: string; selected: boolean; }
+function chipOptions(base: Array<{ value: string; label: string }>, selected: string[]): FilterChip[] {
+  return base.map((chip) => ({ ...chip, selected: selected.includes(chip.value) }));
+}
+
 function withDisplayTags(item: CabinetItem): CabinetItem {
   const merged = [
     ...item.populationTags.map((tag) => ({ kind: `pop-${tag.kind}`, label: tag.label })),
@@ -142,6 +156,8 @@ interface IndexPageData {
   filters: Array<{ id: CabinetFilter; label: string; count: number }>;
   selectedPopulations: string[];
   selectedPurposes: string[];
+  populationChips: FilterChip[];
+  purposeChips: FilterChip[];
   sortKey: string;
   sortLabels: string[];
   sortIndex: number;
@@ -168,6 +184,8 @@ Page({
     selectedPopulations: [] as string[],
     /** 用途多选：空数组 = 不筛选。 */
     selectedPurposes: [] as string[],
+    populationChips: chipOptions(POPULATION_CHIPS, []),
+    purposeChips: chipOptions(PURPOSE_CHIPS, []),
     /** 排序：最早管理截止升序（默认）/降序/名称；未知日期始终置末。 */
     sortKey: "deadline_asc",
     sortLabels: ["最早截止在前", "最早截止在后", "名称 A-Z"],
@@ -299,6 +317,7 @@ Page({
     const current = (this.data as IndexPageData).selectedPopulations;
     const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
     this.setData({ selectedPopulations: next });
+    this.syncFilterChips();
     this.applyFilter();
   },
 
@@ -308,7 +327,17 @@ Page({
     const current = (this.data as IndexPageData).selectedPurposes;
     const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
     this.setData({ selectedPurposes: next });
+    this.syncFilterChips();
     this.applyFilter();
+  },
+
+  /** R17：把选中态算进标签数组，模板只读取 item.selected，不在 WXML 里调用方法。 */
+  syncFilterChips(): void {
+    const data = this.data as IndexPageData;
+    this.setData({
+      populationChips: chipOptions(POPULATION_CHIPS, data.selectedPopulations),
+      purposeChips: chipOptions(PURPOSE_CHIPS, data.selectedPurposes),
+    });
   },
 
   onSortChange(event: { detail: { value: string | number } }): void {
@@ -328,6 +357,7 @@ Page({
 
   onClearFilters(): void {
     this.setData({ keyword: "", filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0 });
+    this.syncFilterChips();
     this.applyFilter();
   },
 

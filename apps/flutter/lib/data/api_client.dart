@@ -50,6 +50,10 @@ class ApiClient {
   final http.Client _client;
   final Duration requestTimeout;
 
+  /// 收到 401 时触发（会话已在服务端失效）：由上层清理本机会话、删除令牌并回到未登录态（R10）。
+  /// 用可设置字段而非构造参数，避免与依赖 ApiClient 的仓库形成构造期循环依赖。
+  Future<void> Function()? onUnauthorized;
+
   static String _normalizeBaseUrl(String value) {
     final trimmed = value.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(trimmed);
@@ -171,6 +175,11 @@ class ApiClient {
 
   void _throwIfFailed(http.Response response, dynamic decoded) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
+    if (response.statusCode == 401) {
+      // 会话已在服务端失效：通知上层清理本机状态（不阻塞本次错误上抛）（R10）。
+      final handler = onUnauthorized;
+      if (handler != null) unawaited(handler());
+    }
     final error = decoded is Map<String, dynamic> && decoded['error'] is Map<String, dynamic>
         ? decoded['error']! as Map<String, dynamic>
         : const <String, dynamic>{};

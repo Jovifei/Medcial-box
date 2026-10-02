@@ -122,7 +122,8 @@ test("详情页提供创建用药计划入口，只带入药品身份", async ()
   await page.refresh();
   page.onTapCreatePlan();
   assert.equal(navigations.length, 1);
-  assert.match(navigations[0], /medication-plans\?medicineId=medicine-1/);
+  // R12：创建流程走独立非 tab 页；navigateTo 到 tabBar 页在真实微信下会失败。
+  assert.match(navigations[0], /^\/pages\/plan-create\/plan-create\?medicineId=medicine-1/);
   assert.match(navigations[0], /medicineName=/);
 });
 

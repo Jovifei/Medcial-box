@@ -71,11 +71,24 @@ Page({
         let grantsText = "仅本人可见";
         let grants: ProfileCard["grants"] = [];
         if (!profile.isPrivate) {
-          const listed = await api.listCareGrants(profile.id).catch(() => ({ grants: [] }));
-          grants = listed.grants.map((grant) => ({ memberUserId: grant.memberUserId, displayName: grant.displayName, canManage: grant.canManage }));
-          grantsText = grants.length === 0
-            ? "仅创建者可见"
-            : grants.map((grant) => `${grant.displayName}（${grant.canManage ? "可代记" : "仅查看"}）`).join("、");
+          if (!profile.canManage) {
+            // 查看者：不枚举其他人的授权名单（多半也无权读取），只说明自身访问级别。
+            grantsText = "你对此对象仅有查看权限；完整授权名单只有创建者可见。";
+          } else {
+            // 管理者：把“确实没有授权”“无权读取”“读取失败”分开呈现，不再一律吞成空名单。
+            try {
+              const listed = await api.listCareGrants(profile.id);
+              grants = listed.grants.map((grant) => ({ memberUserId: grant.memberUserId, displayName: grant.displayName, canManage: grant.canManage }));
+              grantsText = grants.length === 0
+                ? "仅创建者可见"
+                : grants.map((grant) => `${grant.displayName}（${grant.canManage ? "可代记" : "仅查看"}）`).join("、");
+            } catch (error) {
+              grants = [];
+              grantsText = error instanceof ApiError && error.statusCode === 403
+                ? "无权查看该对象的授权名单"
+                : "授权名单读取失败，请稍后重试";
+            }
+          }
         }
         cards.push({
           ...profile,

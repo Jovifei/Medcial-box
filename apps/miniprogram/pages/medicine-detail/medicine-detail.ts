@@ -830,13 +830,14 @@ Page({
   /**
    * 只带入药品身份（ID 与名称）：剂量和时间必须由用户自己填写，
    * 不做任何自动推导。
+   * “用药计划”是 tabBar 页，navigateTo 无法打开；创建流程走独立非 tab 页。
    */
   onTapCreatePlan(): void {
     const data = this.data as MedicineDetailPageData;
     const id = data.medicineId;
     if (id === "") return;
     const name = encodeURIComponent(data.medicineSummary?.name ?? data.name);
-    wx.navigateTo({ url: `/pages/medication-plans/medication-plans?medicineId=${id}&medicineName=${name}` });
+    wx.navigateTo({ url: `/pages/plan-create/plan-create?medicineId=${id}&medicineName=${name}` });
   },
 
   onToggleSection(event: { currentTarget: { dataset: { section?: string } } }): void {

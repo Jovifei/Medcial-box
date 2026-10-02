@@ -1,13 +1,18 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { clearDirtyDraft, registerDirtyDraft } from "../../services/draft-guard";
 import type { MedicationPlanSummary, PlanHistoryRecord } from "../../services/api-types";
 
 /**
  * 计划详情（R3-b）：查看计划、服药历史与纠正记录，并可改期／调整时间点／暂停／结束。
  * - 历史来自确认事件：一次确认可能被纠正多次，事件全部保留，只以最新状态展示；
  * - 编辑只影响之后的安排，已物化的历史记录不会被改写；
- * - 版本冲突提示刷新，不覆盖他人修改。
+ * - 版本冲突提示刷新，不覆盖他人修改；
+ * - 编辑态有未保存改动时登记草稿守卫（R14）：更新重启／退出页面前先给出保存机会，
+ *   保存失败则延期，绝不静默丢弃家人改好的时间安排。
  */
+
+const LEAVE_WARNING = "计划修改有未保存内容，离开会丢失；如需保留请先保存。";
 
 const WEEKDAY_LABELS: Record<string, string> = {
   mon: "一", tue: "二", wed: "三", thu: "四", fri: "五", sat: "六", sun: "日",
@@ -26,6 +31,7 @@ interface PlanDetailPageData {
   canManage: boolean;
   statusLabel: string;
   weekdayText: string;
+  slotText: string;
   rangeText: string;
   history: HistoryCard[];
   historyEmpty: boolean;
@@ -60,6 +66,7 @@ Page({
     canManage: false,
     statusLabel: "",
     weekdayText: "",
+    slotText: "",
     rangeText: "",
     history: [] as HistoryCard[],
     historyEmpty: false,
@@ -74,9 +81,16 @@ Page({
     note: "",
   } as PlanDetailPageData,
 
+  /** 编辑态是否有未保存改动；只在 true 时占用草稿守卫与原生离开提示。 */
+  dirty: false,
+
   async onLoad(options: { planId?: string }): Promise<void> {
     this.setData({ planId: options.planId ?? "" });
     await this.refresh();
+  },
+
+  onUnload(): void {
+    this.releaseDraftGuard();
   },
 
   async refresh(): Promise<void> {
@@ -100,6 +114,7 @@ Page({
         weekdayText: plan.weekdays.length === 7
           ? "每天"
           : plan.weekdays.map((day) => WEEKDAY_LABELS[day] ?? day).join("、"),
+        slotText: plan.timeSlots.join(" / "),
         rangeText: `${plan.startDate}${plan.endDate === null ? " 起（长期）" : ` 至 ${plan.endDate}`}`,
         history: history.history.map(toHistoryCard),
         historyEmpty: history.history.length === 0,
@@ -109,6 +124,7 @@ Page({
         timeSlots: [...plan.timeSlots],
         loading: false,
       });
+      this.updateDirtyState();
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "加载失败，请重试";
       this.setData({ loading: false, errorMessage: message });
@@ -121,6 +137,7 @@ Page({
       return;
     }
     this.setData({ editing: true });
+    this.updateDirtyState();
   },
 
   onCancelEdit(): void {
@@ -134,18 +151,21 @@ Page({
       timeSlots: [...plan.timeSlots],
       timeInput: "",
     });
+    this.updateDirtyState();
   },
 
   onEditInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
+    this.updateDirtyState();
   },
 
   onEditDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
+    this.updateDirtyState();
   },
 
   onAddTimeSlot(): void {
@@ -164,22 +184,92 @@ Page({
       return;
     }
     this.setData({ timeSlots: [...data.timeSlots, raw].sort(), timeInput: "" });
+    this.updateDirtyState();
   },
 
   onRemoveTimeSlot(event: { currentTarget: { dataset: { time?: string } } }): void {
     const time = event.currentTarget.dataset.time;
     if (!time) return;
     this.setData({ timeSlots: (this.data as PlanDetailPageData).timeSlots.filter((item) => item !== time) });
+    this.updateDirtyState();
+  },
+
+  /** 编辑态相对已保存计划的改动才叫“脏”；未改动时释放守卫，避免误报未保存。 */
+  updateDirtyState(): void {
+    const data = this.data as PlanDetailPageData;
+    const plan = data.plan;
+    let changed = false;
+    if (data.editing && plan !== null) {
+      changed =
+        data.dosageText !== plan.dosageText ||
+        data.startDate !== plan.startDate ||
+        data.endDate !== (plan.endDate ?? "") ||
+        data.timeSlots.length !== plan.timeSlots.length ||
+        data.timeSlots.some((slot, index) => slot !== plan.timeSlots[index]);
+    }
+    if (changed && !this.dirty) {
+      this.dirty = true;
+      registerDirtyDraft({
+        label: "计划修改有未保存内容。",
+        save: async () => {
+          await this.persistEdit();
+        },
+      });
+      try {
+        wx.enableAlertBeforeUnload({ message: LEAVE_WARNING });
+      } catch {
+        // 部分基础库没有原生离开提示；草稿守卫仍在更新重启链路生效。
+      }
+    } else if (!changed && this.dirty) {
+      this.releaseDraftGuard();
+    }
+  },
+
+  releaseDraftGuard(): void {
+    this.dirty = false;
+    clearDirtyDraft();
+    try {
+      wx.disableAlertBeforeUnload();
+    } catch {
+      // 与 enable 对称：老基础库缺该 API 时静默。
+    }
+  },
+
+  /** 校验编辑内容；返回错误文案，全部合法时返回 null。 */
+  validateEdit(): string | null {
+    const data = this.data as PlanDetailPageData;
+    if (data.dosageText.trim() === "") return "请填写剂量说明";
+    if (data.timeSlots.length === 0) return "请至少保留一个时间点";
+    if (data.endDate !== "" && data.endDate < data.startDate) return "结束日期不能早于开始日期";
+    return null;
+  },
+
+  /**
+   * 提交编辑（不含确认弹窗）：供“保存修改”按钮与更新重启前的草稿保存共用。
+   * 校验失败或接口失败都会抛出，交由调用方决定提示与是否延期。
+   */
+  async persistEdit(): Promise<string> {
+    const data = this.data as PlanDetailPageData;
+    if (data.plan === null) throw new Error("计划尚未加载");
+    const invalid = this.validateEdit();
+    if (invalid !== null) throw new Error(invalid);
+    await ensureLoggedIn();
+    const result = await api.updateMedicationPlan(data.plan.id, {
+      version: data.plan.version,
+      dosageText: data.dosageText.trim(),
+      timeSlots: data.timeSlots,
+      startDate: data.startDate,
+      endDate: data.endDate === "" ? null : data.endDate,
+    });
+    return result.note;
   },
 
   async onSubmitEdit(): Promise<void> {
     const data = this.data as PlanDetailPageData;
     if (data.saving || data.plan === null) return;
-    const dosageText = data.dosageText.trim();
-    if (dosageText === "") { wx.showToast({ title: "请填写剂量说明", icon: "none" }); return; }
-    if (data.timeSlots.length === 0) { wx.showToast({ title: "请至少保留一个时间点", icon: "none" }); return; }
-    if (data.endDate !== "" && data.endDate < data.startDate) {
-      wx.showToast({ title: "结束日期不能早于开始日期", icon: "none" });
+    const invalid = this.validateEdit();
+    if (invalid !== null) {
+      wx.showToast({ title: invalid, icon: "none" });
       return;
     }
     const confirmed = await new Promise<boolean>((resolve) => {
@@ -193,20 +283,15 @@ Page({
     if (!confirmed) return;
     this.setData({ saving: true });
     try {
-      await ensureLoggedIn();
-      const result = await api.updateMedicationPlan(data.plan.id, {
-        version: data.plan.version,
-        dosageText,
-        timeSlots: data.timeSlots,
-        startDate: data.startDate,
-        endDate: data.endDate === "" ? null : data.endDate,
-      });
-      this.setData({ editing: false, saving: false, note: result.note });
+      const note = await this.persistEdit();
+      this.releaseDraftGuard();
+      this.setData({ editing: false, saving: false, note });
       await this.refresh();
       wx.showToast({ title: "已保存", icon: "success" });
     } catch (error) {
       if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
         wx.showToast({ title: "计划已被他人修改，已刷新", icon: "none", duration: 2800 });
+        this.releaseDraftGuard();
         this.setData({ editing: false, saving: false });
         await this.refresh();
       } else {
