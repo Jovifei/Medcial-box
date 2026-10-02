@@ -455,6 +455,41 @@ test("medicine name alone is enough to save an entry with unknown stock and expi
   assert.equal(saved[0].manufacturer, null);
 });
 
+test("decimal ml quantity and tags survive a full medicine save (B02)", async () => {
+  const saved = [];
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": { api: { createMedicine: async (payload) => saved.push(payload) }, ApiError: class ApiError extends Error {} },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/input-validation": {
+        isStrictNonNegativeInteger: (value) => /^\d+$/.test(value),
+        isStrictPositiveInteger: (value) => /^[1-9]\d*$/.test(value),
+        isValidExpiryValue: () => true,
+      },
+    },
+  });
+  const page = makePageContext(definition);
+  page.setData({
+    name: "氨溴索口服液",
+    populationTags: ["child"],
+    purposeTags: ["cough"],
+    batches: [{ ...page.data.batches[0], quantity: "5.5", quantityUnknown: false, unitIndex: 6 }],
+  });
+  await page.onSubmit();
+  assert.equal(saved.length, 1, "5.5ml must be accepted, not rejected as invalid integer");
+  assert.equal(saved[0].batches[0].quantity, 5.5);
+  assert.equal(saved[0].batches[0].unit, "ml");
+  assert.deepEqual(saved[0].populationTags, ["child"], "tags must be written back on full save");
+  assert.deepEqual(saved[0].purposeTags, ["cough"]);
+});
+
+test("unit labels stay aligned with unit values across the shared table (B02)", () => {
+  const { UNIT_LABELS: labels, UNIT_VALUES: values } = loadService("services/input-validation.ts");
+  assert.equal(labels.length, values.length);
+  assert.equal(labels[values.indexOf("blister")], "板");
+  assert.equal(labels[values.indexOf("other")], "其他");
+});
+
 test("barcode lookup consent cancellation prevents opening scanner or calling catalog", async () => {
   const calls = [];
   const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {

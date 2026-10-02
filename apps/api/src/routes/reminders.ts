@@ -116,11 +116,14 @@ export async function registerReminderRoutes(
           });
         }
       }
-      if (medicine.stockStatus?.state === "low") {
+      if (medicine.stockStatus?.state === "low" || medicine.stockStatus?.state === "exhausted") {
+        const exhausted = medicine.stockStatus.state === "exhausted";
         items.push({
           id: `stock:${medicine.id}`, type: "low_stock", medicineId: medicine.id, batchId: null,
           medicineName: medicine.name,
-          message: `库存 ${medicine.stockStatus.quantity}${medicine.stockStatus.unit} 已达到补货阈值。`,
+          message: exhausted
+            ? `库存已耗尽（0${medicine.stockStatus.unit}），请补货。`
+            : `库存 ${medicine.stockStatus.quantity}${medicine.stockStatus.unit} 已达到补货阈值。`,
           dueDate: null, action: "restock",
         });
       } else if (medicine.stockStatus?.state === "unknown" && medicine.lowStockThreshold != null) {

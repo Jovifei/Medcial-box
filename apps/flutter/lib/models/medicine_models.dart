@@ -3,7 +3,19 @@ import 'dart:convert';
 String _stringOr(Object? value, [String fallback = '']) =>
     value is String ? value : fallback;
 
-int? _nullableInt(Object? value) => value is int ? value : null;
+/// 数量可能是定点小数（ml 最多 3 位小数）。json 里 int/double 都接受，
+/// 统一转 double；再经 _decimalOr 精确到 3 位，避免浮点尾数。
+double? _nullableNum(Object? value) => value is num ? value.toDouble() : null;
+
+/// 展示用数量文案：整数不带小数点，小数最多 3 位（12.5 → "12.5"，2.0 → "2"）。
+String quantityText(double? quantity) {
+  if (quantity == null) return '数量未知';
+  if (quantity == quantity.roundToDouble()) {
+    return quantity.round().toString();
+  }
+  final text = quantity.toStringAsFixed(3);
+  return text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+}
 
 class ExpiryInfo {
   const ExpiryInfo({required this.state, this.label = ''});
@@ -92,9 +104,9 @@ class BatchRecord {
   final String? expiryValue;
   final String expiryPrecision;
   final ExpiryInfo expiryState;
-  final int? quantity;
+  final double? quantity;
   final String unit;
-  final int? confirmedUnitsPerPackage;
+  final double? confirmedUnitsPerPackage;
   final String? storageLocation;
   final String openedState;
   final String? openedAt;
@@ -108,7 +120,7 @@ class BatchRecord {
   final String? status;
 
   String get expiryDisplay => expiryValue ?? '待补充';
-  String get quantityDisplay => quantity == null ? '数量未知' : '$quantity${unitLabel(unit)}';
+  String get quantityDisplay => quantityText(quantity) == '数量未知' ? '数量未知' : '${quantityText(quantity)}${unitLabel(unit)}';
   bool get isExpired =>
       managementExpiryState.state == 'expired' || expiryState.state == 'expired';
 
@@ -123,9 +135,9 @@ class BatchRecord {
       expiryValue: expiry['value'] is String ? expiry['value']! as String : null,
       expiryPrecision: _stringOr(expiry['precision'], 'unknown'),
       expiryState: ExpiryInfo.fromJson(json['expiryState']),
-      quantity: _nullableInt(json['quantity']),
+      quantity: _nullableNum(json['quantity']),
       unit: _stringOr(json['unit'], 'other'),
-      confirmedUnitsPerPackage: _nullableInt(json['confirmedUnitsPerPackage']),
+      confirmedUnitsPerPackage: _nullableNum(json['confirmedUnitsPerPackage']),
       storageLocation: json['storageLocation'] is String
           ? json['storageLocation']! as String
           : null,
@@ -156,9 +168,9 @@ class BatchRecord {
     expiryValue: json['expiryValue'] as String?,
     expiryPrecision: _stringOr(json['expiryPrecision'], 'unknown'),
     expiryState: ExpiryInfo.fromJson(json['expiryState']),
-    quantity: _nullableInt(json['quantity']),
+    quantity: _nullableNum(json['quantity']),
     unit: _stringOr(json['unit'], 'other'),
-    confirmedUnitsPerPackage: _nullableInt(json['confirmedUnitsPerPackage']),
+    confirmedUnitsPerPackage: _nullableNum(json['confirmedUnitsPerPackage']),
     storageLocation: json['storageLocation'] as String?,
     openedState: _stringOr(json['openedState'], 'unknown'),
     openedAt: json['openedAt'] as String?,
@@ -200,7 +212,7 @@ class BatchRecord {
   };
 
   BatchRecord copyWith({
-    int? quantity,
+    double? quantity,
     /// 显式清空余量（写 null = "数量未知"），与"不改动"区分开。
     bool clearQuantity = false,
     String? unit,
@@ -235,13 +247,14 @@ class BatchRecord {
 
 class StockThreshold {
   const StockThreshold({required this.quantity, required this.unit});
-  final int quantity;
+  final double quantity;
   final String unit;
 
   factory StockThreshold.fromJson(Object? value) {
     final json = value is Map<String, dynamic> ? value : const <String, dynamic>{};
+    final rawQuantity = json['quantity'];
     return StockThreshold(
-      quantity: json['quantity'] is int ? json['quantity']! as int : 0,
+      quantity: rawQuantity is num ? rawQuantity.toDouble() : 0,
       unit: _stringOr(json['unit'], 'other'),
     );
   }
@@ -318,8 +331,12 @@ class MedicineRecord {
     this.specification,
     this.manufacturer,
     this.approvalNumber,
+    this.barcodeValue,
     this.activeIngredients = const [],
     this.purposeCategory,
+    this.populationTags = const [],
+    this.purposeTags = const [],
+    this.tagSource = 'manual',
     this.leaflet = const LeafletRecord(),
     this.batches = const [],
     this.lowStockThreshold,
@@ -337,13 +354,17 @@ class MedicineRecord {
   final String? specification;
   final String? manufacturer;
   final String? approvalNumber;
+  final String? barcodeValue;
   final List<String> activeIngredients;
   final String? purposeCategory;
+  final List<String> populationTags;
+  final List<String> purposeTags;
+  final String tagSource;
   final LeafletRecord leaflet;
   final List<BatchRecord> batches;
   final StockThreshold? lowStockThreshold;
   final String stockStatus;
-  final int? stockQuantity;
+  final double? stockQuantity;
   final String? stockUnit;
   final ExpiryInfo expiryState;
   final bool isArchived;
@@ -376,10 +397,20 @@ class MedicineRecord {
       specification: json['specification'] as String?,
       manufacturer: json['manufacturer'] as String?,
       approvalNumber: json['approvalNumber'] as String?,
+      barcodeValue: json['barcodeValue'] is String
+          ? json['barcodeValue']! as String
+          : null,
       activeIngredients: (json['activeIngredients'] as List<dynamic>? ?? [])
           .whereType<String>()
           .toList(growable: false),
       purposeCategory: json['purposeCategory'] as String?,
+      populationTags: (json['populationTags'] as List<dynamic>? ?? [])
+          .whereType<String>()
+          .toList(growable: false),
+      purposeTags: (json['purposeTags'] as List<dynamic>? ?? [])
+          .whereType<String>()
+          .toList(growable: false),
+      tagSource: _stringOr(json['tagSource'], 'manual'),
       leaflet: LeafletRecord.fromJson(json['leaflet']),
       batches: (json['batches'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
@@ -389,7 +420,7 @@ class MedicineRecord {
           ? StockThreshold.fromJson(json['lowStockThreshold'])
           : null,
       stockStatus: _stringOr(stock['state'], 'unknown'),
-      stockQuantity: _nullableInt(stock['quantity']),
+      stockQuantity: _nullableNum(stock['quantity']),
       stockUnit: stock['unit'] as String?,
       expiryState: ExpiryInfo.fromJson(json['expiryState']),
       isArchived: json['isArchived'] == true,
@@ -407,10 +438,18 @@ class MedicineRecord {
     specification: json['specification'] as String?,
     manufacturer: json['manufacturer'] as String?,
     approvalNumber: json['approvalNumber'] as String?,
+    barcodeValue: json['barcodeValue'] as String?,
     activeIngredients: (json['activeIngredients'] as List<dynamic>? ?? [])
         .whereType<String>()
         .toList(growable: false),
     purposeCategory: json['purposeCategory'] as String?,
+    populationTags: (json['populationTags'] as List<dynamic>? ?? [])
+        .whereType<String>()
+        .toList(growable: false),
+    purposeTags: (json['purposeTags'] as List<dynamic>? ?? [])
+        .whereType<String>()
+        .toList(growable: false),
+    tagSource: _stringOr(json['tagSource'], 'manual'),
     leaflet: LeafletRecord.fromJson(json['leaflet']),
     batches: (json['batches'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
@@ -420,7 +459,7 @@ class MedicineRecord {
         ? StockThreshold.fromJson(json['lowStockThreshold'])
         : null,
     stockStatus: _stringOr(json['stockStatus'], 'unknown'),
-    stockQuantity: _nullableInt(json['stockQuantity']),
+    stockQuantity: _nullableNum(json['stockQuantity']),
     stockUnit: json['stockUnit'] as String?,
     expiryState: ExpiryInfo.fromJson(json['expiryState']),
     isArchived: json['isArchived'] == true,
@@ -434,8 +473,12 @@ class MedicineRecord {
     'specification': specification,
     'manufacturer': manufacturer,
     'approvalNumber': approvalNumber,
+    'barcodeValue': barcodeValue,
     'activeIngredients': activeIngredients,
     'purposeCategory': purposeCategory,
+    'populationTags': populationTags,
+    'purposeTags': purposeTags,
+    'tagSource': tagSource,
     'leaflet': leaflet.toJson(),
     'batches': batches.map((batch) => batch.toCacheJson()).toList(),
     'lowStockThreshold': lowStockThreshold?.toJson(),
@@ -452,14 +495,18 @@ class MedicineRecord {
     String? specification,
     String? manufacturer,
     String? approvalNumber,
+    String? barcodeValue,
     List<String>? activeIngredients,
     String? purposeCategory,
+    List<String>? populationTags,
+    List<String>? purposeTags,
+    String? tagSource,
     LeafletRecord? leaflet,
     List<BatchRecord>? batches,
     StockThreshold? lowStockThreshold,
     bool clearLowStockThreshold = false,
     String? stockStatus,
-    int? stockQuantity,
+    double? stockQuantity,
     String? stockUnit,
     bool? isArchived,
     int? version,
@@ -470,8 +517,12 @@ class MedicineRecord {
     specification: specification ?? this.specification,
     manufacturer: manufacturer ?? this.manufacturer,
     approvalNumber: approvalNumber ?? this.approvalNumber,
+    barcodeValue: barcodeValue ?? this.barcodeValue,
     activeIngredients: activeIngredients ?? this.activeIngredients,
     purposeCategory: purposeCategory ?? this.purposeCategory,
+    populationTags: populationTags ?? this.populationTags,
+    purposeTags: purposeTags ?? this.purposeTags,
+    tagSource: tagSource ?? this.tagSource,
     leaflet: leaflet ?? this.leaflet,
     batches: batches ?? this.batches,
     lowStockThreshold: clearLowStockThreshold
@@ -555,6 +606,8 @@ String unitLabel(String unit) => switch (unit) {
   'sachet' => '袋',
   'bottle' => '瓶',
   'box' => '盒',
+  'blister' => '板',
+  'ml' => '毫升',
   _ => '份',
 };
 
@@ -564,6 +617,8 @@ String unitApiValue(String unit) => switch (unit) {
   '袋' => 'sachet',
   '瓶' => 'bottle',
   '盒' => 'box',
+  '板' => 'blister',
+  '毫升' => 'ml',
   _ => 'other',
 };
 
@@ -572,8 +627,13 @@ String? encodeMedicinePayload(MedicineRecord medicine) => jsonEncode({
   'specification': medicine.specification,
   'manufacturer': medicine.manufacturer,
   'approvalNumber': medicine.approvalNumber,
+  'barcodeValue': medicine.barcodeValue,
   'activeIngredients': medicine.activeIngredients,
   'purposeCategory': medicine.purposeCategory,
+  // B01：完整更新必须携带标签，否则后端会归一为 [] 清空已有标签。
+  'populationTags': medicine.populationTags,
+  'purposeTags': medicine.purposeTags,
+  'tagSource': medicine.tagSource,
   'leaflet': medicine.leaflet.toJson(),
   'lowStockThreshold': medicine.lowStockThreshold?.toJson(),
   'version': medicine.version,

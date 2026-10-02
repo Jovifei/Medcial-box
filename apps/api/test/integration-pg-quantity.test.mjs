@@ -165,6 +165,63 @@ test("real PostgreSQL: decimal quantities and ml/blister units (R1)", {
       assert.equal(after.batches.find((item) => item.id === zeroBatch.id).quantity, 2.25, "stocktake must keep millilitre decimals");
     });
 
+    await t.test("miniprogram entry survives a Flutter threshold update with tags intact (B01)", async () => {
+      const { owner } = await family();
+      // 小程序形状：12.5ml + 标签 + 条码
+      const created = status(await request(owner, "POST", "/medicines", {
+        name: "生理盐水",
+        barcodeValue: "6901234500017",
+        populationTags: ["child"],
+        purposeTags: ["nasal"],
+        tagSource: "manual",
+        batches: [
+          { quantity: 12.5, unit: "ml", expiry: { value: "2027-06", precision: "month" } },
+        ],
+      }), 201);
+      assert.equal(created.batches[0].quantity, 12.5);
+
+      // App（修复后）形状：完整字段更新，只改阈值；标签/条码原样回传
+      const detail = status(await request(owner, "GET", `/medicines/${created.id}`), 200);
+      const updated = status(await request(owner, "PUT", `/medicines/${created.id}`, {
+        name: detail.name,
+        specification: detail.specification,
+        manufacturer: detail.manufacturer,
+        approvalNumber: detail.approvalNumber,
+        barcodeValue: detail.barcodeValue,
+        activeIngredients: detail.activeIngredients,
+        purposeCategory: detail.purposeCategory,
+        populationTags: detail.populationTags,
+        purposeTags: detail.purposeTags,
+        tagSource: detail.tagSource,
+        leaflet: detail.leaflet,
+        lowStockThreshold: { quantity: 50, unit: "ml" },
+        version: detail.version,
+        batches: detail.batches.map((batch) => ({
+          id: batch.id,
+          lotNumber: batch.lotNumber,
+          expiry: batch.expiry,
+          quantity: batch.quantity,
+          unit: batch.unit,
+          confirmedUnitsPerPackage: batch.confirmedUnitsPerPackage,
+          storageLocation: batch.storageLocation,
+          openedState: batch.openedState ?? "unknown",
+          openedAt: batch.openedAt ?? null,
+          afterOpeningLimit: batch.afterOpeningLimit ?? null,
+          version: batch.version,
+        })),
+      }), 200);
+      assert.equal(updated.barcodeValue, "6901234500017", "barcode must survive a full update");
+      assert.deepEqual(updated.populationTags, ["child"], "population tags must survive a full update");
+      assert.deepEqual(updated.purposeTags, ["nasal"], "purpose tags must survive a full update");
+      assert.equal(updated.batches[0].quantity, 12.5, "decimal quantity must survive a full update");
+      assert.equal(updated.lowStockThreshold.quantity, 50);
+      // 5.5ml + 阈值 10ml → low（B03 的聚合侧验证）
+      const fiveFive = status(await request(owner, "GET", "/medicines"), 200).medicines
+        .find((entry) => entry.id === created.id);
+      assert.equal(fiveFive.stockStatus.state, "low");
+      assert.equal(fiveFive.stockStatus.quantity, 12.5);
+    });
+
     await t.test("backup round-trip preserves decimal quantities and new units", async () => {
       const { owner } = await family();
       const created = status(await request(owner, "POST", "/medicines", {

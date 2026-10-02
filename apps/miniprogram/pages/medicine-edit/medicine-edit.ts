@@ -2,16 +2,21 @@ import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { readSessionScope, scopedStorageKey } from "../../services/session-scope";
 import { confirmIngredientOverlap, findVerifiedIngredientMatches } from "../../services/ingredient-matches";
+import {
+  UNIT_VALUES,
+  UNIT_LABELS,
+  parseQuantityByUnit,
+  parseConfirmedUnitsByUnit,
+  unitAllowsDecimals,
+} from "../../services/input-validation";
+import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
   ExpiryPrecision,
   MedicineCandidate,
   MedicationSummary,
   MedicinePayload,
-  QuantityUnit,
 } from "../../services/api-types";
 
-const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other"];
-const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "其他"];
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
 const PURPOSE_OPTIONS = ["未分类", "解热镇痛", "感冒咳嗽", "胃肠消化", "过敏", "外用", "其他"];
@@ -66,6 +71,12 @@ interface MedicineEditPageData {
   barcodeValue: string;
   ingredients: string;
   purposeCategory: string;
+  /** 人群/用途整理标签（kind 值）；编辑页可增删，保存时随 payload 写回（B02）。 */
+  populationTags: string[];
+  purposeTags: string[];
+  /** WXML 不执行方法表达式（B24）：chip 的 selected 由 TS 预计算。 */
+  populationChips: Array<{ kind: string; label: string; selected: boolean }>;
+  purposeChips: Array<{ kind: string; label: string; selected: boolean }>;
   leafletPurpose: string;
   leafletUsage: string;
   leafletContraindications: string;
@@ -89,7 +100,8 @@ interface MedicineEditPageData {
 
 type MedicineDraftValues = Pick<MedicineEditPageData,
   "name" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
-  "ingredients" | "purposeCategory" | "leafletPurpose" | "leafletUsage" |
+  "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" |
+  "leafletPurpose" | "leafletUsage" |
   "leafletContraindications" | "leafletPrecautions" | "leafletSource" | "verified" |
   "batches" | "purposeIndex" | "scannedBarcode">;
 
@@ -147,6 +159,8 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
     barcodeValue: data.barcodeValue,
     ingredients: data.ingredients,
     purposeCategory: data.purposeCategory,
+    populationTags: [...data.populationTags],
+    purposeTags: [...data.purposeTags],
     leafletPurpose: data.leafletPurpose,
     leafletUsage: data.leafletUsage,
     leafletContraindications: data.leafletContraindications,
@@ -159,8 +173,20 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
   };
 }
 
-function formFingerprint(data: MedicineEditPageData): string {
-  const fields = draftValues(data);
+/** B24：WXML 不执行 indexOf，chip 的 selected 在 TS 侧预计算。 */
+function buildPopulationChips(selected: string[]): Array<{ kind: string; label: string; selected: boolean }> {
+  return POPULATION_TAG_OPTIONS.map((option) => ({
+    kind: option.kind, label: option.label, selected: selected.includes(option.kind),
+  }));
+}
+
+function buildPurposeChips(selected: string[]): Array<{ kind: string; label: string; selected: boolean }> {
+  return PURPOSE_TAG_OPTIONS.map((option) => ({
+    kind: option.kind, label: option.label, selected: selected.includes(option.kind),
+  }));
+}
+
+function formFingerprint(data: MedicineEditPageData): string {  const fields = draftValues(data);
   return JSON.stringify({
     ...fields,
     batches: fields.batches.map((batch) => {
@@ -280,20 +306,30 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
 
     let quantity: number | null = null;
     if (!batch.quantityUnknown) {
-      const raw = batch.quantity.trim();
-      const parsed = Number(raw);
-      if (!/^\d+$/.test(raw) || !Number.isSafeInteger(parsed)) {
-        return { payloads: [], error: "数量需为不小于 0 的整数，或打开“数量未知”开关" };
+      const unit = UNIT_VALUES[batch.unitIndex] ?? "other";
+      const parsed = parseQuantityByUnit(batch.quantity, unit);
+      if (parsed === null) {
+        return {
+          payloads: [],
+          error: unitAllowsDecimals(unit)
+            ? "毫升数量需为不小于 0 的数字，最多 3 位小数，或打开“数量未知”开关"
+            : "数量需为不小于 0 的整数，或打开“数量未知”开关",
+        };
       }
       quantity = parsed;
     }
 
     let confirmedUnits: number | null = null;
     if (batch.confirmedUnits.trim() !== "") {
-      const rawUnits = batch.confirmedUnits.trim();
-      const parsedUnits = Number(rawUnits);
-      if (!/^\d+$/.test(rawUnits) || !Number.isSafeInteger(parsedUnits) || parsedUnits <= 0) {
-        return { payloads: [], error: "每包装换算数需为正整数（仅在本人确认后填写）" };
+      const unit = UNIT_VALUES[batch.unitIndex] ?? "other";
+      const parsedUnits = parseConfirmedUnitsByUnit(batch.confirmedUnits, unit);
+      if (parsedUnits === null) {
+        return {
+          payloads: [],
+          error: unitAllowsDecimals(unit)
+            ? "每瓶毫升数需为大于 0 的数字（仅在本人确认后填写）"
+            : "每包装换算数需为正整数（仅在本人确认后填写）",
+        };
       }
       confirmedUnits = parsedUnits;
     }
@@ -347,6 +383,10 @@ Page({
     barcodeValue: "",
     ingredients: "",
     purposeCategory: "",
+    populationTags: [] as string[],
+    purposeTags: [] as string[],
+    populationChips: buildPopulationChips([]),
+    purposeChips: buildPurposeChips([]),
     leafletPurpose: "",
     leafletUsage: "",
     leafletContraindications: "",
@@ -439,6 +479,10 @@ Page({
         ingredients: medicine.activeIngredients.join("、"),
         purposeCategory: medicine.purposeCategory ?? "",
         purposeIndex: Math.max(0, PURPOSE_OPTIONS.indexOf(medicine.purposeCategory ?? "")),
+        populationTags: medicine.populationTags ?? [],
+        purposeTags: medicine.purposeTags ?? [],
+        populationChips: buildPopulationChips(medicine.populationTags ?? []),
+        purposeChips: buildPurposeChips(medicine.purposeTags ?? []),
         leafletPurpose: medicine.leaflet.purposeSummary ?? "",
         leafletUsage: medicine.leaflet.packageUsageSummary ?? "",
         leafletContraindications: medicine.leaflet.contraindicationsSummary ?? "",
@@ -573,6 +617,11 @@ Page({
     }
     this.setData({
       ...fields,
+      // 旧版本草稿没有标签字段：归一为空数组，避免 undefined 写入。
+      populationTags: fields.populationTags ?? [],
+      purposeTags: fields.purposeTags ?? [],
+      populationChips: buildPopulationChips(fields.populationTags ?? []),
+      purposeChips: buildPurposeChips(fields.purposeTags ?? []),
       draftAvailable: false,
       recognitionHint: "已恢复本机草稿，请核对后保存。",
       barcodeLookupStatus: fields.scannedBarcode === "" ? "" : "已保留上次扫描的商品码。",
@@ -647,6 +696,26 @@ Page({
     const purposeIndex = Number(event.detail.value);
     const selected = PURPOSE_OPTIONS[purposeIndex] ?? "未分类";
     this.setData({ purposeIndex, purposeCategory: selected === "未分类" ? "" : selected });
+    this.updateDirtyState();
+  },
+
+  /** 人群标签多选（B02）：再次点击取消选择。 */
+  onTogglePopulationTag(event: { currentTarget: { dataset: { kind?: string } } }): void {
+    const kind = event.currentTarget.dataset.kind;
+    if (kind === undefined) return;
+    const current = (this.data as MedicineEditPageData).populationTags;
+    const next = current.includes(kind) ? current.filter((tag) => tag !== kind) : [...current, kind];
+    this.setData({ populationTags: next, populationChips: buildPopulationChips(next) });
+    this.updateDirtyState();
+  },
+
+  /** 用途标签多选（B02）。 */
+  onTogglePurposeTag(event: { currentTarget: { dataset: { kind?: string } } }): void {
+    const kind = event.currentTarget.dataset.kind;
+    if (kind === undefined) return;
+    const current = (this.data as MedicineEditPageData).purposeTags;
+    const next = current.includes(kind) ? current.filter((tag) => tag !== kind) : [...current, kind];
+    this.setData({ purposeTags: next, purposeChips: buildPurposeChips(next) });
     this.updateDirtyState();
   },
 
@@ -957,8 +1026,31 @@ Page({
   onBatchUnitChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
-    this.setData({ [`batches[${index}].unitIndex`]: Number(event.detail.value) });
-    this.updateDirtyState();
+    const batch = (this.data as MedicineEditPageData).batches[Number(index)];
+    if (!batch) return;
+    const nextIndex = Number(event.detail.value);
+    const nextUnit = UNIT_VALUES[nextIndex];
+    const currentUnit = UNIT_VALUES[batch.unitIndex];
+    if (nextUnit === undefined || nextUnit === currentUnit) return;
+    // 单位切换守卫（与 batch-edit 一致）：数字不换算，由用户确认后生效。
+    const hasValue = batch.quantity !== "" || batch.confirmedUnits !== "" || batch.quantityUnknown;
+    if (!hasValue) {
+      this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
+      this.updateDirtyState();
+      return;
+    }
+    wx.showModal({
+      title: "切换单位",
+      content: "单位不会自动换算已填的数字。例如把 2 片改成 2 盒，保存后仍是 2。请核对后再保存。",
+      confirmText: "仍要切换",
+      cancelText: "保持原单位",
+      success: (result) => {
+        if (result.confirm) {
+          this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
+          this.updateDirtyState();
+        }
+      },
+    });
   },
 
   onBatchUnknownChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: boolean } }): void {
@@ -1012,6 +1104,9 @@ Page({
       barcodeValue: data.barcodeValue.trim() === "" ? (data.scannedBarcode.trim() || null) : data.barcodeValue.trim(),
       activeIngredients: ingredients,
       purposeCategory: data.purposeCategory.trim() === "" ? null : data.purposeCategory.trim(),
+      // B02：整体保存必须回写标签（此前缺省被后端归一为 []，会清空原有标签）。
+      populationTags: data.populationTags as MedicinePayload["populationTags"],
+      purposeTags: data.purposeTags as MedicinePayload["purposeTags"],
       leaflet: {
         purposeSummary: data.leafletPurpose.trim() === "" ? null : data.leafletPurpose.trim(),
         packageUsageSummary: data.leafletUsage.trim() === "" ? null : data.leafletUsage.trim(),

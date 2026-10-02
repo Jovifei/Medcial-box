@@ -63,6 +63,30 @@
         <view class="picker-box">{{purposeCategory || "点选用途"}}</view>
       </picker>
     </view>
+    <view class="field">
+      <view class="field-label">人群标签（选填，可多选）</view>
+      <view class="tag-picker">
+        <view
+          wx:for="{{populationChips}}"
+          wx:key="kind"
+          class="tag-chip {{item.selected ? 'selected' : ''}}"
+          data-kind="{{item.kind}}"
+          bindtap="onTogglePopulationTag"
+        >{{item.label}}</view>
+      </view>
+    </view>
+    <view class="field">
+      <view class="field-label">用途标签（选填，可多选）</view>
+      <view class="tag-picker">
+        <view
+          wx:for="{{purposeChips}}"
+          wx:key="kind"
+          class="tag-chip tag-chip-purpose {{item.selected ? 'selected' : ''}}"
+          data-kind="{{item.kind}}"
+          bindtap="onTogglePurposeTag"
+        >{{item.label}}</view>
+      </view>
+    </view>
     <view class="field-hint">数量和有效期不知道也可以保存，之后在详情中补全。</view>
   </view>
 

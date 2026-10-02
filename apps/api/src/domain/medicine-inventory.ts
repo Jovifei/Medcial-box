@@ -7,6 +7,7 @@ import type {
   StockStatus,
 } from "@home-medicine/contracts";
 import { deriveExpiryState, describeExpiry } from "./expiry.js";
+import { DECIMAL_SCALE, fromMilli, toMilli } from "./decimal.js";
 
 export interface EffectiveExpiryResult {
   date: string | null;
@@ -114,16 +115,21 @@ export function calculateStockStatus(
   });
   if (currentBatches.length === 0) return { state: "unknown", quantity: null, unit: threshold.unit };
 
-  let total = 0;
+  let totalMilli = 0;
   for (const batch of currentBatches) {
     const quantity = quantityInThresholdUnit(batch, threshold.unit);
     if (quantity === null) return { state: "unknown", quantity: null, unit: threshold.unit };
-    total += quantity;
-    if (!Number.isSafeInteger(total)) return { state: "unknown", quantity: null, unit: threshold.unit };
+    totalMilli += toMilli(quantity);
   }
-  if (total === 0) return { state: "exhausted", quantity: total, unit: threshold.unit };
+  // 定点毫单位累加：0.1+0.2 之类的小数不再被误判为未知；
+  // 超出 numeric(14,3) 表示范围时仍按未知处理。
+  if (!Number.isSafeInteger(totalMilli) || Math.abs(totalMilli) > Number.MAX_SAFE_INTEGER / DECIMAL_SCALE) {
+    return { state: "unknown", quantity: null, unit: threshold.unit };
+  }
+  const total = fromMilli(totalMilli);
+  if (totalMilli === 0) return { state: "exhausted", quantity: total, unit: threshold.unit };
   return {
-    state: total <= threshold.quantity ? "low" : "ok",
+    state: totalMilli <= toMilli(threshold.quantity) ? "low" : "ok",
     quantity: total,
     unit: threshold.unit,
   };

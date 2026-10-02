@@ -8,10 +8,28 @@ const source = readFileSync(new URL("../../miniprogram/pages/medicine-edit/medic
 const compiled = ts.transpileModule(`${source}\nexport { buildBatchPayloads };`, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+
+// B02 后页面依赖共享校验模块；这里同样内联编译真实实现，避免替身漂移。
+function loadMiniService(relativePath) {
+  const serviceSource = readFileSync(new URL(`../../miniprogram/${relativePath}`, import.meta.url), "utf8");
+  const serviceCompiled = ts.transpileModule(serviceSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const serviceExports = {};
+  vm.runInNewContext(serviceCompiled, { exports: serviceExports, require: () => ({}) });
+  return serviceExports;
+}
+const inputValidation = loadMiniService("services/input-validation.ts");
+const medicineTags = loadMiniService("services/medicine-tags.ts");
+
 const exports = {};
 vm.runInNewContext(compiled, {
   exports,
-  require: () => ({}),
+  require: (id) => {
+    if (id.endsWith("input-validation")) return inputValidation;
+    if (id.endsWith("medicine-tags")) return medicineTags;
+    return {};
+  },
   Page: () => {},
 });
 const { buildBatchPayloads } = exports;

@@ -1,4 +1,39 @@
-import type { ExpiryPrecision } from "./api-types";
+import type { ExpiryPrecision, QuantityUnit } from "./api-types";
+
+/**
+ * 单位定义统一表（B02）：值、文案、精度规则一处维护。
+ * 顺序即 picker 顺序； medicinal-edit 与 batch-edit 共用，
+ * 避免"值表 8 项、文案 6 项"错位导致『其他』存成『板』。
+ */
+export const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other"];
+export const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他"];
+
+/** 数量按单位的输入规则：ml 允许最多 3 位小数，其余计件单位必须是非负整数。 */
+export function unitAllowsDecimals(unit: QuantityUnit): boolean {
+  return unit === "ml";
+}
+
+/** 按单位校验并解析数量输入；返回 null 表示非法（由页面给出文案）。 */
+export function parseQuantityByUnit(raw: string, unit: QuantityUnit): number | null {
+  const value = raw.trim();
+  if (unitAllowsDecimals(unit)) {
+    if (!isNonNegativeDecimalQuantity(value)) return null;
+    return Math.round(Number(value) * 1000) / 1000;
+  }
+  if (!isStrictNonNegativeInteger(value)) return null;
+  return Number(value);
+}
+
+/** 按单位校验并解析每包装换算数（板→片、盒→板/片、瓶→ml 的确认关系）。 */
+export function parseConfirmedUnitsByUnit(raw: string, unit: QuantityUnit): number | null {
+  const value = raw.trim();
+  if (unitAllowsDecimals(unit)) {
+    if (!isNonNegativeDecimalQuantity(value) || Number(value) <= 0) return null;
+    return Math.round(Number(value) * 1000) / 1000;
+  }
+  if (!isStrictPositiveInteger(value)) return null;
+  return Number(value);
+}
 
 /**
  * 输入框中的库存数量必须是完整的、非负的安全整数。

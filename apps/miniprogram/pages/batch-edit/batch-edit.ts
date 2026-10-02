@@ -5,17 +5,16 @@ import {
   isStrictPositiveInteger,
   isValidExpiryValue,
   isNonNegativeDecimalQuantity,
+  UNIT_VALUES,
+  UNIT_LABELS,
 } from "../../services/input-validation";
 import type {
   AfterOpeningLimitInput,
   BatchPayload,
   ExpiryPrecision,
   MedicationBatchSummary,
-  QuantityUnit,
 } from "../../services/api-types";
 
-const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other"];
-const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他"];
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
 

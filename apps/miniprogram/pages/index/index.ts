@@ -45,8 +45,12 @@ const UNIT_SHORT: Record<QuantityUnit, string> = {
 };
 
 function quantitySummary(medicine: MedicationSummary): string {
-  if (medicine.batches.length === 0) return "暂无批次记录";
-  const parts = medicine.batches.map((batch) => {
+  // B23：卡片数量摘要只统计当前在库批次，已处置（handled）历史不再显示。
+  const inCabinet = medicine.batches.filter((batch) => batch.dispositionStatus !== "handled");
+  if (inCabinet.length === 0) {
+    return medicine.batches.length > 0 ? "批次均已处理" : "暂无批次记录";
+  }
+  const parts = inCabinet.map((batch) => {
     if (batch.quantity === null) return "数量未知";
     if (batch.quantity === 0) return "已耗尽";
     return `${batch.quantity}${UNIT_SHORT[batch.unit] ?? "份"}`;
@@ -65,12 +69,15 @@ function purposeText(medicine: MedicationSummary): string {
 }
 
 function toCabinetItem(medicine: MedicationSummary): CabinetItem {
-  const activeExpiryStates = medicine.batches.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state);
+  // B23：在库口径 = 未处置批次（含已过期但尚未处理的待处理项）。
+  // 已处置（handled）批次保留在详情/历史中，但不再驱动卡片日期、状态与提醒。
+  const inCabinet = medicine.batches.filter((batch) => batch.dispositionStatus !== "handled");
+  const activeExpiryStates = inCabinet.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state);
   const severity: Record<ExpiryState, number> = { expired: 0, due_this_month: 1, expiring_soon: 2, ok: 3, unknown: 4 };
   const state = activeExpiryStates.length > 0
     ? [...activeExpiryStates].sort((left, right) => severity[left] - severity[right])[0]
     : medicine.expiryState?.state ?? "unknown";
-  const dateRecords = medicine.batches.map((batch) => ({
+  const dateRecords = inCabinet.map((batch) => ({
     date: batch.managementExpiryDate ?? batch.expiry.value,
     label: batch.managementExpiryState?.label ?? batch.expiryState.label,
   })).filter((item): item is { date: string; label: string } => item.date !== null);
@@ -264,7 +271,7 @@ Page({
       const matchesKeyword = keyword === "" || item.searchText.includes(keyword);
       const matchesFilter = data.filterKind === "all" ||
         (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
-        (data.filterKind === "low" && item.stockState === "low") ||
+        (data.filterKind === "low" && (item.stockState === "low" || item.stockState === "exhausted")) ||
         (data.filterKind === "missing" && item.needsInfo);
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
@@ -275,9 +282,11 @@ Page({
     });
     const items = filtered.map(withDisplayTags).sort((left, right) => {
       if (data.sortKey === "name") return left.name.localeCompare(right.name, "zh-Hans-CN");
-      const leftDate = left.earliestDate ?? "9999-12-31";
-      const rightDate = right.earliestDate ?? "9999-12-31";
-      const compared = leftDate.localeCompare(rightDate);
+      // B19：未知日期两种方向都置末；已知日期按方向比较，同日期保持稳定排序。
+      if (left.earliestDate === null && right.earliestDate === null) return 0;
+      if (left.earliestDate === null) return 1;
+      if (right.earliestDate === null) return -1;
+      const compared = left.earliestDate.localeCompare(right.earliestDate);
       return data.sortKey === "deadline_desc" ? -compared : compared;
     });
     const tagFiltersActive = data.selectedPopulations.length > 0 || data.selectedPurposes.length > 0 || data.sortKey !== "deadline_asc";

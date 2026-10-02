@@ -278,6 +278,9 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       const created = status(await request(owner, "POST", "/medicines", {
         name: "开封期限测试药",
         barcodeValue: "6901234567890",
+        populationTags: ["child"],
+        purposeTags: ["cough"],
+        tagSource: "catalog",
         lowStockThreshold: { quantity: 2, unit: "box" },
         batches: [
           { quantity: 2, unit: "box", expiry: { value: "2027-01", precision: "month" }, openedState: "opened", openedAt: shanghaiDate(-30), afterOpeningLimit: { value: 30, unit: "day", source: "包装说明" } },
@@ -371,6 +374,10 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
 
       const backup = status(await request(owner, "POST", "/backups/json"), 200);
       assert.equal(backup.medicines[0].barcodeValue, "6901234567890");
+      // B04：v2 备份必须包含标签与来源，恢复后逐字段一致。
+      assert.deepEqual(backup.medicines[0].populationTags, ["child"]);
+      assert.deepEqual(backup.medicines[0].purposeTags, ["cough"]);
+      assert.equal(backup.medicines[0].tagSource, "catalog");
       assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.value, 30);
       assert.equal(backup.medicines[0].batches.find((item) => item.openedState === "opened").afterOpeningLimit.unit, "day");
       assert.equal(JSON.stringify(backup).includes("dosage"), false);
@@ -391,6 +398,12 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       }), 201);
       assert.equal(restored.restoredCount, 1);
       assert.equal(status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines.length, beforeRestoreCount + 1);
+      const restoredMedicine = status(await request(owner, "GET", "/medicines?includeArchived=true"), 200).medicines
+        .find((entry) => entry.id !== created.id);
+      assert.deepEqual(restoredMedicine.populationTags, ["child"], "restore must keep population tags (B04)");
+      assert.deepEqual(restoredMedicine.purposeTags, ["cough"], "restore must keep purpose tags (B04)");
+      assert.equal(restoredMedicine.tagSource, "catalog", "restore must keep tag source (B04)");
+      assert.equal(restoredMedicine.barcodeValue, "6901234567890", "restore must keep barcode (B04)");
       assert.equal(status(await request(owner, "GET", "/families/settings"), 200).settings.stocktakeInterval, "weekly", "restore must not overwrite existing family settings");
 
       const noSettingsOwner = (await family()).owner;

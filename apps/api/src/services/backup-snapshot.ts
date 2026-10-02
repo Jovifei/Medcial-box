@@ -100,6 +100,9 @@ export function createFamilyMedicineBackup<T extends MedicationSummary>(
       barcodeValue: medicine.barcodeValue ?? null,
       activeIngredients: [...medicine.activeIngredients],
       purposeCategory: medicine.purposeCategory,
+      populationTags: [...(medicine.populationTags ?? [])],
+      purposeTags: [...(medicine.purposeTags ?? [])],
+      tagSource: medicine.tagSource ?? "manual",
       leaflet: {
         purposeSummary: medicine.leaflet.purposeSummary,
         packageUsageSummary: medicine.leaflet.packageUsageSummary,
@@ -183,7 +186,7 @@ export function validateFamilyMedicineBackup(raw: unknown): BackupValidationResu
   return {
     ok: true,
     value: {
-      schemaVersion: 1,
+      schemaVersion: raw.schemaVersion as 1 | 2,
       backupId: raw.backupId as string,
       exportedAt: raw.exportedAt as string,
       familyName: (raw.familyName as string).trim(),

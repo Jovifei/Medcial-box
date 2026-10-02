@@ -7,6 +7,7 @@ import 'package:home_medicine_flutter/data/api_auth_repository.dart';
 import 'package:home_medicine_flutter/data/api_client.dart';
 import 'package:home_medicine_flutter/data/api_medicine_repository.dart';
 import 'package:home_medicine_flutter/data/app_stores.dart';
+import 'package:home_medicine_flutter/models/medicine_models.dart';
 
 void main() {
   test('logout clears identity data through the shared switch hook (A03)', () async {

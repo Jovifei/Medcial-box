@@ -39,6 +39,9 @@ export type LeafletReviewStatus = "unverified" | "matched" | "user_confirmed";
 
 export type NoteVisibility = "private" | "family";
 
+export type PopulationTag = "adult" | "child";
+export type PurposeTag = "fever" | "cough" | "throat" | "nasal" | "gastro" | "pain" | "topical" | "allergy" | "other";
+
 export interface MedicationBatchSummary {
   id: string;
   lotNumber: string | null;
@@ -55,6 +58,8 @@ export interface MedicationBatchSummary {
   managementExpiryDate?: string | null;
   managementExpirySource?: "package" | "opened" | null;
   managementExpiryState?: ExpiryStateInfo;
+  /** 处置状态：active=当前在库，handled=已处理（不进在库投影，B23）。 */
+  dispositionStatus?: "active" | "handled";
   version: number;
 }
 
@@ -134,6 +139,10 @@ export interface MedicinePayload {
   barcodeValue?: string | null;
   activeIngredients?: string[];
   purposeCategory?: string | null;
+  /** 人群/用途标签：整体保存必须回写（B02），省略会被后端归一为 []。 */
+  populationTags?: PopulationTag[];
+  purposeTags?: PurposeTag[];
+  tagSource?: "manual" | "catalog" | "imported";
   leaflet?: {
     purposeSummary?: string | null;
     packageUsageSummary?: string | null;

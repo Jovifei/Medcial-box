@@ -73,3 +73,35 @@ test("low stock sums only known, unexpired compatible batches and uses an inclus
     { state: "unknown", quantity: null, unit: "box" },
   );
 });
+
+test("decimal ml quantities are summed exactly and never mistaken for unknown (B03)", () => {
+  const now = new Date("2026-10-02T04:00:00Z");
+  const batch = (quantity, unit = "ml") => ({
+    quantity, unit, confirmedUnitsPerPackage: null, managementExpiryDate: "2027-01-01",
+  });
+  // 5.5ml 阈值 10ml → low（此前 isSafeInteger 判 unknown）
+  assert.deepEqual(
+    rules.calculateStockStatus([batch(5.5)], { quantity: 10, unit: "ml" }, now),
+    { state: "low", quantity: 5.5, unit: "ml" },
+  );
+  // 0.1 + 0.2 定点累加 = 0.3，不留浮点误差
+  assert.deepEqual(
+    rules.calculateStockStatus([batch(0.1), batch(0.2)], { quantity: 0.3, unit: "ml" }, now),
+    { state: "low", quantity: 0.3, unit: "ml" },
+  );
+  // 1.5 + 1.5 = 3.0，等阈值含边界
+  assert.deepEqual(
+    rules.calculateStockStatus([batch(1.5), batch(1.5)], { quantity: 3, unit: "ml" }, now),
+    { state: "low", quantity: 3, unit: "ml" },
+  );
+  // 已知零 → exhausted（不是 unknown，也不是 ok）
+  assert.deepEqual(
+    rules.calculateStockStatus([batch(0)], { quantity: 1, unit: "ml" }, now),
+    { state: "exhausted", quantity: 0, unit: "ml" },
+  );
+  // 未知批次与已知混合 → 仍 unknown
+  assert.deepEqual(
+    rules.calculateStockStatus([batch(5.5), { quantity: null, unit: "ml", confirmedUnitsPerPackage: null, managementExpiryDate: null }], { quantity: 10, unit: "ml" }, now),
+    { state: "unknown", quantity: null, unit: "ml" },
+  );
+});

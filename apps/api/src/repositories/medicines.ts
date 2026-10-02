@@ -141,7 +141,7 @@ export async function insertMedicine(
 ): Promise<MedicineRow> {
   const result = await database.query<MedicineRow>(
     `INSERT INTO medicines (family_id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, low_stock_threshold_quantity, low_stock_threshold_unit, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'manual', $17, $18, $19, $20)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
      RETURNING ${MEDICINE_COLUMNS}`,
     [
       familyId,
@@ -160,6 +160,7 @@ export async function insertMedicine(
       fields.leafletReviewStatus,
       fields.populationTags,
       fields.purposeTags,
+      fields.tagSource,
       fields.lowStockThreshold?.quantity ?? null,
       fields.lowStockThreshold?.unit ?? null,
       userId,

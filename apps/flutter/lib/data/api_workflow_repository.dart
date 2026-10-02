@@ -162,7 +162,7 @@ class ApiWorkflowRepository {
 
   Future<Map<String, dynamic>> addRestockItem({
     required String medicineId,
-    int? desiredQuantity,
+    double? desiredQuantity,
     required String unit,
   }) async {
     final result = await api.post(

@@ -14,6 +14,7 @@ import type {
   RestockStatus,
   StocktakeInterval,
   StocktakeItemInput,
+  TagSource,
 } from "@home-medicine/contracts";
 import { parseExpiry } from "./domain/expiry.js";
 
@@ -64,6 +65,15 @@ function tagList<T extends string>(value: unknown, field: string, allowed: reado
     seen.add(item as T);
   }
   return [...seen];
+}
+
+/** 标签来源：缺省 manual（新录入）；备份恢复时保留导出的原值。 */
+function parseTagSource(value: unknown): TagSource {
+  if (value === undefined || value === null) return "manual";
+  if (typeof value !== "string" || !["manual", "catalog", "imported"].includes(value)) {
+    throw new InputError("tagSource 不合法");
+  }
+  return value as TagSource;
 }
 
 export type ValidationResult<T> =
@@ -339,6 +349,8 @@ export interface ValidatedMedicineFields {
   populationTags: PopulationTag[];
   /** 用途整理标签。 */
   purposeTags: PurposeTag[];
+  /** 标签来源（备份恢复时保留原值；常规创建默认 manual）。 */
+  tagSource: TagSource;
   specification: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
@@ -407,6 +419,7 @@ function parseMedicine(raw: Record<string, unknown>): ValidatedMedicineFields {
     name,
     populationTags: tagList(raw.populationTags, "populationTags", POPULATION_TAGS),
     purposeTags: tagList(raw.purposeTags, "purposeTags", PURPOSE_TAGS),
+    tagSource: parseTagSource(raw.tagSource),
     specification: text(raw.specification, "specification"),
     manufacturer: text(raw.manufacturer, "manufacturer"),
     approvalNumber: text(raw.approvalNumber, "approvalNumber"),

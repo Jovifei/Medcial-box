@@ -54,6 +54,15 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
   const exports = {};
   const module = { exports };
   const requireMock = (id) => {
+    // input-validation / medicine-tags：替身只需覆盖关心的行为，
+    // 未覆盖的导出（如 B02 新增的单位表）回落到真实实现，避免替身漂移。
+    // 注意：必须在 hasOwn(modules, id) 之前判断，否则部分替身会提前返回。
+    if (id.endsWith("input-validation")) {
+      const real = loadService("services/input-validation.ts", { wx: pageWx });
+      const injected = Object.hasOwn(modules, id) ? modules[id] : undefined;
+      return injected === undefined ? real : { ...real, ...injected };
+    }
+    if (id.endsWith("medicine-tags")) return loadService("services/medicine-tags.ts", { wx: pageWx });
     if (Object.hasOwn(modules, id)) return modules[id];
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });

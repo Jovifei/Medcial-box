@@ -144,7 +144,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
       await widget.repository.updateMedicine(
         medicine.copyWith(
           lowStockThreshold: result.enabled
-              ? StockThreshold(quantity: result.quantity, unit: result.unit)
+              ? StockThreshold(quantity: result.quantity.toDouble(), unit: result.unit)
               : null,
           clearLowStockThreshold: !result.enabled,
         ),
@@ -542,16 +542,15 @@ class _BatchDraftFormState extends State<_BatchDraftForm> {
 
 /// 余量面板的显式结果：区分"取消"、"明确未知（null）"和"明确数值（含 0）"。
 class _QuantityResult {
-  const _QuantityResult({required this.cancelled, this.quantity});
   const _QuantityResult.dismissed() : cancelled = true, quantity = null;
   const _QuantityResult.value(this.quantity) : cancelled = false;
   final bool cancelled;
-  final int? quantity;
+  final double? quantity;
 }
 
 class _QuantityForm extends StatefulWidget {
   const _QuantityForm({required this.initialQuantity});
-  final int? initialQuantity;
+  final double? initialQuantity;
   @override
   State<_QuantityForm> createState() => _QuantityFormState();
 }
@@ -567,7 +566,7 @@ class _QuantityFormState extends State<_QuantityForm> {
       const SizedBox(height: 14),
       PrimaryButton(label: '保存余量', onPressed: () {
         final raw = controller.text.trim();
-        final value = raw.isEmpty ? null : int.tryParse(raw);
+        final value = raw.isEmpty ? null : double.tryParse(raw);
         if (raw.isNotEmpty && (value == null || value < 0)) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量请输入 0 或正整数，未知留空。')));
           return;
@@ -673,7 +672,7 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
 class _ThresholdResult {
   const _ThresholdResult({required this.enabled, required this.quantity, required this.unit});
   final bool enabled;
-  final int quantity;
+  final double quantity;
   final String unit;
 }
 
@@ -703,7 +702,7 @@ class _ThresholdFormState extends State<_ThresholdForm> {
       ],
       const SizedBox(height: 12),
       PrimaryButton(label: '保存提醒设置', onPressed: () {
-        final quantity = int.tryParse(controller.text.trim());
+        final quantity = double.tryParse(controller.text.trim());
         if (enabled && (quantity == null || quantity < 0)) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入不小于 0 的整数阈值。')));
           return;

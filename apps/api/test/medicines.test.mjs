@@ -124,10 +124,12 @@ test("creating a medicine with an initial batch returns version 1 and derived st
     const insertMedicine = pool.callsMatching(/INSERT INTO medicines/)[0];
     assert.equal(insertMedicine.params[0], "family-1");
     assert.equal(insertMedicine.params[5], "6901234567890");
-    // 标签列在 purpose_category 之后插入（$15/$16），created_by 因此后移两位。
+    // 标签列在 purpose_category 之后插入（$15/$16），tagSource 为 $17；
+    // created_by 随之后移（$20）。
     assert.deepEqual(insertMedicine.params[14], []);
     assert.deepEqual(insertMedicine.params[15], []);
-    assert.equal(insertMedicine.params[18], "user-1");
+    assert.equal(insertMedicine.params[16], "manual");
+    assert.equal(insertMedicine.params[19], "user-1");
     const insertBatch = pool.callsMatching(/INSERT INTO medicine_batches/)[0];
     assert.equal(insertBatch.params[0], "m-new");
     assert.equal(insertBatch.params[1], "family-1");

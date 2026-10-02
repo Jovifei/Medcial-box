@@ -80,8 +80,13 @@ class ApiMedicineRepository extends ChangeNotifier {
       'specification': medicine.specification,
       'manufacturer': medicine.manufacturer,
       'approvalNumber': medicine.approvalNumber,
+      // B01：条码与标签必须在完整更新中回传，否则会清空小程序录入的字段。
+      'barcodeValue': medicine.barcodeValue,
       'activeIngredients': medicine.activeIngredients,
       'purposeCategory': medicine.purposeCategory,
+      'populationTags': medicine.populationTags,
+      'purposeTags': medicine.purposeTags,
+      'tagSource': medicine.tagSource,
       'leaflet': medicine.leaflet.toJson(),
       'lowStockThreshold': medicine.lowStockThreshold?.toJson(),
       'version': medicine.version,

@@ -125,9 +125,12 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   }).toList(growable: false);
 
   int get _expiringCount => widget.repository.medicines.where((medicine) =>
-      medicine.batches.any((batch) => batch.isExpired || ['due_this_month', 'expiring_soon'].contains(batch.managementExpiryState.state))).length;
+      medicine.batches.any((batch) => batch.dispositionStatus != 'handled' &&
+        (batch.isExpired || ['due_this_month', 'expiring_soon'].contains(batch.managementExpiryState.state)))).length;
   int get _lowCount => widget.repository.medicines.where((medicine) => ['low', 'exhausted'].contains(medicine.stockStatus)).length;
-  int get _missingCount => widget.repository.medicines.where((medicine) => medicine.batches.any((batch) => batch.expiryValue == null) || medicine.leaflet.reviewStatus == 'unverified').length;
+  int get _missingCount => widget.repository.medicines.where((medicine) =>
+      medicine.batches.any((batch) => batch.dispositionStatus != 'handled' && batch.expiryValue == null) ||
+      medicine.leaflet.reviewStatus == 'unverified').length;
 
   Future<void> _refresh() async {
     await _load();
@@ -301,7 +304,9 @@ class _MedicineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final batch = medicine.batches.isEmpty ? null : medicine.batches.reduce((a, b) {
+    // B23：在库口径 = 未处置批次；已处理批次保留在详情/历史，不驱动卡片摘要。
+    final inCabinet = medicine.batches.where((batch) => batch.dispositionStatus != 'handled').toList();
+    final batch = inCabinet.isEmpty ? null : inCabinet.reduce((a, b) {
       final aDate = a.managementExpiryDate ?? a.expiryValue;
       final bDate = b.managementExpiryDate ?? b.expiryValue;
       if (aDate == null) return bDate == null ? a : b;
@@ -335,7 +340,7 @@ class _MedicineCard extends StatelessWidget {
                   spacing: 14,
                   runSpacing: 4,
                   children: [
-                    Text('余量：${_totalDisplay(medicine.batches)}', style: Theme.of(context).textTheme.bodyMedium),
+                    Text('余量：${_totalDisplay(inCabinet)}', style: Theme.of(context).textTheme.bodyMedium),
                     Text('最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}', style: Theme.of(context).textTheme.bodyMedium),
                     if (batch?.storageLocation?.isNotEmpty == true)
                       Text('位置：${batch!.storageLocation}', style: Theme.of(context).textTheme.bodyMedium),
@@ -354,7 +359,7 @@ class _MedicineCard extends StatelessWidget {
   String _totalDisplay(List<BatchRecord> batches) {
     if (batches.isEmpty) return '无批次';
     final unknown = batches.any((batch) => batch.quantity == null);
-    final groups = <String, int>{};
+    final groups = <String, double>{};
     for (final batch in batches) {
       if (batch.quantity != null) groups.update(batch.unit, (value) => value + batch.quantity!, ifAbsent: () => batch.quantity!);
     }

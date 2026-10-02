@@ -205,3 +205,33 @@
   line-height: 1.6;
   word-break: break-all;
 }
+
+/* B02：人群/用途标签多选 chips */
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.tag-chip {
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid #cfd9d4;
+  background: #f4f7f5;
+  color: #496356;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.tag-chip.selected {
+  border-color: #2f7d5d;
+  background: #e3f1ea;
+  color: #1d5c40;
+  font-weight: 600;
+}
+
+.tag-chip-purpose.selected {
+  border-color: #6b4fa3;
+  background: #efe8fb;
+  color: #4c3480;
+}
