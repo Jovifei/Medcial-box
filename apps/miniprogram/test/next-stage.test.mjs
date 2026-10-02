@@ -99,6 +99,101 @@ test("R17：筛选标签选中态在 TS 预计算，模板只读取字段", () =
   assert.equal(page.data.populationChips.every((chip) => chip.selected === false), true);
 });
 
+function batch(overrides = {}) {
+  return {
+    id: "batch-x",
+    lotNumber: "LOT-X",
+    expiry: { value: "2027-12-31", precision: "day" },
+    expiryState: { state: "ok", label: "有效期至 2027-12-31" },
+    quantity: 1,
+    unit: "box",
+    confirmedUnitsPerPackage: null,
+    storageLocation: null,
+    openedState: "unopened",
+    openedAt: null,
+    afterOpeningLimit: null,
+    dispositionStatus: "active",
+    version: 1,
+    ...overrides,
+  };
+}
+
+function homePage() {
+  const { definition } = loadPage("pages/index/index.ts", {
+    modules: {
+      "../../services/api": { api: {}, ApiError: class ApiError extends Error {}, readToken: () => "token" },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+    },
+  });
+  return makePageContext(definition);
+}
+
+test("S5-A：首页卡片存放位置去重，超过两处合并为「等 N 处」", () => {
+  const page = homePage();
+  page.applyMedicines([medicine({ batches: [batch({ storageLocation: "客厅药箱" })] })], "F");
+  assert.equal(page.data.items[0].locationText, "客厅药箱");
+  page.applyMedicines([medicine({ batches: [
+    batch({ id: "b1", storageLocation: "客厅药箱" }),
+    batch({ id: "b2", storageLocation: "卧室抽屉" }),
+    batch({ id: "b3", storageLocation: "客厅药箱" }),
+  ] })], "F");
+  assert.equal(page.data.items[0].locationText, "客厅药箱 / 卧室抽屉");
+  page.applyMedicines([medicine({ batches: [
+    batch({ id: "b1", storageLocation: "A" }),
+    batch({ id: "b2", storageLocation: "B" }),
+    batch({ id: "b3", storageLocation: "C" }),
+  ] })], "F");
+  assert.equal(page.data.items[0].locationText, "A / B 等 3 处");
+  // 已处置（handled）批次不进入在库投影，位置也不显示。
+  page.applyMedicines([medicine({ batches: [
+    batch({ id: "b1", storageLocation: "客厅药箱" }),
+    batch({ id: "b2", storageLocation: "旧位置", dispositionStatus: "handled" }),
+  ] })], "F");
+  assert.equal(page.data.items[0].locationText, "客厅药箱");
+});
+
+test("S5-A：开封/归档状态显式化到首页卡片（此前静默）", () => {
+  const page = homePage();
+  page.applyMedicines([medicine({ isArchived: true, batches: [
+    batch({ id: "b1", openedState: "opened" }),
+    batch({ id: "b2", openedState: "opened" }),
+  ] })], "F");
+  assert.equal(page.data.items[0].isArchived, true);
+  assert.equal(page.data.items[0].openedText, "已开封 · 2 批");
+  page.applyMedicines([medicine({ batches: [batch({ openedState: "opened" })] })], "F");
+  assert.equal(page.data.items[0].openedText, "已开封");
+  assert.equal(page.data.items[0].isArchived, false);
+  page.applyMedicines([medicine()], "F");
+  assert.equal(page.data.items[0].openedText, "", "无已开封批次时不显示开封文案");
+  assert.equal(page.data.items[0].coverPhotoId, "");
+});
+
+test("S5-A：首页封面缩略图按需下载到本地临时路径并回填，且缓存不重复下载", async () => {
+  const calls = [];
+  const { definition } = loadPage("pages/index/index.ts", {
+    modules: {
+      "../../services/api": {
+        api: { downloadLeafletPhoto: async (id, photoId) => { calls.push([id, photoId]); return `/tmp/${photoId}`; } },
+        ApiError: class ApiError extends Error {},
+        readToken: () => "token",
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+    },
+  });
+  const page = makePageContext(definition);
+  page.applyMedicines([medicine({ coverPhotoId: "photo-9" })], "F");
+  assert.equal(page.data.items[0].coverPhotoPath, "", "首次渲染时缩略图尚未下载");
+  await page.loadCovers();
+  assert.equal(page.data.items[0].coverPhotoPath, "/tmp/photo-9");
+  assert.equal(calls[0][0], "medicine-1");
+  assert.equal(calls[0][1], "photo-9");
+  const before = calls.length;
+  page.applyMedicines([medicine({ coverPhotoId: "photo-9" })], "F");
+  await page.loadCovers();
+  assert.equal(calls.length, before, "已缓存的封面不再触发下载");
+  assert.equal(page.data.items[0].coverPhotoPath, "/tmp/photo-9");
+});
+
 test("scan lookup stores a candidate for review and does not save medicine", async () => {
   const calls = [];
   const candidate = {

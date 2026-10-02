@@ -29,6 +29,16 @@ interface CabinetItem {
   extraTagCount: number;
   /** 最早管理截止日期（未知为 null，排序时置末）。 */
   earliestDate: string | null;
+  /** 封面照片 id（无则空串）；首页缩略图据此按需下载（S5-A）。 */
+  coverPhotoId: string;
+  /** 已下载到本地的封面临时路径；空串表示未加载/无封面，模板显示占位。 */
+  coverPhotoPath: string;
+  /** 存放位置摘要（去重后最多两处，多余合并为「等 N 处」；无则空串）。 */
+  locationText: string;
+  /** 开封状态文案（S5-A：显式化此前静默的开封态，空串=无已开封批次）。 */
+  openedText: string;
+  /** 是否已归档（归档不驱动到期提醒，但首页需明确标注）。 */
+  isArchived: boolean;
 }
 
 type CabinetFilter = "all" | "expiring" | "low" | "missing";
@@ -89,6 +99,20 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     ok: "有效期正常",
     unknown: "有效期未知",
   };
+  // S5-A「完整状态」：存放位置 + 开封态在 TS 预计算成文案，模板只读取字段（延续 R17）。
+  const locations: string[] = [];
+  for (const batch of inCabinet) {
+    const raw = batch.storageLocation;
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (value !== "" && !locations.includes(value)) locations.push(value);
+  }
+  const locationText = locations.length === 0
+    ? ""
+    : locations.length <= 2
+      ? locations.join(" / ")
+      : `${locations.slice(0, 2).join(" / ")} 等 ${locations.length} 处`;
+  const openedCount = inCabinet.filter((batch) => batch.openedState === "opened").length;
+  const openedText = openedCount === 0 ? "" : openedCount === 1 ? "已开封" : `已开封 · ${openedCount} 批`;
   return {
     id: medicine.id,
     name: medicine.name,
@@ -113,6 +137,11 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     displayTags: [],
     extraTagCount: 0,
     earliestDate: dateRecords.length > 0 ? dateRecords[0].date : null,
+    coverPhotoId: medicine.coverPhotoId ?? "",
+    coverPhotoPath: "",
+    locationText,
+    openedText,
+    isArchived: medicine.isArchived === true,
   };
 }
 
@@ -199,6 +228,11 @@ Page({
 
   redirecting: false,
 
+  /** 缩略图代次：每次新的 loadCovers 自增，令此刻仍在途的旧下载回写作废（对齐 R10/R11 纪律）。 */
+  coverToken: 0,
+  /** coverPhotoId → 本地临时路径缓存，令切 tab 回前台不重复下载。 */
+  coverCache: null as Map<string, string> | null,
+
   onShow() {
     this.refresh();
   },
@@ -232,6 +266,7 @@ Page({
       const family = await api.getCurrentFamily();
       const list = await api.listMedicines();
       this.applyMedicines(list.medicines, family.family.name);
+      void this.loadCovers();
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
         // 尚未创建或加入家庭：先让用户选择创建还是加入。
@@ -263,6 +298,49 @@ Page({
         { id: "missing", label: "待补资料", count: missingInfoCount },
       ],
     });
+    this.applyFilter();
+  },
+
+  /**
+   * 首页缩略图（S5-A）：私有封面接口需带 Bearer，<image> 无法直接带头，
+   * 复用详情的 downloadLeafletPhoto 下载到本地临时路径再展示。
+   * - 按 coverPhotoId 缓存，切 tab 回前台不重复下载；
+   * - coverToken 代次守卫：新一次刷新会令此刻仍在途的旧下载回写作废（对齐 R10/R11）；
+   * - 任何失败都保持占位、不影响列表其余内容。
+   */
+  async loadCovers(): Promise<void> {
+    if (typeof api.downloadLeafletPhoto !== "function") return;
+    const initial = this.data as IndexPageData;
+    const targets = initial.allItems.filter((item) => item.coverPhotoId !== "" && item.coverPhotoPath === "");
+    if (targets.length === 0) return;
+    const cache = this.coverCache ?? (this.coverCache = new Map<string, string>());
+    const token = (this.coverToken += 1);
+    const resolved = new Map<string, string>();
+    for (const item of targets.slice(0, 60)) {
+      if (token !== this.coverToken) return;
+      const cached = cache.get(item.coverPhotoId);
+      if (cached !== undefined) {
+        resolved.set(item.id, cached);
+        continue;
+      }
+      try {
+        const tempFilePath = await api.downloadLeafletPhoto(item.id, item.coverPhotoId);
+        if (token !== this.coverToken) return;
+        if (typeof tempFilePath === "string" && tempFilePath !== "") {
+          cache.set(item.coverPhotoId, tempFilePath);
+          resolved.set(item.id, tempFilePath);
+        }
+      } catch {
+        if (token !== this.coverToken) return;
+      }
+    }
+    if (token !== this.coverToken || resolved.size === 0) return;
+    const current = this.data as IndexPageData;
+    const allItems = current.allItems.map((entry) => {
+      const path = resolved.get(entry.id);
+      return path === undefined ? entry : { ...entry, coverPhotoPath: path };
+    });
+    this.setData({ allItems });
     this.applyFilter();
   },
 

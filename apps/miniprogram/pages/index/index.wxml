@@ -60,12 +60,20 @@
     <view class="btn btn-ghost" bindtap="onClearFilters">清除筛选</view>
   </view>
 
-  <view wx:for="{{items}}" wx:key="id" class="medicine-card" bindtap="onTapMedicine" data-id="{{item.id}}">
-    <view class="medicine-topline">
-      <view class="medicine-name">{{item.name}}</view>
-      <view class="badge badge-{{item.stateClass}}">{{item.stateLabel}}</view>
+  <view wx:for="{{items}}" wx:key="id" class="medicine-card {{item.isArchived ? 'archived' : ''}}" bindtap="onTapMedicine" data-id="{{item.id}}">
+    <view class="medicine-card-head">
+      <view class="medicine-thumb-box">
+        <image wx:if="{{item.coverPhotoPath !== ''}}" class="medicine-thumb" src="{{item.coverPhotoPath}}" mode="aspectFill" />
+        <view wx:else class="medicine-thumb placeholder">📦</view>
+      </view>
+      <view class="medicine-head-main">
+        <view class="medicine-topline">
+          <view class="medicine-name">{{item.name}}</view>
+          <view class="badge badge-{{item.stateClass}}">{{item.stateLabel}}</view>
+        </view>
+        <view class="medicine-spec">{{item.specification}}</view>
+      </view>
     </view>
-    <view class="medicine-spec">{{item.specification}}</view>
     <view class="tag-row" wx:if="{{item.displayTags.length > 0}}">
       <text class="medicine-tag {{tag.kind}}" wx:for="{{item.displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
       <text class="medicine-tag more" wx:if="{{item.extraTagCount > 0}}">+{{item.extraTagCount}}</text>
@@ -75,8 +83,13 @@
       <view class="summary-separator">·</view>
       <view class="expiry-line">{{item.expiryText}}</view>
     </view>
+    <view class="medicine-status-row" wx:if="{{item.isArchived || item.openedText !== ''}}">
+      <text wx:if="{{item.isArchived}}" class="status-pill archived">已归档</text>
+      <text wx:if="{{item.openedText !== ''}}" class="status-pill opened">{{item.openedText}}</text>
+    </view>
     <view class="stock-warning" wx:if="{{item.stockState === 'low'}}">库存不足</view>
     <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown'}}">库存待核对</view>
+    <view class="medicine-location" wx:if="{{item.locationText !== ''}}">存放位置：{{item.locationText}}</view>
     <view class="purpose-text">用途：{{item.purpose}}</view>
     <view class="detail-hint">查看批次与说明书 ›</view>
   </view>

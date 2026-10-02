@@ -77,6 +77,24 @@
   border-radius: 20rpx;
   background: #fff;
 }
+.medicine-card.archived { background: #f6f7f5; border-color: #e4e8e4; opacity: 0.94; }
+.medicine-card-head { display: flex; align-items: flex-start; gap: 16rpx; }
+.medicine-thumb-box { flex: 0 0 auto; }
+.medicine-thumb { width: 92rpx; height: 92rpx; border-radius: 14rpx; background: #eef1ee; }
+.medicine-thumb.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx dashed #d6ddd6;
+  color: #b4bcb4;
+  font-size: 40rpx;
+}
+.medicine-head-main { flex: 1; min-width: 0; }
+.medicine-status-row { display: flex; flex-wrap: wrap; gap: 8rpx; margin-top: 12rpx; }
+.status-pill { display: inline-block; padding: 4rpx 14rpx; border-radius: 999rpx; font-size: 20rpx; }
+.status-pill.opened { color: #8a5a24; background: #f7ead6; }
+.status-pill.archived { color: #657168; background: #e9ece9; }
+.medicine-location { margin-top: 12rpx; color: #71807a; font-size: 21rpx; line-height: 1.5; overflow-wrap: anywhere; }
 .medicine-topline, .medicine-summary { display: flex; align-items: center; gap: 12rpx; }
 .medicine-topline { justify-content: space-between; }
 .medicine-name { flex: 1; min-width: 0; font-size: 29rpx; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
