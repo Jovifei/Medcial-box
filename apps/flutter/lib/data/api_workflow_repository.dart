@@ -180,7 +180,7 @@ class ApiWorkflowRepository {
     String itemId, {
     required String status,
     required int version,
-    int? desiredQuantity,
+    double? desiredQuantity,
   }) async {
     final result = await api.put(
       '/api/v1/families/restock/$itemId',

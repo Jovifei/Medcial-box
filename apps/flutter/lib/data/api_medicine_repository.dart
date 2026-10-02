@@ -142,7 +142,7 @@ class ApiMedicineRepository extends ChangeNotifier {
   Future<MedicineRecord> splitAndOpenBatch({
     required MedicineRecord medicine,
     required BatchRecord batch,
-    required int openedQuantity,
+    required double openedQuantity,
     required String openedAt,
     AfterOpeningLimit? afterOpeningLimit,
   }) async {

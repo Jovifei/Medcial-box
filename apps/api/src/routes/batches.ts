@@ -19,7 +19,7 @@ import {
   updateBatch,
 } from "../repositories/batches.js";
 import { bumpMedicineVersion, findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
-import { validateBatchInput, validateBatchSplitInput, validateBatchUpdateInput } from "../inputs.js";
+import { isMeasuredUnit, validateBatchInput, validateBatchSplitInput, validateBatchUpdateInput } from "../inputs.js";
 
 const MEDICINE_NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家庭中");
 const BATCH_NOT_FOUND_BODY = errorBody("NOT_FOUND", "批次不存在或不在当前药品下");
@@ -147,6 +147,10 @@ export async function registerBatchRoutes(
         }
         if (existing.opened_state !== "unopened" || existing.disposition_status !== "active") {
           throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "只有未开封且未处理的批次可以拆分"));
+        }
+        // 计件单位（片/粒/盒…）开封数量必须是整数；毫升批次允许小数（如 2.5ml）。
+        if (!isMeasuredUnit(existing.unit) && !Number.isInteger(parsed.value.openedQuantity)) {
+          throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "开封数量在计件单位下必须是整数"));
         }
         if (parsed.value.openedQuantity >= existingQuantity) {
           throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "开封数量必须小于当前批次数量"));

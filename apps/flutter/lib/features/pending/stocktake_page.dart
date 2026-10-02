@@ -56,7 +56,8 @@ class _StocktakePageState extends State<StocktakePage> {
             medicine: medicine,
             batch: batch,
             outcome: 'deferred',
-            quantityController: TextEditingController(text: batch.quantity?.toString() ?? ''),
+            // R08：整数余量回显"12"而不是"12.0"；未知留空。
+            quantityController: TextEditingController(text: batch.quantity == null ? '' : quantityText(batch.quantity)),
           );
           continue;
         }
@@ -87,15 +88,16 @@ class _StocktakePageState extends State<StocktakePage> {
         _showError('“${line.medicine.name}”的批次已被家人修改，请核对最新数量后再保存。');
         return;
       }
-      final int? quantity;
+      // R08：按批次单位解析——毫升允许小数，计件单位只接受非负整数；未知留空。
+      final double? quantity;
       if (line.outcome == 'adjusted') {
-        quantity = int.tryParse(line.quantityController.text.trim());
-        if (quantity == null || quantity < 0) {
-          _showError('“${line.medicine.name}”的数量请输入 0 或正整数。');
+        quantity = parseQuantityByUnit(line.quantityController.text, line.batch.unit);
+        if (quantity == null) {
+          _showError('“${line.medicine.name}”' + quantityInputError(line.batch.unit));
           return;
         }
       } else if (line.outcome == 'empty') {
-        quantity = 0;
+        quantity = 0.0;
       } else {
         quantity = null;
       }
@@ -246,12 +248,20 @@ class _StocktakePageState extends State<StocktakePage> {
           ),
           if (line.outcome == 'adjusted') ...[
             const SizedBox(height: 8),
-            TextField(controller: line.quantityController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '实际余量（${unitLabel(line.batch.unit)}）')),
+            TextField(controller: line.quantityController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '实际余量（${unitLabel(line.batch.unit)}）')),
           ],
           if (line.serverChanged)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('家人已修改该批次：已载入最新版本，请重新核对后再保存。', style: TextStyle(color: AppColors.terracotta)),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('家人已修改该批次：已载入最新版本，请重新核对后再保存。', style: TextStyle(color: AppColors.terracotta)),
+                  const SizedBox(height: 6),
+                  // R09：显式接受已载入的最新版本并解除该行阻塞，保留用户已填数量。
+                  SoftButton(label: '按最新数据重新核对', onPressed: () => setState(() => line.serverChanged = false)),
+                ],
+              ),
             ),
           if (conflict)
             const Padding(padding: EdgeInsets.only(top: 8), child: Text('家人同时修改了该批次；已载入最新版本，请重新核对后再次保存。', style: TextStyle(color: AppColors.terracotta))),

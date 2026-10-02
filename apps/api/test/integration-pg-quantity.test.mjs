@@ -258,6 +258,90 @@ test("real PostgreSQL: decimal quantities and ml/blister units (R1)", {
       assert.equal(restoredMain.batches.find((item) => item.lotNumber === "BK-2").unit, "blister");
       assert.ok(created.id);
     });
+
+    // S3/R08：拆分入口按单位解析——毫升允许小数并守恒，计件单位拒绝小数。
+    await t.test("open-split conserves millilitre decimals and rejects fractional counts", async () => {
+      const { owner } = await family();
+      const created = status(await request(owner, "POST", "/medicines", {
+        name: "拆分糖浆",
+        batches: [
+          { lotNumber: "SP-ML", expiry: { value: "2027-06-30", precision: "day" }, quantity: 12.5, unit: "ml", openedState: "unopened" },
+          { lotNumber: "SP-BOX", expiry: { value: "2027-06-30", precision: "day" }, quantity: 10, unit: "box", openedState: "unopened" },
+        ],
+      }), 201);
+      const mlBatch = created.batches.find((item) => item.unit === "ml");
+      const boxBatch = created.batches.find((item) => item.unit === "box");
+
+      const split = status(await request(owner, "POST", `/medicines/${created.id}/batches/${mlBatch.id}/open-split`, {
+        version: mlBatch.version, openedQuantity: 2.5, openedAt: "2026-10-02", confirmed: true,
+      }), 201);
+      assert.equal(split.openedBatch.quantity, 2.5, "毫升拆分必须保留小数");
+      assert.equal(split.remainingBatch.quantity, 10);
+      assert.equal(split.openedBatch.quantity + split.remainingBatch.quantity, 12.5, "拆分必须守恒");
+
+      const fractional = await request(owner, "POST", `/medicines/${created.id}/batches/${boxBatch.id}/open-split`, {
+        version: boxBatch.version, openedQuantity: 2.5, openedAt: "2026-10-02", confirmed: true,
+      });
+      assert.equal(fractional.statusCode, 400, fractional.body);
+      assert.match(fractional.body, /整数|VALIDATION/);
+
+      const boxSplit = status(await request(owner, "POST", `/medicines/${created.id}/batches/${boxBatch.id}/open-split`, {
+        version: boxBatch.version, openedQuantity: 3, openedAt: "2026-10-02", confirmed: true,
+      }), 201);
+      assert.equal(boxSplit.openedBatch.quantity, 3);
+      assert.equal(boxSplit.remainingBatch.quantity, 7);
+    });
+
+    // S3/R08：盘点入口按批次单位复核——计件单位拒绝小数，毫升保留小数（既有测试已覆盖毫升保存）。
+    await t.test("stocktake rejects fractional counts for count units", async () => {
+      const { owner } = await family();
+      const created = status(await request(owner, "POST", "/medicines", {
+        name: "盘点校验药品",
+        batches: [{ lotNumber: "ST-BOX", expiry: { value: "2027-06-30", precision: "day" }, quantity: 5, unit: "box" }],
+      }), 201);
+      const boxBatch = created.batches[0];
+      const session = status(await request(owner, "POST", "/families/stocktakes"), 201).stocktake;
+
+      const rejected = await request(owner, "POST", `/families/stocktakes/${session.id}/items`, {
+        items: [{ batchId: boxBatch.id, version: boxBatch.version, outcome: "adjusted", quantity: 2.5 }],
+      });
+      assert.equal(rejected.statusCode, 400, rejected.body);
+      assert.match(rejected.body, /整数|VALIDATION/);
+
+      // 拒绝后事务回滚，版本未变；整数盘点仍可保存。
+      const saved = status(await request(owner, "POST", `/families/stocktakes/${session.id}/items`, {
+        items: [{ batchId: boxBatch.id, version: boxBatch.version, outcome: "adjusted", quantity: 3 }],
+      }), 200);
+      assert.equal(saved.results[0].outcome, "saved");
+      const after = status(await request(owner, "GET", `/medicines/${created.id}`), 200);
+      assert.equal(after.batches.find((item) => item.id === boxBatch.id).quantity, 3);
+    });
+
+    // S3/R08：补货修改入口按最终单位复核——毫升允许小数，计件单位拒绝小数。
+    await t.test("restock update accepts millilitre decimals and rejects fractional counts", async () => {
+      const { owner } = await family();
+      const created = status(await request(owner, "POST", "/medicines", {
+        name: "补货校验药品",
+        batches: [{ quantity: 1, unit: "ml" }],
+      }), 201);
+
+      const mlItem = status(await request(owner, "POST", "/families/restock", {
+        medicineId: created.id, desiredQuantity: 5, unit: "ml",
+      }), 201);
+      const mlUpdated = status(await request(owner, "PUT", `/families/restock/${mlItem.id}`, {
+        desiredQuantity: 7.5, version: mlItem.version,
+      }), 200);
+      assert.equal(mlUpdated.desiredQuantity, 7.5, "毫升补货目标必须保留小数");
+
+      const boxItem = status(await request(owner, "POST", "/families/restock", {
+        medicineId: created.id, desiredQuantity: 2, unit: "box",
+      }), 201);
+      const rejected = await request(owner, "PUT", `/families/restock/${boxItem.id}`, {
+        desiredQuantity: 2.5, version: boxItem.version,
+      });
+      assert.equal(rejected.statusCode, 400, rejected.body);
+      assert.match(rejected.body, /整数|VALIDATION/);
+    });
   } finally {
     if (app !== undefined) await app.close();
     await fixture.close();

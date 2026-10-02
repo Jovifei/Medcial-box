@@ -1,6 +1,13 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
-import { isStrictNonNegativeInteger, isStrictPositiveInteger, isValidExpiryValue } from "../../services/input-validation";
+import {
+  isStrictPositiveInteger,
+  isValidExpiryValue,
+  parseQuantityByUnit,
+  unitAllowsDecimals,
+  UNIT_VALUES,
+  UNIT_LABELS as UNIT_PICKER_LABELS,
+} from "../../services/input-validation";
 import type {
   AfterOpeningLimitInput,
   DosageNoteSummary,
@@ -241,8 +248,10 @@ Page({
     thresholdEnabled: false,
     thresholdQuantity: "",
     thresholdUnitIndex: 4,
-    thresholdUnitLabels: ["片", "粒", "袋", "瓶", "盒", "其他"],
-    thresholdUnitValues: ["tablet", "capsule", "sachet", "bottle", "box", "other"] as QuantityUnit[],
+    // R07：阈值单位复用共享单位表（含板/毫升），与整体录入、批次编辑同一处维护，
+    // 避免详情阈值把 10ml 误回读成 index0“片”、保存后变 10 tablet。
+    thresholdUnitLabels: UNIT_PICKER_LABELS,
+    thresholdUnitValues: UNIT_VALUES,
     stockStatusText: "库存待核对",
     savingThreshold: false,
     restockBusy: false,
@@ -321,7 +330,7 @@ Page({
       notes: notes.map(toNoteView),
       thresholdEnabled: threshold !== null,
       thresholdQuantity: threshold === null ? "" : String(threshold.quantity),
-      thresholdUnitIndex: threshold === null ? 4 : Math.max(0, ["tablet", "capsule", "sachet", "bottle", "box", "other"].indexOf(threshold.unit)),
+      thresholdUnitIndex: threshold === null ? 4 : Math.max(0, UNIT_VALUES.indexOf(threshold.unit)),
       stockStatusText: stockLabel[medicine.stockStatus?.state ?? "unknown"] ?? "库存待核对",
     });
   },
@@ -501,7 +510,25 @@ Page({
   },
 
   onThresholdUnitChange(event: { detail: { value: string | number } }): void {
-    this.setData({ thresholdUnitIndex: Number(event.detail.value) });
+    const data = this.data as MedicineDetailPageData;
+    const nextIndex = Number(event.detail.value);
+    const nextUnit = UNIT_VALUES[nextIndex];
+    const currentUnit = UNIT_VALUES[data.thresholdUnitIndex];
+    if (nextUnit === undefined || nextUnit === currentUnit) return;
+    // 切单位守卫（与整体录入/批次编辑一致）：数字不自动换算，已填值时由用户确认。
+    if (data.thresholdQuantity.trim() === "") {
+      this.setData({ thresholdUnitIndex: nextIndex });
+      return;
+    }
+    wx.showModal({
+      title: "切换单位",
+      content: "单位不会自动换算已填的数字。例如把 10 毫升改成 10 片，保存后仍是 10。请核对后再保存。",
+      confirmText: "仍要切换",
+      cancelText: "保持原单位",
+      success: (result) => {
+        if (result.confirm) this.setData({ thresholdUnitIndex: nextIndex });
+      },
+    });
   },
 
   async onSaveThreshold(): Promise<void> {
@@ -510,15 +537,18 @@ Page({
     if (medicine === null || data.savingThreshold) return;
     let lowStockThreshold: { quantity: number; unit: QuantityUnit } | null = null;
     if (data.thresholdEnabled) {
-      const raw = data.thresholdQuantity.trim();
-      if (!isStrictNonNegativeInteger(raw)) {
-        wx.showToast({ title: "阈值需填写不小于 0 的整数", icon: "none" });
+      // R07：按所选单位解析——毫升允许最多 3 位小数，计件单位仍要求非负整数；
+      // 关闭开关＝未知（null），开启且填 0＝阈值为 0，两者语义分开。
+      const unit = data.thresholdUnitValues[data.thresholdUnitIndex] ?? "box";
+      const parsed = parseQuantityByUnit(data.thresholdQuantity, unit);
+      if (parsed === null) {
+        wx.showToast({
+          title: unitAllowsDecimals(unit) ? "阈值需填写不小于 0 的数字（最多 3 位小数）" : "阈值需填写不小于 0 的整数",
+          icon: "none",
+        });
         return;
       }
-      lowStockThreshold = {
-        quantity: Number(raw),
-        unit: data.thresholdUnitValues[data.thresholdUnitIndex] ?? "box",
-      };
+      lowStockThreshold = { quantity: parsed, unit };
     }
     this.setData({ savingThreshold: true });
     try {
@@ -567,23 +597,30 @@ Page({
 
   updateOpeningSplitPreview(quantityText: string, batchId: string): void {
     const batch = (this.data as MedicineDetailPageData).batchRecords.find((item) => item.id === batchId);
-    if (batch === undefined || batch.quantity === null || batch.quantity <= 1) {
+    const measured = batch !== undefined && unitAllowsDecimals(batch.unit);
+    // 计件单位至少要有 2 个才能拆出 1 个；毫升只要余量为正即可继续拆分。
+    if (batch === undefined || batch.quantity === null || batch.quantity <= (measured ? 0 : 1)) {
       this.setData({ openingSplitPreview: "", openingSplitError: "此批次数量不足以拆分。" });
       return;
     }
-    if (!isStrictPositiveInteger(quantityText)) {
-      this.setData({ openingSplitPreview: "", openingSplitError: "开封数量必须是 1 到 " + (batch.quantity - 1) + " 之间的整数。" });
+    const unitLabel = UNIT_LABELS[batch.unit] ?? "个单位";
+    const openedQuantity = parseQuantityByUnit(quantityText, batch.unit);
+    if (openedQuantity === null || openedQuantity <= 0) {
+      this.setData({
+        openingSplitPreview: "",
+        openingSplitError: measured
+          ? "开封数量需为大于 0 的毫升数（最多 3 位小数）。"
+          : "开封数量必须是 1 到 " + (batch.quantity - 1) + " 之间的整数。",
+      });
       return;
     }
-    const openedQuantity = Number(quantityText);
     if (openedQuantity >= batch.quantity) {
-      const unitLabel = UNIT_LABELS[batch.unit] ?? "个单位";
-      this.setData({ openingSplitPreview: "", openingSplitError: "最多只能开封 " + (batch.quantity - 1) + unitLabel + "，需保留至少 1 个未开封单位。" });
+      this.setData({ openingSplitPreview: "", openingSplitError: "开封数量需小于当前余量 " + batch.quantity + unitLabel + "，须保留正余量。" });
       return;
     }
-    const unit = UNIT_LABELS[batch.unit] ?? "个单位";
+    const remaining = Math.round((batch.quantity - openedQuantity) * 1000) / 1000;
     this.setData({
-      openingSplitPreview: "本次开封 " + openedQuantity + unit + "；未开封余量 " + (batch.quantity - openedQuantity) + unit,
+      openingSplitPreview: "本次开封 " + openedQuantity + unitLabel + "；未开封余量 " + remaining + unitLabel,
       openingSplitError: "",
     });
   },
@@ -632,12 +669,18 @@ Page({
     const data = this.data as MedicineDetailPageData;
     if (data.openingSplitBusy || data.openingSplitBatchId === "") return;
     const batch = data.batchRecords.find((item) => item.id === data.openingSplitBatchId);
-    if (batch === undefined || batch.quantity === null || batch.quantity <= 1 || batch.openedState !== "unopened") {
+    const measured = batch !== undefined && unitAllowsDecimals(batch.unit);
+    if (batch === undefined || batch.quantity === null || batch.quantity <= (measured ? 0 : 1) || batch.openedState !== "unopened") {
       this.setData({ openingSplitError: "批次信息已变化或未确认未开封，请刷新后重新核对。" });
       return;
     }
-    if (!isStrictPositiveInteger(data.openingSplitQuantity) || Number(data.openingSplitQuantity) >= batch.quantity) {
-      this.setData({ openingSplitError: "开封数量需为 1 到 " + (batch.quantity - 1) + " 之间的整数，至少保留 1 个未开封单位。" });
+    const openedQuantity = parseQuantityByUnit(data.openingSplitQuantity, batch.unit);
+    if (openedQuantity === null || openedQuantity <= 0 || openedQuantity >= batch.quantity) {
+      this.setData({
+        openingSplitError: measured
+          ? "开封数量需为大于 0 且小于当前余量 " + batch.quantity + " 的毫升数（最多 3 位小数）。"
+          : "开封数量需为 1 到 " + (batch.quantity - 1) + " 之间的整数，至少保留 1 个未开封单位。",
+      });
       wx.showToast({ title: "请核对开封数量", icon: "none" });
       return;
     }
@@ -667,7 +710,7 @@ Page({
 
     const payload: SplitBatchPayload = {
       version: batch.version,
-      openedQuantity: Number(data.openingSplitQuantity),
+      openedQuantity,
       openedAt: data.openingSplitDate,
       ...(afterOpeningLimit !== undefined ? { afterOpeningLimit } : {}),
       confirmed: true,

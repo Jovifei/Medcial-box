@@ -622,6 +622,35 @@ String unitApiValue(String unit) => switch (unit) {
   _ => 'other',
 };
 
+/// 规范单位值表（与后端 QuantityUnit 一致）。所有单位选择器共用此表，
+/// 避免遗漏 ml/blister 导致 DropdownButtonFormField 的 initialValue 找不到 item 而断言失败（R08）。
+const List<String> kQuantityUnitValues = <String>[
+  'tablet', 'capsule', 'sachet', 'bottle', 'box', 'blister', 'ml', 'other',
+];
+
+/// 只有毫升是连续量，允许最多 3 位小数；其余计件单位必须是非负整数。
+bool unitAllowsDecimals(String unit) => unit == 'ml';
+
+/// 按单位解析数量输入：非法（计件单位填小数、ml 超 3 位小数、负数、非数字）返回 null。
+/// 空字符串表示"未知"，由调用方先行判定，不应进入此函数。
+double? parseQuantityByUnit(String raw, String unit) {
+  final value = raw.trim();
+  if (value.isEmpty) return null;
+  if (unitAllowsDecimals(unit)) {
+    if (!RegExp(r'^(0|[1-9]\d{0,8})(\.\d{1,3})?$').hasMatch(value)) return null;
+    return (double.parse(value) * 1000).roundToDouble() / 1000;
+  }
+  if (!RegExp(r'^\d+$').hasMatch(value)) return null;
+  final parsed = int.tryParse(value);
+  if (parsed == null || parsed < 0) return null;
+  return parsed.toDouble();
+}
+
+/// 数量输入的错误文案，按单位区分小数与整数（R08）。
+String quantityInputError(String unit, {String prefix = '数量'}) => unitAllowsDecimals(unit)
+    ? '$prefix请输入不小于 0 的数字（毫升最多 3 位小数）；未知留空。'
+    : '$prefix请输入 0 或正整数；未知留空。';
+
 String? encodeMedicinePayload(MedicineRecord medicine) => jsonEncode({
   'name': medicine.name,
   'specification': medicine.specification,

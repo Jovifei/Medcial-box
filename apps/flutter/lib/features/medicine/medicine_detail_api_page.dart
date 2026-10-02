@@ -8,7 +8,7 @@ import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../models/medicine_models.dart';
 
-bool shouldSplitBatchOpening(BatchRecord batch, int openedQuantity) =>
+bool shouldSplitBatchOpening(BatchRecord batch, double openedQuantity) =>
     batch.openedState == 'unopened' && batch.quantity != null &&
     openedQuantity > 0 && batch.quantity! > openedQuantity;
 
@@ -76,7 +76,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
     final result = await showAppSheet<_QuantityResult>(
       context,
       title: '修改余量',
-      builder: (_) => _QuantityForm(initialQuantity: batch.quantity),
+      builder: (_) => _QuantityForm(initialQuantity: batch.quantity, unit: batch.unit),
     );
     // 关闭面板 = 取消：不产生任何写请求（此前"取消"与"未知留空"都返回 null，
     // 会把关闭面板误当成写入）。
@@ -340,7 +340,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                         ),
                         Text(medicine.lowStockThreshold == null
                             ? '未开启低库存提醒'
-                            : '当库存 ≤ ${medicine.lowStockThreshold!.quantity}${unitLabel(medicine.lowStockThreshold!.unit)} 时提示 · 当前状态：${_stockLabel(medicine.stockStatus)}'),
+                            : '当库存 ≤ ${quantityText(medicine.lowStockThreshold!.quantity)}${unitLabel(medicine.lowStockThreshold!.unit)} 时提示 · 当前状态：${_stockLabel(medicine.stockStatus)}'),
                         if (medicine.stockStatus == 'unknown')
                           const Padding(padding: EdgeInsets.only(top: 5), child: Text('含未知数量或无法换算单位时，库存状态会显示待核对。')),
                         const SizedBox(height: 8),
@@ -463,7 +463,7 @@ class _BatchCard extends StatelessWidget {
 
 class _BatchDraft {
   const _BatchDraft({required this.quantity, required this.unit, required this.expiry, required this.precision, required this.lotNumber, required this.storageLocation});
-  final int? quantity;
+  final double? quantity;
   final String unit;
   final String? expiry;
   final String precision;
@@ -499,12 +499,14 @@ class _BatchDraftFormState extends State<_BatchDraftForm> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      TextField(controller: quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '数量', hintText: '未知留空')),
+      TextField(controller: quantity, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '数量', hintText: '未知留空')),
       const SizedBox(height: 10),
       DropdownButtonFormField<String>(
         initialValue: unit,
         decoration: const InputDecoration(labelText: '单位'),
-        items: const [DropdownMenuItem(value: 'box', child: Text('盒')), DropdownMenuItem(value: 'tablet', child: Text('片')), DropdownMenuItem(value: 'capsule', child: Text('粒')), DropdownMenuItem(value: 'sachet', child: Text('袋')), DropdownMenuItem(value: 'bottle', child: Text('瓶'))],
+        items: kQuantityUnitValues
+            .map((value) => DropdownMenuItem<String>(value: value, child: Text(unitLabel(value))))
+            .toList(growable: false),
         onChanged: (value) => setState(() => unit = value ?? 'box'),
       ),
       const SizedBox(height: 10),
@@ -516,9 +518,10 @@ class _BatchDraftFormState extends State<_BatchDraftForm> {
       const SizedBox(height: 14),
       PrimaryButton(label: '新增批次', onPressed: () {
         final rawQuantity = quantity.text.trim();
-        final parsed = rawQuantity.isEmpty ? null : int.tryParse(rawQuantity);
-        if (rawQuantity.isNotEmpty && (parsed == null || parsed < 0)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量请输入 0 或正整数，未知留空。')));
+        // R08：按单位解析——毫升允许最多 3 位小数，计件单位要求非负整数；空＝未知。
+        final parsed = rawQuantity.isEmpty ? null : parseQuantityByUnit(rawQuantity, unit);
+        if (rawQuantity.isNotEmpty && parsed == null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(unit))));
           return;
         }
         final rawExpiry = expiry.text.trim();
@@ -549,26 +552,28 @@ class _QuantityResult {
 }
 
 class _QuantityForm extends StatefulWidget {
-  const _QuantityForm({required this.initialQuantity});
+  const _QuantityForm({required this.initialQuantity, required this.unit});
   final double? initialQuantity;
+  final String unit;
   @override
   State<_QuantityForm> createState() => _QuantityFormState();
 }
 
 class _QuantityFormState extends State<_QuantityForm> {
-  late final controller = TextEditingController(text: widget.initialQuantity?.toString() ?? '');
+  // R08：整数余量回显"12"而不是"12.0"。
+  late final controller = TextEditingController(text: widget.initialQuantity == null ? '' : quantityText(widget.initialQuantity));
   @override
   void dispose() { controller.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '剩余数量', hintText: '未知留空')),
+      TextField(controller: controller, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '剩余数量（${unitLabel(widget.unit)}）', hintText: '未知留空')),
       const SizedBox(height: 14),
       PrimaryButton(label: '保存余量', onPressed: () {
         final raw = controller.text.trim();
-        final value = raw.isEmpty ? null : double.tryParse(raw);
-        if (raw.isNotEmpty && (value == null || value < 0)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量请输入 0 或正整数，未知留空。')));
+        final value = raw.isEmpty ? null : parseQuantityByUnit(raw, widget.unit);
+        if (raw.isNotEmpty && value == null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(widget.unit))));
           return;
         }
         // 留空是"明确未知"（写 null），关闭面板才是取消。
@@ -583,7 +588,7 @@ class _QuantityFormState extends State<_QuantityForm> {
 class _OpeningDraft {
   const _OpeningDraft({required this.openedAt, required this.splitQuantity, this.limit});
   final String openedAt;
-  final int splitQuantity;
+  final double splitQuantity;
   final AfterOpeningLimit? limit;
 }
 
@@ -611,7 +616,7 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
       if (widget.batch.openedState == 'unopened' &&
           widget.batch.quantity != null && widget.batch.quantity! > 1) ...[
         const SizedBox(height: 10),
-        TextField(controller: split, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '从未开封库存拆出数量（${unitLabel(widget.batch.unit)}）', hintText: '默认 1')),
+        TextField(controller: split, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '从未开封库存拆出数量（${unitLabel(widget.batch.unit)}）', hintText: '默认 1')),
         const Padding(padding: EdgeInsets.only(top: 5), child: Text('拆分将通过一次药品版本更新同时保存，原批次的有效期和批号会保留。')),
       ] else if (widget.batch.openedState != 'unopened' &&
           widget.batch.quantity != null && widget.batch.quantity! > 1) ...[
@@ -641,9 +646,15 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写有效的开封日期。')));
           return;
         }
-        final splitQuantity = int.tryParse(split.text.trim()) ?? 1;
-        if (splitQuantity <= 0 || (widget.batch.quantity != null && splitQuantity > widget.batch.quantity!)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('拆分数量超出当前批次余量。')));
+        final splitRaw = split.text.trim();
+        // R08：拆出数量按批次单位解析——毫升可小数，计件单位必须整数；留空默认 1。
+        final splitQuantity = splitRaw.isEmpty ? 1.0 : parseQuantityByUnit(splitRaw, widget.batch.unit);
+        if (splitQuantity == null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(widget.batch.unit, prefix: '拆分数量'))));
+          return;
+        }
+        if (splitQuantity <= 0 || (widget.batch.quantity != null && splitQuantity >= widget.batch.quantity!)) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('拆分数量需大于 0 且小于当前批次余量，须保留正余量。')));
           return;
         }
         AfterOpeningLimit? limit;
@@ -684,7 +695,8 @@ class _ThresholdForm extends StatefulWidget {
 }
 
 class _ThresholdFormState extends State<_ThresholdForm> {
-  late final controller = TextEditingController(text: widget.initial?.quantity.toString() ?? '2');
+  // R08：整数阈值回显"10"而不是"10.0"。
+  late final controller = TextEditingController(text: widget.initial == null ? '2' : quantityText(widget.initial!.quantity));
   late String unit = widget.initial?.unit ?? 'box';
   bool enabled = true;
   @override
@@ -694,17 +706,18 @@ class _ThresholdFormState extends State<_ThresholdForm> {
     children: [
       SwitchListTile.adaptive(title: const Text('开启低库存提醒'), value: enabled, onChanged: (value) => setState(() => enabled = value)),
       if (enabled) ...[
-        TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '提醒阈值', helperText: '库存小于或等于此值时提示')),
+        TextField(controller: controller, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '提醒阈值', helperText: '库存小于或等于此值时提示')),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(initialValue: unit, decoration: const InputDecoration(labelText: '阈值单位'), items: const [DropdownMenuItem(value: 'box', child: Text('盒')), DropdownMenuItem(value: 'tablet', child: Text('片')), DropdownMenuItem(value: 'capsule', child: Text('粒')), DropdownMenuItem(value: 'sachet', child: Text('袋')), DropdownMenuItem(value: 'bottle', child: Text('瓶'))], onChanged: (value) => setState(() => unit = value ?? 'box')),
+        DropdownButtonFormField<String>(initialValue: unit, decoration: const InputDecoration(labelText: '阈值单位'), items: kQuantityUnitValues.map((value) => DropdownMenuItem<String>(value: value, child: Text(unitLabel(value)))).toList(growable: false), onChanged: (value) => setState(() => unit = value ?? 'box')),
         const SizedBox(height: 8),
         const Text('不同单位仅在有用户确认的包装换算数时合计；未知数量会显示为“库存待核对”。'),
       ],
       const SizedBox(height: 12),
       PrimaryButton(label: '保存提醒设置', onPressed: () {
-        final quantity = double.tryParse(controller.text.trim());
-        if (enabled && (quantity == null || quantity < 0)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入不小于 0 的整数阈值。')));
+        // R08：阈值按单位解析——毫升可小数，计件单位必须整数；关闭时忽略输入。
+        final quantity = parseQuantityByUnit(controller.text, unit);
+        if (enabled && quantity == null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(unitAllowsDecimals(unit) ? '阈值请输入不小于 0 的数字（毫升最多 3 位小数）。' : '阈值请输入 0 或正整数。')));
           return;
         }
         Navigator.pop(context, _ThresholdResult(enabled: enabled, quantity: quantity ?? 0, unit: unit));

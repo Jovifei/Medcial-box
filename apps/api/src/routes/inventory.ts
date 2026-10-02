@@ -13,6 +13,7 @@ import type { Database, QueryRunner } from "../types.js";
 import { errorBody, toIso, TransactionConflictError } from "../types.js";
 import { decimalOrNull } from "../domain/decimal.js";
 import {
+  isMeasuredUnit,
   validateFamilyInventorySettingsInput,
   validateRestockInput,
   validateRestockUpdateInput,
@@ -298,8 +299,8 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
             outcomes.push({ batchId: item.batchId, outcome: "not_found" });
             continue;
           }
-          const current = await tx.query<{ id: string; version: number; quantity: number | string | null }>(
-            `SELECT b.id, b.version, b.quantity FROM medicine_batches b
+          const current = await tx.query<{ id: string; version: number; quantity: number | string | null; unit: string }>(
+            `SELECT b.id, b.version, b.quantity, b.unit FROM medicine_batches b
              JOIN medicines m ON m.id = b.medicine_id AND m.family_id = b.family_id
              WHERE b.id = $1 AND b.medicine_id = $2 AND b.family_id = $3 AND b.deleted_at IS NULL
                AND m.deleted_at IS NULL AND m.is_archived = FALSE
@@ -322,6 +323,10 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
             );
             outcomes.push({ batchId: item.batchId, outcome: "conflict", currentVersion: batch.version });
             continue;
+          }
+          // 计件单位的盘点数量必须是整数；毫升批次允许已定点校验的小数（如 2.5ml）。
+          if (item.outcome === "adjusted" && item.quantity !== null && !isMeasuredUnit(batch.unit) && !Number.isInteger(item.quantity)) {
+            throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "盘点数量在计件单位下必须是整数"));
           }
           let updatedVersion = batch.version;
           if (item.outcome === "adjusted" || item.outcome === "empty" || item.outcome === "handled") {
@@ -437,6 +442,18 @@ export async function registerInventoryRoutes(app: FastifyInstance, database: Da
     if (!parsed.ok) return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
     try {
       const row = await database.withTransaction(async (tx) => {
+        // 补货目标数量的整数性取决于最终单位：优先用本次提交的新单位，否则用既有条目单位。
+        // 计件单位必须整数；毫升允许已定点校验的小数。
+        if (parsed.value.desiredQuantity !== undefined && parsed.value.desiredQuantity !== null) {
+          const effectiveUnit = parsed.value.unit
+            ?? (await tx.query<{ unit: string }>(
+                  "SELECT unit FROM restock_items WHERE id = $1 AND family_id = $2 FOR UPDATE",
+                  [request.params.itemId, ctx.familyId],
+                )).rows[0]?.unit;
+          if (effectiveUnit !== undefined && !isMeasuredUnit(effectiveUnit) && !Number.isInteger(parsed.value.desiredQuantity)) {
+            throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", "补货目标数量在计件单位下必须是整数"));
+          }
+        }
         const updated = await tx.query<{ id: string }>(
           `UPDATE restock_items SET
              desired_quantity = CASE WHEN $3 THEN $4 ELSE desired_quantity END,

@@ -35,6 +35,11 @@ const QUANTITY_UNITS: readonly QuantityUnit[] = [
 /** 只有毫升允许小数（最多 3 位）；其余单位都是计件单位。 */
 const MEASURED_UNITS = new Set<QuantityUnit>(["ml"]);
 
+/** 路由层用：判断单位是否允许小数（毫升）。计件单位必须整数。 */
+export function isMeasuredUnit(unit: string): boolean {
+  return MEASURED_UNITS.has(unit as QuantityUnit);
+}
+
 const EXPIRY_PRECISIONS: readonly ExpiryPrecision[] = ["day", "month", "unknown"];
 
 const LEAFLET_REVIEW_STATUSES: readonly LeafletReviewStatus[] = [
@@ -126,23 +131,24 @@ function positiveQuantityOrNull(value: unknown, field: string, unit: QuantityUni
   return parsed;
 }
 
-/** 盘点项数量：单位由批次决定，这里先做定点校验，路由层按批次单位复核整数性。 */
-function stocktakeQuantityOrNull(value: unknown): number | null {
+/**
+ * 定点数量（非负、最多 3 位小数），单位无关。
+ * 用于此刻还不知道单位的入口（盘点项、拆分、补货修改）：
+ * 先做定点校验，整数性由路由层按批次/条目的真实单位复核。
+ */
+function fixedPointQuantity(value: unknown, field: string): number | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    throw new InputError("quantity 必须是非负数字");
+    throw new InputError(`${field} 必须是非负数字`);
   }
   const scaled = Math.round(value * 1000);
-  if (Math.abs(scaled - value * 1000) > 1e-6) throw new InputError("quantity 最多支持 3 位小数");
+  if (Math.abs(scaled - value * 1000) > 1e-6) throw new InputError(`${field} 最多支持 3 位小数`);
   return scaled / 1000;
 }
 
-function intOrNull(value: unknown, field: string, min: number): number | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > MAX_POSTGRES_INTEGER) {
-    throw new InputError(`${field} 必须是 ${min} 到 ${MAX_POSTGRES_INTEGER} 的整数`);
-  }
-  return value;
+/** 盘点项数量：单位由批次决定，这里先做定点校验，路由层按批次单位复核整数性。 */
+function stocktakeQuantityOrNull(value: unknown): number | null {
+  return fixedPointQuantity(value, "quantity");
 }
 
 function requireInt(value: unknown, field: string, min: number): number {
@@ -315,7 +321,12 @@ export function validateBatchSplitInput(raw: unknown): ValidationResult<Validate
     }
     if (raw.confirmed !== true) throw new InputError("拆分前必须确认数量分配");
     const version = requireInt(raw.version, "version", 1);
-    const openedQuantity = requireInt(raw.openedQuantity, "openedQuantity", 1);
+    // 开封数量先做定点校验（>0）；计件单位必须整数由路由层按批次单位复核，
+    // 毫升批次允许小数（如拆分 2.5ml）。
+    const openedQuantity = fixedPointQuantity(raw.openedQuantity, "openedQuantity");
+    if (openedQuantity === null || openedQuantity <= 0) {
+      throw new InputError("openedQuantity 必须大于 0");
+    }
     const openedAt = calendarDate(raw.openedAt, "openedAt");
     if (openedAt === null) throw new InputError("拆分批次需要填写开封日期");
     if (isRecord(raw.afterOpeningLimit)) {
@@ -628,7 +639,8 @@ export function validateRestockUpdateInput(raw: unknown): ValidationResult<Valid
     return {
       ok: true,
       value: {
-        desiredQuantity: raw.desiredQuantity === undefined ? undefined : intOrNull(raw.desiredQuantity, "desiredQuantity", 0),
+        // 定点校验；计件单位整数性由路由层按最终单位（新值或既有条目单位）复核。
+        desiredQuantity: raw.desiredQuantity === undefined ? undefined : fixedPointQuantity(raw.desiredQuantity, "desiredQuantity"),
         unit: raw.unit === undefined ? undefined : oneOf(raw.unit, "unit", QUANTITY_UNITS, "other"),
         status: raw.status === undefined ? undefined : oneOf(raw.status, "status", RESTOCK_STATUSES, "needed"),
         version: requireInt(raw.version, "version", 1),

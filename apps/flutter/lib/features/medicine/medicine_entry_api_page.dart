@@ -445,13 +445,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           .showSnackBar(const SnackBar(content: Text('请填写药品名称。')));
       return;
     }
-    int? quantity;
+    double? quantity;
     final rawQuantity = quantityController.text.trim();
     if (rawQuantity.isNotEmpty) {
-      quantity = int.tryParse(rawQuantity);
-      if (quantity == null || quantity < 0) {
+      // R08：按单位解析——毫升允许最多 3 位小数，计件单位要求非负整数。
+      quantity = parseQuantityByUnit(rawQuantity, unit);
+      if (quantity == null) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('数量请输入 0 或正整数；未知时留空。')));
+            .showSnackBar(SnackBar(content: Text(quantityInputError(unit))));
         return;
       }
     }
@@ -718,7 +719,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         child: TextField(
                           controller: quantityController,
                           onChanged: (_) => _markDirty(),
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
                             labelText: '剩余数量',
                             hintText: '未知可留空',
@@ -732,17 +733,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           key: ValueKey(unit),
                           initialValue: unit,
                           decoration: const InputDecoration(labelText: '单位'),
-                          items: const [
-                            DropdownMenuItem(value: 'box', child: Text('盒')),
-                            DropdownMenuItem(value: 'tablet', child: Text('片')),
-                            DropdownMenuItem(
-                              value: 'capsule',
-                              child: Text('粒'),
-                            ),
-                            DropdownMenuItem(value: 'sachet', child: Text('袋')),
-                            DropdownMenuItem(value: 'bottle', child: Text('瓶')),
-                            DropdownMenuItem(value: 'other', child: Text('其他')),
-                          ],
+                          // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
+                          // 避免 initialValue 找不到 item 触发断言。
+                          items: kQuantityUnitValues
+                              .map((value) => DropdownMenuItem<String>(value: value, child: Text(unitLabel(value))))
+                              .toList(growable: false),
                           onChanged: (value) {
                             setState(() => unit = value ?? 'box');
                             _markDirty();
