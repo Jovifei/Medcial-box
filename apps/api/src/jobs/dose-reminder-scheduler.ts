@@ -113,27 +113,43 @@ async function claimGrant(
   return grantId;
 }
 
-/** 取消排队事件并把一次性授权退还（用户主动操作导致的取消不应消耗授权）。 */
+/**
+ * 统一取消入口（R05）：编辑、暂停、结束、确认、撤销授权与离家都走这里，
+ * 不允许各自写不同退款 SQL。区分两类投递：
+ * - queued / blocked（确定还没发送）：标记 cancelled 并退还一次性授权；
+ * - sending / failed（在途或结果不确定）：只标 cancel_requested，不退授权、不改终态。
+ *   已越过发送边界就不能承诺撤回；最终状态由持有租约的 worker 决定，授权保持消费。
+ * 返回受影响的投递行数（含仅标记 cancel_requested 的在途行）。
+ */
 export async function cancelDoseReminders(
   database: Pick<Database, "query">,
   whereClause: string,
   params: unknown[],
 ): Promise<number> {
-  const cancelled = await database.query<{ id: string; subscription_grant_id: string | null }>(
+  // 确定未发送：取消并退还授权。
+  const refunded = await database.query<{ id: string; subscription_grant_id: string | null }>(
     `UPDATE dose_reminder_deliveries
      SET status = 'cancelled', next_attempt_at = now()
-     WHERE status IN ('queued', 'sending', 'failed', 'blocked') AND ${whereClause}
+     WHERE status IN ('queued', 'blocked') AND ${whereClause}
      RETURNING id, subscription_grant_id`,
     params,
   );
-  const grants = cancelled.rows.map((row) => row.subscription_grant_id).filter((id): id is string => id !== null);
+  const grants = refunded.rows.map((row) => row.subscription_grant_id).filter((id): id is string => id !== null);
   if (grants.length > 0) {
     await database.query(
       "UPDATE wechat_subscription_grants SET consumed_at = NULL WHERE id = ANY($1::uuid[])",
       [grants],
     );
   }
-  return cancelled.rowCount ?? 0;
+  // 在途或结果不确定：只请求取消，不退授权、不改终态，也不再被领取重发。
+  const inFlight = await database.query<{ id: string }>(
+    `UPDATE dose_reminder_deliveries
+     SET cancel_requested = true, next_attempt_at = now()
+     WHERE status IN ('sending', 'failed') AND NOT cancel_requested AND ${whereClause}
+     RETURNING id`,
+    params,
+  );
+  return (refunded.rowCount ?? 0) + (inFlight.rowCount ?? 0);
 }
 
 export async function cancelDoseRemindersForOccurrence(
@@ -287,6 +303,7 @@ export async function dispatchDoseReminders(
       `WITH candidates AS (
          SELECT id FROM dose_reminder_deliveries
          WHERE status IN ('queued', 'failed', 'sending') AND next_attempt_at <= $1
+           AND NOT cancel_requested
          ORDER BY next_attempt_at, id
          FOR UPDATE SKIP LOCKED LIMIT $2
        )
@@ -332,11 +349,18 @@ export async function dispatchDoseReminders(
       delivery.plan_status !== "active" || delivery.occurrence_status !== "pending" ||
       delivery.occurrence_superseded || !delivery.slot_active || !delivery.schedule_still_covers;
     if (stale || invalid || delivery.attempts > MAX_ATTEMPTS) {
-      await database.query(
-        "UPDATE dose_reminder_deliveries SET status = $2, last_error_code = $3, next_attempt_at = now() WHERE id = $1",
+      // 确定还没发送：只有仍持有本次租约（attempts 未变、仍是 sending）才落终态并退授权，
+      // 否则说明已被新 worker 接管，旧 worker 不得覆盖。
+      const guarded = await database.query<{ id: string }>(
+        `UPDATE dose_reminder_deliveries
+         SET status = $2, last_error_code = $3, next_attempt_at = now()
+         WHERE id = $1 AND attempts = $4 AND status = 'sending'
+         RETURNING id`,
         [delivery.id, invalid ? "blocked" : "cancelled",
-          invalid ? (delivery.is_member ? "ACCESS_REVOKED" : "NOT_A_MEMBER") : "EXPIRED"],
+          invalid ? (delivery.is_member ? "ACCESS_REVOKED" : "NOT_A_MEMBER") : "EXPIRED",
+          delivery.attempts],
       );
+      if (guarded.rowCount === 0) continue;
       if (delivery.subscription_grant_id !== null) {
         await database.query(
           "UPDATE wechat_subscription_grants SET consumed_at = NULL WHERE id = $1",
@@ -347,6 +371,27 @@ export async function dispatchDoseReminders(
       else result.cancelled += 1;
       continue;
     }
+    // 发送屏障（R05）：领取事务提交后、真正调用 sender 前，可能已有取消请求到达。
+    // 再次以租约条件核验 cancel_requested，尽量缩小"取消已到但仍发送"的窗口；
+    // 跨过 sender 边界后无法撤回，只能由发送结果决定终态。
+    const barrier = await database.query<{ id: string }>(
+      `UPDATE dose_reminder_deliveries
+       SET next_attempt_at = now() + interval '5 minutes'
+       WHERE id = $1 AND attempts = $2 AND status = 'sending' AND NOT cancel_requested
+       RETURNING id`,
+      [delivery.id, delivery.attempts],
+    );
+    if (barrier.rowCount === 0) {
+      // 领取后到达的取消：落 cancelled，但不退授权——在途取消属结果不确定，授权保持消费不重用。
+      await database.query(
+        `UPDATE dose_reminder_deliveries
+         SET status = 'cancelled', last_error_code = 'CANCEL_REQUESTED', next_attempt_at = now()
+         WHERE id = $1 AND attempts = $2 AND status = 'sending' AND cancel_requested`,
+        [delivery.id, delivery.attempts],
+      );
+      result.cancelled += 1;
+      continue;
+    }
     try {
       const sent = await sender.sendDose({
         openid: delivery.openid,
@@ -354,16 +399,25 @@ export async function dispatchDoseReminders(
         doseDate: delivery.dose_date,
         timeText: delivery.time_of_day.slice(0, 5),
       });
-      await database.query(
-        "UPDATE dose_reminder_deliveries SET status = 'sent', message_id = $2, sent_at = now(), next_attempt_at = now() WHERE id = $1",
-        [delivery.id, sent.messageId],
+      // R05：发送结果只在仍持有本次租约时落库。消息已越过发送边界，无法撤回，
+      // 授权保持消费；若租约已被新 worker 接管（attempts 变化），旧结果不得覆盖。
+      const settled = await database.query<{ id: string }>(
+        `UPDATE dose_reminder_deliveries
+         SET status = 'sent', message_id = $2, sent_at = now(), next_attempt_at = now()
+         WHERE id = $1 AND attempts = $3 AND status = 'sending'
+         RETURNING id`,
+        [delivery.id, sent.messageId, delivery.attempts],
       );
+      if (settled.rowCount === 0) continue;
       result.sent += 1;
     } catch (error) {
       const code = error instanceof SubscribeMessageUnavailableError ? "NOTIFICATION_UNAVAILABLE" : "SEND_FAILED";
+      // 结果不确定（可能已到达微信）：保留授权消费，仅在仍持有租约时标 failed 待重试。
       await database.query(
-        "UPDATE dose_reminder_deliveries SET status = 'failed', last_error_code = $2, next_attempt_at = now() + interval '5 minutes' WHERE id = $1",
-        [delivery.id, code],
+        `UPDATE dose_reminder_deliveries
+         SET status = 'failed', last_error_code = $2, next_attempt_at = now() + interval '5 minutes'
+         WHERE id = $1 AND attempts = $3 AND status = 'sending'`,
+        [delivery.id, code, delivery.attempts],
       );
       result.failed += 1;
     }

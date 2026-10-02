@@ -15,6 +15,7 @@ import { errorBody } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import type { Database } from "../types.js";
 import {
+  cancelDoseReminders,
   cancelDoseRemindersForMember,
   cancelDoseRemindersForOccurrence,
   cancelDoseRemindersForPlan,
@@ -616,17 +617,9 @@ export async function registerMedicationPlanRoutes(
       );
       const supersededIds = superseded.rows.map((row) => row.id);
       if (supersededIds.length > 0) {
-        const cancelled = await tx.query<{ subscription_grant_id: string | null }>(
-          `UPDATE dose_reminder_deliveries
-           SET status = 'cancelled', next_attempt_at = now()
-           WHERE status IN ('queued', 'sending', 'failed', 'blocked') AND occurrence_id = ANY($1::uuid[])
-           RETURNING subscription_grant_id`,
-          [supersededIds],
-        );
-        const grants = cancelled.rows.map((row) => row.subscription_grant_id).filter((id): id is string => id !== null);
-        if (grants.length > 0) {
-          await tx.query("UPDATE wechat_subscription_grants SET consumed_at = NULL WHERE id = ANY($1::uuid[])", [grants]);
-        }
+        // R05：统一走共享取消入口，由它区分"确定未发送"（退还授权）与
+        // "在途/结果不确定"（仅标 cancel_requested，不退授权、不改终态）。
+        await cancelDoseReminders(tx, "occurrence_id = ANY($1::uuid[])", [supersededIds]);
       }
       return { conflict: false as const, version: updated.rows[0].version };
     });

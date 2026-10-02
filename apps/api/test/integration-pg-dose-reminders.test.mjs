@@ -33,6 +33,16 @@ function atShanghaiMinutes(minutes) {
   return new Date(base.getTime() + (minutes - 8 * 60) * 60 * 1000);
 }
 
+/** 轮询等待某个同步条件成立（用于让 dispatch 停在受控 sender 屏障处）。 */
+async function waitFor(predicate, timeoutMs = 4000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return predicate();
+}
+
 test("real PostgreSQL: dose reminders (R4)", {
   skip: !url && !required ? "TEST_DATABASE_URL absent: optional local PostgreSQL suite" : false,
   concurrency: 1,
@@ -312,6 +322,188 @@ test("real PostgreSQL: dose reminders (R4)", {
       assert.equal(body.available, false);
       assert.match(body.reason, /模板/);
       await minimal.close();
+    });
+
+    await t.test("R05: editing a plan while a delivery is in flight keeps the grant consumed", async () => {
+      sent.length = 0;
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "在途编辑药", dosageText: "1 片",
+        timeSlots: ["00:40"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      await queueDoseReminders(database, config, atShanghaiMinutes(45));
+
+      // 受控 sender 屏障：让 dispatch 停在"已越过领取、正在发送"的窗口内。
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      let entered = 0;
+      const blockingSender = {
+        async sendDose(message) {
+          sent.push(message);
+          entered += 1;
+          await gate;
+          return { messageId: `msg-inflight-${entered}` };
+        },
+      };
+      const when = atShanghaiMinutes(50);
+      const dispatchPromise = dispatchDoseReminders(database, blockingSender, config, when);
+      let result;
+      try {
+        assert.equal(await waitFor(() => entered === 1), true, "sender should be in flight");
+        const sendingRow = (await pool.query(
+          "SELECT status FROM dose_reminder_deliveries WHERE plan_id = $1", [plan.planId],
+        )).rows[0];
+        assert.equal(sendingRow.status, "sending");
+
+        // 在途改期：统一取消入口只应标 cancel_requested，不退授权、不改终态。
+        const detail = status(await request(group.owner, "GET", `/medication-plans/${plan.planId}`), 200);
+        status(await request(group.owner, "PUT", `/medication-plans/${plan.planId}`, {
+          version: detail.plan.version, timeSlots: ["23:58"],
+        }), 200);
+        const during = (await pool.query(
+          "SELECT status, cancel_requested, subscription_grant_id FROM dose_reminder_deliveries WHERE plan_id = $1",
+          [plan.planId],
+        )).rows[0];
+        assert.equal(during.status, "sending", "in-flight status must not be flipped by a cancel");
+        assert.equal(during.cancel_requested, true, "cancel must be recorded as requested");
+        const duringGrant = (await pool.query(
+          "SELECT consumed_at FROM wechat_subscription_grants WHERE id = $1", [during.subscription_grant_id],
+        )).rows[0];
+        assert.notEqual(duringGrant.consumed_at, null, "an in-flight grant must NOT be refunded (R05)");
+      } finally {
+        release();
+      }
+      result = await dispatchPromise;
+      // sender 最终成功：消息已越过发送边界无法撤回，落 sent，授权保持消费。
+      assert.equal(result.sent, 1);
+      const after = (await pool.query(
+        "SELECT status, cancel_requested, subscription_grant_id FROM dose_reminder_deliveries WHERE plan_id = $1",
+        [plan.planId],
+      )).rows[0];
+      assert.equal(after.status, "sent", "a successful send is recorded even though a cancel was requested");
+      const afterGrant = (await pool.query(
+        "SELECT consumed_at FROM wechat_subscription_grants WHERE id = $1", [after.subscription_grant_id],
+      )).rows[0];
+      assert.notEqual(afterGrant.consumed_at, null, "a genuinely sent message keeps its grant consumed (R05)");
+    });
+
+    await t.test("R05: cancel during an ambiguous send keeps the grant consumed and never re-notifies", async () => {
+      sent.length = 0;
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "模糊发送药", dosageText: "1 片",
+        timeSlots: ["00:41"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      await queueDoseReminders(database, config, atShanghaiMinutes(45));
+
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      let entered = 0;
+      const failingSender = {
+        async sendDose() {
+          entered += 1;
+          await gate;
+          // 结果不确定：请求可能已到达微信，只是响应超时。
+          throw new Error("network timeout after WeChat may have received it");
+        },
+      };
+      const dispatchPromise = dispatchDoseReminders(database, failingSender, config, atShanghaiMinutes(50));
+      let result;
+      try {
+        assert.equal(await waitFor(() => entered === 1), true, "sender should be in flight");
+        // 在途确认服药：标 cancel_requested，不退授权。
+        const schedule = status(await request(group.owner, "GET", `/medication-plans/schedule?date=${clock.date}`), 200);
+        const occurrence = schedule.entries.find((entry) => entry.planId === plan.planId) ?? schedule.entries[0];
+        status(await request(group.owner, "POST", `/dose-occurrences/${occurrence.occurrenceId}/confirm`, {
+          action: "taken", idempotencyKey: `dose-${randomUUID()}`,
+        }), 200);
+      } finally {
+        release();
+      }
+      result = await dispatchPromise;
+      assert.equal(result.sent, 0, "an ambiguous failure must not count as sent");
+      const after = (await pool.query(
+        "SELECT status, cancel_requested, subscription_grant_id FROM dose_reminder_deliveries WHERE plan_id = $1",
+        [plan.planId],
+      )).rows[0];
+      assert.equal(after.cancel_requested, true);
+      assert.notEqual(after.status, "sent");
+      const grant = (await pool.query(
+        "SELECT consumed_at FROM wechat_subscription_grants WHERE id = $1", [after.subscription_grant_id],
+      )).rows[0];
+      assert.notEqual(grant.consumed_at, null, "an uncertain result keeps the grant consumed (not reused)");
+      // 再跑一轮：cancel_requested 的投递不会被重新领取，不会重复通知。
+      const before = sent.length;
+      await dispatchDoseReminders(database, failingSender, config, atShanghaiMinutes(51));
+      assert.equal(sent.length, before, "a cancelled in-flight delivery must not be re-dispatched");
+    });
+
+    await t.test("R05: a stale worker's send result cannot overwrite a newer lease", async () => {
+      sent.length = 0;
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "租约药", dosageText: "1 片",
+        timeSlots: ["00:43"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      await queueDoseReminders(database, config, atShanghaiMinutes(45));
+
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      let entered = 0;
+      const blockingSender = {
+        async sendDose(message) {
+          sent.push(message);
+          entered += 1;
+          await gate;
+          return { messageId: `msg-stale-${entered}` };
+        },
+      };
+      const dispatchPromise = dispatchDoseReminders(database, blockingSender, config, atShanghaiMinutes(50));
+      let result;
+      try {
+        assert.equal(await waitFor(() => entered === 1), true, "sender should be in flight");
+        // 模拟租约被新 worker 接管：attempts 前进，旧 worker 仍停在 attempts=1。
+        await pool.query("UPDATE dose_reminder_deliveries SET attempts = attempts + 1 WHERE plan_id = $1", [plan.planId]);
+      } finally {
+        release();
+      }
+      result = await dispatchPromise;
+      assert.equal(result.sent, 0, "a stale worker must not record a send it no longer owns");
+      const after = (await pool.query(
+        "SELECT status, message_id FROM dose_reminder_deliveries WHERE plan_id = $1", [plan.planId],
+      )).rows[0];
+      assert.notEqual(after.status, "sent", "a stale result must not overwrite the newer lease");
+      assert.equal(after.message_id, null);
+    });
+
+    await t.test("R05: ten queue+dispatch rounds consume exactly one grant and send once", async () => {
+      sent.length = 0;
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "重复调度药", dosageText: "1 片",
+        timeSlots: ["00:42"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      const when = atShanghaiMinutes(50);
+      for (let round = 0; round < 10; round += 1) {
+        await queueDoseReminders(database, config, when);
+        await dispatchDoseReminders(database, sender, config, when);
+      }
+      assert.equal(sent.length, 1, "exactly one message across ten rounds");
+      const consumed = (await pool.query(
+        "SELECT count(*)::int AS n FROM wechat_subscription_grants WHERE family_id = $1 AND consumed_at IS NOT NULL",
+        [group.id],
+      )).rows[0].n;
+      assert.equal(consumed, 1, "exactly one grant consumed across ten rounds");
+      const deliveries = (await pool.query("SELECT id FROM dose_reminder_deliveries WHERE plan_id = $1", [plan.planId])).rows;
+      assert.equal(deliveries.length, 1);
     });
   } finally {
     if (app !== undefined) await app.close();
