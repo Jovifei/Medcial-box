@@ -1,6 +1,7 @@
 import 'api_auth_repository.dart';
 import 'api_client.dart';
 import 'api_medicine_repository.dart';
+import 'api_plan_repository.dart';
 import 'api_workflow_repository.dart';
 import 'app_stores.dart';
 import 'demo_repositories.dart';
@@ -19,6 +20,7 @@ class AppServices {
     this.families,
     this.medicines,
     this.workflow,
+    this.plans,
   });
 
   final String apiBaseUrl;
@@ -30,6 +32,7 @@ class AppServices {
   final ApiFamilyRepository? families;
   final ApiMedicineRepository? medicines;
   final ApiWorkflowRepository? workflow;
+  final ApiPlanRepository? plans;
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
 
@@ -91,6 +94,7 @@ class AppServices {
         ),
         medicines: medicines,
         workflow: ApiWorkflowRepository(api: api),
+        plans: ApiPlanRepository(api: api),
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: reminders,
       );

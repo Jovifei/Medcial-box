@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,10 +8,12 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_auth_repository.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
+import '../../data/api_workflow_repository.dart';
 import '../../data/app_services.dart';
 import '../../models/medicine_models.dart';
 import '../my/my_page.dart';
 import '../pending/pending_page.dart';
+import '../plan/plans_page.dart';
 
 class ProductionShell extends StatefulWidget {
   const ProductionShell({super.key, required this.services, this.initialTab = 0});
@@ -26,7 +30,7 @@ class _ProductionShellState extends State<ProductionShell> {
   @override
   void initState() {
     super.initState();
-    selectedIndex = widget.initialTab.clamp(0, 2).toInt();
+    selectedIndex = widget.initialTab.clamp(0, 3).toInt();
   }
 
   @override
@@ -37,6 +41,12 @@ class _ProductionShellState extends State<ProductionShell> {
         CabinetHomePage(
           repository: widget.services.medicines!,
           familyRepository: widget.services.families!,
+          workflow: widget.services.workflow!,
+        ),
+        PlansPage(
+          repository: widget.services.plans!,
+          onScheduleLoaded: (schedule) =>
+              widget.services.reminders.setTodaySchedule(schedule),
         ),
         PendingPage(
           services: widget.services,
@@ -51,6 +61,7 @@ class _ProductionShellState extends State<ProductionShell> {
       onDestinationSelected: (index) => setState(() => selectedIndex = index),
       destinations: const [
         NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: '药箱'),
+        NavigationDestination(icon: Icon(Icons.medication_outlined), selectedIcon: Icon(Icons.medication), label: '用药计划'),
         NavigationDestination(icon: Icon(Icons.notifications_none_rounded), selectedIcon: Icon(Icons.notifications_rounded), label: '待处理'),
         NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: '我的'),
       ],
@@ -63,9 +74,11 @@ class CabinetHomePage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.familyRepository,
+    required this.workflow,
   });
   final ApiMedicineRepository repository;
   final ApiFamilyRepository familyRepository;
+  final ApiWorkflowRepository workflow;
 
   @override
   State<CabinetHomePage> createState() => _CabinetHomePageState();
@@ -80,6 +93,20 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   Future<void>? initialLoad;
   FamilyRecord? family;
   Object? failure;
+
+  // 人群 / 用途标签多选筛选（S5-D）：空集合 = 不筛选；同维度任一命中即匹配。
+  final Set<String> selectedPopulations = <String>{};
+  final Set<String> selectedPurposes = <String>{};
+  static const Map<String, String> _purposeLabels = {
+    'fever': '发热',
+    'cough': '咳嗽',
+    'throat': '咽喉',
+    'nasal': '鼻部',
+    'gastro': '胃肠',
+    'pain': '疼痛',
+    'topical': '外用',
+    'allergy': '过敏',
+  };
 
   @override
   void initState() {
@@ -116,6 +143,16 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       ...medicine.batches.map((batch) => batch.storageLocation ?? ''),
     ].any((value) => value.toLowerCase().contains(query));
     if (!matchesQuery) return false;
+    if (selectedPopulations.isNotEmpty &&
+        !medicine.populationTags.any(
+          (tag) => selectedPopulations.contains(tag),
+        )) {
+      return false;
+    }
+    if (selectedPurposes.isNotEmpty &&
+        !medicine.purposeTags.any((tag) => selectedPurposes.contains(tag))) {
+      return false;
+    }
     return switch (filter) {
       MedicineFilter.all => true,
       MedicineFilter.expiry => medicine.batches.any((batch) => batch.isExpired || ['due_this_month', 'expiring_soon'].contains(batch.managementExpiryState.state)),
@@ -229,16 +266,38 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                 _filterChip('待补资料', MedicineFilter.missingInfo),
               ],
             ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _tagChip('成人', selectedPopulations, 'adult'),
+                _tagChip('儿童', selectedPopulations, 'child'),
+                ..._purposeLabels.entries.map(
+                  (entry) => _tagChip(entry.value, selectedPurposes, entry.key),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             if (widget.repository.medicines.isEmpty && failure == null)
               _EmptyCabinet(onAdd: () => context.push('/medicine/new'))
             else if (_visibleMedicines.isEmpty)
               _NoSearchResults(onClear: () {
                 searchController.clear();
-                setState(() { keyword = ''; filter = MedicineFilter.all; });
+                setState(() {
+                  keyword = '';
+                  filter = MedicineFilter.all;
+                  selectedPopulations.clear();
+                  selectedPurposes.clear();
+                });
               })
             else
-              ..._visibleMedicines.map((medicine) => _MedicineCard(medicine: medicine)),
+              ..._visibleMedicines.map(
+                (medicine) => _MedicineCard(
+                  medicine: medicine,
+                  workflow: widget.workflow,
+                ),
+              ),
           ],
         ),
       ),
@@ -249,6 +308,18 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     label: Text(label),
     selected: filter == value,
     onSelected: (_) => setState(() => filter = value),
+  );
+
+  Widget _tagChip(String label, Set<String> bucket, String value) => FilterChip(
+    label: Text(label),
+    selected: bucket.contains(value),
+    onSelected: (on) => setState(() {
+      if (on) {
+        bucket.add(value);
+      } else {
+        bucket.remove(value);
+      }
+    }),
   );
 }
 
@@ -299,8 +370,9 @@ class _StatusBox extends StatelessWidget {
 }
 
 class _MedicineCard extends StatelessWidget {
-  const _MedicineCard({required this.medicine});
+  const _MedicineCard({required this.medicine, required this.workflow});
   final MedicineRecord medicine;
+  final ApiWorkflowRepository workflow;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +399,8 @@ class _MedicineCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _CoverThumb(medicine: medicine, workflow: workflow),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(medicine.name, style: Theme.of(context).textTheme.titleMedium),
                     ),
@@ -368,6 +442,77 @@ class _MedicineCard extends StatelessWidget {
     if (unknown) return '数量未知';
     return values.isEmpty ? '0' : values;
   }
+}
+
+/// 首页封面缩略图的内存级缓存：同一 (药品, 封面) 只下载一次字节。
+final Map<String, Future<Uint8List?>> _coverFutures =
+    <String, Future<Uint8List?>>{};
+
+Future<Uint8List?> _loadCoverBytes(
+  ApiWorkflowRepository workflow,
+  MedicineRecord medicine,
+) {
+  final coverId = medicine.coverPhotoId;
+  if (coverId == null) return Future<Uint8List?>.value(null);
+  final key = '${medicine.id}:$coverId';
+  return _coverFutures.putIfAbsent(key, () async {
+    try {
+      final image = await workflow.readLeafletPhoto(medicine.id, coverId);
+      return image.bytes;
+    } catch (_) {
+      _coverFutures.remove(key);
+      return null;
+    }
+  });
+}
+
+class _CoverThumb extends StatelessWidget {
+  const _CoverThumb({required this.medicine, required this.workflow});
+  final MedicineRecord medicine;
+  final ApiWorkflowRepository workflow;
+
+  @override
+  Widget build(BuildContext context) {
+    const side = 54.0;
+    if (medicine.coverPhotoId == null) return _placeholder(side);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: side,
+        height: side,
+        child: FutureBuilder<Uint8List?>(
+          future: _loadCoverBytes(workflow, medicine),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return Container(color: AppColors.mist);
+            }
+            final bytes = snapshot.data;
+            if (bytes == null) return _placeholder(side);
+            return Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) => _placeholder(side),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder(double side) => Container(
+    width: side,
+    height: side,
+    color: AppColors.mist,
+    alignment: Alignment.center,
+    child: Icon(
+      medicine.coverPhotoId == null
+          ? Icons.medication_outlined
+          : Icons.broken_image_outlined,
+      color: AppColors.muted,
+      size: 24,
+    ),
+  );
 }
 
 class _MedicineStatus extends StatelessWidget {

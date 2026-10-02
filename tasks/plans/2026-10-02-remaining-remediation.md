@@ -67,9 +67,14 @@ H0数量模型、字段与备份保真、Flutter门禁已有进展，继续沿�
 ## S5：双端功能与真实验收
 
 - [ ] Flutter补四导航、照片标签筛选、照护与计划/今日确认/历史/权限、服药通知及精确闹钟权限、重启恢复、更新发行入口。
-- [ ] 小程序补游客、首页缩略图/位置/多库存摘要、完整状态/最近录入、10份草稿、包装换算目标、库存药品选择与独立提醒接收人。
+  - S5-B/C/D · Flutter · 代码已写，**验证 NOT_RUN**（本机无 Dart/Flutter SDK）：新增 `ApiPlanRepository`+`plan_models`，`AppServices.plans`；`production_shell` 升为四导航（用药计划 tab）；`PlansPage`（今日安排+服用/跳过确认，日期取服务端）、`PlanDetailPage`（暂停/恢复/结束携版本+编辑/历史）、`PlanFormPage`（建/改，星期原样保留）、`PlanHistoryPage`、`CareProfilesPage`、`CarePermissionsPage`；`CabinetHomePage` 人群/用途标签多选筛选 + 封面缩略图；`ReleaseNotesPage` + “我的→版本与更新”；`LocalReminderService` 到期+服药双类通知、`requestExactAlarmsPermission`/`exactAllowWhileIdle`、`setTodaySchedule` 回灌；AndroidManifest 加 POST/EXACT_ALARM/WAKE 权限（boot 接收器已存在）。15 个 Dart 文件括号/圆括号/方括号全平衡（启发式核对，非编译）。
+- [x] 小程序补首页缩略图/位置/完整状态。
+  - S5-A · 小程序 · **PASS**：`toCabinetItem` 预计算 locationText（去重/“等 N 处”）、openedText、isArchived；`loadCovers` 复用 `downloadLeafletPhoto` 按 coverPhotoId 缓存、coverToken 代次守卫；卡片重排含缩略图/状态行/位置行。门禁（`apps/miniprogram`）：`npm test` 149/149、`typecheck`、`lint` 全 exit 0。
+- [ ] 小程序游客浏览、最近录入排序、10 份草稿、包装换算目标单位、库存药品选择、独立提醒接收人（本轮按用户选择暂缓；最近录入/独立接收人需后端 API/迁移，包装换算与既有“单位不自动换算”决定冲突，需单独定夺）。
 - [ ] 当前状态台账改为“已提交/工作区候选/已验证/外部待验”，统一目录与后端地址；历史模拟器开发假网关记录不能升级成真实身份验收。
 - [ ] 门禁逐条读取退出码：根lint/typecheck/test/build、严格PG、新增状态机/实例回归、Flutter analyze/test/build apk、官方编译及页面绑定验证。不得用最后一个命令成功掩盖前面失败。
+  - **NOT_RUN（Flutter）**：无 Dart/Flutter SDK，`flutter analyze/test/build apk` 无法执行；S5-B/C/D 一律记 NOT_RUN，禁止记 PASS。小程序三项门禁本轮真实 exit 0。
 - [ ] 两账号两手机确认真实登录/共享、相机扫码实样、计划提醒送达与点击、改期撤销、文件分享和更新；再独立HTTPS部署及数据库＋图片恢复演练。
+  - S5-E · **BLOCKED（本机）**：无真机、无 AppSecret、本轮不碰生产/部署 → 无法执行真实微信/两账号/送达/部署/恢复验收；见 S5 交接清单交用户执行。
 
 任何P1或测试失败停止完整候选发布。新增迁移部署前备份，失败保留原数据，不能自动回删快照字段。全部任务记录源码/未提交diff身份、命令、结果和PASS/BLOCKED/NOT_RUN；后续联网搜索、分析及健康档案继续排在核心修复之后。

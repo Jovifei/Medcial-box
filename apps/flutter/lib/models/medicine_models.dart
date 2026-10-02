@@ -332,6 +332,7 @@ class MedicineRecord {
     this.manufacturer,
     this.approvalNumber,
     this.barcodeValue,
+    this.coverPhotoId,
     this.activeIngredients = const [],
     this.purposeCategory,
     this.populationTags = const [],
@@ -355,6 +356,7 @@ class MedicineRecord {
   final String? manufacturer;
   final String? approvalNumber;
   final String? barcodeValue;
+  final String? coverPhotoId;
   final List<String> activeIngredients;
   final String? purposeCategory;
   final List<String> populationTags;
@@ -399,6 +401,9 @@ class MedicineRecord {
       approvalNumber: json['approvalNumber'] as String?,
       barcodeValue: json['barcodeValue'] is String
           ? json['barcodeValue']! as String
+          : null,
+      coverPhotoId: json['coverPhotoId'] is String
+          ? json['coverPhotoId']! as String
           : null,
       activeIngredients: (json['activeIngredients'] as List<dynamic>? ?? [])
           .whereType<String>()

@@ -8,6 +8,7 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/app_services.dart';
 import '../../models/medicine_models.dart';
+import 'release_notes_page.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key, required this.services});
@@ -346,6 +347,12 @@ class _MyPageState extends State<MyPage> {
                     leading: const Icon(Icons.history_rounded),
                     title: const Text('家庭变更记录'),
                     onTap: () => context.push('/audit'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.system_update_alt_rounded),
+                    title: const Text('版本与更新'),
+                    subtitle: Text('当前版本 $appVersion'),
+                    onTap: () => context.push('/release-notes'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.article_outlined),

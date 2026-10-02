@@ -18,7 +18,13 @@ import 'features/medicine/medicine_detail_page.dart';
 import 'features/medicine/medicine_entry_api_page.dart';
 import 'features/medicine/leaflet_photo_page.dart';
 import 'features/my/trash_audit_pages.dart';
+import 'features/my/release_notes_page.dart';
 import 'features/pending/stocktake_page.dart';
+import 'features/plan/care_permissions_page.dart';
+import 'features/plan/care_profiles_page.dart';
+import 'features/plan/plan_detail_page.dart';
+import 'features/plan/plan_form_page.dart';
+import 'features/plan/plan_history_page.dart';
 import 'features/welcome/welcome_page.dart';
 
 class HomeMedicineApp extends StatefulWidget {
@@ -80,7 +86,12 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             state,
             ProductionShell(
               services: services,
-              initialTab: state.uri.queryParameters['tab'] == 'pending' ? 1 : 0,
+              initialTab: switch (state.uri.queryParameters['tab']) {
+                'plans' => 1,
+                'pending' => 2,
+                'my' => 3,
+                _ => 0,
+              },
             ),
           ),
         ),
@@ -124,6 +135,56 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         ),
         _route('/trash', TrashPage(workflow: services.workflow!, medicines: services.medicines!)),
         _route('/audit', AuditPage(workflow: services.workflow!)),
+        _route('/release-notes', const ReleaseNotesPage()),
+        _route('/plans/new', PlanFormPage(repository: services.plans!)),
+        GoRoute(
+          path: '/plan/:id',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            PlanDetailPage(
+              repository: services.plans!,
+              planId: state.pathParameters['id']!,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/plan/:id/edit',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            PlanFormPage(
+              repository: services.plans!,
+              planId: state.pathParameters['id']!,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/plan/:id/history',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            PlanHistoryPage(
+              repository: services.plans!,
+              planId: state.pathParameters['id']!,
+            ),
+          ),
+        ),
+        _route(
+          '/care-profiles',
+          CareProfilesPage(
+            repository: services.plans!,
+            families: services.families!,
+          ),
+        ),
+        GoRoute(
+          path: '/care-profiles/:id/permissions',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            CarePermissionsPage(
+              repository: services.plans!,
+              families: services.families!,
+              careProfileId: state.pathParameters['id']!,
+            ),
+          ),
+        ),
       ]);
     }
     return GoRouter(
