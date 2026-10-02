@@ -529,6 +529,11 @@ export const api = {
     return request({ method: "POST", path: "/api/v1/care-profiles", payload });
   },
 
+  /** B10：本人档案由服务端绑定当前身份（幂等），不再由客户端传 linkedUserId。 */
+  ensureSelfCareProfile(displayName?: string): Promise<CareProfileSummary> {
+    return request({ method: "POST", path: "/api/v1/care-profiles/self", ...(displayName ? { payload: { displayName } } : {}) });
+  },
+
   listCareProfiles(): Promise<{ careProfiles: CareProfileSummary[] }> {
     return request({ method: "GET", path: "/api/v1/care-profiles" });
   },

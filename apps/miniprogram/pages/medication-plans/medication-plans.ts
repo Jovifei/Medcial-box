@@ -381,7 +381,7 @@ Page({
     this.setData({ loading: true });
     try {
       await ensureLoggedIn();
-      await api.createCareProfile({ displayName: "我自己" });
+      await api.ensureSelfCareProfile("我自己");
       await this.refresh();
       this.setData({ formVisible: true });
     } catch (error) {

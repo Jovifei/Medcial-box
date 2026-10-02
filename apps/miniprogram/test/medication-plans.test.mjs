@@ -70,6 +70,12 @@ function loadPlansPage({ api = {}, wx = {} } = {}) {
     listMedicationPlans: async () => { calls.push(["plans"]); return { plans: state.plans }; },
     listCareProfiles: async () => { calls.push(["profiles"]); return { careProfiles: state.careProfiles }; },
     createCareProfile: async (payload) => { calls.push(["createProfile", payload]); return { id: "profile-self", displayName: payload.displayName, linkedUserId: "user-1", isPrivate: true }; },
+    // R19：本人档案由服务端绑定当前身份（幂等），替身按真实接口语义返回——
+    // 不接收 linkedUserId 入参，返回值绑定当前用户且标记私有。
+    ensureSelfCareProfile: async (displayName) => {
+      calls.push(["ensureSelfProfile", displayName]);
+      return { id: "profile-self", displayName: displayName ?? "我", linkedUserId: "user-1", isPrivate: true };
+    },
     createMedicationPlan: async (payload) => { calls.push(["createPlan", payload]); return { planId: "plan-new", careProfileId: payload.careProfileId, status: "active", version: 1 }; },
     changeMedicationPlanStatus: async (planId, action, version) => { calls.push(["status", planId, action, version]); return { planId, status: action === "pause" ? "paused" : "active", version: version + 1 }; },
     getDoseReminderStatus: async () => {
@@ -276,8 +282,11 @@ test("第一位使用者先自动创建“我自己”照护对象再打开表�
   await page.refresh();
   assert.equal(page.data.hasAnyProfile, false);
   await page.onOpenCreateForm();
-  const created = calls.find(([kind]) => kind === "createProfile");
-  assert.equal(created[1].displayName, "我自己");
+  // R19：本人档案走服务端绑定身份的 self 接口，不再由客户端传 linkedUserId。
+  const created = calls.find(([kind]) => kind === "ensureSelfProfile");
+  assert.ok(created, "应调用 ensureSelfCareProfile 而非旧的 createCareProfile");
+  assert.equal(created[1], "我自己");
+  assert.equal(calls.some(([kind]) => kind === "createProfile"), false, "不得再走客户端猜测身份的旧接口");
   assert.equal(page.data.formVisible, true);
 });
 

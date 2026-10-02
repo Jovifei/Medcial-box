@@ -115,6 +115,68 @@ test("real PostgreSQL: dose reminders (R4)", {
       assert.deepEqual(statusBody.deliveries, []);
     });
 
+    await t.test("B05: three grants + repeated queueing rounds consume exactly one grant", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "重复排队药", dosageText: "1 片",
+        timeSlots: ["00:02"], startDate: "2026-01-01",
+      }), 201);
+      for (let i = 0; i < 3; i += 1) await grantDoseSubscription(group.owner);
+      const when = atShanghaiMinutes(30);
+      // 连续 3 轮排队（模拟多 worker / 多轮调度）
+      for (let round = 0; round < 3; round += 1) {
+        const result = await queueDoseReminders(database, config, when);
+        if (round === 0) assert.equal(result.queued, 1, "first round queues once");
+        else assert.equal(result.queued, 0, "later rounds must not queue again");
+      }
+      const deliveries = (await pool.query("SELECT id FROM dose_reminder_deliveries")).rows;
+      assert.equal(deliveries.length, 1, "same occurrence + user dedupes to one delivery");
+      const consumed = (await pool.query(
+        "SELECT count(*)::int AS n FROM wechat_subscription_grants WHERE family_id = $1 AND consumed_at IS NOT NULL",
+        [group.id],
+      )).rows[0].n;
+      assert.equal(consumed, 1, "exactly one grant is consumed despite repeated queueing");
+      // 清理：停用本家庭全部计划（取消投递），断开投递对授权的引用后删除剩余授权，防止跨测试串扰。
+      await pool.query("UPDATE medication_plans SET status = 'paused' WHERE family_id = $1", [group.id]);
+      await pool.query("UPDATE dose_reminder_deliveries SET status = 'cancelled' WHERE family_id = $1 AND status IN ('queued', 'sending')", [group.id]);
+      await pool.query(
+        `UPDATE dose_reminder_deliveries d SET subscription_grant_id = NULL
+         FROM wechat_subscription_grants g WHERE d.subscription_grant_id = g.id AND g.family_id = $1`,
+        [group.id],
+      );
+      await pool.query("DELETE FROM wechat_subscription_grants WHERE family_id = $1", [group.id]);
+    });
+
+    await t.test("B06: reschedule cancels the old 08:00 delivery and only 09:00 sends", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", { displayName: "我自己" }), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "改期药", dosageText: "1 片",
+        timeSlots: ["00:03"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      const when = atShanghaiMinutes(30);
+      await queueDoseReminders(database, config, when);
+      // 改期：00:03 → 23:58（仍是"今天"语义，验证旧时间点的投递被取消）
+      const detail = status(await request(group.owner, "GET", `/medication-plans/${plan.planId}`), 200);
+      status(await request(group.owner, "PUT", `/medication-plans/${plan.planId}`, {
+        version: detail.plan.version, timeSlots: ["23:58"],
+      }), 200);
+      const rows = (await pool.query(
+        "SELECT status, time_of_day::text AS t FROM dose_reminder_deliveries WHERE plan_id = $1",
+        [plan.planId],
+      )).rows;
+      assert.ok(rows.every((row) => row.status === "cancelled"), `old delivery must be cancelled: ${JSON.stringify(rows)}`);
+      // 发送轮：不向已取消投递发送
+      const before = sent.length;
+      await dispatchDoseReminders(database, sender, config, when);
+      assert.equal(sent.length, before, "no message may go out for a superseded occurrence");
+      // 新时间点尚未到点（23:58），今天不应排队 23:58
+      const requeued = await queueDoseReminders(database, config, when);
+      assert.equal(requeued.queued, 0, "the new time has not come due yet");
+    });
+
     await t.test("due pending occurrence is queued once per recipient and sent", async () => {
       const group = await family(0);
       const self = status(await request(group.owner, "POST", "/care-profiles", { displayName: "我自己", linkedUserId: group.owner.id }), 201);

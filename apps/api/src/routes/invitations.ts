@@ -29,6 +29,7 @@ import {
 } from "../repositories/families.js";
 import { consumeInvite, findInviteByTokenHash, insertInvite } from "../repositories/invites.js";
 import { cancelDeliveriesForMember } from "../jobs/reminder-scheduler.js";
+import { cancelDoseRemindersForMember } from "../jobs/dose-reminder-scheduler.js";
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 
@@ -227,6 +228,12 @@ export async function registerInvitationRoutes(
         }
         // 同一事务内作废被移除成员的排队提醒与授权（A07）：离开即不该再收到消息。
         await cancelDeliveriesForMember(tx, ctx.familyId, removedUserId);
+        // B07：撤销其照护授权与未来服药投递——重新加入不复活旧权限。
+        await tx.query(
+          "DELETE FROM care_grants WHERE family_id = $1 AND member_user_id = $2",
+          [ctx.familyId, removedUserId],
+        );
+        await cancelDoseRemindersForMember(tx, ctx.familyId, removedUserId);
       });
       return reply.code(204).send();
     } catch (error) {
@@ -289,6 +296,12 @@ export async function registerInvitationRoutes(
         }
         // 退出即取消本人待发提醒与授权（A07）。
         await cancelDeliveriesForMember(tx, ctx.familyId, auth.userId);
+        // B07：退出同样撤销其照护授权与未来服药投递；重入不复活。
+        await tx.query(
+          "DELETE FROM care_grants WHERE family_id = $1 AND member_user_id = $2",
+          [ctx.familyId, auth.userId],
+        );
+        await cancelDoseRemindersForMember(tx, ctx.familyId, auth.userId);
       });
       return reply.code(204).send();
     } catch (error) {

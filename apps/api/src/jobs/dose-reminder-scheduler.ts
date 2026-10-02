@@ -51,16 +51,21 @@ export async function materializeDoseOccurrencesForDate(
   database: Pick<Database, "query">,
   date: string,
 ): Promise<number> {
+  // B08/R01：物化时保存当时的计划快照，历史日期显示不随编辑漂移；
+  // 冲突目标为"活动实例"部分唯一索引，作废行让位，改期后同一时间点可重新物化。
   const result = await database.query(
-    `INSERT INTO dose_occurrences (family_id, plan_id, slot_id, care_profile_id, dose_date, time_of_day)
-     SELECT p.family_id, p.id, s.id, p.care_profile_id, $1::date, s.time_of_day
+    `INSERT INTO dose_occurrences (family_id, plan_id, slot_id, care_profile_id, dose_date, time_of_day,
+                                   medicine_name_snapshot, dosage_text_snapshot, care_profile_name_snapshot, plan_version_snapshot)
+     SELECT p.family_id, p.id, s.id, p.care_profile_id, $1::date, s.time_of_day,
+            p.medicine_name, p.dosage_text, c.display_name, p.version
      FROM medication_plans p
      JOIN plan_time_slots s ON s.plan_id = p.id AND s.archived_at IS NULL
+     JOIN care_profiles c ON c.id = p.care_profile_id
      WHERE p.status = 'active'
        AND p.start_date <= $1::date
        AND (p.end_date IS NULL OR p.end_date >= $1::date)
        AND $2 = ANY(p.weekdays)
-     ON CONFLICT (slot_id, dose_date) DO NOTHING`,
+     ON CONFLICT (slot_id, dose_date) WHERE superseded_at IS NULL DO NOTHING`,
     [date, weekdayOf(date)],
   );
   return result.rowCount ?? 0;
@@ -190,6 +195,7 @@ export async function queueDoseReminders(
      JOIN medication_plans p ON p.id = o.plan_id
      JOIN care_profiles c ON c.id = o.care_profile_id
      WHERE o.dose_date = $1::date AND o.status = 'pending' AND p.status = 'active'
+       AND o.superseded_at IS NULL
        AND o.time_of_day <= $2::time AND o.time_of_day >= $3::time
      ORDER BY o.time_of_day, o.id`,
     [clock.date, upperBound, lowerBound],
@@ -205,20 +211,32 @@ export async function queueDoseReminders(
       occurrence.linked_user_id,
     );
     for (const userId of recipients) {
-      const inserted = await database.withTransaction(async (tx) => {
-        const grantId = await claimGrant(tx, occurrence.family_id, userId, config.doseTemplateId);
-        if (grantId === null) return false;
-        const result = await tx.query(
+      // B05：先落投递行（唯一键 user_id+occurrence_id），成功后才占用授权。
+      // 重复排队撞唯一键时不消耗任何授权；无可用授权则回收本次插入的行。
+      const outcome = await database.withTransaction(async (tx) => {
+        const inserted = await tx.query<{ id: string }>(
           `INSERT INTO dose_reminder_deliveries
-           (family_id, user_id, plan_id, occurrence_id, dose_date, time_of_day, template_id, subscription_grant_id, next_attempt_at)
-           VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, $8, $9)
-           ON CONFLICT (user_id, occurrence_id) DO NOTHING`,
+           (family_id, user_id, plan_id, occurrence_id, dose_date, time_of_day, template_id, next_attempt_at)
+           VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, $8)
+           ON CONFLICT (user_id, occurrence_id) DO NOTHING
+           RETURNING id`,
           [occurrence.family_id, userId, occurrence.plan_id, occurrence.id,
-            clock.date, occurrence.time_of_day, config.doseTemplateId, grantId, now],
+            clock.date, occurrence.time_of_day, config.doseTemplateId, now],
         );
-        return (result.rowCount ?? 0) > 0;
+        const deliveryId = inserted.rows[0]?.id;
+        if (deliveryId === undefined) return "duplicate" as const;
+        const grantId = await claimGrant(tx, occurrence.family_id, userId, config.doseTemplateId);
+        if (grantId === null) {
+          await tx.query("DELETE FROM dose_reminder_deliveries WHERE id = $1", [deliveryId]);
+          return "no_grant" as const;
+        }
+        await tx.query(
+          "UPDATE dose_reminder_deliveries SET subscription_grant_id = $2 WHERE id = $1",
+          [deliveryId, grantId],
+        );
+        return "queued" as const;
       });
-      if (inserted) queued += 1;
+      if (outcome === "queued") queued += 1;
       else skippedNoGrant += 1;
     }
   }
@@ -237,6 +255,9 @@ interface ClaimedDose {
   subscription_grant_id: string | null;
   plan_status: string;
   occurrence_status: string;
+  occurrence_superseded: boolean;
+  slot_active: boolean;
+  schedule_still_covers: boolean;
   is_member: boolean;
   has_access: boolean;
 }
@@ -281,6 +302,10 @@ export async function dispatchDoseReminders(
               d.dose_date::text AS dose_date, d.time_of_day::text AS time_of_day,
               d.subscription_grant_id,
               p.status AS plan_status, o.status AS occurrence_status,
+              o.superseded_at IS NOT NULL AS occurrence_superseded,
+              EXISTS (SELECT 1 FROM plan_time_slots s WHERE s.id = o.slot_id AND s.archived_at IS NULL) AS slot_active,
+              (p.start_date <= o.dose_date AND (p.end_date IS NULL OR p.end_date >= o.dose_date)
+               AND (ARRAY['sun','mon','tue','wed','thu','fri','sat'])[extract(dow from o.dose_date)::int + 1] = ANY(p.weekdays)) AS schedule_still_covers,
               EXISTS (SELECT 1 FROM family_members fm WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id) AS is_member,
               (
                 c.linked_user_id = d.user_id
@@ -304,7 +329,8 @@ export async function dispatchDoseReminders(
     const stale = delivery.dose_date !== clock.date ||
       delivery.time_of_day > upperBound || delivery.time_of_day < lowerBound;
     const invalid = !delivery.is_member || !delivery.has_access ||
-      delivery.plan_status !== "active" || delivery.occurrence_status !== "pending";
+      delivery.plan_status !== "active" || delivery.occurrence_status !== "pending" ||
+      delivery.occurrence_superseded || !delivery.slot_active || !delivery.schedule_still_covers;
     if (stale || invalid || delivery.attempts > MAX_ATTEMPTS) {
       await database.query(
         "UPDATE dose_reminder_deliveries SET status = $2, last_error_code = $3, next_attempt_at = now() WHERE id = $1",
