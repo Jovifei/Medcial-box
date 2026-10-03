@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/medicine_tags.dart';
 import '../../data/api_auth_repository.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
@@ -157,16 +158,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   // 人群 / 用途标签多选筛选（S5-D）：空集合 = 不筛选；同维度任一命中即匹配。
   final Set<String> selectedPopulations = <String>{};
   final Set<String> selectedPurposes = <String>{};
-  static const Map<String, String> _purposeLabels = {
-    'fever': '发热',
-    'cough': '咳嗽',
-    'throat': '咽喉',
-    'nasal': '鼻部',
-    'gastro': '胃肠',
-    'pain': '疼痛',
-    'topical': '外用',
-    'allergy': '过敏',
-  };
+  static const _purposeLabels = medicinePurposeLabels;
 
   @override
   void initState() {

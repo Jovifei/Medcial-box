@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/expiry_date_wheel_picker.dart';
+import '../../core/widgets/medicine_tags.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
@@ -54,6 +56,47 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
     }
   }
 
+  Future<void> _editTags(MedicineRecord medicine) async {
+    final populations = medicine.populationTags.toSet();
+    final purposes = medicine.purposeTags.toSet();
+    final result = await showAppSheet<bool>(
+      context,
+      title: '补充用途与分类',
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => Column(
+          children: [
+            MedicineTagFields(
+              populations: populations,
+              purposes: purposes,
+              onChanged: () => update(() {}),
+            ),
+            const SizedBox(height: 14),
+            PrimaryButton(
+              label: '保存分类',
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true || !mounted) return;
+    setState(() => submitting = true);
+    try {
+      await widget.repository.updateMedicine(
+        medicine.copyWith(
+          populationTags: populations.toList(),
+          purposeTags: purposes.toList(),
+          tagSource: 'user',
+        ),
+      );
+      _reload();
+    } catch (error) {
+      if (mounted) _error(error);
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
+  }
+
   Future<void> _addBatch(MedicineRecord medicine) async {
     final draft = await showAppSheet<_BatchDraft>(
       context,
@@ -73,22 +116,28 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
   }
 
   Future<void> _editQuantity(MedicineRecord medicine, BatchRecord batch) async {
-    final result = await showAppSheet<_QuantityResult>(
+    final result = await showAppSheet<_BatchDraft>(
       context,
-      title: '修改余量',
-      builder: (_) => _QuantityForm(initialQuantity: batch.quantity, unit: batch.unit),
+      title: '修改库存批次',
+      builder: (_) => _BatchDraftForm(batch: batch),
     );
-    // 关闭面板 = 取消：不产生任何写请求（此前"取消"与"未知留空"都返回 null，
-    // 会把关闭面板误当成写入）。
-    if (result == null || result.cancelled) return;
-    if (!mounted) return;
+    if (result == null || !mounted) return;
     setState(() => submitting = true);
     try {
-      // 明确未知写 null，明确 0 写 0，两者都必须真的落库。
-      final updated = result.quantity == null
-          ? batch.copyWith(clearQuantity: true)
-          : batch.copyWith(quantity: result.quantity);
-      await widget.repository.updateBatch(medicine.id, updated);
+      await widget.repository.updateBatch(
+        medicine.id,
+        batch.copyWith(
+          quantity: result.quantity,
+          unit: result.unit,
+          clearConversion: result.unit != batch.unit,
+          expiryValue: result.expiry,
+          expiryPrecision: result.precision,
+          lotNumber: result.lotNumber,
+          clearLotNumber: result.lotNumber == null,
+          storageLocation: result.storageLocation,
+          clearStorageLocation: result.storageLocation == null,
+        ),
+      );
       _reload();
     } catch (error) {
       if (mounted) _error(error);
@@ -251,12 +300,16 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
         PopupMenuButton<String>(
           tooltip: '更多操作',
           onSelected: (value) async {
+            if (value == 'tags') {
+              final medicine = await medicineFuture;
+              if (mounted && !submitting) _editTags(medicine);
+            }
             if (value == 'archive') {
               final medicine = await medicineFuture;
               if (mounted) _archive(medicine);
             }
           },
-          itemBuilder: (_) => const [PopupMenuItem(value: 'archive', child: Text('归档药品'))],
+          itemBuilder: (_) => const [PopupMenuItem(value: 'tags', child: Text('补充用途与分类')), PopupMenuItem(value: 'archive', child: Text('归档药品'))],
         ),
       ],
     ),
@@ -296,7 +349,34 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                         const SizedBox(height: 6),
                         Text(medicine.specificationDisplay),
                         const SizedBox(height: 12),
-                        Text(medicine.purpose, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.leafDeep)),
+                        InkWell(
+                          onTap: submitting ? null : () => _editTags(medicine),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    medicine.purposeTags.isEmpty
+                                        ? medicine.purpose
+                                        : medicine.purposeTags
+                                              .map(
+                                                (v) =>
+                                                    medicinePurposeLabels[v] ??
+                                                    v,
+                                              )
+                                              .join(' · '),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(color: AppColors.leafDeep),
+                                  ),
+                                ),
+                                const Icon(Icons.edit_outlined),
+                              ],
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Text('资料状态：${_leafletStatus(medicine.leaflet.reviewStatus)}'),
                       ],
@@ -433,8 +513,8 @@ class _BatchCard extends StatelessWidget {
             Expanded(child: Text('批次 ${batch.lotNumber ?? '未记录'}', style: Theme.of(context).textTheme.titleMedium)),
             PopupMenuButton<String>(
               tooltip: '批次操作',
-              onSelected: (value) { if (value == 'trash') onTrash(); },
-              itemBuilder: (_) => const [PopupMenuItem(value: 'trash', child: Text('移入回收站'))],
+              onSelected: (value) { if (value == 'trash') onTrash(); if (value == 'edit') onQuantity(); },
+              itemBuilder: (_) => const [PopupMenuItem(value: 'edit', child: Text('修改库存批次')), PopupMenuItem(value: 'trash', child: Text('移入回收站'))],
             ),
           ],
         ),
@@ -451,7 +531,7 @@ class _BatchCard extends StatelessWidget {
           spacing: 8,
           runSpacing: 6,
           children: [
-            OutlinedButton.icon(onPressed: onQuantity, icon: const Icon(Icons.edit_outlined), label: const Text('修改余量')),
+            OutlinedButton.icon(onPressed: onQuantity, icon: const Icon(Icons.edit_outlined), label: const Text('修改库存批次')),
             if (onOpen != null)
               OutlinedButton.icon(onPressed: onOpen, icon: const Icon(Icons.lock_open_outlined), label: const Text('标记开封')),
           ],
@@ -481,106 +561,141 @@ class _BatchDraft {
 }
 
 class _BatchDraftForm extends StatefulWidget {
-  const _BatchDraftForm();
+  const _BatchDraftForm({this.batch});
+  final BatchRecord? batch;
   @override
   State<_BatchDraftForm> createState() => _BatchDraftFormState();
 }
 
 class _BatchDraftFormState extends State<_BatchDraftForm> {
-  final quantity = TextEditingController();
-  final expiry = TextEditingController();
-  final lot = TextEditingController();
-  final location = TextEditingController();
-  String unit = 'box';
+  late final quantity = TextEditingController(
+    text: widget.batch?.quantity == null
+        ? ''
+        : quantityText(widget.batch!.quantity),
+  );
+  late final expiry = TextEditingController(
+    text: widget.batch?.expiryValue ?? '',
+  );
+  late final lot = TextEditingController(text: widget.batch?.lotNumber ?? '');
+  late final location = TextEditingController(
+    text: widget.batch?.storageLocation ?? '',
+  );
+  late String unit = widget.batch?.unit ?? 'box';
+  late String precision = widget.batch?.expiryPrecision == 'month'
+      ? 'month'
+      : 'day';
+  Future<void> _invalid(String message) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('请核对批次信息'),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('知道了'),
+        ),
+      ],
+    ),
+  );
 
   @override
-  void dispose() { quantity.dispose(); expiry.dispose(); lot.dispose(); location.dispose(); super.dispose(); }
+  void dispose() {
+    quantity.dispose();
+    expiry.dispose();
+    lot.dispose();
+    location.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      TextField(controller: quantity, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '数量', hintText: '未知留空')),
+      TextField(
+        controller: quantity,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(labelText: '数量（必填）'),
+      ),
       const SizedBox(height: 10),
       DropdownButtonFormField<String>(
         initialValue: unit,
         decoration: const InputDecoration(labelText: '单位'),
         items: kQuantityUnitValues
-            .map((value) => DropdownMenuItem<String>(value: value, child: Text(unitLabel(value))))
+            .map(
+              (value) => DropdownMenuItem<String>(
+                value: value,
+                child: Text(unitLabel(value)),
+              ),
+            )
             .toList(growable: false),
         onChanged: (value) => setState(() => unit = value ?? 'box'),
       ),
       const SizedBox(height: 10),
-      TextField(controller: expiry, decoration: const InputDecoration(labelText: '有效期', hintText: 'YYYY-MM 或 YYYY-MM-DD')),
+      MedicineDateField(
+        controller: expiry,
+        label: '包装有效期（必填）',
+        precision: precision,
+        onChanged: () => setState(() {}),
+      ),
+      SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(value: 'day', label: Text('精确到日')),
+          ButtonSegment(value: 'month', label: Text('精确到月')),
+        ],
+        selected: {precision},
+        onSelectionChanged: (v) => setState(() {
+          precision = v.first;
+          if (expiry.text.isNotEmpty) {
+            expiry.text = formatExpiryDate(
+              expiryDateForPicker(expiry.text),
+              precision: precision,
+            );
+          }
+        }),
+      ),
       const SizedBox(height: 10),
-      TextField(controller: lot, decoration: const InputDecoration(labelText: '批号（选填）')),
+      TextField(
+        controller: lot,
+        decoration: const InputDecoration(labelText: '批号（选填）'),
+      ),
       const SizedBox(height: 10),
-      TextField(controller: location, decoration: const InputDecoration(labelText: '存放位置（选填）')),
+      TextField(
+        controller: location,
+        decoration: const InputDecoration(labelText: '存放位置（选填）'),
+      ),
       const SizedBox(height: 14),
-      PrimaryButton(label: '新增批次', onPressed: () {
-        final rawQuantity = quantity.text.trim();
-        // R08：按单位解析——毫升允许最多 3 位小数，计件单位要求非负整数；空＝未知。
-        final parsed = rawQuantity.isEmpty ? null : parseQuantityByUnit(rawQuantity, unit);
-        if (rawQuantity.isNotEmpty && parsed == null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(unit))));
-          return;
-        }
-        final rawExpiry = expiry.text.trim();
-        final precision = rawExpiry.length == 7 ? 'month' : rawExpiry.length == 10 ? 'day' : 'unknown';
-        if (rawExpiry.isNotEmpty && !_validExpiry(rawExpiry, precision)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('有效期日期无效。')));
-          return;
-        }
-        Navigator.pop(context, _BatchDraft(
-          quantity: parsed,
-          unit: unit,
-          expiry: rawExpiry.isEmpty ? null : rawExpiry,
-          precision: precision,
-          lotNumber: _nullableText(lot.text),
-          storageLocation: _nullableText(location.text),
-        ));
-      }),
-    ],
-  );
-}
-
-/// 余量面板的显式结果：区分"取消"、"明确未知（null）"和"明确数值（含 0）"。
-class _QuantityResult {
-  const _QuantityResult.dismissed() : cancelled = true, quantity = null;
-  const _QuantityResult.value(this.quantity) : cancelled = false;
-  final bool cancelled;
-  final double? quantity;
-}
-
-class _QuantityForm extends StatefulWidget {
-  const _QuantityForm({required this.initialQuantity, required this.unit});
-  final double? initialQuantity;
-  final String unit;
-  @override
-  State<_QuantityForm> createState() => _QuantityFormState();
-}
-
-class _QuantityFormState extends State<_QuantityForm> {
-  // R08：整数余量回显"12"而不是"12.0"。
-  late final controller = TextEditingController(text: widget.initialQuantity == null ? '' : quantityText(widget.initialQuantity));
-  @override
-  void dispose() { controller.dispose(); super.dispose(); }
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      TextField(controller: controller, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '剩余数量（${unitLabel(widget.unit)}）', hintText: '未知留空')),
-      const SizedBox(height: 14),
-      PrimaryButton(label: '保存余量', onPressed: () {
-        final raw = controller.text.trim();
-        final value = raw.isEmpty ? null : parseQuantityByUnit(raw, widget.unit);
-        if (raw.isNotEmpty && value == null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(widget.unit))));
-          return;
-        }
-        // 留空是"明确未知"（写 null），关闭面板才是取消。
-        Navigator.pop(context, _QuantityResult.value(value));
-      }),
-      const SizedBox(height: 8),
-      SoftButton(label: '取消', onPressed: () => Navigator.pop(context, const _QuantityResult.dismissed())),
+      PrimaryButton(
+        label: widget.batch == null ? '新增批次' : '保存修改',
+        onPressed: () {
+          final rawQuantity = quantity.text.trim();
+          // R08：按单位解析——毫升允许最多 3 位小数，计件单位要求非负整数；空＝未知。
+          final parsed = rawQuantity.isEmpty
+              ? null
+              : parseQuantityByUnit(rawQuantity, unit);
+          if (parsed == null) {
+            _invalid(
+              rawQuantity.isEmpty ? '请填写数量并选择单位。' : quantityInputError(unit),
+            );
+            return;
+          }
+          final rawExpiry = expiry.text.trim();
+          final precision = this.precision;
+          if (rawExpiry.isEmpty || !_validExpiry(rawExpiry, precision)) {
+            _invalid('请选择包装有效期；精确到月或日请按实物标注核对。');
+            return;
+          }
+          Navigator.pop(
+            context,
+            _BatchDraft(
+              quantity: parsed,
+              unit: unit,
+              expiry: rawExpiry.isEmpty ? null : rawExpiry,
+              precision: precision,
+              lotNumber: _nullableText(lot.text),
+              storageLocation: _nullableText(location.text),
+            ),
+          );
+        },
+      ),
     ],
   );
 }
@@ -612,7 +727,7 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      TextField(controller: date, decoration: const InputDecoration(labelText: '开封日期', hintText: 'YYYY-MM-DD')),
+      MedicineDateField(controller: date, label: '开封日期', onChanged: () => setState(() {})),
       if (widget.batch.openedState == 'unopened' &&
           widget.batch.quantity != null && widget.batch.quantity! > 1) ...[
         const SizedBox(height: 10),
@@ -637,7 +752,7 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
           Expanded(child: DropdownButtonFormField<String>(initialValue: unit, decoration: const InputDecoration(labelText: '单位'), items: const [DropdownMenuItem(value: 'day', child: Text('天')), DropdownMenuItem(value: 'month', child: Text('月'))], onChanged: (v) => setState(() => unit = v ?? 'day'))),
         ])
       else
-        TextField(controller: expiryDate, decoration: const InputDecoration(labelText: '开封后截止日期', hintText: 'YYYY-MM-DD')),
+        MedicineDateField(controller: expiryDate, label: '开封后截止日期（选填）', onChanged: () => setState(() {})),
       const SizedBox(height: 14),
       PrimaryButton(label: widget.batch.openedState != 'unopened' &&
           widget.batch.quantity != null && widget.batch.quantity! > 1 ? '确认整批已开封' : '保存开封信息', onPressed: () {
@@ -653,7 +768,7 @@ class _OpeningDraftFormState extends State<_OpeningDraftForm> {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(quantityInputError(widget.batch.unit, prefix: '拆分数量'))));
           return;
         }
-        if (splitQuantity <= 0 || (widget.batch.quantity != null && splitQuantity >= widget.batch.quantity!)) {
+        if (widget.batch.openedState == 'unopened' && widget.batch.quantity != null && widget.batch.quantity! > 1 && (splitQuantity <= 0 || splitQuantity >= widget.batch.quantity!)) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('拆分数量需大于 0 且小于当前批次余量，须保留正余量。')));
           return;
         }

@@ -105,6 +105,7 @@ export interface MedicineRecognitionDraft {
   lotNumber: string | null;
   expiryValue: string | null;
   expiryPrecision: ExpiryPrecision | null;
+  purposeTags?: PurposeTag[];
 }
 
 export interface MedicineRecognitionResponse {

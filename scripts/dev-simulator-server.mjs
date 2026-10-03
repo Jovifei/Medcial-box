@@ -13,6 +13,11 @@ import { buildServer } from "../apps/api/dist/app.js";
 import { FakeWechatGateway } from "../apps/api/dist/auth/wechat.js";
 import { createDatabasePool, createDatabaseAdapter } from "../apps/api/dist/db.js";
 
+// Host-only QA server: use the installed local vision model unless explicitly overridden.
+process.env.MEDICINE_RECOGNITION_PROVIDER ??= "ollama";
+process.env.OLLAMA_BASE_URL ??= "http://127.0.0.1:11434";
+process.env.OLLAMA_MODEL ??= "qwen3.5:0.8b";
+
 const PORT = Number(process.argv[2] ?? 13300);
 const DEV_OPENID = process.env.DEV_OPENID ?? "dev-openid-local";
 

@@ -87,8 +87,11 @@ class _ExpiryDateWheelPickerState extends State<_ExpiryDateWheelPicker> {
                   child: const Text('取消'),
                 ),
                 Expanded(
-                  child: Text('选择有效期', textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    '选择有效期',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, selectedDate),
@@ -112,6 +115,42 @@ class _ExpiryDateWheelPickerState extends State<_ExpiryDateWheelPicker> {
             ),
           ),
         ],
+      ),
+    ),
+  );
+}
+
+class MedicineDateField extends StatelessWidget {
+  const MedicineDateField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.onChanged,
+    this.precision = 'day',
+  });
+  final TextEditingController controller;
+  final String label;
+  final VoidCallback onChanged;
+  final String precision;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () async {
+      FocusScope.of(context).unfocus();
+      final selected = await showExpiryDateWheelPicker(
+        context,
+        initialDate: expiryDateForPicker(controller.text),
+      );
+      if (selected == null || !context.mounted) return;
+      controller.text = formatExpiryDate(selected, precision: precision);
+      onChanged();
+    },
+    child: InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: const Icon(Icons.calendar_month_outlined),
+      ),
+      child: Text(
+        controller.text.isEmpty ? '选择年月日' : displayExpiryDate(controller.text),
       ),
     ),
   );

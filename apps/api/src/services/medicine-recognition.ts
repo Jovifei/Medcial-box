@@ -1,4 +1,4 @@
-import type { MedicineRecognitionDraft, MedicineRecognitionResponse } from "@home-medicine/contracts";
+import type { MedicineRecognitionDraft, MedicineRecognitionResponse, PurposeTag } from "@home-medicine/contracts";
 import { parseExpiry } from "../domain/expiry.js";
 
 export interface MedicineRecognitionProvider {
@@ -7,7 +7,7 @@ export interface MedicineRecognitionProvider {
 
 export class RecognitionUnavailableError extends Error {}
 
-const OCR_PROMPT = "识别这张中国药品包装照片。只返回 JSON 对象，键为 name,specification,manufacturer,approvalNumber,purposeCategory,lotNumber,expiryValue。若照片明确印有“药品名称”，name 必须取该字段的值；不要把测试、示例或警示标题当作药名。无法看清的字段填 null。purposeCategory 仅在包装明确写出用途或适应症时填简短分类；包装上的测试、示例、勿服用或警示文字不是用途，填 null。expiryValue 仅用 YYYY-MM-DD 或 YYYY-MM，保持原有精度；不要推断未见的日期、数量、服用剂量或个人用药建议。";
+const OCR_PROMPT = "识别这张中国药品包装照片。只返回 JSON 对象，键为 name,specification,manufacturer,approvalNumber,purposeCategory,purposeTags,lotNumber,expiryValue。purposeTags 根据包装明确的用途或适应症选择以下库存分类：fever发热、cough咳嗽、throat咽喉、nasal鼻部、gastro胃肠、pain疼痛、topical外用、allergy过敏、other其他；未看清用途时返回空数组，不推断成人儿童适用或推荐服用。若照片明确印有“药品名称”，name 必须取该字段的值；不要把测试、示例或警示标题当作药名。无法看清的字段填 null。purposeCategory 仅在包装明确写出用途或适应症时填简短分类；包装上的测试、示例、勿服用或警示文字不是用途，填 null。expiryValue 仅用 YYYY-MM-DD 或 YYYY-MM，保持原有精度；不要推断未见的日期、数量、服用剂量或个人用药建议。";
 
 const FIELDS = ["name", "specification", "manufacturer", "approvalNumber", "purposeCategory", "lotNumber"] as const;
 
@@ -34,6 +34,11 @@ function cleanDraft(value: unknown): MedicineRecognitionResponse {
   } else {
     draft.expiryValue = null;
     draft.expiryPrecision = null;
+  }
+  if (Array.isArray(source.purposeTags)) {
+    const allowed = new Set<unknown>(["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "other"]);
+    draft.purposeTags = [...new Set(source.purposeTags.filter((tag: unknown): tag is PurposeTag => allowed.has(tag)))];
+    if (draft.purposeTags.length) warnings.push("AI 用途标签仅作整理草稿，请对照包装或说明书核对");
   }
   if (draft.name === null) warnings.push("未能识别药品名称，请手动填写");
   if (draft.expiryValue === null) warnings.push("未能识别有效期，可补拍包装另一面或手动填写");
@@ -105,6 +110,7 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
         body: JSON.stringify({
           model: this.model,
           stream: false,
+          think: false,
           format: "json",
           options: { temperature: 0, num_ctx: 2048, num_batch: 128 },
           messages: [{ role: "user", content: OCR_PROMPT, images: [imageBase64] }],

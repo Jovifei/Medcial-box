@@ -340,11 +340,15 @@ void main() {
         await capture(tester, 'duration-$variant');
         await selectSegment(tester, openingKind, '截止日期');
         expectSegments(tester, openingKind, 'date', scale);
-        await showField(tester, fieldWithLabel('开封后截止日期'));
+        await showField(tester, find.byWidgetPredicate((w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期'));
         expectFullLabel(tester, find.text('开封后截止日期'), allowWrap: true);
         await capture(tester, 'date-$variant');
-        final deadline = fieldWithLabel('开封后截止日期');
-        await tester.enterText(deadline, '2027-10-03');
+        final deadline = find.byWidgetPredicate((w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期');
+        await tester.tap(deadline);
+        await tester.pumpAndSettle();
+        expect(find.text('选择有效期'), findsOneWidget);
+        await tester.tap(find.text('确定'));
+        await tester.pumpAndSettle();
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();
         await showField(tester, deadline);

@@ -322,9 +322,11 @@ class ApiClient {
     try {
       final request = http.Request(method, uri)..headers.addAll(headers);
       if (body != null) request.body = jsonEncode(body);
-      final streamed = await _client.send(request).timeout(requestTimeout);
-      response = await http.Response.fromStream(streamed)
-          .timeout(requestTimeout);
+      final timeout = path == '/api/v1/recognitions/medicine'
+          ? const Duration(seconds: 70)
+          : requestTimeout;
+      final streamed = await _client.send(request).timeout(timeout);
+      response = await http.Response.fromStream(streamed).timeout(timeout);
     } on TimeoutException {
       throw const ApiNetworkException('连接超时，请检查网络后重试。');
     } on SocketException {

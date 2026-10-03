@@ -227,6 +227,12 @@ class BatchRecord {
 
   BatchRecord copyWith({
     double? quantity,
+    String? expiryValue,
+    String? expiryPrecision,
+    String? lotNumber,
+    bool clearLotNumber = false,
+    bool clearStorageLocation = false,
+    bool clearConversion = false,
 
     /// 显式清空余量（写 null = "数量未知"），与"不改动"区分开。
     bool clearQuantity = false,
@@ -239,15 +245,17 @@ class BatchRecord {
     String? status,
   }) => BatchRecord(
     id: id,
-    lotNumber: lotNumber,
-    expiryValue: expiryValue,
-    expiryPrecision: expiryPrecision,
+    lotNumber: clearLotNumber ? null : (lotNumber ?? this.lotNumber),
+    expiryValue: expiryValue ?? this.expiryValue,
+    expiryPrecision: expiryPrecision ?? this.expiryPrecision,
     expiryState: expiryState,
     quantity: clearQuantity ? null : (quantity ?? this.quantity),
     unit: unit ?? this.unit,
-    confirmedUnitsPerPackage: confirmedUnitsPerPackage,
-    conversionUnit: conversionUnit,
-    storageLocation: storageLocation ?? this.storageLocation,
+    confirmedUnitsPerPackage: clearConversion ? null : confirmedUnitsPerPackage,
+    conversionUnit: clearConversion ? null : conversionUnit,
+    storageLocation: clearStorageLocation
+        ? null
+        : (storageLocation ?? this.storageLocation),
     openedState: openedState ?? this.openedState,
     openedAt: openedAt ?? this.openedAt,
     afterOpeningLimit: afterOpeningLimit ?? this.afterOpeningLimit,

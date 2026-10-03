@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/expiry_date_wheel_picker.dart';
+import '../../core/widgets/medicine_tags.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
@@ -62,6 +63,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   XFile? image;
   bool openingExpanded = false;
   bool categoryExpanded = false;
+  final populationTags = <String>{};
+  final purposeTags = <String>{};
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
     isCurrent: () => mounted && _isDraftIdentityCurrent,
@@ -168,6 +171,20 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     approvalController.text = json['approval'] as String? ?? '';
     ingredientController.text = json['ingredients'] as String? ?? '';
     purposeController.text = json['purpose'] as String? ?? '';
+    populationTags
+      ..clear()
+      ..addAll(
+        (json['populationTags'] as List? ?? []).whereType<String>().where(
+          medicinePopulationLabels.containsKey,
+        ),
+      );
+    purposeTags
+      ..clear()
+      ..addAll(
+        (json['purposeTags'] as List? ?? []).whereType<String>().where(
+          medicinePurposeLabels.containsKey,
+        ),
+      );
     ingredientsVerified = json['ingredientsVerified'] == true;
     afterOpenValueController.text = json['afterOpenValue'] as String? ?? '';
     afterOpenDateController.text = json['afterOpenDate'] as String? ?? '';
@@ -207,6 +224,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     'approval': approvalController.text,
     'ingredients': ingredientController.text,
     'purpose': purposeController.text,
+    'populationTags': populationTags.toList(),
+    'purposeTags': purposeTags.toList(),
     'ingredientsVerified': ingredientsVerified,
     'afterOpenValue': afterOpenValueController.text,
     'afterOpenDate': afterOpenDateController.text,
@@ -471,7 +490,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             sheetContext,
             icon: Icons.camera_alt_rounded,
             title: '拍照识别',
-            subtitle: '照片只在本机识别，不会自动上传',
+            subtitle: '可选本机或 AI 识别，发送前确认',
             onTap: () => Navigator.pop(sheetContext, _ImageAction.camera),
           ),
           const SizedBox(height: 10),
@@ -518,10 +537,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
       _markDirty();
       await _saveDraft(legacy: false);
-      if (expiryPhoto) {
-        if (mounted) setState(() {});
-        return;
-      }
       setState(() {
         recognizing = true;
         recognitionFailure = null;
@@ -529,10 +544,52 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       });
       await _saveDraft(legacy: false);
       try {
-        final draft = await recognition.recognize(selected);
-        if (!mounted || request != recognitionRequest) return;
+        if (!mounted ||
+            request != recognitionRequest ||
+            !_isDraftIdentityCurrent) {
+          return;
+        }
+        final useServer = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('使用 AI 识别药盒？'),
+            content: const Text(
+              '照片将发送到当前家庭药箱服务，由其配置的识别模型生成药名和分类草稿，不会在识别接口保存照片。请核对后再保存。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('仅本机识别'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('AI 识别'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted ||
+            request != recognitionRequest ||
+            !_isDraftIdentityCurrent) {
+          return;
+        }
+        final draft =
+            await (useServer == true
+                    ? ApiMedicineRecognitionRepository(widget.repository.api)
+                    : recognition)
+                .recognize(selected);
+        if (!mounted || request != recognitionRequest || !_isDraftIdentityCurrent) return;
         if (!touchedName && nameController.text.trim().isEmpty) {
           nameController.text = draft.name;
+        }
+        if (purposeController.text.trim().isEmpty &&
+            draft.purposeCategory != null) {
+          purposeController.text = draft.purposeCategory!;
+        }
+        if (purposeTags.isEmpty) {
+          purposeTags.addAll(
+            draft.purposeTags.where(medicinePurposeLabels.containsKey),
+          );
         }
         if (specificationController.text.trim().isEmpty) {
           specificationController.text = draft.specification;
@@ -706,13 +763,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   Future<void> _pickOpenedDate() async {
     final initial = DateTime.tryParse(openedAt ?? '') ?? DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      helpText: '选择开封日期',
-    );
+    final date = await showExpiryDateWheelPicker(context, initialDate: initial);
     if (date == null || !mounted) return;
     setState(() => openedAt = _date(date));
     _markDirty();
@@ -816,6 +867,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       'approvalNumber': _nullableText(approvalController.text),
       'activeIngredients': ingredients,
       'purposeCategory': _nullableText(purposeController.text),
+      'populationTags': populationTags.toList(),
+      'purposeTags': purposeTags.toList(),
+      'tagSource': 'user',
       'leaflet': {
         'reviewStatus': verifiedIngredients ? 'user_confirmed' : 'unverified',
       },
@@ -1022,21 +1076,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     ),
   );
 
-  Future<void> _selectExpiryDate() async {
-    final selected = await showExpiryDateWheelPicker(
-      context,
-      initialDate: expiryDateForPicker(expiryController.text),
-    );
-    if (selected == null || !mounted) return;
-    final precision = expiryPrecision == 'month' ? 'month' : 'day';
-    setState(() {
-      expiryPrecision = precision;
-      expiryController.text = formatExpiryDate(selected, precision: precision);
-      touchedExpiry = true;
-    });
-    _markDirty();
-  }
-
   void _setExpiryPrecision(String precision) {
     final current = expiryController.text.trim();
     setState(() {
@@ -1199,7 +1238,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
-                    const Text('本机中文文字识别只生成草稿；请核对后保存。照片不会自动上传。'),
+                    const Text('可选择 AI 或本机中文识别；照片发送前会询问，识别结果和用途标签须核对后保存。'),
                     const SizedBox(height: 14),
                     PrimaryButton(
                       label: recognizing ? '正在识别…' : '拍药盒',
@@ -1337,21 +1376,20 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
+                    MedicineDateField(
                       key: const ValueKey('api-expiry-date-field'),
-                      onTap: _selectExpiryDate,
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '包装有效期',
-                          suffixIcon: Icon(Icons.calendar_month_outlined),
-                        ),
-                        child: Text(
-                          key: const ValueKey('api-expiry-date-value'),
-                          expiryController.text.isEmpty
-                              ? '滑动选择年、月、日'
-                              : displayExpiryDate(expiryController.text),
-                        ),
-                      ),
+                      controller: expiryController,
+                      label: '包装有效期',
+                      precision: expiryPrecision == 'month' ? 'month' : 'day',
+                      onChanged: () {
+                        setState(() {
+                          touchedExpiry = true;
+                          if (expiryPrecision == 'unknown') {
+                            expiryPrecision = 'day';
+                          }
+                        });
+                        _markDirty();
+                      },
                     ),
                     TextButton.icon(
                       onPressed: saving
@@ -1471,14 +1509,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             ),
                           )
                         else
-                          TextField(
+                          MedicineDateField(
                             controller: afterOpenDateController,
-                            onChanged: (_) => _markDirty(),
-                            keyboardType: TextInputType.datetime,
-                            decoration: const InputDecoration(
-                              label: Text('开封后截止日期'),
-                              hintText: 'YYYY-MM-DD',
-                            ),
+                            label: '开封后截止日期',
+                            onChanged: () {
+                              setState(() {});
+                              _markDirty();
+                            },
                           ),
                       ],
                     ],
@@ -1497,6 +1534,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           setState(() => categoryExpanded = !categoryExpanded),
                     ),
                     if (categoryExpanded) ...[
+                      MedicineTagFields(
+                        populations: populationTags,
+                        purposes: purposeTags,
+                        onChanged: () {
+                          setState(() {});
+                          _markDirty();
+                        },
+                      ),
                       TextField(
                         controller: purposeController,
                         onChanged: (_) => _markDirty(),

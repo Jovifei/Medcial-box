@@ -72,6 +72,7 @@ test("Ollama receives image in JSON and returns a confirmation draft", async () 
   const body = JSON.parse(request.init.body);
   assert.equal(body.model, "qwen3.5:0.8b");
   assert.equal(body.stream, false);
+  assert.equal(body.think, false);
   assert.equal(body.format, "json");
   assert.equal(body.options.num_ctx, 2048);
   assert.equal(body.options.num_batch, 128);
@@ -114,4 +115,15 @@ test("provider factory selects Ollama only when explicitly configured", () => {
     if (prior === undefined) delete process.env.MEDICINE_RECOGNITION_PROVIDER;
     else process.env.MEDICINE_RECOGNITION_PROVIDER = prior;
   }
+});
+
+
+test("AI classification remains a bounded confirmation draft", async () => {
+  const provider = new OllamaMedicineRecognitionProvider("test", "http://ollama.test", async () =>
+    new globalThis.Response(JSON.stringify({message: {content: JSON.stringify({name: "合成药品", purposeTags: ["topical", "adult", "topical", 42, "allergy"]})}})));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.deepEqual(result.draft.purposeTags, ["topical", "allergy"]);
+  assert.equal(result.requiresConfirmation, true);
+  assert.ok(result.warnings.some(value => value.includes("AI 用途标签")));
+  assert.equal(result.draft.populationTags, undefined);
 });

@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'api_client.dart';
 
 class MedicineRecognitionDraft {
   const MedicineRecognitionDraft({
@@ -8,12 +12,16 @@ class MedicineRecognitionDraft {
     required this.expiry,
     required this.rawText,
     required this.warnings,
+    this.purposeCategory,
+    this.purposeTags = const [],
   });
   final String name;
   final String specification;
   final String expiry;
   final String rawText;
   final List<String> warnings;
+  final String? purposeCategory;
+  final List<String> purposeTags;
 }
 
 class MedicineTextParser {
@@ -86,6 +94,62 @@ class MedicineTextParser {
 
 abstract class MedicineRecognitionRepository {
   Future<MedicineRecognitionDraft> recognize(XFile image);
+}
+
+class ApiMedicineRecognitionRepository
+    implements MedicineRecognitionRepository {
+  ApiMedicineRecognitionRepository(this.api);
+
+  final ApiClient api;
+
+  @override
+  Future<MedicineRecognitionDraft> recognize(XFile image) async {
+    if (await image.length() > 4 * 1024 * 1024) {
+      throw const FormatException('请选择不超过 4 MB 的药盒照片。');
+    }
+    final bytes = await image.readAsBytes();
+    if (bytes.length < 128 || bytes.length > 4 * 1024 * 1024) {
+      throw const FormatException('照片格式或大小不正确。');
+    }
+    final String mimeType;
+    if (bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[2] == 0xff &&
+        bytes[bytes.length - 2] == 0xff &&
+        bytes.last == 0xd9) {
+      mimeType = 'image/jpeg';
+    } else if (bytes.take(8).join(',') == '137,80,78,71,13,10,26,10' &&
+        bytes.skip(bytes.length - 8).join(',') == '73,69,78,68,174,66,96,130') {
+      mimeType = 'image/png';
+    } else {
+      throw const FormatException('仅支持 JPEG 或 PNG 药盒照片。');
+    }
+    final result = await api.post(
+      '/api/v1/recognitions/medicine',
+      body: {'imageBase64': base64Encode(bytes), 'mimeType': mimeType},
+    );
+    if (result is! Map<String, dynamic> ||
+        result['draft'] is! Map<String, dynamic>) {
+      throw const FormatException('识别结果格式异常，请重试。');
+    }
+    final draft = result['draft'] as Map<String, dynamic>;
+    String? field(String key) {
+      final value = draft[key];
+      return value is String && value.trim().isNotEmpty ? value.trim() : null;
+    }
+
+    return MedicineRecognitionDraft(
+      name: field('name') ?? '',
+      specification: field('specification') ?? '',
+      expiry: field('expiryValue') ?? '待补充',
+      rawText: '',
+      warnings: result['warnings'] is List
+          ? (result['warnings'] as List).whereType<String>().toList()
+          : const [],
+      purposeCategory: field('purposeCategory'),
+      purposeTags: (draft['purposeTags'] as List? ?? []).whereType<String>().toList(),
+    );
+  }
 }
 
 class MlKitMedicineRecognitionRepository
