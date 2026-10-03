@@ -146,6 +146,28 @@ class ScheduleDay {
   );
 }
 
+/// Server-authoritative, least-privilege reminder data. No private plan metadata.
+class DoseReminderEntry {
+  const DoseReminderEntry({
+    required this.occurrenceId,
+    required this.date,
+    required this.time,
+  });
+
+  final String occurrenceId;
+  final String date;
+  final String time;
+
+  factory DoseReminderEntry.fromJson(Map<String, dynamic> json) =>
+      DoseReminderEntry(
+        occurrenceId: _stringOr(json['occurrenceId']),
+        date: _stringOr(json['date']),
+        time: _stringOr(json['time']),
+      );
+
+  String get notificationPayload => 'dose-occurrence:v1:$date:$occurrenceId';
+}
+
 class PlanHistoryEvent {
   const PlanHistoryEvent({required this.action, this.actor, required this.at});
   final String action;

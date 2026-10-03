@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'data/api_auth_repository.dart';
 import 'data/app_services.dart';
 import 'data/app_stores.dart';
+import 'data/notification_tap_handler.dart';
 import 'features/auth/device_link_page.dart';
 import 'features/export/export_api_page.dart';
 import 'features/export/export_page.dart';
@@ -52,9 +55,13 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     localStore: widget.localStore,
   );
   GoRouter? router;
+  NotificationTapHandler? notificationTaps;
+  AppServices? activeServices;
 
   @override
   void dispose() {
+    activeServices?.reminders.onNotificationTap = null;
+    notificationTaps?.dispose();
     router?.dispose();
     super.dispose();
   }
@@ -208,7 +215,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         ),
       ]);
     }
-    return GoRouter(
+    final createdRouter = GoRouter(
       initialLocation: widget.initialLocation,
       refreshListenable: services.sessionInvalidated,
       redirect: (context, state) =>
@@ -228,6 +235,22 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         ),
       ),
     );
+    activeServices = services;
+    if (services.isConfigured) {
+      notificationTaps = NotificationTapHandler(
+        repository: services.plans!,
+        navigate: createdRouter.go,
+      );
+      // Defer binding until the router is mounted; this also consumes buffered
+      // launch payloads exactly once, regardless of which page is initially open.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        services.reminders.onNotificationTap = (payload) {
+          unawaited(notificationTaps!.handle(payload));
+        };
+      });
+    }
+    return createdRouter;
   }
 
   GoRoute _route(String path, Widget child) => GoRoute(

@@ -11,10 +11,13 @@
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
+import type { DoseReminderScheduleResponse } from "@home-medicine/contracts";
 import { errorBody } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import type { Database } from "../types.js";
 import {
+  ANDROID_DOSE_RECIPIENT_SQL,
+  materializeDoseOccurrencesForDate,
   cancelDoseReminders,
   cancelDoseRemindersForOccurrence,
   cancelDoseRemindersForPlan,
@@ -714,6 +717,50 @@ export async function registerMedicationPlanRoutes(
       });
     }
     return { planId: loaded.plan.id, medicineName: loaded.plan.medicine_name, history };
+  });
+
+  // Separate least-privilege projection: never weaken the normal schedule's canView guard.
+  app.get<{ Querystring: Record<string, unknown> }>("/api/v1/medication-plans/reminder-schedule", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    if (Object.keys(request.query).length > 0) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "提醒范围由服务端限定为未来七天，不接受查询参数"));
+    }
+    const now = new Date();
+    const startDate = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    const dates = Array.from({ length: 7 }, (_, offset) =>
+      new Date(Date.parse(`${startDate}T00:00:00Z`) + offset * 86400 * 1000).toISOString().slice(0, 10));
+    for (const date of dates) {
+      await materializeDoseOccurrencesForDate(database, date, ctx);
+    }
+    // This final SQL statement is the permission boundary, after materialization:
+    // recheck live membership, opt-in, grants, private-profile and occurrence state.
+    const result = await database.query<{ id: string; dose_date: string; time_of_day: string }>(
+      `SELECT o.id, o.dose_date::text AS dose_date, o.time_of_day::text AS time_of_day
+       FROM dose_occurrences o
+       JOIN medication_plans p ON p.id = o.plan_id AND p.care_profile_id = o.care_profile_id
+       JOIN care_profiles c ON c.id = o.care_profile_id
+       JOIN plan_time_slots s ON s.id = o.slot_id AND s.plan_id = p.id
+       WHERE o.dose_date BETWEEN $1::date AND $2::date AND o.family_id = $3
+         AND o.status = 'pending' AND o.superseded_at IS NULL
+         AND p.status = 'active' AND c.archived_at IS NULL AND s.archived_at IS NULL
+         AND o.time_of_day = s.time_of_day
+         AND p.start_date <= o.dose_date AND (p.end_date IS NULL OR p.end_date >= o.dose_date)
+         AND (ARRAY['sun','mon','tue','wed','thu','fri','sat'])[EXTRACT(DOW FROM o.dose_date)::int + 1] = ANY(p.weekdays)
+         AND (o.dose_date + o.time_of_day) AT TIME ZONE 'Asia/Shanghai' > $5::timestamptz
+         AND ${ANDROID_DOSE_RECIPIENT_SQL}
+       ORDER BY o.dose_date, o.time_of_day, o.id`,
+      [startDate, dates[6], ctx.familyId, ctx.userId, now.toISOString()],
+    );
+    const response: DoseReminderScheduleResponse = {
+      startDate, endDate: dates[6], timezone: "Asia/Shanghai",
+      entries: result.rows.map((row) => ({
+        occurrenceId: row.id, date: row.dose_date, time: row.time_of_day.slice(0, 5),
+        label: "有一项用药安排待确认",
+      })),
+    };
+    reply.header("Cache-Control", "no-store");
+    return response;
   });
 
   // —— 今日安排（按需物化） ——

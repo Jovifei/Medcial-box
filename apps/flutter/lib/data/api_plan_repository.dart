@@ -16,16 +16,15 @@ class ApiPlanRepository extends ChangeNotifier {
     await onChanged?.call();
   }
 
-  Future<List<ScheduleDay>> reminderSchedules() async {
-    final first = await schedule();
-    final start = DateTime.parse(first.date);
-    final rest = await Future.wait(
-      List.generate(6, (index) {
-        final day = start.add(Duration(days: index + 1));
-        return schedule(date: day.toIso8601String().substring(0, 10));
-      }),
-    );
-    return [first, ...rest];
+  /// Generic receiver projection. Never use the private canView schedule for alarms.
+  Future<List<DoseReminderEntry>> reminderSchedules() async {
+    final json = await api.get(
+      '/api/v1/medication-plans/reminder-schedule',
+    ) as Map<String, dynamic>;
+    return (json['entries'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(DoseReminderEntry.fromJson)
+        .toList(growable: false);
   }
 
   Future<List<MedicationPlanSummary>> listPlans({String? status}) async {

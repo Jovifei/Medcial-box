@@ -605,3 +605,17 @@ export interface InventoryExportMedicine extends MedicationSummary { dosageNotes
 export interface InventoryExportSnapshotResponse { snapshotId:string; generatedAt:string; expiresAt:string; options:InventoryExportOptions; medicines:InventoryExportMedicine[] }
 export interface CsvExportResponse { content:string; fileName:string; mimeType:"text/csv; charset=utf-8"; generatedAt:string; snapshotId:string }
 export interface PdfExportResponse { contentBase64:string; fileName:string; mimeType:"application/pdf"; generatedAt:string; snapshotId:string }
+
+/** Least-privilege Android projection: no plan/profile/drug/dose/history metadata. */
+export interface DoseReminderScheduleEntry {
+  occurrenceId: string;
+  date: string;
+  time: string;
+  label: "有一项用药安排待确认";
+}
+export interface DoseReminderScheduleResponse {
+  startDate: string;
+  endDate: string;
+  timezone: "Asia/Shanghai";
+  entries: DoseReminderScheduleEntry[];
+}

@@ -9,7 +9,7 @@ import 'package:home_medicine_flutter/models/plan_models.dart';
 import 'package:home_medicine_flutter/models/medicine_models.dart';
 
 void main() {
-  test('reminder range uses server date across month boundary, mutations notify once', () async {
+  test('reminder projection uses one server-bounded request across month boundary, mutations notify once', () async {
     final requested = <String>[];
     var changed = 0;
     final repo =
@@ -19,12 +19,29 @@ void main() {
               tokenProvider: () async => 'token',
               client: MockClient((r) async {
                 requested.add(r.url.toString());
-                if (r.method == 'POST') return http.Response('{"status":"taken"}', 200);
-                return http.Response(
-                  jsonEncode({
-                    'date': r.url.queryParameters['date'] ?? '2026-12-29',
-                    'entries': [],
-                  }),
+                if (r.method == 'POST') {
+                  return http.Response('{"status":"taken"}', 200);
+                }
+                return http.Response.bytes(
+                  utf8.encode(
+                    jsonEncode({
+                      'startDate': '2026-12-29',
+                      'endDate': '2027-01-04',
+                      'timezone': 'Asia/Shanghai',
+                      'entries': List.generate(
+                        7,
+                        (index) => {
+                          'occurrenceId': 'opaque-$index',
+                          'date': DateTime(2026, 12, 29)
+                              .add(Duration(days: index))
+                              .toIso8601String()
+                              .substring(0, 10),
+                          'time': '09:00',
+                          'label': '有一项用药安排待确认',
+                        },
+                      ),
+                    }),
+                  ),
                   200,
                 );
               }),
@@ -43,7 +60,9 @@ void main() {
       '2027-01-03',
       '2027-01-04',
     ]);
-    expect(requested.length, 7);
+    expect(requested, [
+      'https://medicine.example/api/v1/medication-plans/reminder-schedule',
+    ]);
     await repo.changeStatus('p', action: 'pause', version: 1);
     expect(changed, 1);
     await repo.confirmDose('o', action: 'taken', idempotencyKey: 'key');

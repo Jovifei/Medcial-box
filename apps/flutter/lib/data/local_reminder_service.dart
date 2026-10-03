@@ -21,19 +21,28 @@ class LocalReminderService {
   void Function(String? payload)? _onNotificationTap;
   String? _pendingTap;
   bool _hasPendingTap = false;
+  int _identityResets = 0;
   set onNotificationTap(void Function(String? payload)? callback) {
     _onNotificationTap = callback;
-    if (callback != null && _hasPendingTap) {
+    if (callback != null && _hasPendingTap && _identityResets == 0) {
       final payload = _pendingTap;
       _pendingTap = null;
       _hasPendingTap = false;
       callback(payload);
     }
   }
+
   void handleNotificationTap(String? payload) {
+    if (_identityResets > 0) return;
     final callback = _onNotificationTap;
-    if (callback == null) { _pendingTap = payload; _hasPendingTap = true; } else { callback(payload); }
+    if (callback == null) {
+      _pendingTap = payload;
+      _hasPendingTap = true;
+    } else {
+      callback(payload);
+    }
   }
+
   final FlutterLocalNotificationsPlugin _plugin;
   Future<void> _queue = Future.value();
   int _epoch = 0;
@@ -46,7 +55,7 @@ class LocalReminderService {
   bool _exactAllowed = false;
   VoidCallback? _inventoryListener;
   List<MedicineRecord> _medicines = const [];
-  List<ScheduleDay> _schedule = const [];
+  List<DoseReminderEntry> _schedule = const [];
 
   static const String _enabledKey = 'home_medicine.local_reminders.enabled';
 
@@ -85,7 +94,7 @@ class LocalReminderService {
   }
 
   Future<void> setSchedules(
-    List<ScheduleDay> schedules, {
+    List<DoseReminderEntry> schedules, {
     required int identityEpoch,
   }) {
     if (identityEpoch != _epoch) return Future.value();
@@ -164,32 +173,29 @@ class LocalReminderService {
       }
     }
 
-    for (final today in _schedule) {
-      for (final entry in today.entries) {
-        if (!entry.isPending || !entry.receiveDoseReminders) continue;
-        final when = _occurrenceTime(today.date, entry.time);
-        if (when == null || !when.isAfter(now)) continue;
-        final id = _stableId('dose:${entry.occurrenceId}');
-        if (!scheduled.add(id)) continue;
-        if (!_current(epoch)) return;
-        await _plugin.zonedSchedule(
-          id: id,
-          title: '该服药了',
-          body: '有一项用药安排待核对，请打开药箱查看。',
-          scheduledDate: when,
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'medicine_dose',
-              '服药提醒',
-              channelDescription: '按用药计划提醒按时服药',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
+    for (final entry in _schedule) {
+      final when = _occurrenceTime(entry.date, entry.time);
+      if (when == null || !when.isAfter(now)) continue;
+      final id = _stableId('dose:${entry.occurrenceId}');
+      if (!scheduled.add(id)) continue;
+      if (!_current(epoch)) return;
+      await _plugin.zonedSchedule(
+        id: id,
+        title: '用药安排提醒',
+        body: '有一项用药安排待核对，请打开药箱查看。',
+        scheduledDate: when,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medicine_dose',
+            '服药提醒',
+            channelDescription: '按用药计划提醒按时服药',
+            importance: Importance.high,
+            priority: Priority.high,
           ),
-          androidScheduleMode: mode,
-          payload: 'dose:${entry.planId}',
-        );
-      }
+        ),
+        androidScheduleMode: mode,
+        payload: entry.notificationPayload,
+      );
     }
   }
 
@@ -213,13 +219,20 @@ class LocalReminderService {
     _schedule = const [];
     _pendingTap = null;
     _hasPendingTap = false;
-    await _initialize();
-    _pendingTap = null;
-    _hasPendingTap = false;
-    enabled = false;
-    await _queue;
-    await _plugin.cancelAll();
-    await (await SharedPreferences.getInstance()).setBool(_enabledKey, false);
+    _identityResets++;
+    try {
+      // Initialization can produce an old cold-launch response. It must not
+      // reach an already-bound router while the previous identity is cleared.
+      await _initialize();
+      _pendingTap = null;
+      _hasPendingTap = false;
+      enabled = false;
+      await _queue;
+      await _plugin.cancelAll();
+      await (await SharedPreferences.getInstance()).setBool(_enabledKey, false);
+    } finally {
+      _identityResets--;
+    }
   }
 
   Future<void> disable() async {

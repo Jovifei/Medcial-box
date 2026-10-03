@@ -30,25 +30,8 @@ class _MyPageState extends State<MyPage> {
   void initState() {
     super.initState();
     familyFuture = widget.services.families!.getCurrentFamily();
-    widget.services.reminders.onNotificationTap = (payload) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (payload != null && payload.startsWith('dose:')) {
-          context.push('/plan/${payload.substring(5)}');
-        } else {
-          context.go('/home?tab=pending');
-        }
-      });
-      WidgetsBinding.instance.scheduleFrame();
-    };
     _restoreReminderState();
     _loadWechatTemplates();
-  }
-
-  @override
-  void dispose() {
-    widget.services.reminders.onNotificationTap = null;
-    super.dispose();
   }
 
   Future<void> _restoreReminderState() async {

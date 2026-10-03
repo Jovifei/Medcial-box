@@ -46,10 +46,25 @@ function padTime(minutes: number): string {
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}:00`;
 }
 
+/** Fixed aliases/parameters shared by Android materialization and its final read.
+ * Receiving is independent of view/manage; linked profiles remain private.
+ * $3 = current family, $4 = current account. Never accept SQL from a client.
+ */
+export const ANDROID_DOSE_RECIPIENT_SQL = `
+  c.family_id = $3 AND p.family_id = $3
+  AND EXISTS (SELECT 1 FROM family_members fm WHERE fm.family_id = $3 AND fm.user_id = $4)
+  AND EXISTS (SELECT 1 FROM notification_preferences n WHERE n.user_id = $4 AND 'android' = ANY(n.channels))
+  AND (c.linked_user_id = $4 OR (c.linked_user_id IS NULL AND (
+    COALESCE(c.managed_by,c.created_by) = $4
+    OR EXISTS (SELECT 1 FROM care_grants g WHERE g.care_profile_id = c.id
+      AND g.family_id = $3 AND g.member_user_id = $4 AND g.receive_dose_reminders)
+  )))`;
+
 /** 与"今日安排"同逻辑的批量物化：提醒不能依赖有人打开过页面。 */
 export async function materializeDoseOccurrencesForDate(
   database: Pick<Database, "query">,
   date: string,
+  androidRecipient?: { familyId: string; userId: string },
 ): Promise<number> {
   // B08/R01：物化时保存当时的计划快照，历史日期显示不随编辑漂移；
   // 冲突目标为"活动实例"部分唯一索引，作废行让位，改期后同一时间点可重新物化。
@@ -65,8 +80,9 @@ export async function materializeDoseOccurrencesForDate(
        AND p.start_date <= $1::date
        AND (p.end_date IS NULL OR p.end_date >= $1::date)
        AND $2 = ANY(p.weekdays)
+       ${androidRecipient ? `AND ${ANDROID_DOSE_RECIPIENT_SQL}` : ""}
      ON CONFLICT (slot_id, dose_date) WHERE superseded_at IS NULL DO NOTHING`,
-    [date, weekdayOf(date)],
+    androidRecipient ? [date, weekdayOf(date), androidRecipient.familyId, androidRecipient.userId] : [date, weekdayOf(date)],
   );
   return result.rowCount ?? 0;
 }

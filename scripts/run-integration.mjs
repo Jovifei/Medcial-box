@@ -17,6 +17,7 @@ if (!process.env.TEST_DATABASE_URL) {
     "apps/api/test/integration-pg-plans-lifecycle.test.mjs",
     "apps/api/test/integration-pg-exports.test.mjs",
     "apps/api/test/integration-pg-dose-reminders.test.mjs",
+    "apps/api/test/integration-pg-android-reminders.test.mjs",
   ];
   let status = 0;
   for (const suite of suites) {
