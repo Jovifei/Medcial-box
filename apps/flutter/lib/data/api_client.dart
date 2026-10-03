@@ -173,8 +173,18 @@ class ApiClient {
     return trimmed;
   }
 
-  Future<dynamic> get(String path, {bool authenticated = true}) =>
-      _send('GET', path, authenticated: authenticated);
+  Future<dynamic> get(
+    String path, {
+    bool authenticated = true,
+    bool Function()? isCurrent,
+    bool Function()? responseIsCurrent,
+  }) => _send(
+    'GET',
+    path,
+    authenticated: authenticated,
+    isCurrent: isCurrent,
+    responseIsCurrent: responseIsCurrent,
+  );
 
   Future<ApiBinaryResponse> getBinary(
     String path, {
@@ -208,19 +218,28 @@ class ApiClient {
     Map<String, Object?> body = const {},
     bool authenticated = true,
     bool Function()? isCurrent,
+    bool Function()? responseIsCurrent,
   }) => _send(
     'POST',
     path,
     body: body,
     authenticated: authenticated,
     isCurrent: isCurrent,
+    responseIsCurrent: responseIsCurrent,
   );
 
   Future<dynamic> put(
     String path,
     Map<String, Object?> body, {
     bool Function()? isCurrent,
-  }) => _send('PUT', path, body: body, isCurrent: isCurrent);
+    bool Function()? responseIsCurrent,
+  }) => _send(
+    'PUT',
+    path,
+    body: body,
+    isCurrent: isCurrent,
+    responseIsCurrent: responseIsCurrent,
+  );
 
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
@@ -230,6 +249,7 @@ class ApiClient {
     Map<String, Object?>? body,
     bool authenticated = true,
     bool Function()? isCurrent,
+    bool Function()? responseIsCurrent,
   }) async {
     final response = await _sendRequest(
       method,
@@ -237,6 +257,7 @@ class ApiClient {
       body: body,
       authenticated: authenticated,
       isCurrent: isCurrent,
+      responseIsCurrent: responseIsCurrent,
     );
 
     if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
@@ -265,6 +286,7 @@ class ApiClient {
     bool authenticated = true,
     String accept = 'application/json',
     bool Function()? isCurrent,
+    bool Function()? responseIsCurrent,
   }) async {
     final epoch = identityEpoch;
     final token = authenticated ? await tokenProvider() : null;
@@ -318,12 +340,22 @@ class ApiClient {
         errorBody['error'] is Map<String, dynamic> &&
         (errorBody['error'] as Map<String, dynamic>)['code'] ==
             'FAMILY_NOT_FOUND';
+    // Opt-in response fencing is distinct from dispatch eligibility. Existing
+    // callers may need a late success ACK even after their form is covered.
+    if (responseIsCurrent != null && !responseIsCurrent()) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '会话已变更，请重新加载。',
+      );
+    }
     var cleanedCurrentFamily = false;
     if (authenticated &&
         (response.statusCode == 401 || familyUnavailable) &&
         epoch == identityEpoch &&
         token == await tokenProvider() &&
-        epoch == identityEpoch) {
+        epoch == identityEpoch &&
+        (responseIsCurrent == null || responseIsCurrent())) {
       // The second token lookup is asynchronous too. Recheck the epoch AFTER
       // it, including same-token family changes, before invoking any cleanup.
       final handler = response.statusCode == 401

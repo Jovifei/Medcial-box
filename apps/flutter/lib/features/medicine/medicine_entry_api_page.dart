@@ -82,6 +82,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   bool recognizing = false;
   bool searchingCatalog = false;
   bool saving = false;
+  Object? inventorySaveIntent;
   bool dirty = false;
   bool handlingBack = false;
   bool restoringDraft = true;
@@ -718,6 +719,44 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   Future<void> _save() async {
     if (saving || handlingBack || !_isDraftIdentityCurrent) return;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final navigator = Navigator.of(context);
+    final repository = widget.repository;
+    final workflow = widget.workflow;
+    final localStore = widget.localStore;
+    final id = draftId;
+    final intent = Object();
+    final workflowApi = workflow.api;
+    Object workflowIdentity() => (
+      workflowApi.identityEpoch,
+      workflowApi.identityState?.generation,
+      workflowApi.identityState?.owner?.userId,
+      workflowApi.identityState?.owner?.familyId,
+    );
+    final originalWorkflowIdentity = workflowIdentity();
+    bool sameDraft() =>
+        mounted &&
+        draftId == id &&
+        identical(widget.repository, repository) &&
+        identical(widget.workflow, workflow) &&
+        identical(widget.localStore, localStore) &&
+        identical(inventorySaveIntent, intent);
+    bool isCurrentIntent() =>
+        sameDraft() &&
+        route.isCurrent &&
+        _isDraftIdentityCurrent &&
+        workflowIdentity() == originalWorkflowIdentity;
+    void requireCurrentIntent() {
+      if (!isCurrentIntent()) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '会话已变更，请重新加载。',
+        );
+      }
+    }
+
     final name = nameController.text.trim();
     if (name.isEmpty) {
       setState(() => touchedName = true);
@@ -761,50 +800,73 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (limit != null) batch['afterOpeningLimit'] = limit;
     }
 
-    bool uploadPhotos = false;
-    if (image != null || expiryImage != null) {
-      final consent = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('保存药盒照片？'),
-          content: const Text('照片将上传并保存在此家庭的私有药品资料中，用于核对药盒和有效期。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('只保存库存'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确认上传照片'),
-            ),
-          ],
-        ),
-      );
-      if (consent == null || !mounted) return;
-      uploadPhotos = consent;
-    }
+    final ingredients = ingredientController.text
+        .split(RegExp(r'[,，、;；]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final verifiedIngredients = ingredientsVerified;
+    final candidatePayload = <String, Object?>{
+      'idempotencyKey': 'draft-$id',
+      'name': name,
+      'barcodeValue': _nullableText(scannedCode ?? ''),
+      'specification': _nullableText(specificationController.text),
+      'manufacturer': _nullableText(manufacturerController.text),
+      'approvalNumber': _nullableText(approvalController.text),
+      'activeIngredients': ingredients,
+      'purposeCategory': _nullableText(purposeController.text),
+      'leaflet': {
+        'reviewStatus': verifiedIngredients ? 'user_confirmed' : 'unverified',
+      },
+      'batches': [batch],
+    };
+    final front = image;
+    final expiryPhoto = expiryImage;
+    inventorySaveIntent = intent;
     autoSave?.cancel();
+    FocusScope.of(context).unfocus();
     setState(() => saving = true);
     try {
-      final ingredients = ingredientController.text
-          .split(RegExp(r'[,，、;；]'))
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-      if (ingredientsVerified && ingredients.isNotEmpty) {
+      bool uploadPhotos = false;
+      if (front != null || expiryPhoto != null) {
+        final consent = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('保存药盒照片？'),
+            content: const Text('照片将上传并保存在此家庭的私有药品资料中，用于核对药盒和有效期。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('只保存库存'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('确认上传照片'),
+              ),
+            ],
+          ),
+        );
+        if (consent == null || !isCurrentIntent()) return;
+        uploadPhotos = consent;
+      }
+      if (verifiedIngredients && ingredients.isNotEmpty) {
         var matches = const <MedicineRecord>[];
         try {
-          final householdMedicines = await widget.repository.listMedicines();
+          final householdMedicines = await repository.listMedicines(
+            isCurrent: isCurrentIntent,
+          );
+          requireCurrentIntent();
           matches = findVerifiedIngredientMatches(
             candidateIngredients: ingredients,
             medicines: householdMedicines,
             candidateIngredientsVerified: true,
           );
         } on ApiNetworkException {
-          // The hint is best-effort and must never prevent inventory entry.
+          // The hint is best-effort only while the original intent is current.
         } on ApiException {
-          // Duplicate-ingredient hints are best-effort and never block inventory entry.
+          // Stale requests are stopped by the intent check below.
         }
+        if (!isCurrentIntent()) return;
         if (matches.isNotEmpty && mounted) {
           final proceed = await showDialog<bool>(
             context: context,
@@ -825,39 +887,34 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               ],
             ),
           );
-          if (proceed != true) {
-            if (mounted) setState(() => saving = false);
-            return;
-          }
+          if (proceed != true || !isCurrentIntent()) return;
         }
       }
-      attemptedPayload ??= {
-        'idempotencyKey': 'draft-$draftId',
-        'name': name,
-        'barcodeValue': _nullableText(scannedCode ?? ''),
-        'specification': _nullableText(specificationController.text),
-        'manufacturer': _nullableText(manufacturerController.text),
-        'approvalNumber': _nullableText(approvalController.text),
-        'activeIngredients': ingredients,
-        'purposeCategory': _nullableText(purposeController.text),
-        'leaflet': {
-          'reviewStatus': ingredientsVerified ? 'user_confirmed' : 'unverified',
-        },
-        'batches': [batch],
-      };
+      requireCurrentIntent();
+      attemptedPayload ??= candidatePayload;
       await _saveDraft(legacy: false);
+      requireCurrentIntent();
       final medicine = savedMedicineId == null
-          ? await widget.repository.createMedicine(attemptedPayload!)
-          : await widget.repository.getMedicine(savedMedicineId!);
+          ? await repository.createMedicine(
+              attemptedPayload!,
+              isCurrent: isCurrentIntent,
+            )
+          : await repository.getMedicine(
+              savedMedicineId!,
+              isCurrent: isCurrentIntent,
+            );
+      requireCurrentIntent();
       savedMedicineId = medicine.id;
       savedBatchId ??= medicine.batches.isEmpty
           ? null
           : medicine.batches.first.id;
       await _saveDraft(legacy: false);
+      requireCurrentIntent();
       if (uploadPhotos) {
         Future<String> upload(XFile file, String purpose) async {
           final bytes = await file.readAsBytes();
-          final photo = await widget.workflow.uploadLeafletPhoto(
+          requireCurrentIntent();
+          final photo = await workflow.uploadLeafletPhoto(
             medicine.id,
             bytes,
             mimeType: file.path.toLowerCase().endsWith('.png')
@@ -866,45 +923,62 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             source: 'user_capture',
             purpose: purpose,
             batchId: savedBatchId,
+            isCurrent: isCurrentIntent,
           );
+          requireCurrentIntent();
           return photo.id;
         }
 
-        if (image != null) {
-          frontPhotoId ??= await upload(image!, 'box_front');
+        if (front != null) {
+          final photoId = frontPhotoId ?? await upload(front, 'box_front');
+          requireCurrentIntent();
+          frontPhotoId = photoId;
           await _saveDraft(legacy: false);
-          await widget.workflow.setCoverPhoto(medicine.id, frontPhotoId);
+          requireCurrentIntent();
+          await workflow.setCoverPhoto(
+            medicine.id,
+            photoId,
+            isCurrent: isCurrentIntent,
+          );
+          requireCurrentIntent();
         }
-        if (expiryImage != null) {
-          expiryPhotoId ??= await upload(expiryImage!, 'expiry');
+        if (expiryPhoto != null) {
+          final photoId = expiryPhotoId ?? await upload(expiryPhoto, 'expiry');
+          requireCurrentIntent();
+          expiryPhotoId = photoId;
           await _saveDraft(legacy: false);
+          requireCurrentIntent();
         }
       }
-      await widget.localStore.deleteDraft(_draftKey);
-      await draftQueue.remove(draftId);
-      if (mounted) {
-        setState(() {
-          dirty = false;
-          restoredDraft = false;
-          saving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存到药箱。当前筛选可能隐藏新记录，可切换全部查看。')),
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) Navigator.of(context).pop(medicine.id);
-        });
-        WidgetsBinding.instance.scheduleFrame();
-      }
+      await _persistDraft(() async {
+        requireCurrentIntent();
+        await localStore.deleteDraft(_draftKey);
+        requireCurrentIntent();
+        await draftQueue.remove(id);
+      });
+      requireCurrentIntent();
+      setState(() {
+        dirty = false;
+        restoredDraft = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已保存到药箱。当前筛选可能隐藏新记录，可切换全部查看。')),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (isCurrentIntent()) navigator.pop(medicine.id);
+      });
+      WidgetsBinding.instance.scheduleFrame();
     } catch (error) {
+      if (!isCurrentIntent()) return;
       if (savedMedicineId == null &&
           error is ApiException &&
           error.statusCode == 400) {
         attemptedPayload = null;
-        await _saveDraft(legacy: false);
+        await _saveDraft(legacy: false).catchError((Object _) {});
+        if (!isCurrentIntent()) return;
       }
       if (!mounted) return;
-      setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -914,6 +988,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           ),
         ),
       );
+    } finally {
+      // A superseded operation must never reset a newer page/draft operation.
+      if (sameDraft()) setState(() => saving = false);
+      if (isCurrentIntent() && dirty && attemptedPayload == null) _markDirty();
     }
   }
 
@@ -1063,7 +1141,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ),
       ),
       body: AbsorbPointer(
-        absorbing: attemptedPayload != null,
+        absorbing: attemptedPayload != null || saving,
         child: AppPage(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
           child: ListView(

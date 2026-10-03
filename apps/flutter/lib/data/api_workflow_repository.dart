@@ -72,6 +72,7 @@ class ApiWorkflowRepository {
     String source = 'package_leaflet',
     String purpose = 'leaflet',
     String? batchId,
+    bool Function()? isCurrent,
   }) async {
     if (bytes.isEmpty || bytes.length > 8 * 1024 * 1024) {
       throw const FormatException('图片大小必须在 1 字节到 8 MB 之间。');
@@ -81,6 +82,8 @@ class ApiWorkflowRepository {
     }
     final result = await api.post(
       '/api/v1/medicines/$medicineId/leaflet-photos',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
       body: {
         'imageBase64': base64Encode(bytes),
         'mimeType': mimeType,
@@ -92,9 +95,15 @@ class ApiWorkflowRepository {
     return LeafletPhotoRecord.fromJson(result['photo'] as Map<String, dynamic>);
   }
 
-  Future<void> setCoverPhoto(String medicineId, String? photoId) async {
+  Future<void> setCoverPhoto(
+    String medicineId,
+    String? photoId, {
+    bool Function()? isCurrent,
+  }) async {
     await api.post(
       '/api/v1/medicines/$medicineId/cover-photo',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
       body: {'photoId': photoId},
     );
   }
