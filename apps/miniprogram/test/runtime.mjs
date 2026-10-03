@@ -125,7 +125,7 @@ export function makePageContext(definition, overrides = {}) {
   return context;
 }
 
-export function loadApi({ wx = {}, baseUrl = "https://medicine.test" } = {}) {
+export function loadApi({ wx = {}, baseUrl = "https://medicine.test", modules = {} } = {}) {
   const filename = path.join(root, "services/api.ts");
   const source = fs.readFileSync(filename, "utf8");
   const compiled = ts.transpileModule(source, {
@@ -146,9 +146,12 @@ export function loadApi({ wx = {}, baseUrl = "https://medicine.test" } = {}) {
   const exports = {};
   const module = { exports };
   const requireMock = (id) => {
+    if (Object.hasOwn(modules, id)) return modules[id];
     if (id === "./config") return { API_BASE: baseUrl };
+    if (id === "./session-scope") return sessionScope;
     throw new Error(`Unexpected API import in test: ${id}`);
   };
+  const sessionScope = loadService("services/session-scope.ts", { wx: apiWx });
   const sandbox = { exports, module, require: requireMock, wx: apiWx, console };
   vm.runInNewContext(`(function(exports, require, module) { ${compiled}\n})`, sandbox)(exports, requireMock, module);
   return { ...module.exports, requests, wx: apiWx };

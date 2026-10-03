@@ -13,9 +13,11 @@ export interface SessionScope {
 const SESSION_SCOPE_STORAGE_KEY = "home_medicine_session_scope";
 
 let memoryScope: SessionScope | null = null;
+let scopeLoaded = false;
 
 export function readSessionScope(): SessionScope | null {
-  if (memoryScope !== null) return memoryScope;
+  if (scopeLoaded) return memoryScope;
+  scopeLoaded = true;
   try {
     const raw = wx.getStorageSync(SESSION_SCOPE_STORAGE_KEY) as SessionScope | undefined;
     if (raw === undefined || raw === null || typeof raw !== "object") return null;
@@ -29,6 +31,7 @@ export function readSessionScope(): SessionScope | null {
 
 export function writeSessionScope(scope: SessionScope): void {
   memoryScope = scope;
+  scopeLoaded = true;
   try {
     wx.setStorageSync(SESSION_SCOPE_STORAGE_KEY, scope);
   } catch {
@@ -38,6 +41,7 @@ export function writeSessionScope(scope: SessionScope): void {
 
 export function clearSessionScope(): void {
   memoryScope = null;
+  scopeLoaded = true;
   try {
     wx.removeStorageSync(SESSION_SCOPE_STORAGE_KEY);
   } catch {
@@ -48,6 +52,7 @@ export function clearSessionScope(): void {
 /** 仅测试使用：回到冷启动状态（无身份）。 */
 export function __resetSessionScopeForTest(): void {
   memoryScope = null;
+  scopeLoaded = false;
 }
 
 /**

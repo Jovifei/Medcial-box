@@ -20,7 +20,10 @@ Page({
   async onLogout(): Promise<void> {
     const confirmed = await new Promise<boolean>((resolve) => wx.showModal({ title: "退出登录", content: "清除本机登录状态；家庭库存与本账号草稿仍保留。", success: (result) => resolve(result.confirm), fail: () => resolve(false) }));
     if (!confirmed) return;
-    try { await logout(); } catch { /* 本机状态由 logout 的 finally 清除，离线也返回欢迎页。 */ }
+    try { await logout(); } catch (error) {
+      if (error instanceof ApiError && error.code === "STALE_SESSION") return;
+      // Current-session logout still returns to welcome when the network fails.
+    }
     wx.reLaunch({ url: "/pages/login/login" });
   },
 });

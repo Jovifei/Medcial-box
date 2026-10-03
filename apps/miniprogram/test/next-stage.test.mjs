@@ -1064,7 +1064,7 @@ test("private leaflet photo 401 clears the stale Mini Program session token", as
     downloadFile(options) { options.success({ statusCode: 401, tempFilePath: "" }); },
   } });
   await assert.rejects(service.api.downloadLeafletPhoto("medicine-1", "photo-1"), (error) => error.code === "UNAUTHORIZED");
-  assert.deepEqual(removed, ["home_medicine_session_token"]);
+  assert.deepEqual(removed, ["home_medicine_session_scope", "home_medicine_session_token"]);
 });
 
 test("medicine details list leaflet photo metadata without downloading photos until preview is tapped", async () => {

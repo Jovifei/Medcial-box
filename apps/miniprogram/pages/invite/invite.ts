@@ -176,6 +176,7 @@ Page({
     try {
       await logoutSession();
     } catch (error) {
+      if (error instanceof ApiError && error.code === "STALE_SESSION") return;
       failure = error;
     }
     wx.reLaunch({ url: "/pages/login/login" });
