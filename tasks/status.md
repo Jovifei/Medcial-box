@@ -1,4 +1,15 @@
-# 当前状态 · 2026-10-03 收尾修复
+# 当前状态 · 2026-10-03 云端补充收尾
+
+- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前核对源码 `517dbf2`，既有分支 `codex/flutter-ui-prototype`
+- 已连续发布8批独立修复：小程序会话、提醒发送边界、Flutter照护契约、双端确认重试、历史纠正、仅接收提醒隐私、导出生命周期及明确家庭失效清理
+- 当前自动化证据：Mini195、严格PG参与API317、tooling6、独立PG108；最新Flutter227/analyze通过。8批精确提交CI均通过（包括debug APK），全部链接见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
+- 仍有代码工作：计划创建幂等、Flutter星期/库存绑定/持久草稿、跨进程原始文件和异常退出恢复；不能宣称只剩人工验收
+- 官方小程序编译在本云环境SKIPPED；CI debug APK未配置生产API/正式签名。真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍NOT_RUN
+- 本轮只使用云端源码与合成数据；未访问原Windows工作区、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
+
+---
+
+# 历史状态 · 2026-10-03 原收尾修复
 
 - 状态：**LOCAL_VERIFICATION / PARTIAL**。已按授权修复实例历史、提醒授权、数量换算、会话及失败恢复；新增单页录入、十份持久草稿、成员提醒设置和同快照多格式导出。
 - 唯一目录 `E:\project\medcial_box`，分支 `codex/flutter-ui-prototype`，实施基线45bb7aa。保留所有者AGENTS、overview及本地工具状态，不纳入业务提交。
@@ -9,7 +20,7 @@
 
 ---
 
-# 当前状态 · 2026-10-02 项目收尾规划
+# 历史状态 · 2026-10-02 项目收尾规划
 
 - 状态：**CLOSEOUT_PLANNED / PARTIAL**，尚未完成真实双端家庭交付。
 - 唯一剩余工作入口：[家庭药箱v1收尾执行计划](plans/2026-10-02-project-closeout.md)，顺序C0工程归一→C1可靠性→C2简洁交互→C3双端补齐→C4资料/导出→C5门禁→C6部署恢复→C7家庭试用。

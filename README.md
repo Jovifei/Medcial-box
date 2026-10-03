@@ -42,15 +42,15 @@ docker-compose --env-file .env -f deploy/docker-compose.yml up --build
 npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 --local
 ```
 
-生成包位于 `.local-data\mini-local-<UUID>`，只包含公开客户端配置，不含服务端密钥。源目录 `apps/miniprogram/` 仍使用 `touristappid` 占位值，避免把本地或生产 AppID 写入源码。
+生成包位于 `.local-data\mini-local-<UUID>`，只包含公开客户端配置，不含服务端密钥。源目录的 `project.config.json` 已包含药箱公开 AppID；生成包仍须使用与目标环境一致的公开客户端配置。AppID不是服务端密钥，也不能证明真实登录或模板已经验收。
 
 ## 当前候选阶段
 
 本轮在 `codex/flutter-ui-prototype` 分支交付双端共享库存、开封后期限、库存阈值与盘点、补货、待处理、设备连接、条码候选、提醒、导出与恢复。分阶段事项和真实环境阻塞见 [`tasks/todo.md`](tasks/todo.md) 与 [`tasks/status.md`](tasks/status.md)。
 
-没有核实正式 AppID、可用微信订阅模板和两台手机之前，不宣称真实账号登录、微信消息送达或家庭试用通过；本轮不部署 ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
+当前代码仍有计划创建幂等、Flutter星期/库存绑定/持久草稿及异常持久状态工作，详见 [当前收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。源码已有公开AppID，但真实身份、可用微信模板和两台手机验收未完成；不宣称真实登录、消息送达或家庭试用通过，本轮未部署ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
 
-手机试用准备的当前证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
+2026-09-27的手机试用准备历史证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
 
 拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
 
