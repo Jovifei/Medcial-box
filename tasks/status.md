@@ -5,7 +5,7 @@
 - 根lint/typecheck/test/build PASS；Mini157、API191（普通运行9套可选PG跳过）、tooling6 PASS；严格真实PG84 PASS；官方编译51文件PASS。Flutter analyze、61项测试与最终Debug APK PASS；未配置生产API及正式签名。
 - 详细证据：[本次收尾修复与审核](reviews/2026-10-03-closeout-repair-and-verification.md)。严格PG是隔离schema及测试微信网关，不代表真实登录。
 - 真实双账号两手机、拍扫权限/识别质量、微信消息与分享、Android系统通知、独立HTTPS及数据库图片恢复仍NOT_RUN；正式Android签名与生产API构建配置未完成。不得标记整项目完成。
-- GitHub fetch本轮出现443连接失败；提交/推送及main状态以本次报告末尾回执为准，不自动合并main。
+- 业务修复446fa63已推送功能分支；main仍ad6b31f，未合并，未部署。初次fetch短暂失败，普通push随后成功。
 
 ---
 

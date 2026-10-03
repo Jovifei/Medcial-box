@@ -7,7 +7,8 @@
 - [x] Android最新改动最终analyze/test61项/Debug APK通过（未配置生产API及签名）。
 - [ ] 正式签名及生产API候选配置、真机拍扫/分享/通知。
 - [ ] 独立HTTPS与数据库+图片恢复、双账号两手机家庭试用。
-- [ ] 远端推送确认及明确的main合并验收。
+- [x] 修复446fa63推送功能分支成功。
+- [ ] 明确的main合并验收（尚未合并）。
 
 审核证据：[2026-10-03收尾报告](reviews/2026-10-03-closeout-repair-and-verification.md)。当前PARTIAL，以下为原计划与历史。
 
