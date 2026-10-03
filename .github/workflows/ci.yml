@@ -52,3 +52,6 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
+      # Technical shrinker gate: existing debug signing, no API or publication.
+      - name: Build optimized release APK
+        run: flutter build apk --release
