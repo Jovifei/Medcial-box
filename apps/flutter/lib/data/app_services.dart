@@ -68,7 +68,7 @@ class AppServices {
         baseUrl: baseUrl,
         tokenProvider: () => secrets.read(ApiAuthRepository.accessTokenKey),
       );
-      final plans = ApiPlanRepository(api: api);
+      final plans = ApiPlanRepository(api: api, localStore: local);
       final workflow = ApiWorkflowRepository(api: api);
       final medicines = ApiMedicineRepository(api: api, localStore: local);
       final reminders = LocalReminderService()..watch(medicines);

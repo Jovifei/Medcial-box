@@ -39,7 +39,7 @@ function loadCreatePage({ api = {}, wx = {} } = {}) {
     listCareProfiles: async () => { calls.push(["profiles"]); return { careProfiles: state.careProfiles }; },
     ensureSelfCareProfile: async (displayName) => {
       calls.push(["ensureSelfProfile", displayName]);
-      const profile = { id: "profile-self", displayName: displayName ?? "我", linkedUserId: "user-1", isPrivate: true };
+      const profile = { id: "profile-self", displayName: displayName ?? "我", linkedUserId: "user-1", isPrivate: true, canManage: true };
       state.careProfiles = [profile];
       return profile;
     },
@@ -48,7 +48,7 @@ function loadCreatePage({ api = {}, wx = {} } = {}) {
   };
   const { definition } = loadPage("pages/plan-create/plan-create.ts", {
     modules: {
-      "../../services/api": { api: { ...defaults, ...api }, ApiError },
+      "../../services/api": { api: { ...defaults, ...api }, ApiError, captureSessionIdentity: () => ({token: "test", generation: 1}), isCurrentSession: () => true, staleSessionError: () => new ApiError("stale") },
       "../../services/auth": { ensureLoggedIn: async () => {} },
       "../../services/draft-guard": {
         registerDirtyDraft: (draft) => { draftGuard.registered.push(draft); },

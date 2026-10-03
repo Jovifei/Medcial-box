@@ -1,13 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/plan_models.dart';
 import 'api_client.dart';
+import 'app_stores.dart';
+import 'plan_creation_operations.dart';
 
 /// 用药计划 / 今日安排 / 服药确认 / 历史 / 照护对象 / 权限。
 /// 端点与后端 routes/medication-plans、routes/care-profiles 对齐；
 /// 只走 ApiClient，返回类型化模型（R10：这些是无状态读取，不回填共享库存快照）。
 class ApiPlanRepository extends ChangeNotifier {
-  ApiPlanRepository({required this.api});
+  ApiPlanRepository({required this.api, LocalAppStore? localStore})
+    : creations = PlanCreationOperations(
+        api: api,
+        store: localStore ?? MemoryInventoryLocalStore(),
+      );
+
+  final PlanCreationOperations creations;
 
   final ApiClient api;
   Future<void> Function()? onChanged;
@@ -51,24 +61,41 @@ class ApiPlanRepository extends ChangeNotifier {
     return PlanDetail.fromJson(json);
   }
 
-  Future<MedicationPlanSummary> createPlan(MedicationPlanDraft draft) async {
-    final epoch = api.identityEpoch;
-    final json = await api.post(
-      '/api/v1/medication-plans',
-      body: draft.toCreatePayload(),
-    ) as Map<String, dynamic>;
-    // 后端创建返回 {planId, careProfileId, status, version}；无完整计划体，回读详情。
-    final planId = json['planId'] is String ? json['planId']! as String : '';
-    if (planId.isEmpty) {
-      throw const ApiException(
-        statusCode: 502,
-        code: 'INVALID_RESPONSE',
-        message: '计划创建成功但未返回标识，请刷新后查看。',
-      );
-    }
-    await _changed(epoch);
-    final detail = await getPlan(planId);
-    return detail.plan;
+  Future<PlanCreationReceipt> createPlan(
+    MedicationPlanDraft draft, {
+    PlanCreationSession? session,
+    bool Function()? isCurrent,
+  }) async {
+    final origin = session ?? await creations.open(isCurrent: isCurrent);
+    final receipt = await creations.submit(
+      origin,
+      draft: draft,
+      retry: false,
+      isCurrent: isCurrent,
+    );
+    unawaited(_creationChanged(origin.identityEpoch));
+    return receipt;
+  }
+
+  Future<PlanCreationReceipt> retryPlanCreation(
+    PlanCreationSession session, {
+    bool Function()? isCurrent,
+  }) async {
+    final receipt = await creations.submit(
+      session,
+      retry: true,
+      isCurrent: isCurrent,
+    );
+    unawaited(_creationChanged(session.identityEpoch));
+    return receipt;
+  }
+
+  Future<void> _creationChanged(int epoch) async {
+    try {
+      // Preserve the acknowledged-mutation hook and identity cleanup behavior.
+      // Refresh failure cannot turn an acknowledged create into a write failure.
+      await _changed(epoch);
+    } catch (_) {}
   }
 
   Future<void> updatePlan(

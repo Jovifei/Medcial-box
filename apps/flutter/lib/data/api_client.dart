@@ -202,7 +202,14 @@ class ApiClient {
     String path, {
     Map<String, Object?> body = const {},
     bool authenticated = true,
-  }) => _send('POST', path, body: body, authenticated: authenticated);
+    bool Function()? isCurrent,
+  }) => _send(
+    'POST',
+    path,
+    body: body,
+    authenticated: authenticated,
+    isCurrent: isCurrent,
+  );
 
   Future<dynamic> put(String path, Map<String, Object?> body) =>
       _send('PUT', path, body: body);
@@ -214,12 +221,14 @@ class ApiClient {
     String path, {
     Map<String, Object?>? body,
     bool authenticated = true,
+    bool Function()? isCurrent,
   }) async {
     final response = await _sendRequest(
       method,
       path,
       body: body,
       authenticated: authenticated,
+      isCurrent: isCurrent,
     );
 
     if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
@@ -247,12 +256,14 @@ class ApiClient {
     Map<String, Object?>? body,
     bool authenticated = true,
     String accept = 'application/json',
+    bool Function()? isCurrent,
   }) async {
     final epoch = identityEpoch;
     final token = authenticated ? await tokenProvider() : null;
     // Token storage can complete after logout/reconnection. Reject the old
     // intent before any request is sent with the replacement session token.
-    if (authenticated && epoch != identityEpoch) {
+    if ((authenticated && epoch != identityEpoch) ||
+        (isCurrent != null && !isCurrent())) {
       throw const ApiException(
         statusCode: 401,
         code: 'STALE_SESSION',

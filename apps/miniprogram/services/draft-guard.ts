@@ -20,7 +20,8 @@ export function registerDirtyDraft(draft: DirtyDraft): void {
   current = draft;
 }
 
-export function clearDirtyDraft(): void {
+export function clearDirtyDraft(expected?: DirtyDraft): void {
+  if (expected !== undefined && current !== expected) return;
   current = null;
 }
 

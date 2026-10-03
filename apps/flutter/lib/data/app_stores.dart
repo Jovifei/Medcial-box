@@ -50,6 +50,11 @@ abstract interface class LocalAppStore {
   Future<String?> readDraft(String key);
   Future<void> saveDraft(String key, String json);
   Future<void> deleteDraft(String key);
+  // Opaque safety markers contain no medication payload and survive private
+  // family cleanup, preventing unresolved creates from silently becoming new.
+  Future<String?> readPlanCreationMarker(String scope);
+  Future<void> savePlanCreationMarker(String scope, String key);
+  Future<void> deletePlanCreationMarker(String scope);
   Future<void> clearFamilyData();
 }
 
@@ -61,6 +66,7 @@ class SharedPreferencesAppStore implements LocalAppStore {
   static const _familyKey = 'home_medicine.family.v1';
   static const _lastSyncedKey = 'home_medicine.inventory.last_synced_at.v1';
   static const _draftPrefix = 'home_medicine.draft.v1.';
+  static const _planMarkerPrefix = 'home_medicine.plan_creation_marker.v1.';
 
   static Future<SharedPreferencesAppStore> create() async =>
       SharedPreferencesAppStore(await SharedPreferences.getInstance());
@@ -124,23 +130,50 @@ class SharedPreferencesAppStore implements LocalAppStore {
 
   @override
   Future<void> saveDraft(String key, String json) async {
-    await _preferences.setString('$_draftPrefix$key', json);
+    if (!await _preferences.setString('$_draftPrefix$key', json)) {
+      throw StateError('无法保存本机草稿，请重试。');
+    }
   }
 
   @override
   Future<void> deleteDraft(String key) async {
-    await _preferences.remove('$_draftPrefix$key');
+    if (!await _preferences.remove('$_draftPrefix$key')) {
+      throw StateError('无法清理本机草稿，请重试。');
+    }
+  }
+
+  @override
+  Future<String?> readPlanCreationMarker(String scope) async =>
+      _preferences.getString('$_planMarkerPrefix$scope');
+
+  @override
+  Future<void> savePlanCreationMarker(String scope, String key) async {
+    if (!await _preferences.setString('$_planMarkerPrefix$scope', key)) {
+      throw StateError('无法保存计划重试标记，请重试。');
+    }
+  }
+
+  @override
+  Future<void> deletePlanCreationMarker(String scope) async {
+    if (!await _preferences.remove('$_planMarkerPrefix$scope')) {
+      throw StateError('无法清理计划重试标记，请重试。');
+    }
   }
 
   @override
   Future<void> clearFamilyData() async {
+    // A failed remove can already have changed the plugin's memory cache.
+    // Reload before every cleanup/retry so persisted private keys are retried.
+    await _preferences.reload();
     final keys = _preferences.getKeys();
     for (final key in keys) {
       if (key == _inventoryKey ||
           key == _familyKey ||
           key == _lastSyncedKey ||
           key.startsWith(_draftPrefix)) {
-        await _preferences.remove(key);
+        if (!await _preferences.remove(key)) {
+          throw StateError('无法清理本机家庭数据，请重试。');
+        }
       }
     }
   }
@@ -151,6 +184,7 @@ class MemoryInventoryLocalStore implements LocalAppStore {
   FamilyRecord? family;
   DateTime? lastSyncedAt;
   final Map<String, String> drafts = {};
+  final Map<String, String> planCreationMarkers = {};
 
   @override
   Future<List<MedicineRecord>?> readInventory() async => inventory;
@@ -180,6 +214,16 @@ class MemoryInventoryLocalStore implements LocalAppStore {
 
   @override
   Future<void> deleteDraft(String key) async => drafts.remove(key);
+
+  @override
+  Future<String?> readPlanCreationMarker(String scope) async =>
+      planCreationMarkers[scope];
+  @override
+  Future<void> savePlanCreationMarker(String scope, String key) async =>
+      planCreationMarkers[scope] = key;
+  @override
+  Future<void> deletePlanCreationMarker(String scope) async =>
+      planCreationMarkers.remove(scope);
 
   @override
   Future<void> clearFamilyData() async {
@@ -229,6 +273,18 @@ class IdentityLocalStore implements LocalAppStore {
   @override
   Future<void> deleteDraft(String key) =>
       _write(() => delegate.deleteDraft(key));
+  @override
+  Future<void> savePlanCreationMarker(String scope, String key) =>
+      _write(() => delegate.savePlanCreationMarker(scope, key));
+  @override
+  Future<void> deletePlanCreationMarker(String scope) =>
+      _write(() => delegate.deletePlanCreationMarker(scope));
+  @override
+  Future<String?> readPlanCreationMarker(String scope) async {
+    await _tail;
+    return delegate.readPlanCreationMarker(scope);
+  }
+
   @override
   Future<List<MedicineRecord>?> readInventory() async {
     await _tail;

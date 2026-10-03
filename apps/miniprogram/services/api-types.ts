@@ -442,6 +442,7 @@ export interface CareProfileSummary {
 }
 
 export interface MedicationPlanPayload {
+  idempotencyKey?: string;
   careProfileId: string;
   medicineId?: string | null;
   medicineName: string;

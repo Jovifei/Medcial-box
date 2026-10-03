@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
+import '../../data/plan_creation_operations.dart';
 import '../../models/plan_models.dart';
 
 String _two(int value) => value.toString().padLeft(2, '0');
@@ -39,6 +40,27 @@ class _PlanFormPageState extends State<PlanFormPage> {
   int _version = 1;
   Object? _failure;
   bool _saving = false;
+  bool _ready = false;
+  int _pageGeneration = 0;
+  late int _identityEpoch;
+  PlanCreationSession? _creationSession;
+  PendingPlanCreation? _pending;
+  bool _created = false;
+  bool _needsRecovery = false;
+
+  bool get _identityCurrent =>
+      mounted && _identityEpoch == widget.repository.api.identityEpoch;
+  bool get _locked =>
+      !_ready ||
+      _saving ||
+      _pending != null ||
+      _created ||
+      _needsRecovery ||
+      !_identityCurrent;
+  bool _current(int generation) =>
+      _identityCurrent && generation == _pageGeneration;
+  bool _canDispatch(int generation) =>
+      _current(generation) && (ModalRoute.of(context)?.isCurrent ?? true);
 
   @override
   void dispose() {
@@ -50,37 +72,91 @@ class _PlanFormPageState extends State<PlanFormPage> {
   @override
   void initState() {
     super.initState();
+    _identityEpoch = widget.repository.api.identityEpoch;
     _startDate = _formatDate(DateTime.now());
     _load = _bootstrap();
   }
 
+  @override
+  void didUpdateWidget(covariant PlanFormPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.repository == widget.repository &&
+        oldWidget.planId == widget.planId) {
+      return;
+    }
+    _pageGeneration++;
+    _identityEpoch = widget.repository.api.identityEpoch;
+    _ready = false;
+    _saving = false;
+    _failure = null;
+    _creationSession = null;
+    _pending = null;
+    _created = false;
+    _needsRecovery = false;
+    _profiles = const [];
+    _name.clear();
+    _dosage.clear();
+    _careProfileId = '';
+    _timeSlots = [];
+    _weekdays = const [];
+    _startDate = _formatDate(DateTime.now());
+    _endDate = null;
+    _load = _bootstrap();
+  }
+
+  void _restorePending(PendingPlanCreation? pending) {
+    _pending = pending;
+    if (pending == null) return;
+    final draft = pending.draft;
+    _name.text = draft.medicineName;
+    _dosage.text = draft.dosageText;
+    _timeSlots = List.of(draft.timeSlots);
+    _weekdays = List.of(draft.weekdays);
+    _careProfileId = draft.careProfileId;
+    _startDate = draft.startDate;
+    _endDate = draft.endDate;
+  }
+
   Future<void> _bootstrap() async {
+    final generation = _pageGeneration;
+    final repository = widget.repository;
     try {
-      final profiles = await widget.repository.listCareProfiles();
-      if (!mounted) return;
-      setState(() {
-        _profiles = profiles;
-        if (_careProfileId.isEmpty && profiles.isNotEmpty) {
-          _careProfileId = profiles.first.id;
-        }
-      });
+      if (!widget.isEdit) {
+        final session = await repository.creations.open(
+          isCurrent: () => _current(generation),
+        );
+        if (!_current(generation)) return;
+        _creationSession = session;
+        _needsRecovery = repository.creations.needsRecovery(session);
+        _restorePending(repository.creations.pending(session));
+      }
+      final profiles = await repository.listCareProfiles();
+      if (!_current(generation)) return;
+      _profiles = profiles;
+      if (_careProfileId.isEmpty && profiles.isNotEmpty) {
+        _careProfileId = profiles.first.id;
+      }
       if (widget.isEdit) {
-        final detail = await widget.repository.getPlan(widget.planId!);
-        if (!mounted) return;
+        final detail = await repository.getPlan(widget.planId!);
+        if (!_current(generation)) return;
         final plan = detail.plan;
+        _name.text = plan.medicineName;
+        _dosage.text = plan.dosageText;
+        _timeSlots = List<String>.from(plan.timeSlots);
+        _weekdays = plan.weekdays;
+        _careProfileId = plan.careProfileId;
+        _startDate = plan.startDate;
+        _endDate = plan.endDate;
+        _version = plan.version;
+      }
+      if (_current(generation)) {
         setState(() {
-          _name.text = plan.medicineName;
-          _dosage.text = plan.dosageText;
-          _timeSlots = List<String>.from(plan.timeSlots);
-          _weekdays = plan.weekdays;
-          _careProfileId = plan.careProfileId;
-          _startDate = plan.startDate;
-          _endDate = plan.endDate;
-          _version = plan.version;
+          _ready = true;
+          _failure = null;
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _failure = error);
+      if (_current(generation)) setState(() => _failure = error);
     }
   }
 
@@ -99,11 +175,13 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Future<void> _addTimeSlot() async {
+    if (_locked) return;
+    final generation = _pageGeneration;
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
-    if (picked == null) return;
+    if (picked == null || !_current(generation) || _locked) return;
     setState(() {
       _timeSlots = [
         ..._timeSlots,
@@ -113,6 +191,8 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Future<void> _pickDate({required bool isStart}) async {
+    if (_locked) return;
+    final generation = _pageGeneration;
     final initial = DateTime.tryParse(
       isStart ? _startDate : (_endDate ?? _startDate),
     );
@@ -122,7 +202,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked == null) return;
+    if (picked == null || !_current(generation) || _locked) return;
     setState(() {
       if (isStart) {
         _startDate = _formatDate(picked);
@@ -132,9 +212,103 @@ class _PlanFormPageState extends State<PlanFormPage> {
     });
   }
 
+  Future<void> _recoverOriginal() async {
+    final generation = _pageGeneration;
+    if (!_canDispatch(generation) || _saving || _creationSession == null) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final inspection = await widget.repository.creations.inspectRecovery(
+        _creationSession!,
+        isCurrent: () => _canDispatch(generation),
+      );
+      if (!mounted || !_canDispatch(generation)) return;
+      final inspected = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('核对已有计划'),
+          content: SizedBox(
+            width: 360,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('这是当前可查看的计划。列表不能证明上次请求未保存或不会稍后完成。'),
+                  if (inspection.plans.isEmpty) const Text('当前列表没有计划'),
+                  ...inspection.plans.map(
+                    (plan) =>
+                        Text('${plan.medicineName} · ${plan.statusLabel}'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('已核对，继续'),
+            ),
+          ],
+        ),
+      );
+      if (inspected != true || !mounted || !_canDispatch(generation)) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('开始一份新计划？'),
+          content: const Text(
+            '上次请求可能已经保存，也可能稍后完成。继续将放弃原请求的重试关联，开始一份新计划，可能造成重复。如不确定，请取消。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('确认开始新计划'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted || !_canDispatch(generation)) return;
+      await widget.repository.creations.abandonAfterInspection(
+        inspection,
+        isCurrent: () => _canDispatch(generation),
+      );
+      if (_current(generation)) setState(() => _needsRecovery = false);
+    } catch (error) {
+      if (mounted && _canDispatch(generation)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is PlanCreationException
+                  ? error.message
+                  : friendlyApiError(error),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (_current(generation)) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _submit() async {
-    if (_saving) return;
-    final invalid = _validate();
+    final generation = _pageGeneration;
+    if (!_ready || _saving || !_canDispatch(generation)) return;
+    if (_created) {
+      context.pop();
+      return;
+    }
+    if (_needsRecovery) return;
+    final invalid = _pending == null ? _validate() : null;
     if (invalid != null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(invalid)));
@@ -158,18 +332,50 @@ class _PlanFormPageState extends State<PlanFormPage> {
           version: _version,
         );
       } else {
-        await widget.repository.createPlan(draft);
+        final session = _creationSession!;
+        if (_pending != null) {
+          await widget.repository.retryPlanCreation(
+            session,
+            isCurrent: () => _canDispatch(generation),
+          );
+        } else {
+          await widget.repository.createPlan(
+            draft,
+            session: session,
+            isCurrent: () => _canDispatch(generation),
+          );
+        }
       }
-      if (!mounted) return;
+      if (!mounted || !_current(generation)) return;
+      setState(() {
+        _saving = false;
+        _created = !widget.isEdit;
+      });
+      if (!_canDispatch(generation)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.isEdit ? '计划已更新' : '计划已创建')),
       );
       context.pop();
     } catch (error) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
+      if (mounted && _current(generation)) {
+        setState(() {
+          _saving = false;
+          if (_creationSession != null) {
+            _restorePending(
+              widget.repository.creations.pending(_creationSession!),
+            );
+          }
+        });
+        if (!_canDispatch(generation)) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is PlanCreationException
+                  ? error.message
+                  : friendlyApiError(error),
+            ),
+          ),
+        );
       }
     }
   }
@@ -190,7 +396,43 @@ class _PlanFormPageState extends State<PlanFormPage> {
               if (_failure != null)
                 AppCard(
                   color: const Color(0xFFFFF2ED),
-                  child: Text(friendlyApiError(_failure!)),
+                  child: Column(
+                    children: [
+                      Text(
+                        _failure is PlanCreationException
+                            ? (_failure! as PlanCreationException).message
+                            : friendlyApiError(_failure!),
+                      ),
+                      TextButton(
+                        onPressed: _saving || !_identityCurrent
+                            ? null
+                            : () {
+                                setState(() {
+                                  _load = _bootstrap();
+                                });
+                              },
+                        child: const Text('重新读取'),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_needsRecovery)
+                AppCard(
+                  child: Column(
+                    children: [
+                      const Text(
+                        '上次创建结果尚未确定，原计划内容已在退出或家庭清理时移除。请先查看已有计划；不能直接重试或创建新计划。',
+                      ),
+                      TextButton(
+                        onPressed: _saving ? null : _recoverOriginal,
+                        child: const Text('查看已有计划'),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_pending != null)
+                const AppCard(
+                  child: Text('上次创建结果尚未确定。已保留原计划，请明确重试核对结果；核对前不能创建另一份计划。'),
                 ),
               _profilesBlock(context),
               const SizedBox(height: 14),
@@ -200,6 +442,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
                   children: [
                     TextField(
                       controller: _name,
+                      enabled: !_locked,
                       decoration: const InputDecoration(
                         labelText: '药品名称',
                         hintText: '例如：儿童退烧药',
@@ -208,6 +451,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _dosage,
+                      enabled: !_locked,
                       decoration: const InputDecoration(
                         labelText: '剂量说明',
                         hintText: '例如：一次 5 毫升',
@@ -222,8 +466,17 @@ class _PlanFormPageState extends State<PlanFormPage> {
               _datesBlock(context),
               const SizedBox(height: 18),
               PrimaryButton(
-                label: _saving ? '保存中…' : (widget.isEdit ? '保存修改' : '创建计划'),
-                onPressed: _saving ? null : _submit,
+                label: _saving
+                    ? '保存中…'
+                    : (_created
+                          ? '计划已创建，返回列表'
+                          : (_pending != null
+                                ? '重试原计划'
+                                : (widget.isEdit ? '保存修改' : '创建计划'))),
+                onPressed:
+                    !_ready || _saving || _needsRecovery || !_identityCurrent
+                    ? null
+                    : _submit,
               ),
               const SizedBox(height: 8),
               const Text(
@@ -268,9 +521,13 @@ class _PlanFormPageState extends State<PlanFormPage> {
           Text('照护对象', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _pickProfile,
+            onPressed: _locked ? null : _pickProfile,
             icon: const Icon(Icons.person_outline_rounded),
-            label: Text(selected.displayName),
+            label: Text(
+              _pending != null && !_profiles.any((p) => p.id == _careProfileId)
+                  ? '原照护对象（未在当前列表中）'
+                  : selected.displayName,
+            ),
           ),
         ],
       ),
@@ -278,6 +535,8 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Future<void> _pickProfile() async {
+    if (_locked) return;
+    final generation = _pageGeneration;
     final chosen = await showAppSheet<String>(
       context,
       title: '选择照护对象',
@@ -300,7 +559,9 @@ class _PlanFormPageState extends State<PlanFormPage> {
             .toList(growable: false),
       ),
     );
-    if (chosen != null && mounted) setState(() => _careProfileId = chosen);
+    if (chosen != null && _current(generation) && !_locked) {
+      setState(() => _careProfileId = chosen);
+    }
   }
 
   Widget _timeSlotsBlock(BuildContext context) => AppCard(
@@ -316,7 +577,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
               ),
             ),
             TextButton.icon(
-              onPressed: _addTimeSlot,
+              onPressed: _locked ? null : _addTimeSlot,
               icon: const Icon(Icons.add_rounded),
               label: const Text('添加'),
             ),
@@ -333,11 +594,13 @@ class _PlanFormPageState extends State<PlanFormPage> {
                 .map(
                   (slot) => InputChip(
                     label: Text(slot),
-                    onDeleted: () => setState(
-                      () => _timeSlots = _timeSlots
-                          .where((item) => item != slot)
-                          .toList(),
-                    ),
+                    onDeleted: _locked
+                        ? null
+                        : () => setState(
+                            () => _timeSlots = _timeSlots
+                                .where((item) => item != slot)
+                                .toList(),
+                          ),
                   ),
                 )
                 .toList(growable: false),
@@ -352,7 +615,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
       children: [
         if (_endDate != null)
           TextButton(
-            onPressed: () => setState(() => _endDate = null),
+            onPressed: _locked ? null : () => setState(() => _endDate = null),
             child: const Text('清除结束日期，改为长期'),
           ),
         Text('有效期', style: Theme.of(context).textTheme.titleMedium),
@@ -361,7 +624,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _pickDate(isStart: true),
+                onPressed: _locked ? null : () => _pickDate(isStart: true),
                 icon: const Icon(Icons.event_rounded),
                 label: Text('开始：${_startDate.isEmpty ? '未选' : _startDate}'),
               ),
@@ -369,7 +632,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _pickDate(isStart: false),
+                onPressed: _locked ? null : () => _pickDate(isStart: false),
                 icon: const Icon(Icons.event_available_rounded),
                 label: Text('结束：${_endDate ?? '长期'}'),
               ),

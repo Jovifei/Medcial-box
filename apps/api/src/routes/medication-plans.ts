@@ -10,9 +10,9 @@
  * - 服药记录不自动扣减库存。
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DoseReminderScheduleResponse } from "@home-medicine/contracts";
-import { errorBody } from "../types.js";
+import { errorBody, TransactionConflictError } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import type { Database } from "../types.js";
 import {
@@ -70,6 +70,7 @@ async function accessFor(
   database: Pick<Database, "query">,
   profile: CareProfileRow,
   userId: string,
+  lock = false,
 ): Promise<AccessContext> {
   if (profile.linked_user_id !== null) {
     const own = profile.linked_user_id === userId;
@@ -77,7 +78,7 @@ async function accessFor(
   }
   if (profile.created_by === userId) return { canView: true, canManage: true };
   const grant = await database.query<{ can_view: boolean; can_manage: boolean }>(
-    "SELECT can_view, can_manage FROM care_grants WHERE care_profile_id = $1 AND member_user_id = $2",
+    `SELECT can_view, can_manage FROM care_grants WHERE care_profile_id = $1 AND member_user_id = $2${lock ? " FOR SHARE" : ""}`,
     [profile.id, userId],
   );
   if (grant.rows[0] === undefined) return { canView: false, canManage: false };
@@ -101,9 +102,9 @@ async function loadSlots(database: Pick<Database, "query">, planId: string): Pro
   return slots.rows.map((row) => ({ id: row.id, time: row.time_of_day.slice(0, 5) }));
 }
 
-async function loadProfile(database: Pick<Database, "query">, familyId: string, profileId: string): Promise<CareProfileRow | null> {
+async function loadProfile(database: Pick<Database, "query">, familyId: string, profileId: string, lock = false): Promise<CareProfileRow | null> {
   const rows = await database.query<CareProfileRow>(
-    "SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE id = $1 AND family_id = $2 AND archived_at IS NULL",
+    `SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE id = $1 AND family_id = $2 AND archived_at IS NULL${lock ? " FOR SHARE" : ""}`,
     [profileId, familyId],
   );
   return rows.rows[0] ?? null;
@@ -360,7 +361,7 @@ export async function registerMedicationPlanRoutes(
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
     const body = request.body as Record<string, unknown> | null;
-    const careProfileId = typeof body?.careProfileId === "string" ? body.careProfileId.trim() : "";
+    const careProfileId = typeof body?.careProfileId === "string" ? body.careProfileId.trim().toLowerCase() : "";
     const medicineName = typeof body?.medicineName === "string" ? body.medicineName.trim() : "";
     const dosageText = typeof body?.dosageText === "string" ? body.dosageText.trim() : "";
     const startDate = typeof body?.startDate === "string" ? body.startDate.trim() : "";
@@ -379,35 +380,75 @@ export async function registerMedicationPlanRoutes(
     if (timeSlots.length === 0 || timeSlots.length > 6) return reply.code(400).send(errorBody("VALIDATION_ERROR", "每日时间点需 1-6 个，格式 HH:MM"));
     if (new Set(timeSlots).size !== timeSlots.length) return reply.code(400).send(errorBody("VALIDATION_ERROR", "时间点不能重复"));
     // 不传 weekdays = 每天（方案默认）。
-    const medicineId = typeof body?.medicineId === "string" && body.medicineId.trim() !== "" ? body.medicineId.trim() : null;
+    const medicineId = typeof body?.medicineId === "string" && body.medicineId.trim() !== "" ? body.medicineId.trim().toLowerCase() : null;
 
-    const profile = await loadProfile(database, ctx.familyId, careProfileId);
-    if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
-    const access = await accessFor(database, profile, ctx.userId);
-    if (!access.canManage) return reply.code(403).send(errorBody("FORBIDDEN", "没有为该照护对象创建计划的权限"));
-
-    if (medicineId !== null) {
-      const medicine = await database.query<{ id: string }>(
-        "SELECT id FROM medicines WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL",
-        [medicineId, ctx.familyId],
-      );
-      if (medicine.rowCount === 0) return reply.code(404).send(errorBody("NOT_FOUND", "药品不存在或不属于当前家庭"));
+    const key = body?.idempotencyKey;
+    if (key !== undefined && (typeof key !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(key))) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "提交标识格式不正确"));
     }
-
-    const planId = await database.withTransaction(async (tx) => {
-      const inserted = await tx.query<{ id: string }>(
-        `INSERT INTO medication_plans
-         (family_id, care_profile_id, medicine_id, medicine_name, dosage_text, weekdays, start_date, end_date, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id`,
-        [ctx.familyId, profile.id, medicineId, medicineName, dosageText, weekdays.length > 0 ? weekdays : [...WEEKDAYS], startDate, rawEndDate === "" ? null : rawEndDate, ctx.userId],
-      );
-      const planId = inserted.rows[0].id;
-      for (const slot of timeSlots) {
-        await tx.query("INSERT INTO plan_time_slots (id, plan_id, time_of_day) VALUES ($1, $2, $3)", [randomUUID(), planId, slot]);
-      }
-      return planId;
-    });
-    return reply.code(201).send({ planId, careProfileId: profile.id, status: "active", version: 1 });
+    // Hash the accepted, persisted meaning, not JSON property/set order or the retry key.
+    // Missing/empty weekdays already mean every day; duplicates are equivalent schedule days.
+    const normalized = {
+      careProfileId, medicineId, medicineName, dosageText,
+      weekdays: weekdays.length === 0 ? [...WEEKDAYS] : WEEKDAYS.filter((day) => weekdays.includes(day)),
+      timeSlots: [...timeSlots].sort(), startDate, endDate: rawEndDate === "" ? null : rawEndDate,
+    };
+    const hash = createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+    type CreateResponse = { planId: string; careProfileId: string; status: "active"; version: number };
+    try {
+      const created = await database.withTransaction(async (tx) => {
+        if (typeof key === "string") {
+          // Transaction lock serializes both a committed retry and an in-flight first attempt.
+          // Namespace avoids unnecessary contention with medicine-create receipts.
+          await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [JSON.stringify(["medication-plan-create", ctx.familyId, ctx.userId, key])]);
+        }
+        // Authentication happened before this transaction and may now be stale. Lock in
+        // family -> membership -> profile -> grant order and keep access authorization
+        // current through COMMIT, including receipt-only replays and legacy keyless writes.
+        // New creations then lock/check the bound medicine before writing.
+        await tx.query("SELECT id FROM families WHERE id=$1 FOR SHARE", [ctx.familyId]);
+        const member = await tx.query("SELECT id FROM family_members WHERE family_id=$1 AND user_id=$2 FOR SHARE", [ctx.familyId, ctx.userId]);
+        if (member.rowCount === 0) throw new TransactionConflictError(404, errorBody("FAMILY_NOT_FOUND", "尚未创建或加入家庭"));
+        const profile = await loadProfile(tx, ctx.familyId, normalized.careProfileId, true);
+        if (profile === null) throw new TransactionConflictError(404, errorBody("NOT_FOUND", "照护对象不存在"));
+        const access = await accessFor(tx, profile, ctx.userId, true);
+        if (!access.canManage) throw new TransactionConflictError(403, errorBody("FORBIDDEN", "没有为该照护对象创建计划的权限"));
+        if (typeof key === "string") {
+          const receipt = await tx.query<{ payload_hash: string; response: CreateResponse }>(
+            "SELECT payload_hash, response FROM medication_plan_create_receipts WHERE family_id=$1 AND user_id=$2 AND request_key=$3", [ctx.familyId, ctx.userId, key]);
+          const previous = receipt.rows[0];
+          if (previous) {
+            if (previous.payload_hash !== hash) throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "相同提交标识的内容已改变，请核对已保存计划"));
+            return previous.response;
+          }
+        }
+        // A receipt is an immutable ACK, not a new medicine link. A linked medicine
+        // can be deleted after the commit; only a genuinely new creation checks it.
+        if (normalized.medicineId !== null) {
+          const medicine = await tx.query("SELECT id FROM medicines WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL FOR SHARE", [normalized.medicineId, ctx.familyId]);
+          if (medicine.rowCount === 0) throw new TransactionConflictError(404, errorBody("NOT_FOUND", "药品不存在或不属于当前家庭"));
+        }
+        const inserted = await tx.query<{ id: string }>(
+          `INSERT INTO medication_plans
+           (family_id, care_profile_id, medicine_id, medicine_name, dosage_text, weekdays, start_date, end_date, created_by, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id`,
+          [ctx.familyId, profile.id, normalized.medicineId, normalized.medicineName, normalized.dosageText, normalized.weekdays, normalized.startDate, normalized.endDate, ctx.userId],
+        );
+        const planId = inserted.rows[0].id;
+        for (const slot of normalized.timeSlots) {
+          await tx.query("INSERT INTO plan_time_slots (id, plan_id, time_of_day) VALUES ($1, $2, $3)", [randomUUID(), planId, slot]);
+        }
+        const response: CreateResponse = { planId, careProfileId: profile.id, status: "active", version: 1 };
+        if (typeof key === "string") {
+          await tx.query("INSERT INTO medication_plan_create_receipts (family_id,user_id,request_key,payload_hash,response) VALUES ($1,$2,$3,$4,$5)", [ctx.familyId, ctx.userId, key, hash, JSON.stringify(response)]);
+        }
+        return response;
+      });
+      return reply.code(201).send(created);
+    } catch (error) {
+      if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
+      throw error;
+    }
   });
 
   // status 缺省只看未结束；status=all 或 ended 可显式查看已结束的计划（保留历史入口）。

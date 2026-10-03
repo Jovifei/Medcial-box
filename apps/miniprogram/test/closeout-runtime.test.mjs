@@ -15,7 +15,7 @@ test('stocktake sends decimal ml with the current version, rejects fractional ta
 });
 test('plan cancel offers keep discard continue; durable drafts restore only their owner',async()=>{
  const storage=new Map();const scope=makeSessionScopeModule({userId:'a',familyId:'f'});let backs=0;
- const options={modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,api:{listCareProfiles:async()=>({careProfiles:[{id:'p',displayName:'me'}]})}}},wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),navigateBack:()=>backs++}};
+ const options={modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,captureSessionIdentity:()=>({token:'test',generation:1}),isCurrentSession:()=>true,staleSessionError:()=>new ApiError('stale'),api:{listCareProfiles:async()=>({careProfiles:[{id:'p',displayName:'me',canManage:true}]})}}},wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),navigateBack:()=>backs++}};
  const page=makePageContext(loadPage('pages/plan-create/plan-create.ts',options).definition);page.onLoad({});
  page.onFormInput({currentTarget:{dataset:{field:'medicineName'}},detail:{value:'draft'}});page.onCancel();assert.equal(backs,0);assert.equal(page.data.leaveSheetVisible,true);
  page.onLeaveChoice({currentTarget:{dataset:{choice:'continue'}}});assert.equal(backs,0);
