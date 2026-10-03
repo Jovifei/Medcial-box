@@ -3,6 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:home_medicine_flutter/data/app_stores.dart';
 import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
 void main() {
+ test('distinct queues sharing one store preserve concurrent entries', () async {
+ final store = MemoryInventoryLocalStore();
+ final first = MedicineDraftQueue(store);
+ final second = MedicineDraftQueue(store);
+ await Future.wait([
+ first.save('a', {'name': 'first'}),
+ second.save('b', {'name': 'second'}),
+ ]);
+ expect((await first.list()).map((entry) => entry['id']).toSet(), {'a', 'b'});
+ });
+
  test('concurrent draft writes do not overwrite each other', () async { final queue=MedicineDraftQueue(MemoryInventoryLocalStore()); await Future.wait([queue.save('a',{'name':'a'}),queue.save('b',{'name':'b'})]); expect((await queue.list()).length,2); });
  test('ten drafts preserve stable identities, reject overflow, restore and delete individually', () async {
  final store=MemoryInventoryLocalStore(); final queue=MedicineDraftQueue(store);

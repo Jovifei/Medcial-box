@@ -136,6 +136,23 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   Future<void>? initialLoad;
   FamilyRecord? family;
   Object? failure;
+  bool openingEntry = false;
+
+  Future<void> _openEntry() async {
+    if (openingEntry) return;
+    openingEntry = true;
+    try {
+      await context.push('/medicine/new');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('暂时无法打开录入页，请重试。')),
+        );
+      }
+    } finally {
+      openingEntry = false;
+    }
+  }
 
   // 人群 / 用途标签多选筛选（S5-D）：空集合 = 不筛选；同维度任一命中即匹配。
   final Set<String> selectedPopulations = <String>{};
@@ -315,7 +332,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     ),
     floatingActionButton: FloatingActionButton.extended(
       heroTag: 'cabinet-add-medicine',
-      onPressed: () => context.push('/medicine/new'),
+      onPressed: _openEntry,
       icon: const Icon(Icons.add_rounded),
       label: const Text('录入'),
     ),
@@ -412,7 +429,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
             ),
             const SizedBox(height: 12),
             if (widget.repository.medicines.isEmpty && failure == null)
-              _EmptyCabinet(onAdd: () => context.push('/medicine/new'))
+              _EmptyCabinet(onAdd: _openEntry)
             else if (_visibleMedicines.isEmpty)
               _NoSearchResults(
                 onClear: () {

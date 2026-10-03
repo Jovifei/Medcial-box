@@ -3,18 +3,38 @@ import 'dart:convert';
 import 'app_stores.dart';
 
 class MedicineDraftQueue {
-  MedicineDraftQueue(this.store, {this.isCurrent});
+  MedicineDraftQueue(this.store, {this.isCurrent, this.scope});
   final LocalAppStore store;
   // A page may bind this queue to the identity that owns its draft intent.
   // Recheck after reads: store-level write fencing cannot reject a stale
   // callback that only enqueues its write after identity cleanup completed.
   final bool Function()? isCurrent;
-  Future<void> _tail = Future.value();
+  // Equal original-identity scopes share ordering across page instances.
+  // A replacement identity must supply a different scope, so an obsolete read
+  // cannot hold its queue. Unscoped callers share one default lane per store;
+  // scope alone is not authority and never replaces the isCurrent guard.
+  final Object? scope;
+  static final _defaultScope = Object();
+  static final _pending = Expando<Map<Object, Future<void>>>();
+
   Future<void> _mutate(Future<void> Function() operation) {
-    final next = _tail.then((_) async {
+    final scopes = _pending[store] ??= <Object, Future<void>>{};
+    final key = scope ?? _defaultScope;
+    final next = (scopes[key] ?? Future<void>.value()).then((_) async {
       if (isCurrent?.call() ?? true) await operation();
     });
-    _tail = next.catchError((Object _) {});
+    // Keep failures observable to this caller, but allow the next mutation.
+    // Remove idle scope keys and captured closures; the store key is weak.
+    late final Future<void> settled;
+    void release() {
+      if (identical(scopes[key], settled)) scopes.remove(key);
+    }
+
+    settled = next.then<void>(
+      (_) => release(),
+      onError: (Object _) => release(),
+    );
+    scopes[key] = settled;
     return next;
   }
 

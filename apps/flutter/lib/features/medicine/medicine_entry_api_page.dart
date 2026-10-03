@@ -64,6 +64,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
     isCurrent: () => mounted && _isDraftIdentityCurrent,
+    scope: entryIdentity,
   );
   late final (ApiClient, LocalAppStore, String, int, String?, String?, String?)
   entryIdentity;

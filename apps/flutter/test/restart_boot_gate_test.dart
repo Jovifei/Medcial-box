@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.dart';
+import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -591,6 +594,72 @@ void main() {
       await _mount(tester, f, initialLocation: '/home');
       expect(find.byType(ProductionShell), findsNothing);
       expect(find.text(_cachedName), findsNothing);
+    },
+  );
+  testWidgets(
+    'production repeated Add opens one entry and allows another after return',
+    (tester) async {
+      final f = _Fixture();
+      await f.accepted();
+      await f.cache();
+      await _mount(tester, f, initialLocation: '/home');
+      final add = find.widgetWithText(FloatingActionButton, '录入');
+      await tester.tap(add);
+      await tester.tap(add);
+      await _pump(tester);
+      expect(
+        find.byType(MedicineEntryApiPage, skipOffstage: false),
+        findsOneWidget,
+      );
+      final first = tester.state(find.byType(MedicineEntryApiPage));
+      await tester.tap(find.byType(BackButton));
+      await _pump(tester);
+      expect(
+        find.byType(MedicineEntryApiPage, skipOffstage: false),
+        findsNothing,
+      );
+      await tester.tap(add);
+      await _pump(tester);
+      expect(
+        find.byType(MedicineEntryApiPage, skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        identical(first, tester.state(find.byType(MedicineEntryApiPage))),
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets(
+    'two independently opened production entries preserve concurrent drafts',
+    (tester) async {
+      final f = _Fixture();
+      await f.accepted();
+      await f.cache();
+      await _mount(tester, f, initialLocation: '/home');
+      await tester.tap(find.widgetWithText(FloatingActionButton, '录入'));
+      await _pump(tester);
+      // Exercise separate live routes despite the cabinet's repeated-tap guard.
+      GoRouter.of(tester.element(find.byType(MedicineEntryApiPage)))
+          .push('/medicine/new');
+      await _pump(tester);
+      final pages = find.byType(MedicineEntryApiPage, skipOffstage: false);
+      expect(pages, findsNWidgets(2));
+      final widgets = tester.widgetList<MedicineEntryApiPage>(pages).toList();
+      expect(identical(widgets[0].localStore, widgets[1].localStore), isTrue);
+      final states = tester.stateList(pages).toList();
+      final first = (states[0] as dynamic).draftQueue as MedicineDraftQueue;
+      final second = (states[1] as dynamic).draftQueue as MedicineDraftQueue;
+      expect(identical(first, second), isFalse);
+      await Future.wait([
+        first.save('synthetic-a', {'name': 'synthetic-first'}),
+        second.save('synthetic-b', {'name': 'synthetic-second'}),
+      ]);
+      expect((await first.list()).map((entry) => entry['id']).toSet(), {
+        'synthetic-a',
+        'synthetic-b',
+      });
     },
   );
 }
