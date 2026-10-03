@@ -814,6 +814,88 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     ),
   );
 
+  double _labelWidth(Iterable<String> labels, TextStyle? style) {
+    var width = 0.0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      if (painter.width > width) width = painter.width;
+      painter.dispose();
+    }
+    return width.ceilToDouble();
+  }
+
+  Widget _quantityUnitFields({
+    required Widget quantityField,
+    required Widget unitField,
+    required List<String> quantityLabels,
+    required Iterable<String> unitLabels,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      final theme = Theme.of(context);
+      final padding =
+          theme.inputDecorationTheme.contentPadding
+              ?.resolve(Directionality.of(context))
+              .horizontal ??
+          32;
+      final quantityWidth =
+          _labelWidth(quantityLabels, theme.textTheme.bodyLarge) + padding + 16;
+      // Reserve the arrow and its spacing as well as the widest unit, even
+      // when a shorter unit is selected. Never shrink the user's text scale.
+      final unitWidth =
+          (_labelWidth(unitLabels, theme.textTheme.titleMedium) + padding + 32)
+              .clamp(112.0, double.infinity);
+      final stacked = constraints.maxWidth < quantityWidth + 10 + unitWidth;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 12,
+        children: [
+          SizedBox(
+            width: stacked
+                ? constraints.maxWidth
+                : constraints.maxWidth - unitWidth - 10,
+            child: quantityField,
+          ),
+          SizedBox(
+            width: stacked ? constraints.maxWidth : unitWidth,
+            child: unitField,
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _openingSegments({
+    required Map<String, String> labels,
+    required String selected,
+    required ValueChanged<Set<String>> onSelectionChanged,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Each equal-width segment needs a full label, the selected checkmark,
+      // its gap and button padding. Stack before any label has to wrap.
+      final segmentWidth =
+          _labelWidth(labels.values, Theme.of(context).textTheme.labelLarge) +
+          56;
+      return SizedBox(
+        width: constraints.maxWidth,
+        child: SegmentedButton<String>(
+          direction: constraints.maxWidth < segmentWidth * labels.length
+              ? Axis.vertical
+              : Axis.horizontal,
+          segments: [
+            for (final entry in labels.entries)
+              ButtonSegment(value: entry.key, label: Text(entry.value)),
+          ],
+          selected: {selected},
+          onSelectionChanged: onSelectionChanged,
+        ),
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) => PopScope<Object?>(
     key: const ValueKey('medicine-entry-pop-scope'),
@@ -980,45 +1062,40 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: quantityController,
-                            onChanged: (_) => _markDirty(),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: '剩余数量',
-                              hintText: '未知可留空',
-                            ),
-                          ),
+                    _quantityUnitFields(
+                      quantityLabels: const ['剩余数量', '未知可留空'],
+                      unitLabels: kQuantityUnitValues.map(unitLabel),
+                      quantityField: TextField(
+                        controller: quantityController,
+                        onChanged: (_) => _markDirty(),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 112,
-                          child: DropdownButtonFormField<String>(
-                            key: ValueKey(unit),
-                            initialValue: unit,
-                            decoration: const InputDecoration(labelText: '单位'),
-                            // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
-                            // 避免 initialValue 找不到 item 触发断言。
-                            items: kQuantityUnitValues
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(unitLabel(value)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              setState(() => unit = value ?? 'box');
-                              _markDirty();
-                            },
-                          ),
+                        decoration: const InputDecoration(
+                          labelText: '剩余数量',
+                          hintText: '未知可留空',
                         ),
-                      ],
+                      ),
+                      unitField: DropdownButtonFormField<String>(
+                        key: ValueKey(unit),
+                        initialValue: unit,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: '单位'),
+                        // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
+                        // 避免 initialValue 找不到 item 触发断言。
+                        items: kQuantityUnitValues
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(unitLabel(value)),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setState(() => unit = value ?? 'box');
+                          _markDirty();
+                        },
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1090,13 +1167,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     ),
                     if (openingExpanded) ...[
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'unknown', label: Text('未记录')),
-                          ButtonSegment(value: 'unopened', label: Text('未开封')),
-                          ButtonSegment(value: 'opened', label: Text('已开封')),
-                        ],
-                        selected: {openedState},
+                      _openingSegments(
+                        labels: const {
+                          'unknown': '未记录',
+                          'unopened': '未开封',
+                          'opened': '已开封',
+                        },
+                        selected: openedState,
                         onSelectionChanged: (value) {
                           setState(() => openedState = value.first);
                           _markDirty();
@@ -1112,15 +1189,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         const SizedBox(height: 10),
                         const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
                         const SizedBox(height: 8),
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(
-                              value: 'duration',
-                              label: Text('经过时长'),
-                            ),
-                            ButtonSegment(value: 'date', label: Text('截止日期')),
-                          ],
-                          selected: {afterOpenKind},
+                        _openingSegments(
+                          labels: const {
+                            'duration': '经过时长',
+                            'date': '截止日期',
+                          },
+                          selected: afterOpenKind,
                           onSelectionChanged: (value) {
                             setState(() => afterOpenKind = value.first);
                             _markDirty();
@@ -1128,45 +1202,35 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         ),
                         const SizedBox(height: 10),
                         if (afterOpenKind == 'duration')
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: afterOpenValueController,
-                                  onChanged: (_) => _markDirty(),
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: '开封后期限',
-                                    hintText: '例如 30',
-                                  ),
-                                ),
+                          _quantityUnitFields(
+                            quantityLabels: const ['开封后期限', '例如 30'],
+                            unitLabels: const ['选择', '天', '月'],
+                            quantityField: TextField(
+                              controller: afterOpenValueController,
+                              onChanged: (_) => _markDirty(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: '开封后期限',
+                                hintText: '例如 30',
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  key: ValueKey(afterOpenUnit),
-                                  initialValue: afterOpenUnit,
-                                  decoration: const InputDecoration(
-                                    labelText: '单位',
-                                  ),
-                                  hint: const Text('选择'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'day',
-                                      child: Text('天'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'month',
-                                      child: Text('月'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() => afterOpenUnit = value);
-                                    _markDirty();
-                                  },
-                                ),
+                            ),
+                            unitField: DropdownButtonFormField<String>(
+                              key: ValueKey(afterOpenUnit),
+                              initialValue: afterOpenUnit,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: '单位',
                               ),
-                            ],
+                              hint: const Text('选择'),
+                              items: const [
+                                DropdownMenuItem(value: 'day', child: Text('天')),
+                                DropdownMenuItem(value: 'month', child: Text('月')),
+                              ],
+                              onChanged: (value) {
+                                setState(() => afterOpenUnit = value);
+                                _markDirty();
+                              },
+                            ),
                           )
                         else
                           TextField(
@@ -1174,7 +1238,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             onChanged: (_) => _markDirty(),
                             keyboardType: TextInputType.datetime,
                             decoration: const InputDecoration(
-                              labelText: '开封后截止日期',
+                              label: Text('开封后截止日期'),
                               hintText: 'YYYY-MM-DD',
                             ),
                           ),
