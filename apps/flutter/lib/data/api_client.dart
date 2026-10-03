@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import 'session_identity_state.dart';
+
 typedef TokenProvider = Future<String?> Function();
 
 class ApiException implements Exception {
@@ -41,12 +43,15 @@ class ApiClient {
     required String baseUrl,
     required this.tokenProvider,
     http.Client? client,
+    this.identityState,
     this.requestTimeout = const Duration(seconds: 15),
-  }) : baseUrl = _normalizeBaseUrl(baseUrl),
+  }) : baseUrl = normalizeBaseUrl(baseUrl),
        _client = client ?? http.Client();
 
   final String baseUrl;
   final TokenProvider tokenProvider;
+  final SessionIdentityState? identityState;
+  Future<VerifiedOwnerContext?> Function()? refreshIdentityContext;
   final http.Client _client;
   final Duration requestTimeout;
 
@@ -153,7 +158,7 @@ class ApiClient {
     return cleanupEpoch;
   }
 
-  static String _normalizeBaseUrl(String value) {
+  static String normalizeBaseUrl(String value) {
     final trimmed = value.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(trimmed);
     if (uri == null ||
@@ -273,6 +278,15 @@ class ApiClient {
         message: '会话已变更，请重新加载。',
       );
     }
+    if (authenticated &&
+        identityState != null &&
+        (token == null || token.isEmpty)) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'SESSION_BLOCKED',
+        message: '登录状态尚未确认，请重新连接。',
+      );
+    }
     final headers = <String, String>{'accept': accept};
     if (body != null) {
       headers['content-type'] = 'application/json; charset=utf-8';
@@ -358,10 +372,35 @@ class ApiClient {
     );
   }
 
+  /// Bounded best-effort revoke uses only the captured outgoing credential.
+  /// It cannot invoke a cleanup callback against a replacement identity.
+  Future<void> revokeSession(String token) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$baseUrl/api/v1/auth/logout'),
+            headers: {
+              'authorization': 'Bearer $token',
+              'content-type': 'application/json; charset=utf-8',
+            },
+            body: '{}',
+          )
+          .timeout(requestTimeout);
+      _throwIfFailed(response, _decodeErrorBody(response));
+    } on TimeoutException {
+      throw const ApiNetworkException('连接超时，请检查网络后重试。');
+    } on SocketException {
+      throw const ApiNetworkException('无法连接服务器，请检查网络后重试。');
+    } on http.ClientException {
+      throw const ApiNetworkException('无法连接服务器，请检查网络后重试。');
+    }
+  }
+
   void close() => _client.close();
 }
 
 String friendlyApiError(Object error) {
+  if (error is SessionPersistenceException) return error.toString();
   if (error is ApiNetworkException) return error.message;
   if (error is ApiException) {
     if (error.statusCode == 401) return '登录已过期，请重新连接家庭药箱。';

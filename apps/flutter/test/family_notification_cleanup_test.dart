@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'support/identity_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -77,14 +80,24 @@ Future<AppServices> serviceWith(
   Future<http.Response> Function(http.Request) handler, {
   required MemorySecretStore secrets,
   required MemoryInventoryLocalStore local,
-}) => http.runWithClient(
-  () => AppServices.create(
-    apiBaseUrl: 'https://medicine.example',
-    secretStore: secrets,
-    localStore: local,
-  ),
-  () => MockClient(handler),
-);
+}) async {
+  final pending = secrets.values[ApiAuthRepository.pendingPollTokenKey];
+  final persistence = await identityFixture(secrets, localStore: local);
+  final services = await http.runWithClient(
+    () => AppServices.create(
+      apiBaseUrl: 'https://medicine.example',
+      secretStore: secrets,
+      localStore: local,
+      identityStore: persistence,
+    ),
+    () => MockClient(handler),
+  );
+  if (pending != null) {
+    final state = services.api!.identityState!;
+    await state.storePendingLink(state.beginLink(), pending);
+  }
+  return services;
+}
 
 Future<void> seedFamily(AppServices services) async {
   await services.localStore.saveFamily(
@@ -491,6 +504,11 @@ void main() {
           HomeMedicineApp(
             apiBaseUrl: 'https://medicine.example',
             secretStore: secrets,
+            identityStore: await identityFixture(
+              secrets,
+              localStore: local,
+              userId: 'user-a',
+            ),
             localStore: local,
           ),
         );
@@ -715,6 +733,7 @@ void main() {
             HomeMedicineApp(
               apiBaseUrl: 'https://medicine.example',
               secretStore: secrets,
+              identityStore: await identityFixture(secrets, localStore: local),
               localStore: local,
             ),
           );
@@ -732,10 +751,7 @@ void main() {
       expect(local.family, isNull);
       expect(local.drafts, isEmpty);
       expect(notifications.pending, isEmpty);
-      expect(
-        secrets.values[ApiAuthRepository.accessTokenKey],
-        'synthetic-session-a',
-      );
+      expect(storedSyntheticToken(secrets), 'synthetic-session-a');
       expect(methods, ['GET']);
       await tester.pumpWidget(const SizedBox.shrink());
       debugDefaultTargetPlatformOverride = null;
@@ -754,6 +770,7 @@ void main() {
           HomeMedicineApp(
             apiBaseUrl: 'https://medicine.example',
             secretStore: secrets,
+            identityStore: await identityFixture(secrets, localStore: local),
             localStore: local,
           ),
         );
@@ -776,6 +793,8 @@ void main() {
         .widget<BootGatePage>(find.byType(BootGatePage))
         .services;
     expect(entered.isCompleted, isTrue);
+    final identity = services.api!.identityState!;
+    await identity.storePendingLink(identity.beginLink(), 'synthetic-poll');
     await services.auth!.exchangePendingLink();
     await services.localStore.saveFamily(
       FamilyRecord(id: 'family-b', name: 'Synthetic b', role: 'owner'),
@@ -784,10 +803,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('重试'), findsOneWidget);
-    expect(
-      secrets.values[ApiAuthRepository.accessTokenKey],
-      'synthetic-session-b',
-    );
+    expect(storedSyntheticToken(secrets), 'synthetic-session-b');
     expect(local.family!.id, 'family-b');
     expect(services.sessionInvalidated.value, isFalse);
     expect(find.byType(DeviceLinkPage), findsNothing);

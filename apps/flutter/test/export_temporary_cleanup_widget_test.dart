@@ -2,6 +2,9 @@
 // ignore_for_file: depend_on_referenced_packages
 // Synthetic fixtures only; platform share, clipboard and notifications are fake.
 import 'dart:async';
+
+import 'support/identity_fixture.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -209,9 +212,10 @@ void main() {
       ),
     );
     services = await http.runWithClient(
-      () => AppServices.create(
+      () async => AppServices.create(
         apiBaseUrl: 'https://medicine.example',
         secretStore: secrets,
+        identityStore: await identityFixture(secrets, localStore: storage),
         localStore: storage,
       ),
       () => MockClient((request) async {
@@ -571,10 +575,8 @@ void main() {
 
   Future<void> rotateIdentity() async {
     await services.auth!.onIdentitySwitch!();
-    await secrets.write(
-      ApiAuthRepository.accessTokenKey,
-      'synthetic-account-b',
-    );
+    final identity = services.api!.identityState!;
+    await identity.acceptToken(identity.beginLink(), 'synthetic-account-b');
   }
 
   testWidgets('restore entry on a stale mounted page cannot open picker', (

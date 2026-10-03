@@ -110,6 +110,9 @@ class ApiPlanRepository extends ChangeNotifier {
     PlanFormDraftHandle? formDraft,
     bool Function()? isCurrent,
   }) async {
+    if (formDraft?.session.offlineReadOnly == true) {
+      throw const PlanFormDraftException('当前为离线本机草稿，请联网重新加载后保存计划。');
+    }
     final epoch = api.identityEpoch;
     PlanFormDraftReference? reference;
     var acknowledged = false;

@@ -38,8 +38,9 @@ class _BootGatePageState extends State<BootGatePage> {
       resolving = true;
       error = null;
     });
+    final epoch = services.api!.identityEpoch;
     final token = await services.auth!.readAccessToken();
-    if (!mounted) return;
+    if (!mounted || epoch != services.api!.identityEpoch) return;
     if (token == null || token.isEmpty) {
       context.go('/connect');
       return;
@@ -55,9 +56,14 @@ class _BootGatePageState extends State<BootGatePage> {
         if (mounted) context.go('/family-choice');
       }
     } on ApiNetworkException {
+      final owner = services.api!.identityState?.owner;
       final family = await services.localStore.readFamily();
-      if (!mounted) return;
-      if (family != null) {
+      if (!mounted || epoch != services.api!.identityEpoch) return;
+      if (owner != null &&
+          owner.origin == services.api!.baseUrl &&
+          owner.generation == services.api!.identityState?.generation &&
+          owner.familyId != null &&
+          family?.id == owner.familyId) {
         context.go('/home');
       } else {
         setState(() {
@@ -170,6 +176,7 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
   Timer? pollTimer;
   bool starting = false;
   bool polling = false;
+  bool retryingSignOut = false;
   String? message;
 
   @override
@@ -244,6 +251,21 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
     }
   }
 
+  Future<void> _retrySignOut() async {
+    if (retryingSignOut) return;
+    pollTimer?.cancel();
+    setState(() {
+      retryingSignOut = true;
+      link = null;
+    });
+    try {
+      final result = await widget.services.auth!.logout();
+      if (mounted) setState(() => message = result ?? '本机退出状态已保存，请重新获取连接码。');
+    } finally {
+      if (mounted) setState(() => retryingSignOut = false);
+    }
+  }
+
   Future<void> _copyCode() async {
     final value = link?.code;
     if (value == null) return;
@@ -309,6 +331,30 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                         onPressed: _copyCode,
                       ),
                     const SizedBox(height: 14),
+                    if (widget.services.api?.identityState case final state?)
+                      ValueListenableBuilder<String?>(
+                        valueListenable: state.warningSignal,
+                        builder: (context, warning, _) => warning == null
+                            ? const SizedBox.shrink()
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    warning,
+                                    key: const ValueKey(
+                                      'session-persistence-warning',
+                                    ),
+                                  ),
+                                  if (state.needsPersistenceRetry)
+                                    SoftButton(
+                                      label: '重试本机退出状态',
+                                      onPressed: retryingSignOut
+                                          ? null
+                                          : _retrySignOut,
+                                    ),
+                                ],
+                              ),
+                      ),
                     Text(message ?? '正在获取安全连接码…'),
                     if (link != null)
                       Text(

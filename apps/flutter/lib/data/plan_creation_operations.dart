@@ -5,6 +5,7 @@ import '../models/plan_models.dart';
 import 'api_client.dart';
 import 'app_stores.dart';
 import 'plan_form_drafts.dart';
+import 'session_identity_state.dart';
 
 /// The original submitted payload, not a mutable form draft. Stored in the
 /// existing private family-data lifecycle; never contains credentials.
@@ -31,9 +32,20 @@ class PendingPlanCreation {
 }
 
 class PlanCreationSession {
-  PlanCreationSession._(this.scope, this.identityEpoch);
+  PlanCreationSession._(
+    this.scope,
+    this.identityEpoch, {
+    this.offlineReadOnly = false,
+  });
   final String scope;
   final int identityEpoch;
+
+  /// An owned local form may be edited, but this session never authorizes a
+  /// remote operation. Connectivity returning cannot promote an old session.
+  final bool offlineReadOnly;
+
+  PlanCreationSession asOfflineReadOnly() =>
+      PlanCreationSession._(scope, identityEpoch, offlineReadOnly: true);
 }
 
 class PlanCreationReceipt {
@@ -110,23 +122,61 @@ class PlanCreationOperations {
     _requireCurrent(epoch, isCurrent);
     await api.waitForIdentityCleanup();
     _requireCurrent(epoch, isCurrent);
-    final result = await api.get('/api/v1/auth/me');
-    _requireCurrent(epoch, isCurrent);
-    final user = result is Map ? result['user'] : null;
-    final family = result is Map ? result['family'] : null;
-    if (user is! Map ||
-        user['id'] is! String ||
-        (user['id'] as String).trim().isEmpty ||
-        user['hasFamily'] != true ||
-        family is! Map ||
-        family['id'] is! String ||
-        (family['id'] as String).trim().isEmpty) {
-      throw const PlanCreationException('无法确认当前家庭身份，请重新加载。');
+    String userId;
+    String familyId;
+    var offlineReadOnly = false;
+    final refreshIdentity = api.refreshIdentityContext;
+    if (refreshIdentity != null) {
+      VerifiedOwnerContext? owner;
+      try {
+        owner = await refreshIdentity();
+      } on ApiNetworkException {
+        _requireCurrent(epoch, isCurrent);
+        // Only the secure-envelope-bound owner may unlock local drafts. A
+        // network error is not permission to trust a stale in-memory profile.
+        owner = api.identityState?.owner;
+        if (owner == null) rethrow;
+        offlineReadOnly = true;
+      }
+      _requireCurrent(epoch, isCurrent);
+      if (owner == null ||
+          owner.origin != api.baseUrl ||
+          (api.identityState != null &&
+              owner.generation != api.identityState!.generation) ||
+          owner.userId.trim().isEmpty ||
+          owner.familyId == null ||
+          owner.familyId!.trim().isEmpty) {
+        throw const PlanCreationException('无法确认当前家庭身份，请重新加载。');
+      }
+      userId = owner.userId;
+      familyId = owner.familyId!;
+    } else {
+      // Standalone repositories retain current server identity validation;
+      // they never acquire offline authority from an unbound cache.
+      final result = await api.get('/api/v1/auth/me');
+      _requireCurrent(epoch, isCurrent);
+      final user = result is Map ? result['user'] : null;
+      final family = result is Map ? result['family'] : null;
+      if (user is! Map ||
+          user['id'] is! String ||
+          (user['id'] as String).trim().isEmpty ||
+          user['hasFamily'] != true ||
+          family is! Map ||
+          family['id'] is! String ||
+          (family['id'] as String).trim().isEmpty) {
+        throw const PlanCreationException('无法确认当前家庭身份，请重新加载。');
+      }
+      userId = user['id'] as String;
+      familyId = family['id'] as String;
     }
     final scope = base64Url.encode(
-      utf8.encode(jsonEncode([api.baseUrl, user['id'], family['id']])),
+      utf8.encode(jsonEncode([api.baseUrl, userId, familyId])),
     );
-    final session = PlanCreationSession._(scope, epoch);
+    final session = PlanCreationSession._(
+      scope,
+      epoch,
+      offlineReadOnly: offlineReadOnly,
+    );
     // Editing another plan needs the same validated identity scope, but does
     // not depend on an unrelated new-plan operation being readable.
     if (!loadPending) return session;
@@ -199,6 +249,12 @@ class PlanCreationOperations {
     return _orphans.containsKey(session.scope);
   }
 
+  void _requireOnline(PlanCreationSession session) {
+    if (session.offlineReadOnly) {
+      throw const PlanCreationException('当前仅可编辑本机草稿，请联网重新读取后再核对或提交计划。');
+    }
+  }
+
   bool _scopeBusy(String scope) =>
       _busy.any((lock) => lock.endsWith(':$scope'));
 
@@ -207,6 +263,7 @@ class PlanCreationOperations {
     bool Function()? isCurrent,
   }) async {
     _requireCurrent(session.identityEpoch, isCurrent);
+    _requireOnline(session);
     final key = _orphans[session.scope];
     if (key == null || _scopeBusy(session.scope)) {
       throw const PlanCreationException('原请求仍在处理中，或重试记录已变化，请稍后重新核对。');
@@ -245,6 +302,7 @@ class PlanCreationOperations {
   }) => _serialized(() async {
     final session = inspection.session;
     _requireCurrent(session.identityEpoch, isCurrent);
+    _requireOnline(session);
     if (_scopeBusy(session.scope) ||
         _orphans[session.scope] != inspection.key) {
       throw const PlanCreationException('原请求仍在处理中，或重试记录已变化，请重新核对。');
@@ -263,6 +321,7 @@ class PlanCreationOperations {
   }) async {
     final epoch = session.identityEpoch;
     _requireCurrent(epoch, isCurrent);
+    _requireOnline(session);
     final lock = '$epoch:${session.scope}';
     if (!_busy.add(lock)) {
       throw const PlanCreationException('正在核对这次计划，请稍候。');

@@ -67,6 +67,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
   bool _choosingMedicine = false;
   bool _conflict = false;
   bool _draftChoice = false;
+  bool _offlineDraftRestored = false;
   Object? _draftFailure;
   PlanFormDraftHandle? _formDraft;
 
@@ -77,7 +78,10 @@ class _PlanFormPageState extends State<PlanFormPage> {
 
   bool get _identityCurrent =>
       mounted && _identityEpoch == widget.repository.api.identityEpoch;
-  bool get _locked => _baseLocked || !_canManageSelected;
+  bool get _offlineReadOnly => _creationSession?.offlineReadOnly ?? false;
+  bool get _locked =>
+      _baseLocked ||
+      (_offlineReadOnly ? !_offlineDraftRestored : !_canManageSelected);
   bool get _baseLocked =>
       !_ready ||
       _saving ||
@@ -129,6 +133,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
     _allowPop = false;
     _conflict = false;
     _draftChoice = false;
+    _offlineDraftRestored = false;
     _draftFailure = null;
     _pageGeneration++;
     _identityEpoch = widget.repository.api.identityEpoch;
@@ -186,31 +191,42 @@ class _PlanFormPageState extends State<PlanFormPage> {
           _restorePending(repository.creations.pending(session));
         }
       }
-      final profiles = await repository.listCareProfiles();
-      if (!_current(generation)) return;
-      _profiles = profiles;
-      if (_careProfileId.isEmpty) {
-        final managers = profiles.where((p) => p.canManage);
-        if (managers.isNotEmpty) _careProfileId = managers.first.id;
-      }
-      if (widget.isEdit && !_dirty) {
-        final detail = await repository.getPlan(widget.planId!);
-        if (!_current(generation) || _dirty) return;
-        final plan = detail.plan;
-        _editAllowed = detail.canManage && plan.status != 'ended';
-        _medicineId = plan.medicineId;
-        _medicineBindingChanged = false;
-        _name.text = plan.medicineName;
-        _dosage.text = plan.dosageText;
-        _timeSlots = List<String>.from(plan.timeSlots);
-        _weekdays = plan.weekdays.isEmpty
-            ? List.of(_dayTokens)
-            : List.of(plan.weekdays);
-        _specificWeekdays = _weekdays.length < 7;
-        _careProfileId = plan.careProfileId;
-        _startDate = plan.startDate;
-        _endDate = plan.endDate;
-        _version = plan.version;
+      if (!_offlineReadOnly) {
+        try {
+          final profiles = await repository.listCareProfiles();
+          if (!_current(generation)) return;
+          _profiles = profiles;
+          if (_careProfileId.isEmpty) {
+            final managers = profiles.where((p) => p.canManage);
+            if (managers.isNotEmpty) _careProfileId = managers.first.id;
+          }
+          if (widget.isEdit && !_dirty) {
+            final detail = await repository.getPlan(widget.planId!);
+            if (!_current(generation) || _dirty) return;
+            final plan = detail.plan;
+            _editAllowed = detail.canManage && plan.status != 'ended';
+            _medicineId = plan.medicineId;
+            _medicineBindingChanged = false;
+            _name.text = plan.medicineName;
+            _dosage.text = plan.dosageText;
+            _timeSlots = List<String>.from(plan.timeSlots);
+            _weekdays = plan.weekdays.isEmpty
+                ? List.of(_dayTokens)
+                : List.of(plan.weekdays);
+            _specificWeekdays = _weekdays.length < 7;
+            _careProfileId = plan.careProfileId;
+            _startDate = plan.startDate;
+            _endDate = plan.endDate;
+            _version = plan.version;
+          }
+        } on ApiNetworkException {
+          if (!_current(generation)) return;
+          // Identity was validated, but the current grants/detail could not be
+          // read. Restrict this page to its owned saved form, without granting
+          // management permission or turning connectivity into authorization.
+          _creationSession = _creationSession!.asOfflineReadOnly();
+          _profiles = const [];
+        }
       }
       if (_formDraft == null) {
         final handle = await repository.formDrafts.open(
@@ -311,7 +327,10 @@ class _PlanFormPageState extends State<PlanFormPage> {
 
   Future<void> _recoverOriginal() async {
     final generation = _pageGeneration;
-    if (!_canDispatch(generation) || _saving || _creationSession == null) {
+    if (!_canDispatch(generation) ||
+        _saving ||
+        _offlineReadOnly ||
+        _creationSession == null) {
       return;
     }
     setState(() => _saving = true);
@@ -408,6 +427,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
   Future<void> _submit() async {
     final generation = _pageGeneration;
     if (!_ready ||
+        _offlineReadOnly ||
         _saving ||
         !_canDispatch(generation) ||
         _draftChoice ||
@@ -560,18 +580,35 @@ class _PlanFormPageState extends State<PlanFormPage> {
                           onPressed:
                               _saving || _bootstrapping || !_identityCurrent
                               ? null
-                              : () {
-                                  setState(() {
-                                    _load = _bootstrap();
-                                  });
-                                },
+                              : _reloadContext,
                           child: const Text('重新读取'),
                         ),
                       ],
                     ),
                   ),
-                if (!_editAllowed ||
-                    (!_canManageSelected && _profiles.isNotEmpty))
+                if (_offlineReadOnly)
+                  AppCard(
+                    child: Column(
+                      children: [
+                        const Text('离线模式：仅可恢复和编辑本机草稿，不会提交计划。联网后请重新读取并核对权限。'),
+                        if (_formDraft?.saved == null &&
+                            !_draftChoice &&
+                            _pending == null &&
+                            !_needsRecovery)
+                          const Text('此表单没有可恢复的本机草稿。'),
+                        TextButton(
+                          onPressed:
+                              _saving || _bootstrapping || !_identityCurrent
+                              ? null
+                              : _reloadContext,
+                          child: const Text('联网重新读取'),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!_offlineReadOnly &&
+                    (!_editAllowed ||
+                        (!_canManageSelected && _profiles.isNotEmpty)))
                   const AppCard(child: Text('你目前没有管理此照护对象的权限，不能保存计划。')),
                 if (!_draftOwnerCurrent)
                   const AppCard(child: Text('此表单已在另一页面打开，请返回后重新打开。')),
@@ -594,7 +631,9 @@ class _PlanFormPageState extends State<PlanFormPage> {
                       children: [
                         const Text('计划已被修改，你的输入和草稿仍保留。请先核对最新版本。'),
                         TextButton(
-                          onPressed: _saving ? null : _reviewConflict,
+                          onPressed: _saving || _offlineReadOnly
+                              ? null
+                              : _reviewConflict,
                           child: const Text('核对最新计划'),
                         ),
                       ],
@@ -608,7 +647,9 @@ class _PlanFormPageState extends State<PlanFormPage> {
                           '上次创建结果尚未确定，原计划内容已在退出或家庭清理时移除。请先查看已有计划；不能直接重试或创建新计划。',
                         ),
                         TextButton(
-                          onPressed: _saving ? null : _recoverOriginal,
+                          onPressed: _saving || _offlineReadOnly
+                              ? null
+                              : _recoverOriginal,
                           child: const Text('查看已有计划'),
                         ),
                       ],
@@ -641,7 +682,8 @@ class _PlanFormPageState extends State<PlanFormPage> {
                         spacing: 8,
                         children: [
                           TextButton.icon(
-                            onPressed: _locked || _choosingMedicine
+                            onPressed:
+                                _locked || _offlineReadOnly || _choosingMedicine
                                 ? null
                                 : _pickMedicine,
                             icon: const Icon(Icons.medication_outlined),
@@ -690,6 +732,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
                                   : (widget.isEdit ? '保存修改' : '创建计划'))),
                   onPressed:
                       !_ready ||
+                          _offlineReadOnly ||
                           _saving ||
                           _needsRecovery ||
                           !_identityCurrent ||
@@ -815,13 +858,19 @@ class _PlanFormPageState extends State<PlanFormPage> {
     try {
       final snapshot = await widget.repository.formDrafts.restore(_formDraft!);
       if (!_canDispatch(generation)) return;
-      if (widget.isEdit && snapshot.careProfileId != _careProfileId) {
+      if (widget.isEdit &&
+          !_offlineReadOnly &&
+          snapshot.careProfileId != _careProfileId) {
         throw const PlanFormDraftException('草稿照护对象与当前计划不符，请丢弃此草稿后重新核对。');
       }
       setState(() {
         final latestVersion = _version;
         _applySnapshot(snapshot);
-        _conflict = widget.isEdit && snapshot.version != latestVersion;
+        _conflict =
+            widget.isEdit &&
+            !_offlineReadOnly &&
+            snapshot.version != latestVersion;
+        _offlineDraftRestored = _offlineReadOnly;
         _dirty = true;
         _draftChoice = false;
         _draftFailure = null;
@@ -847,6 +896,34 @@ class _PlanFormPageState extends State<PlanFormPage> {
       }
     } catch (error) {
       if (_current(generation)) _message(friendlyApiError(error));
+    } finally {
+      if (_current(generation)) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _reloadContext() async {
+    final generation = _pageGeneration;
+    if (!_canDispatch(generation) || _saving || _bootstrapping) return;
+    setState(() => _saving = true);
+    try {
+      if (_dirty && !_draftChoice) {
+        await _persistDraft();
+        if (!_canDispatch(generation) || _draftFailure != null) return;
+      }
+      if (_formDraft != null) widget.repository.formDrafts.close(_formDraft!);
+      _formDraft = null;
+      _creationSession = null;
+      _offlineDraftRestored = false;
+      _draftChoice = false;
+      // Re-read current detail/version before offering the saved local input.
+      // Restoring it is still an explicit choice, including after reconnection.
+      _dirty = false;
+      _editAllowed = true;
+      _conflict = false;
+      setState(() {
+        _ready = false;
+        _load = _bootstrap();
+      });
     } finally {
       if (_current(generation)) setState(() => _saving = false);
     }
@@ -1037,7 +1114,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Future<void> _pickMedicine() async {
-    if (_locked || _choosingMedicine) return;
+    if (_locked || _offlineReadOnly || _choosingMedicine) return;
     final generation = _pageGeneration;
     setState(() => _choosingMedicine = true);
     try {
@@ -1089,7 +1166,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
 
   Future<void> _reviewConflict() async {
     final generation = _pageGeneration;
-    if (!_canDispatch(generation) || _saving) return;
+    if (!_canDispatch(generation) || _saving || _offlineReadOnly) return;
     setState(() => _saving = true);
     try {
       final detail = await widget.repository.getPlan(widget.planId!);
@@ -1162,6 +1239,9 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Widget _profilesBlock(BuildContext context) {
+    if (_offlineReadOnly) {
+      return const AppCard(child: Text('草稿照护对象保持不变，联网核对前不能选择或管理照护对象。'));
+    }
     if (_profiles.isEmpty) {
       return AppCard(
         child: Column(
@@ -1208,7 +1288,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
   }
 
   Future<void> _pickProfile() async {
-    if (_baseLocked || widget.isEdit) return;
+    if (_baseLocked || _offlineReadOnly || widget.isEdit) return;
     final generation = _pageGeneration;
     final chosen = await showAppSheet<String>(
       context,
