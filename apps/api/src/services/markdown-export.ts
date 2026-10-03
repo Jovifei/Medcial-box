@@ -43,6 +43,7 @@ const UNIT_LABELS: Record<QuantityUnit, string> = {
   capsule: "粒",
   sachet: "袋",
   bottle: "瓶",
+  tube: "支",
   box: "盒",
   blister: "板",
   ml: "毫升",

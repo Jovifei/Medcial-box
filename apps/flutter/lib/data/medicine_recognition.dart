@@ -41,11 +41,22 @@ class MedicineTextParser {
   }
 
   String _findName(List<String> lines) {
-    final medicineWords = RegExp(r'(片|胶囊|颗粒|口服液|喷雾|滴眼液|软膏|贴膏|丸|散|糖浆)');
-    return lines.firstWhere(
-      (line) => medicineWords.hasMatch(line) && line.length <= 32,
-      orElse: () => '',
-    );
+    final medicineWords = RegExp(r'(片|胶囊|颗粒|口服液|喷雾|滴眼液|软膏|凝胶|贴膏|丸|散|糖浆)');
+    for (final line in lines) {
+      final match = medicineWords.firstMatch(line);
+      if (match == null) continue;
+      var candidate = line.substring(0, match.end).trim();
+      candidate = candidate
+          .replaceFirst(
+            RegExp(r'^(?:药品名称(?:（必填）)?|通用名称|通用名|产品名称|商品名|名称)[:：\s]*'),
+            '',
+          )
+          .trim();
+      final separator = candidate.lastIndexOf(RegExp(r'[\s:：|·]'));
+      if (separator >= 0) candidate = candidate.substring(separator + 1).trim();
+      if (candidate.length >= 2 && candidate.length <= 32) return candidate;
+    }
+    return '';
   }
 
   String _findSpecification(List<String> lines) {

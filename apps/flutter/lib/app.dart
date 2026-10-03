@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/motion/app_motion.dart';
@@ -29,6 +30,13 @@ import 'features/plan/plan_detail_page.dart';
 import 'features/plan/plan_form_page.dart';
 import 'features/plan/plan_history_page.dart';
 import 'features/welcome/welcome_page.dart';
+
+const _appLocale = Locale('zh', 'CN');
+const _appLocalizationsDelegates = [
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
 
 class HomeMedicineApp extends StatefulWidget {
   const HomeMedicineApp({
@@ -300,6 +308,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
       if (snapshot.hasError) {
         return MaterialApp(
           theme: appTheme,
+          locale: _appLocale,
+          supportedLocales: const [_appLocale],
+          localizationsDelegates: _appLocalizationsDelegates,
           home: Scaffold(body: Center(child: Text('初始化失败：${snapshot.error}'))),
         );
       }
@@ -307,6 +318,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         return MaterialApp(
           title: '家庭药箱',
           theme: appTheme,
+          locale: _appLocale,
+          supportedLocales: const [_appLocale],
+          localizationsDelegates: _appLocalizationsDelegates,
           home: const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           ),
@@ -317,6 +331,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         title: '家庭药箱',
         debugShowCheckedModeBanner: false,
         theme: appTheme,
+        locale: _appLocale,
+        supportedLocales: const [_appLocale],
+        localizationsDelegates: _appLocalizationsDelegates,
         routerConfig: router!,
       );
     },

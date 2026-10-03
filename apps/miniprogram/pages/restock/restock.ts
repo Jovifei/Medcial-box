@@ -15,7 +15,7 @@ Page({
       await ensureLoggedIn();
       const result = await api.listRestockItems();
       const labels: Record<RestockStatus, string> = { needed: "待购买", purchased: "已购买", dismissed: "已取消" };
-      const units: Record<string, string> = { tablet: "片", capsule: "粒", sachet: "袋", bottle: "瓶", box: "盒", other: "份" };
+      const units: Record<string, string> = { tablet: "片", capsule: "粒", sachet: "袋", bottle: "瓶", tube: "支", box: "盒", other: "份" };
       this.setData({ items: result.items.map((item) => ({ ...item, statusLabel: labels[item.status],
         quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${units[item.unit] ?? "份"}` })) });
     } catch (error) {

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:home_medicine_flutter/data/medicine_recognition.dart';
+import 'package:home_medicine_flutter/models/medicine_models.dart';
 
 void main() {
   test(
@@ -28,6 +29,31 @@ void main() {
 
     expect(draft.name, isEmpty);
     expect(draft.warnings, contains('没有可靠识别出药品名称，请人工填写。'));
+  });
+
+  test('topical gel name is recognized from the photographed label', () {
+    final draft = MedicineTextParser().parse('糠酸莫米松凝胶\n20 g');
+
+    expect(draft.name, '糠酸莫米松凝胶');
+    expect(draft.specification, contains('20 g'));
+    expect(draft.warnings, isNot(contains('没有可靠识别出药品名称，请人工填写。')));
+  });
+
+  test('gel name survives trailing OCR noise and an English label on the same line', () {
+    for (final rawText in [
+      '糠酸莫米松凝胶交',
+      '糠酸莫米松凝胶 MOMETASONE FUROATE GEL\n20 g',
+    ]) {
+      final draft = MedicineTextParser().parse(rawText);
+
+      expect(draft.name, '糠酸莫米松凝胶');
+      expect(draft.warnings, isNot(contains('没有可靠识别出药品名称，请人工填写。')));
+    }
+  });
+
+  test('tube quantity unit keeps its API value and Chinese label', () {
+    expect(unitApiValue('支'), 'tube');
+    expect(unitLabel('tube'), '支');
   });
 
   test('a manufacture date is never mistaken for an expiry date', () {

@@ -98,6 +98,8 @@ class DemoMedicineRepository extends ChangeNotifier
     String specification = '规格待补充',
     String purpose = '用途待确认',
     String expiry = '待补充',
+    int? quantity,
+    String unit = 'box',
   }) {
     final state = expiry == '待补充' ? ExpiryState.unknown : ExpiryState.ok;
     _medicines.insert(
@@ -111,8 +113,8 @@ class DemoMedicineRepository extends ChangeNotifier
         batches: [
           DemoBatch(
             id: 'new-batch',
-            quantity: null,
-            unit: '盒',
+            quantity: quantity,
+            unit: unit,
             expiry: expiry,
             state: state,
           ),

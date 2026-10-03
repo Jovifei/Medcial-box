@@ -367,6 +367,27 @@ test("real PostgreSQL: decimal quantities and ml/blister units (R1)", {
       assert.equal(rejected.statusCode, 400, rejected.body);
       assert.match(rejected.body, /整数|VALIDATION/);
     });
+
+    await t.test("tube stock persists through API and PostgreSQL", async () => {
+      const { owner } = await family();
+      const payload = {
+        name: "合成测试勿服用",
+        idempotencyKey: `tube-${randomUUID()}`,
+        lowStockThreshold: { quantity: 1, unit: "tube" },
+        batches: [{ quantity: 2, unit: "tube" }],
+      };
+      const created = status(await request(owner, "POST", "/medicines", payload), 201);
+      assert.equal(created.lowStockThreshold.unit, "tube");
+      assert.equal(created.batches[0].quantity, 2);
+      assert.equal(created.batches[0].unit, "tube");
+      const listed = status(await request(owner, "GET", "/medicines"), 200);
+      assert.equal(listed.medicines[0].batches[0].unit, "tube");
+      status(await request(owner, "POST", "/medicines", {
+        ...payload,
+        idempotencyKey: `fractional-tube-${randomUUID()}`,
+        batches: [{ quantity: 1.5, unit: "tube" }],
+      }), 400);
+    });
   } finally {
     if (app !== undefined) await app.close();
     await fixture.close();

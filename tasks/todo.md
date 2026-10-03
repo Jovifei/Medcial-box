@@ -375,3 +375,64 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - 2026-09-24（D2/D3 决策落地）：邀请升级为"转发卡片（onShareAppMessage 携带 code，家人点卡片自动填充）+ 文本码兜底"；新增 POST /api/v1/families/leave（成员自助退出，owner 需先转让）与 POST /api/v1/families/members/{id}/transfer-ownership（事务内角色互换）；邀请页补成员列表、转让与退出入口；测试 77→83（+6：退出即时失效、owner 退出限制 ×2、转让成功后原 owner 可退出、非 owner 转让 403、自转让/404）。lint/typecheck/build 全绿。
 - 2026-09-24（审核修复轮二）：第二轮独立审核 6 项代码问题全部落地——①新增 `Database.withTransaction` 单连接事务接口，建家庭/接受邀请/转让/药品创建/药品编辑全部迁移，消除 pool.query 手工 BEGIN/COMMIT 的跨连接风险；②药品编辑在事务内按 id/version 同步批次增删改，修复"提示已保存但批次未生效"（+2 测试：同步成功、批次版本过期 409 整体回滚）；③药品创建与初始批次同事务（+1 事务顺序断言）；④迁移 `004_family_single_owner.sql` 单 owner 部分唯一索引 + 转让 FOR UPDATE 锁家庭行、事务内重验双方角色、先降级后升级；⑤有效期按 Asia/Shanghai 计算（`zonedDateParts`，+1 上海本地午夜边界测试）；⑥成员身份展示（昵称/稳定标签 + isSelf）与 owner 移除按钮；⑦新增 `integration-pg.test.mjs` 真实库集成测试（无 TEST_DATABASE_URL 自动跳过）。测试 83→88。文档漂移清理：本台账 P1/P2"其余条目"去重、roadmap 当前基线更新、operations 过期表述更正、lessons.md 补事务与时区两条。
 - 2026-09-26（审核修复轮三，基线 cca45f0）：第二轮复审 6 项遗留问题全部落地——①Compose 移除 `/docker-entrypoint-initdb.d` 迁移挂载，迁移统一由 API 迁移器执行（修复全新环境启动失败）；②迁移 `005_add_created_at_columns.sql` 补齐三表 created_at（修复列表/详情/导出查询列不存在）；③批次端点增/改/删单连接事务 + 递增药品聚合版本（修复旧页面整体保存静默删除他人新增批次，+2 测试）；④导出预览页请求序号 + 选项快照 + 复制/分享前按当前选项重新生成（修复旧响应覆盖与旧内容复制/分享）；⑤退出/移除与转让共用家庭行锁、事务内复核角色、删除带角色条件（修复单 owner 被并发删除）；⑥集成测试改用 `createDatabaseAdapter`（生产同款事务适配器）并以"普通成员升级撞索引"证明单 owner 约束（消除 user_id 约束假阳性）。测试 88→90（89 通过 + 1 跳过）。
+
+## 2026-10-03 文档同步与本地微信小程序验收
+
+- [x] 读取仓库规则、当前分支/工作区改动及 medcial-box Obsidian 映射。
+- [x] 按当前提交与证据更新根 README、Docs 索引、架构概览、本地开发说明、验证记录和收尾状态；保留其他未提交改动。
+- [x] 核验本机 API 与微信开发者工具；生成隔离小程序副本，运行时测试 220/220、lint、typecheck、官方编译 51 文件通过，DevTools CLI 接受 open；API 主机端口空响应、页面人工交互未验证并已记录。
+- [x] 相对文档链接检查通过；Obsidian overview/progress checkpoint DryRun 与写入成功，10 份筛选后的 Markdown 镜像 DryRun、同步及 SHA-256 对照通过。
+- [x] 本地验证报告、残留门槛和工作区保留情况已记录。
+
+### Review
+
+- 文档：更新根 README、`docs/README.md`、架构概览、本地开发/小程序步骤、本地小程序验证报告、`tasks/status.md` 与当前收尾矩阵；本轮未修改业务源码。
+- 验收：小程序 220/220；lint、TypeScript、官方 WXML/WXSS 编译 51 文件通过；相对 Markdown 链接存在；10 份 Obsidian 镜像文件 SHA-256 与仓库源一致。
+- 边界：本地 DevTools CLI 接受隔离项目 open，但未观察/点击页面。容器内部 readiness 200；Windows 对 `127.0.0.1:13301` 请求空响应，故 API 页面联调 NOT_RUN；没有上传微信平台或部署服务器。
+- Obsidian：overview 与 progress 记录为 `MEMORY_UPDATED`；本次知识库文档镜像为 `MEMORY_UPDATED`。服务器部署文档有他人未提交修改，本轮保留且未镜像。
+- 工作区：保留其他未提交的部署配置/脚本、`docs/operations/staging-deployment.md`、`tasks/lessons.md`，以及未跟踪 `AGENTS.md`、`overview.md`、`.flutter_tool_state`；未暂存或提交。
+## 2026-10-03 Android 手机安装与启动验收
+
+- [x] 核对 Flutter 项目、Android 包名、实体设备和当前工作区，保留现有未提交改动。
+- [x] 工具链 PASS，Flutter analyze PASS；本机测试 259 PASS/9 FAIL（Windows symlink 权限与 CRLF 锁文件断言，见 Android 报告）。
+- [x] Release 构建尝试因 R8 缺 ML Kit 类失败；另构建并核验当前源码 Debug APK（仅供本机测试，非 Release），详见报告。
+- [x] 设备预检通过，Debug APK 与已安装包签名匹配；`adb install -r` 成功且 firstInstallTime 未变，未卸载/清除数据。
+- [x] MainActivity 位于前台，进程存活，筛查未发现 FATAL/ANR/SQLite/Room 信号；未登录或处理权限/账号门槛。
+
+### Review · Android 手机安装与启动
+
+- 工具链：Flutter 3.47.5、Dart 3.13.4、JDK 17、Android SDK build-tools 37.0.0；pub get --enforce-lockfile 与 analyze PASS。
+- 测试：本机 Flutter 259 PASS/9 FAIL；8 项 symlink 用例因 Windows error 1314，依赖版本断言未匹配 CRLF 锁文件。GitHub Actions 对 736d762 为 Success。
+- APK：Release 变体在 minifyReleaseWithR8 缺 ML Kit 脚本类而失败；Debug APK 1.0.0 (1) 构建通过，SHA-256 和签名见 Android 验收报告。它是 debuggable 测试包，不能作为发布包。
+- 设备：GM1910 预检 PASS；与旧安装证书相同；adb install -r 成功，firstInstallTime 未变；前台进程存活且无过滤崩溃信号。API_BASE_URL 未配置，登录/API、相机、通知和账号流程 NOT_RUN。
+- 代码：本轮没有改 Flutter/Gradle 业务或构建源码。Release R8 修复需要按 Jovi 的代码修改授权约定另行批准。
+- 私有证据：`E:\Claude_allow\Download\medcial_box\android-evidence-2026-10-03-debug\device-install-evidence.json`；没有保存原始设备日志。
+- 文档/知识库：新增 Android 安装报告，更新 README/Docs 索引与进度槽；10 份镜像文件哈希一致，文档相对链接通过；Obsidian checkpoint 与 mirror 均为 MEMORY_UPDATED。
+## 2026-10-03 OCR、库存单位、日期滚轮与移动端交付修复
+
+- [x] 读取技能、规则、最近构建/设备结果；确认本轮业务代码修改已获 Jovi 授权。
+- [x] Trace 小程序/Flutter 拍照识别的图像、OCR/API 回包和信心度展示；用截图所示糠酸莫米松凝胶建立可重复的合成回归场景。
+- [x] 先写失败测试：药名与人工补录警告、单位 API/小程序契约、Android 单位选择和确认/取消日期滚轮；红灯已复现。
+- [x] 修复最小源头：识别“凝胶”并截去剂型词后的 OCR 噪声；分开产品规格与库存数量/单位；有效期滚轮固定简体中文，界面显示中文日期、存储保持 ISO。
+- [x] Release R8 构建 PASS，Release/Debug 均显式配置 `API_BASE_URL`；Debug 本机 API 使用回环地址与 `adb reverse`。正式域名 DNS 当前未解析，真实端仍未打通。
+- [x] 运行小程序/Flutter/API 门禁及官方编译；真机保留数据更新 Debug APK，合成家庭/API 流程通过，中文日期滚轮在手机上确认。
+- [x] 更新 Docs/Obsidian 与任务台账，明确 PASS/BLOCKED/NOT_RUN，保留现有未提交更改。
+
+### Review · 2026-10-04 OCR、单位、日期与 Android 构建
+
+- 根 lint/typecheck/npm test PASS；小程序 220/220、API 222 PASS/12 skipped、tooling 6/6；官方 WXML/WXSS 51 文件 PASS。
+- 隔离 PostgreSQL 单位/迁移集成 12/12；Flutter analyze PASS，识药/单位/日期聚焦测试 12/12 PASS。Flutter 全量测试 266 PASS/9 环境失败：8 项 Windows symlink 权限 1314、1 项 lockfile CRLF 断言。
+- Android Release R8 PASS，Release APK SHA-256 `38FC6CF9B8ABDC2749CD5315CCB2F63B34E9D9918FBAD7C73127AAE9EB0EF1E`；Debug APK SHA-256 `E4A104BB25781E0DDA13A294FD5C554ECA0BBD822B9E657AEA709E330423859F`。APK 使用 debug 签名，不代表正式发布签名。
+- OnePlus GM1910 上 Debug `adb install -r` 保留首次安装时间与旧草稿；本机合成身份的设备连接/家庭读取通过，日期滚轮和确认后中文日期显示通过。真实微信、生产 API、原始拍摄照片识别准确率、通知仍 `NOT_RUN`。
+- Release 构建目标 `medbox-test.joviluma.com` 已编入 APK，但当前 DNS 未解析；本机仅用隔离假微信 API 和测试 PostgreSQL。原始 OCR 样本准确率需用未经 UI 合成的药盒照片另行验收。
+- 文档已加入 Android OCR/单位/日期/Release 验证报告并更新入口、迁移顺序和 Flutter 构建说明。Obsidian checkpoint=`MEMORY_UPDATED`；项目文档镜像 7 份，源/目标哈希全等，复查 DryRun 无待复制项。
+
+
+## 2026-10-04 远端分支合并到 main 与手机验证
+- [x] 拉取远端，核对分支祖先关系和本地未提交改动。
+- [ ] 保存本地改动快照，预检与远端合并冲突。
+- [ ] 将不确定的冲突交由 Jovi 审核，再整合到 main。
+- [ ] 执行 API、小程序、Flutter 与 Release 验证，修复失败。
+- [ ] 保留手机数据安装更新，同步文档与验收结果。
+
+远端 main=ad6b31f，最新开发分支=f5e17e5；phone-trial-readiness 已完全包含在最新开发分支。原目录及另一现有工作树均有未提交改动，不覆盖。

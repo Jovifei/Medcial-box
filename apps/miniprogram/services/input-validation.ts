@@ -5,8 +5,8 @@ import type { ExpiryPrecision, QuantityUnit } from "./api-types";
  * 顺序即 picker 顺序； medicinal-edit 与 batch-edit 共用，
  * 避免"值表 8 项、文案 6 项"错位导致『其他』存成『板』。
  */
-export const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other"];
-export const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他"];
+export const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other", "tube"];
+export const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他", "支"];
 
 /** 数量按单位的输入规则：ml 允许最多 3 位小数，其余计件单位必须是非负整数。 */
 export function unitAllowsDecimals(unit: QuantityUnit): boolean {

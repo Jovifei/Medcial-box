@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/expiry_date_wheel_picker.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
@@ -770,7 +771,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         WidgetsBinding.instance.scheduleFrame();
       }
     } catch (error) {
-      if (savedMedicineId == null && error is ApiException && error.statusCode == 400) {
+      if (savedMedicineId == null &&
+          error is ApiException &&
+          error.statusCode == 400) {
         attemptedPayload = null;
         await _saveDraft(legacy: false);
       }
@@ -813,6 +816,37 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ],
     ),
   );
+
+  Future<void> _selectExpiryDate() async {
+    final selected = await showExpiryDateWheelPicker(
+      context,
+      initialDate: expiryDateForPicker(expiryController.text),
+    );
+    if (selected == null || !mounted) return;
+    final precision = expiryPrecision == 'month' ? 'month' : 'day';
+    setState(() {
+      expiryPrecision = precision;
+      expiryController.text = formatExpiryDate(selected, precision: precision);
+      touchedExpiry = true;
+    });
+    _markDirty();
+  }
+
+  void _setExpiryPrecision(String precision) {
+    final current = expiryController.text.trim();
+    setState(() {
+      expiryPrecision = precision;
+      if (precision == 'month' &&
+          RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(current)) {
+        expiryController.text = current.substring(0, 7);
+      } else if (precision == 'day' &&
+          RegExp(r'^\d{4}-\d{2}$').hasMatch(current)) {
+        expiryController.clear();
+      }
+      touchedExpiry = true;
+    });
+    _markDirty();
+  }
 
   @override
   Widget build(BuildContext context) => PopScope<Object?>(
@@ -1021,34 +1055,19 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: expiryController,
-                      keyboardType: TextInputType.datetime,
-                      onChanged: (value) {
-                        touchedExpiry = true;
-                        setState(
-                          () => expiryPrecision = value.length == 7
-                              ? 'month'
-                              : value.length >= 10
-                              ? 'day'
-                              : 'unknown',
-                        );
-                        _markDirty();
-                      },
-                      decoration: InputDecoration(
-                        labelText: '包装有效期',
-                        hintText: 'YYYY-MM 或 YYYY-MM-DD',
-                        suffixIcon: PopupMenuButton<String>(
-                          tooltip: '有效期精度',
-                          icon: const Icon(Icons.calendar_month_outlined),
-                          onSelected: (value) {
-                            setState(() => expiryPrecision = value);
-                            _markDirty();
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'day', child: Text('精确到日')),
-                            PopupMenuItem(value: 'month', child: Text('精确到月')),
-                          ],
+                    InkWell(
+                      key: const ValueKey('api-expiry-date-field'),
+                      onTap: _selectExpiryDate,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '包装有效期',
+                          suffixIcon: Icon(Icons.calendar_month_outlined),
+                        ),
+                        child: Text(
+                          key: const ValueKey('api-expiry-date-value'),
+                          expiryController.text.isEmpty
+                              ? '滑动选择年、月、日'
+                              : displayExpiryDate(expiryController.text),
                         ),
                       ),
                     ),
@@ -1065,11 +1084,22 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       ),
                     ),
                     if (expiryController.text.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '按包装印刷精度保存：${expiryPrecision == 'month' ? '年月' : '年月日'}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PopupMenuButton<String>(
+                          tooltip: '选择有效期精度',
+                          onSelected: _setExpiryPrecision,
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'day', child: Text('精确到日')),
+                            PopupMenuItem(value: 'month', child: Text('精确到月')),
+                          ],
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '按包装印刷精度保存：${expiryPrecision == 'month' ? '年月' : '年月日'}　修改',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
                         ),
                       ),
                   ],

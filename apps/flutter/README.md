@@ -12,9 +12,10 @@ E:\AI_Tools\Other\Flutter\bin\flutter.bat pub get
 E:\AI_Tools\Other\Flutter\bin\flutter.bat analyze
 E:\AI_Tools\Other\Flutter\bin\flutter.bat test
 E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=https://<测试 API 域名>
+E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https://<可达的 HTTPS API 地址>
 ```
 
-APK 输出到 `build\app\outputs\flutter-apk\app-debug.apk`。开发构建需要可用的 HTTPS API；不要把微信 AppSecret、资料服务密钥或模型密钥放入 `--dart-define`。
+APK 输出到 `build\app\outputs\flutter-apk\app-<variant>.apk`。实体机连接本地合成 API 时，可在 Debug 变体使用 `API_BASE_URL=http://127.0.0.1:13300` 并先运行 `adb reverse tcp:13300 tcp:13300`；Android cleartext 只在 Debug manifest 中开放。Release 必须传入可达的 HTTPS API 地址。`API_BASE_URL` 是构建时配置；不要把微信 AppSecret、资料服务密钥或模型密钥放入 `--dart-define`。
 
 ## 功能范围
 

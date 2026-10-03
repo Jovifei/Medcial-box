@@ -1,10 +1,22 @@
 # 独立测试环境与手机试用
 
-本流程供拿到测试主机、独立 HTTPS 域名及已获批的小程序 AppID 后执行。仓库中的域名、端口和环境变量均为模板；执行前先只读核对目标主机上的现有站点、证书、反向代理、3301 端口和备份位置。先查询域名的权威 NS，在实际权威 DNS 提供商配置 A 记录并确认公网解析后再申请证书。现有生产站点不属于本流程的写入范围。
+本流程使用阿里云 ECS `120.55.64.11`、域名 `medbox-test.joviluma.com` 和当前小程序 AppID。服务器地址、SSH 登录用户名和访问域名是不同信息。部署放在药箱独立目录和容器中，访问 API 使用独立 HTTPS 域名。
+
+### 域名解析：改用阿里云 DNS
+
+`joviluma.com` 当前委托的权威 DNS 是 Cloudflare（截图显示 `burt.ns.cloudflare.com` / `leia.ns.cloudflare.com`），因此阿里云 DNS 页面即使已经有记录，公网也仍由 Cloudflare 应答。可以继续用阿里云；无需把 ECS 搬到别处。
+
+截图显示阿里云已存在 7 条 A 记录（`medbox-test`、`etf`、`photo`、`teslalink`、`auth.teslalink`、`api.teslalink`、`@`），目标均为 `120.55.64.11`。切换前请在阿里云解析控制台逐项确认它们仍全部存在且启用；不要删除或修改这些记录。
+
+在阿里云域名控制台打开 `joviluma.com`：域名列表 → **管理** → **DNS管理** → **DNS修改** → **修改DNS服务器**。填写截图中阿里云分配的两台服务器 `dns29.hichina.com`、`dns30.hichina.com`，提交后等待 DNS 状态正常。阿里云官方说明，切换前需先在新 DNS 服务商完整配置旧记录，生效期间递归 DNS 缓存可能保留旧结果最长约 48 小时。[修改 DNS 服务器](https://help.aliyun.com/zh/dns/pubz-modify-dns-server-for-alibaba-cloud-domain-name) [平滑迁移说明](https://help.aliyun.com/zh/dws/support/domain-name-transfer-in-and-transfer-out-related-faq)
+
+切换生效后，在阿里云确认 `medbox-test` 的 A 记录为 `120.55.64.11`，再继续配置 HTTPS。由于 ECS 位于中国大陆，域名通过公网访问还须确认已有适用的 ICP 备案；阿里云说明中国内地服务器上的网站域名需完成备案。[阿里云个人网站备案说明](https://help.aliyun.com/zh/icp-filing/basic-icp-service/getting-started/quick-start-for-icp-filing-for-personal-websites)
 
 ## 准备
 
-在目标服务器安装 Docker Engine 和 Compose，确认 Node.js 22、DNS 指向及 HTTPS 证书可用。将代码放在独立目录，并在服务器上创建 `deploy/.env.staging`（参考 `deploy/staging.env.example`，权限 `0600`）。设置独立且至少 20 字符的 `POSTGRES_PASSWORD`、获批的 `WECHAT_APP_ID`、仅供服务端使用的 `WECHAT_APP_SECRET`。不要把该文件、密码或照片放进 Git、聊天记录、备份报告或小程序包。
+在本机运行 `npm run setup:staging`。它会自动生成独立数据库密码、从小程序项目读取 AppID，并写入被 Git 忽略的 `deploy/.env.staging`。Jovi 只需在文件中填写 `WECHAT_APP_SECRET`；部署 Compose 会使用其余服务器默认值。Secret 只保留在本地私有配置和受限的服务器配置中，不要放进聊天、Git、小程序包或备份报告。
+
+在目标服务器把配置保存为 `deploy/.env.staging` 并设为仅管理员可读（`chmod 600`）。
 
 ```bash
 chmod 600 deploy/.env.staging

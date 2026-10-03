@@ -464,7 +464,7 @@ class MedicineRecord {
       MedicineRecord(
         id: _stringOr(json['id']),
         name: _stringOr(json['name']),
-      createdAt: json['createdAt'] as String?,
+        createdAt: json['createdAt'] as String?,
         specification: json['specification'] as String?,
         manufacturer: json['manufacturer'] as String?,
         approvalNumber: json['approvalNumber'] as String?,
@@ -612,6 +612,7 @@ class FamilyMemberRecord {
     required this.isSelf,
     required this.joinedAt,
   });
+
   /// Family membership row ID; keep for member removal/ownership operations.
   final String id;
 
@@ -645,6 +646,7 @@ class FamilyMemberRecord {
 }
 
 String unitLabel(String unit) => switch (unit) {
+  'tube' => '支',
   'tablet' => '片',
   'capsule' => '粒',
   'sachet' => '袋',
@@ -656,6 +658,7 @@ String unitLabel(String unit) => switch (unit) {
 };
 
 String unitApiValue(String unit) => switch (unit) {
+  '支' => 'tube',
   '片' => 'tablet',
   '粒' => 'capsule',
   '袋' => 'sachet',
@@ -669,6 +672,7 @@ String unitApiValue(String unit) => switch (unit) {
 /// 规范单位值表（与后端 QuantityUnit 一致）。所有单位选择器共用此表，
 /// 避免遗漏 ml/blister 导致 DropdownButtonFormField 的 initialValue 找不到 item 而断言失败（R08）。
 const List<String> kQuantityUnitValues = <String>[
+  'tube',
   'tablet',
   'capsule',
   'sachet',

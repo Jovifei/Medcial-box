@@ -26,6 +26,7 @@ const QUANTITY_UNITS: readonly QuantityUnit[] = [
   "capsule",
   "sachet",
   "bottle",
+  "tube",
   "box",
   "blister",
   "ml",
@@ -239,7 +240,7 @@ function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
   const conversionUnit = raw.conversionUnit == null || raw.conversionUnit === ""
     ? null : oneOf(raw.conversionUnit, "conversionUnit", QUANTITY_UNITS, "other");
   const targets: Partial<Record<QuantityUnit, readonly QuantityUnit[]>> = {
-    box: ["tablet", "capsule", "sachet", "blister", "bottle"],
+    box: ["tablet", "capsule", "sachet", "blister", "bottle", "tube"],
     blister: ["tablet", "capsule"], bottle: ["ml"],
   };
   if (conversionUnit !== null && !targets[unit]?.includes(conversionUnit)) {

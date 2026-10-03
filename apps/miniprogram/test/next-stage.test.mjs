@@ -599,6 +599,7 @@ test("decimal ml quantity and tags survive a full medicine save (B02)", async ()
 test("unit labels stay aligned with unit values across the shared table (B02)", () => {
   const { UNIT_LABELS: labels, UNIT_VALUES: values } = loadService("services/input-validation.ts");
   assert.equal(labels.length, values.length);
+  assert.equal(labels[values.indexOf("tube")], "支");
   assert.equal(labels[values.indexOf("blister")], "板");
   assert.equal(labels[values.indexOf("other")], "其他");
 });

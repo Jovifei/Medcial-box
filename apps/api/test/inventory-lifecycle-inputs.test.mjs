@@ -30,6 +30,16 @@ test("batch validation defaults opening state to unknown and accepts a confirmed
   );
 });
 
+test("tube is a count unit for batches, thresholds, and restock requests", () => {
+  const batch = inputs.validateBatchInput({ quantity: 2, unit: "tube" });
+  assert.equal(batch.ok, true);
+  assert.equal(batch.value.quantity, 2);
+  assert.equal(batch.value.unit, "tube");
+  assert.equal(inputs.validateBatchInput({ quantity: 2.5, unit: "tube" }).ok, false);
+  assert.equal(inputs.validateMedicineInput({ name: "测试药", lowStockThreshold: { quantity: 2, unit: "tube" } }).ok, true);
+  assert.equal(inputs.validateRestockInput({ medicineId: "m-1", unit: "tube", desiredQuantity: 2 }).ok, true);
+});
+
 test("batch validation rejects impossible dates and opening metadata on unopened stock", () => {
   assert.equal(inputs.validateBatchInput({ openedState: "opened", openedAt: "2026-02-31" }).ok, false);
   assert.equal(inputs.validateBatchInput({ openedState: "unopened", openedAt: "2026-09-28" }).ok, false);

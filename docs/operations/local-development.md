@@ -25,8 +25,8 @@
 ## 迁移与备份
 
 - 新建本地 volume 时，PostgreSQL 运行 bootstrap；API 启动时运行完整迁移。运行迁移：`npm run db:migrate --workspace @home-medicine/api`（须先设置 `DATABASE_URL`）。迁移必须向前兼容且新增文件，不编辑已应用文件。迁移文件名使用零填充数字前缀（如 `002_add_family.sql`）；执行顺序按数字前缀排序、不依赖字典序，已由迁移 runner 与单元测试固定。
-- P0 只创建迁移台账，不录入真实药品。
-- 成员、批次与个人剂量备注的数据表和接口已实现（迁移 001–004，含单 owner 约束）；本地与开发环境只录入合成数据，不保存真实家庭信息。数据删除、家庭解散与保留策略在 P4 上线准备时定稿。
+- 当前源码已超出早期 P0 骨架。数据库迁移延伸至 029；其中 027 固化库存提醒发送/取消边界，028 保存计划创建幂等回执，029 增加“支”计数单位。首次部署这批变更时先应用待用迁移（包括 028/029），再更新 API，最后更新客户端。
+- 家庭、成员、药品、批次、照护计划、确认历史和提醒接口已在当前迁移与 API 中实现。自动化和本地开发环境只用合成数据，不保存真实家庭信息。数据删除、家庭解散与保留策略仍须按独立上线门槛验收。
 - 上线前先验证数据库定期备份与恢复。图片数据位于独立私有文件目录，需要与 PostgreSQL 备份保持可关联并单独备份。恢复练习仅在明确隔离的环境执行。
 
 ## 微信账号和服务端发布
@@ -49,3 +49,21 @@ docker compose --env-file deploy/.env.local -p medbox-local-trial -f deploy/dock
 拍照识别本地优先使用已在 Windows 安装的 Ollama 模型。私有 `deploy/.env.local` 中设置 `MEDICINE_RECOGNITION_PROVIDER=ollama`、`OLLAMA_BASE_URL=http://host.docker.internal:11434`、`OLLAMA_MODEL=qwen3.5:0.8b`；Docker Desktop API 可通过该主机名访问本机服务。识别接口只返回待人工核对的草稿。不要把 `11434` 公开到网络；此地址不适用于远端 ECS。百炼适配器仅在服务端显式选择 `dashscope` 且配置独立密钥时使用。
 
 服务器部署须绑定已批准的小程序 HTTPS 域名、单独 PostgreSQL 凭证和访问日志策略。Compose 当前只用于回环地址开发；生产发布另建经审阅的配置，不复用默认口令，不公开数据库端口。
+
+## 本地小程序导入与编译
+
+用隔离副本导入微信开发者工具，避免修改源项目 AppID、API 地址和配置：
+
+~~~powershell
+$miniAppId = (Get-Content apps/miniprogram/project.config.json -Raw | ConvertFrom-Json).appid
+$miniProject = node scripts/prepare-miniprogram.mjs --appid $miniAppId --api-base http://127.0.0.1:13301 --local
+& "E:\AI_Tools\Other\WeChatDevTools\cli.bat" open --project $miniProject
+npm run check:miniprogram
+npm run lint --workspace @home-medicine/miniprogram
+npm run typecheck --workspace @home-medicine/miniprogram
+npm test --workspace @home-medicine/miniprogram
+~~~
+
+`prepare:mini` 只允许 credential-free loopback HTTP origin，把本地副本写入 Git 忽略的 `.local-data/mini-local-<UUID>`，并关闭该副本的域名校验。不要把 AppSecret、模型密钥或其他服务端配置复制到小程序目录。`check:miniprogram` 调用 DevTools 自带 WXML/WXSS 编译器；通过只证明模板和样式可编译。模拟器点击、真实身份、真机分享和消息送达仍须单独记录。
+
+本机一次性结果与 API 端口诊断见[2026-10-03 本地验证报告](02-RPT-本地微信小程序导入与编译验证.md)。

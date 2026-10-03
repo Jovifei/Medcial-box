@@ -1,12 +1,15 @@
-# 当前状态 · 2026-10-03 云端补充收尾
+# 当前状态 · 2026-10-04 Android 本机复核
 
-- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前核对源码 `517dbf2`，既有分支 `codex/flutter-ui-prototype`
-- 已连续发布8批独立修复：小程序会话、提醒发送边界、Flutter照护契约、双端确认重试、历史纠正、仅接收提醒隐私、导出生命周期及明确家庭失效清理
-- 当前自动化证据：Mini195、严格PG参与API317、tooling6、独立PG108；最新Flutter227/analyze通过。8批精确提交CI均通过（包括debug APK），全部链接见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
-- 仍有代码工作：计划创建幂等、Flutter星期/库存绑定/持久草稿、跨进程原始文件和异常退出恢复；不能宣称只剩人工验收
-- 官方小程序编译在本云环境SKIPPED；CI debug APK未配置生产API/正式签名。真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍NOT_RUN
-- 本轮只使用云端源码与合成数据；未访问原Windows工作区、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
-
+- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；源码 `codex/flutter-ui-prototype / 736d7623435e2a38e3ebb51859574d43dffa0120`。项目未达到 LOCAL_RC_READY、STAGING_READY 或 V1_DELIVERED。
+- 本地已快进同步远端 10 个提交。计划创建重试使用迁移 028 持久回执；新“支”单位使用迁移 029。新环境需先应用所有待用迁移，再更新 API，最后更新客户端。
+- 精确提交 GitHub Actions [run 37107940730](https://github.com/Jovifei/Medcial-box/actions/runs/37107940730) 显示 Success，包含 verify 与 flutter 作业。
+- 本机小程序：运行时测试 220/220、lint、typecheck 与官方 WXML/WXSS 编译 51 个文件 PASS；DevTools CLI 接受隔离项目打开。未观察页面渲染或逐项点击。
+- 本机 Android：最终源码 Debug APK 经 `adb install -r` 更新到 OnePlus GM1910，首次安装时间未变；本机合成 API 下设备连接与家庭读取通过。日期滚轮与选中值已在真机验证为中文。Release R8 已构建 PASS，但使用 debug 证书。
+- 本机 Debug API 为 `127.0.0.1:13300` 的假微信/隔离 PostgreSQL 联调环境，当前进程和手机 ADB reverse 仍启用；测试家庭是合成数据。`medbox-test.joviluma.com` 当前无 DNS。真实微信 OAuth、相机照片识别准确率、通知、生产家庭数据均 `NOT_RUN`。小程序源码回归和官方编译仍 PASS；完整证据见 [Android 识药、单位、日期与 Release 报告](../docs/operations/04-RPT-Android识药单位日期与Release验证.md)。
+- Docs 索引、架构/Flutter 本地构建说明与 Android 验证报告已更新；Obsidian overview/progress/decision checkpoint 及 7 份文档镜像为 `MEMORY_UPDATED`，源/目标哈希一致。
+- 本轮未向微信平台上传/发布，也未操作 ECS。两账号两手机、提醒模板/送达、系统分享、HTTPS、正式签名及数据库/图片恢复均 `NOT_RUN`。
+- 仍需补齐：Android 计划表单的星期选择、药箱药品关联、普通表单草稿；Flutter 跨重启安全恢复与跨进程导出文件清理。C1 计划创建幂等已在 736d762 完成。
+- 下列较早云端核对条目保留为历史版本证据，不把旧统计或旧 SDK 状态当作当前本机结论。
 ---
 
 # 历史状态 · 2026-10-03 原收尾修复
