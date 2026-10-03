@@ -2,6 +2,7 @@ import type { Database } from "../types.js";
 import { daysUntilExpiry } from "../domain/expiry.js";
 import { buildFamilyMedicineSummaries } from "../routes/medicines.js";
 import { listMedicines } from "../repositories/medicines.js";
+import { toBatchSummary, type MedicineBatchRow } from "../repositories/batches.js";
 import type { ReminderTemplateConfig, SubscribeMessageSender } from "../services/subscribe-messages.js";
 
 const MILESTONES = [30, 7, 1, 0] as const;
@@ -86,14 +87,15 @@ interface ClaimedDelivery {
 
 /**
  * 作废孤儿任务：收件人已不属于该家庭（被移除或已退出）时，
- * 排队中的提醒必须停止，并把对应的订阅授权也释放掉。
+ * 未发送的提醒必须停止；已越过发送边界的任务仅请求取消，授权不再复用。
  * 这同时覆盖成员移除流程之外的历史数据。
  */
 export async function blockDeliveriesForDepartedMembers(database: Database): Promise<number> {
   const blocked = await database.query<{ id: string }>(
     `UPDATE reminder_deliveries d
-     SET status = 'blocked', last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
-     WHERE d.status IN ('queued', 'failed', 'sending')
+     SET status = CASE WHEN d.send_started_at IS NULL THEN 'blocked' ELSE d.status END,
+         cancel_requested = true, last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
+     WHERE d.status IN ('queued', 'failed', 'sending') AND NOT d.cancel_requested
        AND NOT EXISTS (
          SELECT 1 FROM family_members fm
          WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id
@@ -124,8 +126,9 @@ export async function cancelDeliveriesForMember(
 ): Promise<void> {
   await database.query(
     `UPDATE reminder_deliveries
-     SET status = 'blocked', last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
-     WHERE family_id = $1 AND user_id = $2 AND status IN ('queued', 'failed', 'sending')`,
+     SET status = CASE WHEN send_started_at IS NULL THEN 'blocked' ELSE status END,
+         cancel_requested = true, last_error_code = 'NOT_A_MEMBER', next_attempt_at = now()
+     WHERE family_id = $1 AND user_id = $2 AND status IN ('queued', 'failed', 'sending') AND NOT cancel_requested`,
     [familyId, userId],
   );
   await database.query(
@@ -141,8 +144,8 @@ async function claimDeliveries(database: Database, now: Date): Promise<ClaimedDe
     const claimed = await tx.query<{ id: string }>(
       `WITH candidates AS (
          SELECT id FROM reminder_deliveries
-         WHERE (status IN ('queued', 'failed') AND next_attempt_at <= $1)
-            OR (status = 'sending' AND next_attempt_at <= $1)
+         WHERE status IN ('queued', 'failed', 'sending') AND next_attempt_at <= $1
+           AND send_started_at IS NULL AND NOT cancel_requested
          ORDER BY next_attempt_at, id
          FOR UPDATE SKIP LOCKED LIMIT $2
        )
@@ -173,6 +176,14 @@ async function claimDeliveries(database: Database, now: Date): Promise<ClaimedDe
   });
 }
 
+async function blockClaimedDelivery(database: Pick<Database, "query">, delivery: ClaimedDelivery, code: string): Promise<void> {
+  await database.query(
+    `UPDATE reminder_deliveries SET status = 'blocked', last_error_code = $3
+     WHERE id = $1 AND attempts = $2 AND status = 'sending' AND send_started_at IS NULL`,
+    [delivery.id, delivery.attempts, code],
+  );
+}
+
 export async function dispatchDueReminderMessages(
   database: Database,
   sender: SubscribeMessageSender,
@@ -182,7 +193,6 @@ export async function dispatchDueReminderMessages(
   if (!config.available) return { queued: 0, sent: 0, failed: 0 };
 
   let queued = 0;
-  const currentDeadlinesByBatch = new Map<string, string | null>();
   const families = await database.query<{ family_id: string }>(
     "SELECT DISTINCT family_id FROM family_members ORDER BY family_id",
   );
@@ -197,7 +207,6 @@ export async function dispatchDueReminderMessages(
     );
     for (const medicine of medicines) {
       for (const batch of medicine.batches) {
-        currentDeadlinesByBatch.set(batch.id, batch.managementExpiryDate ?? null);
         if (batch.dispositionStatus === "handled") continue;
         const deadlineDate = batch.managementExpiryDate;
         if (deadlineDate === null || deadlineDate === undefined) continue;
@@ -218,35 +227,74 @@ export async function dispatchDueReminderMessages(
   let sent = 0;
   let failed = 0;
   for (const delivery of claimed) {
-    const currentDeadline = currentDeadlinesByBatch.get(delivery.batch_id);
     const preference = (await database.query<{ stock_reminder_time: string; channels: string[] }>("SELECT stock_reminder_time::text, channels FROM notification_preferences WHERE user_id=$1", [delivery.user_id])).rows[0];
     const localTime = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(11, 19);
     if (preference !== undefined && (!preference.channels.includes("wechat") || localTime < preference.stock_reminder_time)) {
-      await database.query("UPDATE reminder_deliveries SET status='blocked', last_error_code='PREFERENCE_CHANGED' WHERE id=$1", [delivery.id]);
+      await blockClaimedDelivery(database, delivery, "PREFERENCE_CHANGED");
       continue;
     }
 
-    // 发送前的最后一道复核：领取之后才被移除的成员也必须被拦下。
+    // This is the claim snapshot. Current membership is checked again in the
+    // atomic send boundary below, together with lease ownership and opt-out.
     if (!delivery.is_member) {
-      await database.query("UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'NOT_A_MEMBER' WHERE id = $1", [delivery.id]);
+      await blockClaimedDelivery(database, delivery, "NOT_A_MEMBER");
       continue;
     }
     // 里程碑复核：重试时当前剩余天数必须仍等于原事件天数（A08）。
     // 例如"30 天后到期"的任务不能在只剩 28 天时补发——过时事件取消，而不是消耗新的订阅机会。
     const daysLeft = daysUntilExpiry({ value: delivery.deadline_date, precision: "day" }, now);
     if (daysLeft === null || daysLeft !== delivery.days_before) {
-      await database.query(
-        "UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'STALE_MILESTONE' WHERE id = $1",
-        [delivery.id],
-      );
+      await blockClaimedDelivery(database, delivery, "STALE_MILESTONE");
       continue;
     }
     const obsolete = delivery.is_archived || delivery.medicine_deleted_at !== null || delivery.batch_deleted_at !== null ||
-      delivery.disposition_status === "handled" || currentDeadline === undefined || currentDeadline === null || currentDeadline !== delivery.deadline_date;
+      delivery.disposition_status === "handled";
     if (obsolete) {
-      await database.query("UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'STALE_EVENT' WHERE id = $1", [delivery.id]);
+      await blockClaimedDelivery(database, delivery, "STALE_EVENT");
       continue;
     }
+    if (delivery.attempts > MAX_ATTEMPTS) {
+      await blockClaimedDelivery(database, delivery, "RETRY_EXHAUSTED");
+      continue;
+    }
+    // The durable boundary is the last operation before the external send.
+    // Only an eligible owner of this not-started lease may cross it. Once set,
+    // a timeout, process crash or failed settlement must never trigger a resend.
+    const started = await database.withTransaction(async (tx) => {
+      // Re-read the actual batch, not the pre-claim inventory snapshot. Hold a
+      // shared row lock until the marker commits so expiry/opening edits cannot
+      // slip between validation and the send boundary. Unrelated changes (for
+      // example quantity or storage location) do not invalidate this event.
+      const current = await tx.query<MedicineBatchRow>(
+        `SELECT b.* FROM medicine_batches b
+         JOIN reminder_deliveries d ON d.batch_id = b.id AND d.family_id = b.family_id
+         WHERE d.id = $1 FOR SHARE OF b`,
+        [delivery.id],
+      );
+      const batch = current.rows[0];
+      if (batch === undefined || batch.deleted_at !== null || batch.disposition_status === "handled" ||
+          toBatchSummary(batch, now).managementExpiryDate !== delivery.deadline_date) {
+        await blockClaimedDelivery(tx, delivery, "STALE_EVENT");
+        return false;
+      }
+      const boundary = await tx.query<{ id: string }>(
+        `UPDATE reminder_deliveries d
+         SET send_started_at = now(), next_attempt_at = now() + interval '5 minutes'
+         WHERE d.id = $1 AND d.attempts = $2 AND d.status = 'sending'
+           AND d.send_started_at IS NULL AND NOT d.cancel_requested
+           AND EXISTS (SELECT 1 FROM family_members fm WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id)
+           AND NOT EXISTS (SELECT 1 FROM notification_preferences np WHERE np.user_id = d.user_id
+                           AND (NOT ('wechat' = ANY(np.channels)) OR np.stock_reminder_time > $3::time))
+           AND EXISTS (SELECT 1 FROM medicines m JOIN medicine_batches b ON b.medicine_id = m.id
+                       WHERE m.id = d.medicine_id AND m.family_id = d.family_id AND NOT m.is_archived AND m.deleted_at IS NULL
+                         AND b.id = d.batch_id AND b.family_id = d.family_id AND b.deleted_at IS NULL AND b.disposition_status <> 'handled')
+         RETURNING d.id`,
+        [delivery.id, delivery.attempts, localTime],
+      );
+      if (boundary.rowCount === 0) await blockClaimedDelivery(tx, delivery, "ELIGIBILITY_CHANGED");
+      return boundary.rowCount !== 0;
+    });
+    if (!started) continue;
     try {
       const result = await sender.send({
         openid: delivery.openid,
@@ -255,20 +303,24 @@ export async function dispatchDueReminderMessages(
         deadlineDate: delivery.deadline_date,
         eventLabel: labelForMilestone(delivery.days_before),
       });
-      await database.query(
-        "UPDATE reminder_deliveries SET status = 'sent', message_id = $2, sent_at = $3, last_error_code = NULL WHERE id = $1",
-        [delivery.id, result.messageId, now],
+      const settled = await database.query<{ id: string }>(
+        `UPDATE reminder_deliveries SET status = 'sent', message_id = $2, sent_at = $3, last_error_code = NULL
+         WHERE id = $1 AND attempts = $4 AND status = 'sending' AND send_started_at IS NOT NULL
+         RETURNING id`,
+        [delivery.id, result.messageId, now, delivery.attempts],
       );
-      sent += 1;
+      if (settled.rowCount !== 0) sent += 1;
     } catch {
-      const exhausted = delivery.attempts >= MAX_ATTEMPTS;
-      const retryMinutes = Math.min(60, 2 ** delivery.attempts * 5);
-      await database.query(
-        `UPDATE reminder_deliveries SET status = $2, last_error_code = 'DELIVERY_FAILED',
-         next_attempt_at = $3 WHERE id = $1`,
-        [delivery.id, exhausted ? "blocked" : "failed", new Date(now.getTime() + retryMinutes * 60_000)],
+      // The request may have arrived, or a successful response may have failed
+      // to settle in the database. Retain the boundary and consumed grant for
+      // reconciliation; failed is diagnostic, never a permission to resend.
+      const uncertain = await database.query<{ id: string }>(
+        `UPDATE reminder_deliveries SET status = 'failed', last_error_code = 'DELIVERY_UNCERTAIN'
+         WHERE id = $1 AND attempts = $2 AND status = 'sending' AND send_started_at IS NOT NULL
+         RETURNING id`,
+        [delivery.id, delivery.attempts],
       );
-      failed += 1;
+      if (uncertain.rowCount !== 0) failed += 1;
     }
   }
   return { queued, sent, failed };

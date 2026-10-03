@@ -382,21 +382,27 @@ export async function dispatchDoseReminders(
     // 再次以租约条件核验 cancel_requested，尽量缩小"取消已到但仍发送"的窗口；
     // 跨过 sender 边界后无法撤回，只能由发送结果决定终态。
     const barrier = await database.query<{ id: string }>(
-      `UPDATE dose_reminder_deliveries
+      `UPDATE dose_reminder_deliveries d
        SET next_attempt_at = now() + interval '5 minutes', send_started_at = now()
-       WHERE id = $1 AND attempts = $2 AND status = 'sending' AND NOT cancel_requested
-       RETURNING id`,
+       WHERE d.id = $1 AND d.attempts = $2 AND d.status = 'sending'
+         AND d.send_started_at IS NULL AND NOT d.cancel_requested
+         AND EXISTS (SELECT 1 FROM family_members fm WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id)
+         AND NOT EXISTS (SELECT 1 FROM notification_preferences np WHERE np.user_id = d.user_id AND NOT ('wechat' = ANY(np.channels)))
+       RETURNING d.id`,
       [delivery.id, delivery.attempts],
     );
     if (barrier.rowCount === 0) {
-      // 领取后到达的取消：落 cancelled，但不退授权——在途取消属结果不确定，授权保持消费不重用。
-      await database.query(
+      // A cancellation or opt-out may arrive after claim (or even after queue
+      // inspected preferences). Settle only our not-started lease; never touch a
+      // newer worker's row or refund consent held by an in-flight cancellation.
+      const cancelled = await database.query<{ id: string }>(
         `UPDATE dose_reminder_deliveries
-         SET status = 'cancelled', last_error_code = 'CANCEL_REQUESTED', next_attempt_at = now()
-         WHERE id = $1 AND attempts = $2 AND status = 'sending' AND cancel_requested`,
+         SET status = 'cancelled', last_error_code = 'ELIGIBILITY_CHANGED', next_attempt_at = now()
+         WHERE id = $1 AND attempts = $2 AND status = 'sending' AND send_started_at IS NULL
+         RETURNING id`,
         [delivery.id, delivery.attempts],
       );
-      result.cancelled += 1;
+      if (cancelled.rowCount !== 0) result.cancelled += 1;
       continue;
     }
     try {

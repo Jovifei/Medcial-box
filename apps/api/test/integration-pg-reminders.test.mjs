@@ -78,6 +78,26 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       return { owner, members, id: created.family.id };
     }
 
+    // Stage a definitely-unsent reserved delivery without invoking the sender.
+    // A throwing sender is an ambiguous external outcome, so it is no longer a
+    // valid fixture for tests about safely cancelling/reclaiming pending work.
+    async function stageUnsentReminder(familyId, userId, medicineId, deadlineDate, daysBefore, nextAttemptAt) {
+      return database.withTransaction(async (tx) => {
+        const grant = (await tx.query(`SELECT id FROM wechat_subscription_grants
+          WHERE family_id=$1 AND user_id=$2 AND template_id=$3 AND consumed_at IS NULL
+          ORDER BY accepted_at, id FOR UPDATE LIMIT 1`, [familyId, userId, reminderConfig.templateId])).rows[0];
+        assert.ok(grant, "pending fixture requires a genuine unconsumed grant");
+        const batch = (await tx.query("SELECT id FROM medicine_batches WHERE medicine_id=$1 ORDER BY id", [medicineId])).rows[0];
+        assert.ok(batch);
+        const delivery = (await tx.query(`INSERT INTO reminder_deliveries
+          (family_id, user_id, medicine_id, batch_id, deadline_date, days_before, template_id, subscription_grant_id, next_attempt_at)
+          VALUES ($1,$2,$3,$4,$5::date,$6,$7,$8,$9) RETURNING id`,
+        [familyId, userId, medicineId, batch.id, deadlineDate, daysBefore, reminderConfig.templateId, grant.id, nextAttemptAt])).rows[0];
+        await tx.query("UPDATE wechat_subscription_grants SET consumed_at=now() WHERE id=$1", [grant.id]);
+        return delivery.id;
+      });
+    }
+
     await t.test("member reminder time is respected before the old global 09:00 window", async () => {
       const {owner,members:[member]}=await family(1);
       status(await request(owner,"POST","/medicines",{name:"时刻药",batches:[{quantity:1,unit:"box",expiry:{value:shanghaiDate(0),precision:"day"}}]}),201);
@@ -108,9 +128,9 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       assert.equal(status(await request(owner,"GET","/care-profiles"),200).careProfiles[0].id,care.id);
     });
 
-    await t.test("removed member receives nothing and grants are released", async () => {
+    await t.test("removed member receives nothing and unused grants are invalidated", async () => {
       const { owner, members: [member], id: familyId } = await family(1);
-      status(await request(owner, "POST", "/medicines", {
+      const medicine = status(await request(owner, "POST", "/medicines", {
         name: "提醒成员测试药",
         batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(0), precision: "day" }, storageLocation: "药箱" }],
       }), 201);
@@ -118,25 +138,24 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       status(await request(owner, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
       status(await request(member, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
 
-      const memberOpenid = (await pool.query("SELECT openid FROM users WHERE id = $1", [member.id])).rows[0].openid;
+      const firstWhen = reminderDispatchNow();
+      await stageUnsentReminder(familyId, member.id, medicine.id, shanghaiDate(0), 0, new Date(firstWhen.getTime() + 10 * 60_000));
       const firstRecipients = [];
-      // 让该成员的首次投递失败：任务留在 failed 等待重试，这正是审核复现的场景
-      // （已排队任务属于后来的 removed-user）。
       const first = await dispatchDueReminderMessages(database, {
         send: async (message) => {
-          if (message.openid === memberOpenid) throw new Error("synthetic gateway failure");
           firstRecipients.push(message.openid);
           return { messageId: `a07-${firstRecipients.length}` };
         },
-      }, reminderConfig, reminderDispatchNow());
+      }, reminderConfig, firstWhen);
       assert.equal(first.sent, 1, JSON.stringify(first));
-      assert.equal(first.failed, 1, JSON.stringify(first));
+      assert.equal(first.failed, 0, JSON.stringify(first));
       const retryRow = (await pool.query(
-        "SELECT status, next_attempt_at FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2",
+        "SELECT status, next_attempt_at, send_started_at FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2",
         [familyId, member.id],
       )).rows;
       assert.equal(retryRow.length, 1, JSON.stringify(retryRow));
-      assert.equal(retryRow[0].status, "failed", "member delivery must still be pending a retry");
+      assert.equal(retryRow[0].status, "queued", "member delivery is pending and has never entered the sender");
+      assert.equal(retryRow[0].send_started_at, null);
 
       // owner 移除成员后：尚未送达的任务与授权都必须失效，重试不得再发给他。
       status(await request(owner, "DELETE", `/families/members/${member.membershipId}`), 204);
@@ -175,25 +194,16 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
 
     await t.test("member who leaves is not messaged either", async () => {
       const { owner, members: [member], id: familyId } = await family(1);
-      status(await request(owner, "POST", "/medicines", {
+      const medicine = status(await request(owner, "POST", "/medicines", {
         name: "退出成员测试药",
         batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(0), precision: "day" } }],
       }), 201);
       status(await request(member, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
-      const memberOpenid = (await pool.query("SELECT openid FROM users WHERE id = $1", [member.id])).rows[0].openid;
-      // 同样让该成员首次投递失败，留下待重试任务。
-      const before = [];
-      await dispatchDueReminderMessages(database, {
-        send: async (message) => {
-          if (message.openid === memberOpenid) throw new Error("synthetic gateway failure");
-          before.push(message.openid);
-          return { messageId: `leave-${before.length}` };
-        },
-      }, reminderConfig, reminderDispatchNow());
+      await stageUnsentReminder(familyId, member.id, medicine.id, shanghaiDate(0), 0, reminderDispatchNow());
       assert.equal((await pool.query(
-        "SELECT count(*)::int AS count FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2 AND status = 'failed'",
+        "SELECT count(*)::int AS count FROM reminder_deliveries WHERE family_id = $1 AND user_id = $2 AND status = 'queued' AND send_started_at IS NULL",
         [familyId, member.id],
-      )).rows[0].count, 1, "the member's delivery must be pending a retry before leaving");
+      )).rows[0].count, 1, "the member's delivery must be definitely unsent before leaving");
       status(await request(member, "POST", "/families/leave"), 204);
       const after = [];
       await dispatchDueReminderMessages(database, {
@@ -206,34 +216,29 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       )).rows;
       assert.deepEqual(pending, [], `leaving must cancel queued deliveries: ${JSON.stringify(pending)}`);
     });
-    await t.test("stale milestone retries are cancelled instead of delivered (A08)", async () => {
-      const { owner } = await family(0);
+    await t.test("stale unsent milestones are cancelled instead of delivered (A08)", async () => {
+      const { owner, id: familyId } = await family(0);
       const medicine = status(await request(owner, "POST", "/medicines", {
         name: "过时提醒测试药",
         batches: [{ quantity: 2, unit: "box", expiry: { value: shanghaiDate(30), precision: "day" } }],
       }), 201);
       status(await request(owner, "POST", "/notifications/subscribe", { acceptedTemplateIds: ["synthetic-reminder-template"] }), 200);
 
-      // 10 月 1 日：距离 10 月 31 日还有 30 天 → 命中"30 天后到期"里程碑，首次投递失败留下重试。
-      const labels = [];
-      const first = await dispatchDueReminderMessages(database, {
-        send: async (message) => {
-          labels.push(message.eventLabel);
-          throw new Error("synthetic gateway failure");
-        },
-      }, reminderConfig, reminderDispatchNow());
-      assert.equal(first.queued, 1, JSON.stringify(first));
-      assert.equal(first.failed, 1, JSON.stringify(first));
-      assert.deepEqual(labels, ["30 天后到期"]);
+      // Explicitly stage a 30-day milestone that never crossed the send boundary.
+      // An ambiguous provider failure must remain held, not be reclaimed to test
+      // this separate stale-event path.
+      await stageUnsentReminder(familyId, owner.id, medicine.id, shanghaiDate(30), 30, reminderDispatchNow());
       const queuedRow = (await pool.query(
-        "SELECT status, days_before, deadline_date::text AS deadline FROM reminder_deliveries WHERE medicine_id = $1",
+        "SELECT status, send_started_at, days_before, deadline_date::text AS deadline FROM reminder_deliveries WHERE medicine_id = $1",
         [medicine.id],
       )).rows;
       assert.equal(queuedRow.length, 1);
-      assert.equal(queuedRow[0].status, "failed");
+      assert.equal(queuedRow[0].status, "queued");
+      assert.equal(queuedRow[0].send_started_at, null);
+      assert.equal(queuedRow[0].days_before, 30);
       assert.equal(queuedRow[0].deadline, shanghaiDate(30));
 
-      // 10 月 3 日重试：只剩 28 天，已经不是"30 天后到期"这件事，不得补发。
+      // Two days later only 28 days remain; the old 30-day event must not send.
       const lateLabels = [];
       const second = await dispatchDueReminderMessages(database, {
         send: async (message) => {

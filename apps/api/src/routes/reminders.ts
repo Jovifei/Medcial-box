@@ -6,6 +6,7 @@ import type {
   WechatReminderTemplatesResponse,
 } from "@home-medicine/contracts";
 import { requireFamily } from "../auth/session.js";
+import { cancelDoseReminders } from "../jobs/dose-reminder-scheduler.js";
 import { createRateLimiter } from "../rate-limit.js";
 import { listMedicines } from "../repositories/medicines.js";
 import type { Database } from "../types.js";
@@ -59,8 +60,15 @@ export async function registerReminderRoutes(
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "提醒时间或渠道不合法"));
     }
     const unique = [...new Set(channels)];
-    await database.query(`INSERT INTO notification_preferences (user_id, stock_reminder_time, channels)
-      VALUES ($1, $2::time, $3::text[]) ON CONFLICT (user_id) DO UPDATE SET stock_reminder_time=EXCLUDED.stock_reminder_time, channels=EXCLUDED.channels`, [context.userId, time, unique]);
+    await database.withTransaction(async (tx) => {
+      await tx.query(`INSERT INTO notification_preferences (user_id, stock_reminder_time, channels)
+        VALUES ($1, $2::time, $3::text[]) ON CONFLICT (user_id) DO UPDATE SET stock_reminder_time=EXCLUDED.stock_reminder_time, channels=EXCLUDED.channels`, [context.userId, time, unique]);
+      if (!unique.includes("wechat")) {
+        // Stop queued dose jobs atomically with opting out. A job queued by an
+        // overlapping scheduler is also checked at the guarded send boundary.
+        await cancelDoseReminders(tx, "user_id = $1", [context.userId]);
+      }
+    });
     return { preferences: { stockReminderTime: time, timezone: "Asia/Shanghai", channels: unique } };
   });
 
