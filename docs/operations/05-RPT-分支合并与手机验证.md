@@ -15,8 +15,12 @@
 | Flutter analyze | PASS |
 | Flutter 全量 | 663 PASS，15 Windows 符号链接能力明确跳过，0 FAIL |
 | Release/R8 | PASS，非 debuggable，仍为 debug 证书 |
-| 手机安装 | PENDING，USB 恢复后等待 ADB 发现设备 |
+| 手机安装 | PASS，OnePlus GM1910，adb install -r，首次安装时间保持2026-09-27 |
 
 Release SHA256：FB9503D2B4986F32255C51F008841DBACE013B9EB6E73A81F0FB3F02CFE24A4C。API_BASE_URL=http://127.0.0.1:13300，ADB 转发至整合源码本机13303 API；使用专用测试数据库和假微信身份，不代表正式部署。迁移文件换行差异已恢复原始字节，未修改数据库迁移校验值。
 
 真实微信、双手机、真实通知、药盒原始照片OCR准确率、正式签名和HTTPS部署未验收。远端 main 未推送。
+
+## 手机启动检查
+
+ADB设备恢复至15037端口；安装前独立读取原APK证书，匹配候选证书后执行install -r成功。Release进程存活，未观察到FATAL/ANR，页面从整合后本机API取得一次性连接码。旧原始令牌无服务地址记录，被新版按设计隔离，草稿未清空；需要用户在小程序确认连接，登录后功能仍PENDING。未执行用户账号授权或清除应用数据。
