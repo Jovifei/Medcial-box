@@ -28,23 +28,32 @@ void main() {
   test(
     'bridge dependency versions stay at their explicitly reviewed boundary',
     () {
-      final lock = File('pubspec.lock').readAsStringSync();
-      String version(String name) {
+      final source = File('pubspec.lock')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+      String version(String name, String lock) {
+        final normalized = lock.replaceAll('\r\n', '\n');
         final section = RegExp(
           '^  $name:\\n([\\s\\S]*?)(?=^  [a-z_]+:|\\z)',
           multiLine: true,
-        ).firstMatch(lock);
+        ).firstMatch(normalized);
         expect(section, isNotNull);
         return RegExp(r'version: "([^"]+)"')
             .firstMatch(section!.group(1)!)!
             .group(1)!;
       }
 
-      expect(version('share_plus'), ExportFileShare.testedSharePlusVersion);
-      expect(
-        version('share_plus_platform_interface'),
-        ExportFileShare.testedPlatformInterfaceVersion,
-      );
+      for (final lineEnding in ['\n', '\r\n']) {
+        final lock = source.replaceAll('\n', lineEnding);
+        expect(
+          version('share_plus', lock),
+          ExportFileShare.testedSharePlusVersion,
+        );
+        expect(
+          version('share_plus_platform_interface', lock),
+          ExportFileShare.testedPlatformInterfaceVersion,
+        );
+      }
     },
   );
 

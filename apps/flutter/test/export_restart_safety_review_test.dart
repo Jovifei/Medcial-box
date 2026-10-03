@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/symlink_capability.dart';
 import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
 import 'package:home_medicine_flutter/data/export_temporary_store.dart';
 import 'package:home_medicine_flutter/data/private_atomic_state.dart';
@@ -109,6 +111,7 @@ void main() {
     test(
       'handoff refuses ready $substitution substitution before dispatch',
       () async {
+        if (substitution == 'symlink' && !await requireSymbolicLinks()) return;
         final files = store();
         final owned = await create(files);
         final external = await File('${fixture.path}/external.md')

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/symlink_capability.dart';
 import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
 import 'package:home_medicine_flutter/data/export_temporary_store.dart';
 import 'package:home_medicine_flutter/data/private_atomic_state.dart';
@@ -398,8 +400,32 @@ void main() {
   });
 
   test(
+    'unregistered siblings, plugin, legacy and imported files survive without links',
+    () async {
+      final external = await File('${fixture.path}/imported.json')
+          .writeAsString('external');
+      final plugin = await Directory('${root.path}/share_plus').create();
+      final copy = await File('${plugin.path}/native-copy.md')
+          .writeAsString('copy');
+      final legacy = await File('${root.path}/medicine-inventory-old.md')
+          .writeAsString('legacy');
+      final owned = await create(store());
+      final sibling = await File('${owned.file.parent.path}/unregistered.txt')
+          .writeAsString('extra');
+      await newProcess().initialize();
+      expect(await owned.file.exists(), false);
+      expect(await sibling.readAsString(), 'extra');
+      expect(await external.readAsString(), 'external');
+      expect(await copy.readAsString(), 'copy');
+      expect(await legacy.readAsString(), 'legacy');
+      expect(await entries(), isEmpty);
+    },
+  );
+
+  test(
     'unexpected siblings, links, plugin, legacy and imported files survive',
     () async {
+      if (!await requireSymbolicLinks()) return;
       final external = await File('${fixture.path}/imported.json')
           .writeAsString('external');
       final plugin = await Directory('${root.path}/share_plus').create();
@@ -471,6 +497,7 @@ void main() {
     test(
       '$kind substitution is retained with external targets untouched',
       () async {
+        if (kind.endsWith('-link') && !await requireSymbolicLinks()) return;
         final owned = await create(store());
         final external = await File('${fixture.path}/external.md')
             .writeAsString('external');
@@ -505,6 +532,7 @@ void main() {
   }
 
   test('root link substitution never follows it', () async {
+    if (!await requireSymbolicLinks()) return;
     final owned = await create(store());
     final original = root.path;
     await root.rename('$original-moved');

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/symlink_capability.dart';
 import 'package:home_medicine_flutter/data/private_atomic_state.dart';
 
 const _name = 'session-identity.v1.json';
@@ -56,9 +58,9 @@ void main() {
       expect(
         await Directory('${root.path}/$_child')
             .list()
-            .map((e) => e.path)
+            .map((e) => e.absolute.uri.normalizePath())
             .toList(),
-        [committed().path],
+        [committed().absolute.uri.normalizePath()],
       );
     },
   );
@@ -146,7 +148,31 @@ void main() {
     },
   );
 
+  test(
+    'unlinked orphan temps and unrelated files are never read or swept',
+    () async {
+      final directory = await Directory('${root.path}/$_child').create();
+      final good = await File('${directory.path}/.$_name.good.tmp')
+          .writeAsString(_new);
+      final partial = await File('${directory.path}/.$_name.partial.tmp')
+          .writeAsString('{');
+      final large = await File('${directory.path}/.$_name.large.tmp')
+          .writeAsBytes(List.filled(FilePrivateAtomicState.maxBytes + 1, 97));
+      final extra = await Directory('${directory.path}/unregistered').create();
+      final extraFile = await File('${extra.path}/keep.txt')
+          .writeAsString('preserve');
+      expect(await store().read(), isNull);
+      await store().write(_old);
+      expect(await store().read(), _old);
+      expect(await good.readAsString(), _new);
+      expect(await partial.readAsString(), '{');
+      expect(await large.length(), FilePrivateAtomicState.maxBytes + 1);
+      expect(await extraFile.readAsString(), 'preserve');
+    },
+  );
+
   test('orphan valid, truncated, oversized and linked temps are never read or swept', () async {
+    if (!await requireSymbolicLinks()) return;
     final directory = await Directory('${root.path}/$_child').create();
     final good = await File('${directory.path}/.$_name.good.tmp')
         .writeAsString(_new);
@@ -355,7 +381,21 @@ void main() {
     },
   );
 
+  test(
+    'missing and non-directory support roots fail closed without symlinks',
+    () async {
+      for (final path in ['${root.path}/missing', unrelated.path]) {
+        final files = store(directory: Directory(path));
+        await expectLater(files.read(), throwsA(isA<FileSystemException>()));
+        await expectLater(files.write(_new), throwsA(isA<FileSystemException>()));
+      }
+      expect(await Directory('${root.path}/missing').exists(), isFalse);
+      expect(await unrelated.readAsString(), 'keep');
+    },
+  );
+
   test('missing, linked and non-directory support roots fail closed', () async {
+    if (!await requireSymbolicLinks()) return;
     final link = await Link('${root.path}/support-link').create(root.path);
     for (final path in ['${root.path}/missing', link.path, unrelated.path]) {
       final files = store(directory: Directory(path));
@@ -370,6 +410,7 @@ void main() {
     test(
       'a ${linked ? 'linked' : 'file'} private directory is untouched',
       () async {
+        if (linked && !await requireSymbolicLinks()) return;
         final path = '${root.path}/$_child';
         if (linked) {
           await Link(path).create(root.path);
@@ -391,6 +432,7 @@ void main() {
   }
 
   test('linked committed path is neither followed nor replaced', () async {
+    if (!await requireSymbolicLinks()) return;
     await Directory('${root.path}/$_child').create();
     final link = await Link(committed().path).create(unrelated.path);
     await expectLater(store().read(), throwsA(isA<FileSystemException>()));
@@ -401,6 +443,7 @@ void main() {
   test(
     'dangling committed symlink is not mistaken for missing state',
     () async {
+      if (!await requireSymbolicLinks()) return;
       await Directory('${root.path}/$_child').create();
       final target = '${root.path}/missing-link-target';
       final link = await Link(committed().path).create(target);
