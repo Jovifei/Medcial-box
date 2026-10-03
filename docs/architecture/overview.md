@@ -1,6 +1,6 @@
 # 技术架构与运行边界
 
-源码基线：`main` / `7e4f707`，2026-10-04。该分支具备双端家庭药箱、用药计划、确认历史、提醒和导出能力，项目整体仍为 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。本文描述当前代码关系；逐项测试与真实环境状态以 [收尾矩阵](../../tasks/reports/closeout/2026-10-03-current-closeout-matrix.md) 和[本机小程序验证记录](../operations/02-RPT-本地微信小程序导入与编译验证.md)为准。
+源码基线：`main` / `8a22525`，2026-10-04。该分支具备双端家庭药箱、用药计划、确认历史、提醒和导出能力，项目整体仍为 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。本文描述当前代码关系；逐项测试与真实环境状态以 [收尾矩阵](../../tasks/reports/closeout/2026-10-03-current-closeout-matrix.md) 和[本机小程序验证记录](../operations/02-RPT-本地微信小程序导入与编译验证.md)为准。
 
 ## 系统组成
 
