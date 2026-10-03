@@ -9,6 +9,7 @@ import 'api_plan_repository.dart';
 import 'api_workflow_repository.dart';
 import 'app_stores.dart';
 import 'demo_repositories.dart';
+import 'export_temporary_store.dart';
 import 'local_reminder_service.dart';
 import 'private_atomic_state.dart';
 import 'session_identity_state.dart';
@@ -21,6 +22,8 @@ class AppServices {
     required this.localStore,
     required this.demoMedicineRepository,
     required this.reminders,
+    required this.exportFiles,
+    required this.exportRecovery,
     this.api,
     this.auth,
     this.families,
@@ -41,6 +44,12 @@ class AppServices {
   final ApiPlanRepository? plans;
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
+  final ExportTemporaryStore exportFiles;
+  // Settles the shared startup attempt, including a typed export-only failure.
+  // This Future is deliberately not an authentication/ordinary-work gate.
+  final Future<void> exportRecovery;
+  List<ExportRecoveryIssue> get exportRecoveryIssues =>
+      exportFiles.recoveryIssues;
 
   bool offlineCacheMatchesOwner = false;
   final ValueNotifier<bool> sessionInvalidated = ValueNotifier(false);
@@ -53,11 +62,14 @@ class AppServices {
     SecretStore? secretStore,
     LocalAppStore? localStore,
     PrivateAtomicState? identityStore,
+    ExportTemporaryStore? exportFiles,
   }) async {
     final secrets = secretStore ?? FlutterSecretStore();
     final local = IdentityLocalStore(
       localStore ?? await SharedPreferencesAppStore.create(),
     );
+    final exports = exportFiles ?? ExportTemporaryStore();
+    final exportRecovery = exports.recoverForStartup();
     final baseUrl = apiBaseUrl.trim();
     if (baseUrl.isEmpty) {
       return AppServices._(
@@ -67,6 +79,8 @@ class AppServices {
         localStore: local,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: LocalReminderService(),
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
     }
     try {
@@ -97,7 +111,7 @@ class AppServices {
         identityState: identity,
       );
       final plans = ApiPlanRepository(api: api, localStore: local);
-      final workflow = ApiWorkflowRepository(api: api);
+      final workflow = ApiWorkflowRepository(api: api, exportFiles: exports);
       final medicines = ApiMedicineRepository(api: api, localStore: local);
       final reminders = LocalReminderService()..watch(medicines);
       var scheduleRequest = 0;
@@ -215,6 +229,8 @@ class AppServices {
         plans: plans,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: reminders,
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
       services.offlineCacheMatchesOwner =
           !mismatchedCache &&
@@ -277,6 +293,8 @@ class AppServices {
         localStore: local,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: LocalReminderService(),
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
     }
   }

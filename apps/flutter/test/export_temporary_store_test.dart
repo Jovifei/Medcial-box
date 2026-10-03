@@ -1,3 +1,6 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -19,7 +22,10 @@ void main() {
   ExportTemporaryStore store({
     Future<void> Function(File, List<int>)? writer,
   }) => ExportTemporaryStore(
-    temporaryDirectory: () async => root,
+    process: ExportProcessCoordinator(
+      temporaryDirectory: () async => root,
+      journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+    ),
     writeBytes: writer,
   );
 
@@ -144,11 +150,14 @@ void main() {
       );
       await owned.file.delete();
       await Link(owned.file.path).create(sibling.path);
-      await owned.release();
+      await expectLater(
+        owned.release(),
+        throwsA(isA<ExportTemporaryException>()),
+      );
       expect(await sibling.readAsString(), 'preserve');
       expect(
         await FileSystemEntity.type(owned.file.path, followLinks: false),
-        FileSystemEntityType.notFound,
+        FileSystemEntityType.link,
       );
     },
   );

@@ -1,3 +1,6 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:io';
 
@@ -108,13 +111,18 @@ void main() {
     });
   }
   test(
-    'guarded native dispatch occurs before same-turn identity reset',
+    'identity reset during owned-file preflight prevents native dispatch',
     () async {
       final root = await Directory.systemTemp.createTemp(
         'export-native-order-',
       );
       addTearDown(() => root.delete(recursive: true));
-      final store = ExportTemporaryStore(temporaryDirectory: () async => root);
+      final store = ExportTemporaryStore(
+        process: ExportProcessCoordinator(
+          temporaryDirectory: () async => root,
+          journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+        ),
+      );
       final owned = await store.create(
         bytes: [65],
         extension: 'md',
@@ -137,12 +145,16 @@ void main() {
           isCurrent: () => store.identityEpoch == 0,
         ),
       );
+      final rejected = expectLater(
+        handoff,
+        throwsA(isA<ExportTemporaryException>()),
+      );
       final reset = store.resetForIdentity();
-      await Future.wait([handoff, reset]);
+      await Future.wait([rejected, reset]);
       expect(
         nativeEpochs,
-        [0],
-        reason: 'No asynchronous Dart preparation may defer native dispatch past identity reset',
+        isEmpty,
+        reason: 'Preflight rechecks identity before the final synchronous native boundary',
       );
       expect(await owned.file.exists(), false);
     },

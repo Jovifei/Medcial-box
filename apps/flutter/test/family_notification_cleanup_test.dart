@@ -1,3 +1,5 @@
+import 'package:home_medicine_flutter/data/export_temporary_store.dart';
+
 import 'dart:async';
 
 import 'support/identity_fixture.dart';
@@ -80,6 +82,7 @@ Future<AppServices> serviceWith(
   Future<http.Response> Function(http.Request) handler, {
   required MemorySecretStore secrets,
   required MemoryInventoryLocalStore local,
+  ExportTemporaryStore? exportFiles,
 }) async {
   final pending = secrets.values[ApiAuthRepository.pendingPollTokenKey];
   final persistence = await identityFixture(secrets, localStore: local);
@@ -89,6 +92,7 @@ Future<AppServices> serviceWith(
       secretStore: secrets,
       localStore: local,
       identityStore: persistence,
+      exportFiles: exportFiles,
     ),
     () => MockClient(handler),
   );

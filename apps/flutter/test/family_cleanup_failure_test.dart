@@ -1,3 +1,7 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+import 'package:home_medicine_flutter/data/export_temporary_store.dart';
+
 import 'dart:io';
 
 import 'support/identity_fixture.dart';
@@ -568,6 +572,12 @@ void main() {
       },
       secrets: secrets,
       local: local,
+      exportFiles: ExportTemporaryStore(
+        process: ExportProcessCoordinator(
+          temporaryDirectory: () async => root,
+          journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+        ),
+      ),
     );
     await h.seedFamily(services);
     final unrelated = await File('${root.path}/unrelated-synthetic.txt')
