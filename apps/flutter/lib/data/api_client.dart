@@ -53,10 +53,105 @@ class ApiClient {
   /// 收到 401 时触发（会话已在服务端失效）：由上层清理本机会话、删除令牌并回到未登录态（R10）。
   /// 用可设置字段而非构造参数，避免与依赖 ApiClient 的仓库形成构造期循环依赖。
   Future<void> Function()? onUnauthorized;
+
+  /// The authenticated session is valid, but its current family no longer
+  /// exists/is accessible. Keep the token so family setup can continue.
+  Future<void> Function()? onFamilyUnavailable;
   Future<void> _identityCleanup = Future.value();
-  Future<void> waitForIdentityCleanup() => _identityCleanup;
+  Future<void> Function()? _retryIdentityCleanup;
+  int? _cleanupEpoch;
+
+  Future<void> _beginIdentityCleanup(Future<void> Function() cleanup) {
+    final previous = _identityCleanup;
+    final pending = cleanup();
+    _retryIdentityCleanup = cleanup;
+    _cleanupEpoch = identityEpoch;
+    // Keep every earlier native/storage cleanup inside the acceptance barrier.
+    // A new attempt may recover an earlier failure, but must also drain it.
+    final barrier = Future.wait<void>([
+      previous.catchError((Object _) {}),
+      pending,
+    ]).then<void>((_) {});
+    _identityCleanup = barrier;
+    return barrier;
+  }
+
+  Future<void> waitForIdentityCleanup() async {
+    var retried = false;
+    while (true) {
+      final pending = _identityCleanup;
+      try {
+        await pending;
+      } catch (_) {
+        if (!identical(pending, _identityCleanup)) continue;
+        // Retry once per explicit call; a failed retry remains fail-closed.
+        if (retried ||
+            _retryIdentityCleanup == null ||
+            _cleanupEpoch != identityEpoch) {
+          rethrow;
+        }
+        retried = true;
+        await _beginIdentityCleanup(_retryIdentityCleanup!);
+      }
+      // A newer loss may start while an older cleanup is being awaited.
+      if (identical(pending, _identityCleanup)) return;
+    }
+  }
+
+  /// Explicit auth/family cleanup participates in the same full barrier as
+  /// response-triggered cleanup, including any overlapping newer callback.
+  Future<void> cleanupForIdentityTransition(
+    Future<void> Function() cleanup,
+  ) async {
+    await _beginIdentityCleanup(cleanup);
+    await waitForIdentityCleanup();
+  }
+
+  Future<void> _identityTransitions = Future.value();
+
+  /// Auth and family acceptance share one queue, so cleanup of the previous
+  /// identity finishes before a replacement token/family can be accepted.
+  Future<T> transitionIdentity<T>(
+    Future<T> Function() action, {
+    bool allowFailedCleanup = false,
+  }) {
+    final next = _identityTransitions.then((_) async {
+      while (true) {
+        final pending = _identityCleanup;
+        try {
+          await waitForIdentityCleanup();
+        } catch (_) {
+          if (!allowFailedCleanup) rethrow;
+          // Explicit logout still attempts server revoke and token deletion.
+          break;
+        }
+        if (identical(pending, _identityCleanup)) break;
+      }
+      return action();
+    });
+    _identityTransitions = next.then<void>((_) {}, onError: (Object _) {});
+    return next;
+  }
+
   int identityEpoch = 0;
   void invalidateIdentity() => identityEpoch++;
+
+  /// Used only after auth/me explicitly and consistently reports no family.
+  /// Shares the error-response cleanup barrier with auth/family transitions.
+  Future<int> reportNoCurrentFamily(int expectedEpoch) async {
+    if (expectedEpoch != identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '会话已变更，请重新加载。',
+      );
+    }
+    final handler = onFamilyUnavailable;
+    final cleanup = handler == null ? null : _beginIdentityCleanup(handler);
+    final cleanupEpoch = identityEpoch;
+    if (cleanup != null) await cleanup;
+    return cleanupEpoch;
+  }
 
   static String _normalizeBaseUrl(String value) {
     final trimmed = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -187,17 +282,34 @@ class ApiClient {
     } on http.ClientException {
       throw const ApiNetworkException('无法连接服务器，请检查网络后重试。');
     }
-    if (response.statusCode == 401 &&
-        authenticated &&
+    final errorBody = response.statusCode == 404
+        ? _decodeErrorBody(response)
+        : null;
+    final familyUnavailable =
+        errorBody is Map<String, dynamic> &&
+        errorBody['error'] is Map<String, dynamic> &&
+        (errorBody['error'] as Map<String, dynamic>)['code'] ==
+            'FAMILY_NOT_FOUND';
+    var cleanedCurrentFamily = false;
+    if (authenticated &&
+        (response.statusCode == 401 || familyUnavailable) &&
         epoch == identityEpoch &&
-        token == await tokenProvider()) {
-      final cleanup = onUnauthorized?.call();
-      if (cleanup != null) {
-        _identityCleanup = cleanup;
-        await cleanup;
+        token == await tokenProvider() &&
+        epoch == identityEpoch) {
+      // The second token lookup is asynchronous too. Recheck the epoch AFTER
+      // it, including same-token family changes, before invoking any cleanup.
+      final handler = response.statusCode == 401
+          ? onUnauthorized
+          : onFamilyUnavailable;
+      if (handler != null) {
+        cleanedCurrentFamily = familyUnavailable;
+        await _beginIdentityCleanup(handler);
       }
     }
-    if (authenticated && epoch != identityEpoch && response.statusCode != 401) {
+    if (authenticated &&
+        epoch != identityEpoch &&
+        response.statusCode != 401 &&
+        !cleanedCurrentFamily) {
       throw const ApiException(
         statusCode: 401,
         code: 'STALE_SESSION',

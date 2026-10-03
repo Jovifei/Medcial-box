@@ -209,6 +209,7 @@ class _PlansPageState extends State<PlansPage> {
       ],
     ),
     floatingActionButton: FloatingActionButton.extended(
+      heroTag: 'plans-add-plan',
       onPressed: () => context.push('/plans/new'),
       icon: const Icon(Icons.add_rounded),
       label: const Text('新建计划'),

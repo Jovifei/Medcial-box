@@ -217,13 +217,22 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     }
     final createdRouter = GoRouter(
       initialLocation: widget.initialLocation,
-      refreshListenable: services.sessionInvalidated,
-      redirect: (context, state) =>
-          services.sessionInvalidated.value &&
-              state.matchedLocation != '/connect' &&
-              !state.matchedLocation.startsWith('/demo')
-          ? '/connect'
-          : null,
+      refreshListenable: Listenable.merge([
+        services.sessionInvalidated,
+        services.familyInvalidated,
+      ]),
+      redirect: (context, state) {
+        if (state.matchedLocation.startsWith('/demo')) return null;
+        if (services.sessionInvalidated.value) {
+          return state.matchedLocation == '/connect' ? null : '/connect';
+        }
+        if (services.familyInvalidated.value &&
+            state.matchedLocation != '/family-choice' &&
+            state.matchedLocation != '/connect') {
+          return '/family-choice';
+        }
+        return null;
+      },
       routes: routes,
       errorBuilder: (context, state) => Scaffold(
         appBar: AppBar(title: const Text('页面未找到')),

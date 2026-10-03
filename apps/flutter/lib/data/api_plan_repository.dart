@@ -11,8 +11,12 @@ class ApiPlanRepository extends ChangeNotifier {
 
   final ApiClient api;
   Future<void> Function()? onChanged;
-  Future<void> _changed() async {
+  Future<void> Function(int identityEpoch)? onMutationAcknowledged;
+  Future<void> _changed(int epoch) async {
+    if (epoch != api.identityEpoch) return;
     notifyListeners();
+    await onMutationAcknowledged?.call(epoch);
+    if (epoch != api.identityEpoch) return;
     await onChanged?.call();
   }
 
@@ -48,6 +52,7 @@ class ApiPlanRepository extends ChangeNotifier {
   }
 
   Future<MedicationPlanSummary> createPlan(MedicationPlanDraft draft) async {
+    final epoch = api.identityEpoch;
     final json = await api.post(
       '/api/v1/medication-plans',
       body: draft.toCreatePayload(),
@@ -61,7 +66,7 @@ class ApiPlanRepository extends ChangeNotifier {
         message: '计划创建成功但未返回标识，请刷新后查看。',
       );
     }
-    await _changed();
+    await _changed(epoch);
     final detail = await getPlan(planId);
     return detail.plan;
   }
@@ -71,11 +76,12 @@ class ApiPlanRepository extends ChangeNotifier {
     required MedicationPlanDraft draft,
     required int version,
   }) async {
+    final epoch = api.identityEpoch;
     await api.put(
       '/api/v1/medication-plans/$planId',
       draft.toUpdatePayload(version: version),
     );
-    await _changed();
+    await _changed(epoch);
   }
 
   Future<void> changeStatus(
@@ -83,11 +89,12 @@ class ApiPlanRepository extends ChangeNotifier {
     required String action,
     required int version,
   }) async {
+    final epoch = api.identityEpoch;
     await api.post(
       '/api/v1/medication-plans/$planId/$action',
       body: {'version': version},
     );
-    await _changed();
+    await _changed(epoch);
   }
 
   /// 今日安排：不传 date 时由服务端按上海当前日历返回，客户端绝不本地猜日期。
@@ -105,6 +112,7 @@ class ApiPlanRepository extends ChangeNotifier {
     required String idempotencyKey,
     void Function(String status)? onConfirmed,
   }) async {
+    final epoch = api.identityEpoch;
     final result = await api.post(
       '/api/v1/dose-occurrences/$occurrenceId/confirm',
       body: {'action': action, 'idempotencyKey': idempotencyKey},
@@ -120,7 +128,7 @@ class ApiPlanRepository extends ChangeNotifier {
     // The server write is acknowledged before notification/schedule refreshes.
     // Their failure must not turn a known success into an uncertain new write.
     onConfirmed?.call(status as String);
-    await _changed();
+    await _changed(epoch);
   }
 
   Future<PlanHistory> planHistory(String planId) async {
@@ -178,6 +186,7 @@ class ApiPlanRepository extends ChangeNotifier {
     bool canView = true,
     bool receiveDoseReminders = false,
   }) async {
+    final epoch = api.identityEpoch;
     await api.post(
       '/api/v1/care-profiles/$careProfileId/grants',
       body: {
@@ -187,32 +196,35 @@ class ApiPlanRepository extends ChangeNotifier {
         'receiveDoseReminders': receiveDoseReminders,
       },
     );
-    await _changed();
+    await _changed(epoch);
   }
 
   Future<void> transferCareManagement(
     String careProfileId,
     String memberUserId,
   ) async {
+    final epoch = api.identityEpoch;
     await api.post(
       '/api/v1/care-profiles/$careProfileId/transfer-management',
       body: {'memberUserId': memberUserId},
     );
-    await _changed();
+    await _changed(epoch);
   }
 
   Future<void> archiveCareProfile(String careProfileId) async {
+    final epoch = api.identityEpoch;
     await api.post('/api/v1/care-profiles/$careProfileId/archive');
-    await _changed();
+    await _changed(epoch);
   }
 
   Future<void> revokeCareGrant(
     String careProfileId,
     String memberUserId,
   ) async {
+    final epoch = api.identityEpoch;
     await api.delete(
       '/api/v1/care-profiles/$careProfileId/grants/$memberUserId',
     );
-    await _changed();
+    await _changed(epoch);
   }
 }

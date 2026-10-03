@@ -248,7 +248,14 @@ class LocalReminderService {
 
   Future<void> _initialize() {
     if (_initialized) return Future.value();
-    return _initializing ??= _initializeOnce();
+    return _initializing ??= _initializeOnce().catchError((
+      Object error,
+      StackTrace stack,
+    ) {
+      // A failed native initialization must be retryable on explicit recovery.
+      _initializing = null;
+      Error.throwWithStackTrace(error, stack);
+    });
   }
 
   Future<void> _initializeOnce() async {

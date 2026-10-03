@@ -314,6 +314,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       ],
     ),
     floatingActionButton: FloatingActionButton.extended(
+      heroTag: 'cabinet-add-medicine',
       onPressed: () => context.push('/medicine/new'),
       icon: const Icon(Icons.add_rounded),
       label: const Text('录入'),

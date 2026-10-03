@@ -51,7 +51,7 @@ class _BootGatePageState extends State<BootGatePage> {
       if (profile.hasFamily && profile.family != null) {
         context.go('/home');
       } else {
-        await services.localStore.clearFamilyData();
+        // The authenticated repository already completed guarded family cleanup.
         if (mounted) context.go('/family-choice');
       }
     } on ApiNetworkException {
@@ -66,8 +66,9 @@ class _BootGatePageState extends State<BootGatePage> {
         });
       }
     } on ApiException catch (exception) {
-      if (exception.statusCode == 401) {
-        await services.secretStore.delete(ApiAuthRepository.accessTokenKey);
+      if (exception.statusCode == 401 && services.sessionInvalidated.value) {
+        // ApiClient owns token cleanup. A late response/STALE_SESSION must not
+        // delete a newer credential or force its authenticated route to login.
         if (mounted) context.go('/connect');
       } else if (mounted) {
         setState(() {
