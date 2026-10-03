@@ -155,6 +155,15 @@ class ApiClient {
   }) async {
     final epoch = identityEpoch;
     final token = authenticated ? await tokenProvider() : null;
+    // Token storage can complete after logout/reconnection. Reject the old
+    // intent before any request is sent with the replacement session token.
+    if (authenticated && epoch != identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '会话已变更，请重新加载。',
+      );
+    }
     final headers = <String, String>{'accept': accept};
     if (body != null) {
       headers['content-type'] = 'application/json; charset=utf-8';

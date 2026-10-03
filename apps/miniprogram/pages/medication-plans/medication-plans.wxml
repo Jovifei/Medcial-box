@@ -53,7 +53,11 @@
       <view class="schedule-medicine">{{item.medicineName}}</view>
       <view class="schedule-dosage">剂量：{{item.dosageText}}</view>
       <view class="overdue-note" wx:if="{{item.overdue}}">已过时间未确认；不判定漏服，可补记或跳过。</view>
-      <view class="schedule-actions" wx:if="{{item.status === 'pending'}}">
+      <view class="schedule-actions" wx:if="{{item.retryAction !== ''}}">
+        <view class="action-btn primary {{confirmingId === item.occurrenceId ? 'busy' : ''}}" data-id="{{item.occurrenceId}}" data-action="{{item.retryAction}}" bindtap="onConfirmDose">{{confirmingId === item.occurrenceId ? '记录中…' : '重试上次记录'}}</view>
+        <view class="correct-hint">上次结果尚未确定；请重试核对后再纠正</view>
+      </view>
+      <view class="schedule-actions" wx:elif="{{item.status === 'pending'}}">
         <view class="action-btn primary {{confirmingId === item.occurrenceId ? 'busy' : ''}}" data-id="{{item.occurrenceId}}" data-action="taken" bindtap="onConfirmDose">{{confirmingId === item.occurrenceId ? '记录中…' : '已服用'}}</view>
         <view class="action-btn ghost {{confirmingId === item.occurrenceId ? 'busy' : ''}}" data-id="{{item.occurrenceId}}" data-action="skipped" bindtap="onConfirmDose">本次跳过</view>
       </view>

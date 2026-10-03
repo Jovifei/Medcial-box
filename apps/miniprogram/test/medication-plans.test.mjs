@@ -115,7 +115,7 @@ function loadPlansPage({ api = {}, wx = {} } = {}) {
   };
   const { definition } = loadPage("pages/medication-plans/medication-plans.ts", {
     modules: {
-      "../../services/api": { api: { ...defaults, ...api }, ApiError },
+      "../../services/api": { api: { ...defaults, ...api }, ApiError, captureSessionIdentity: () => ({token:"test", generation:0}), isCurrentSession: () => true },
       "../../services/auth": { ensureLoggedIn: async () => {} },
     },
     wx: {
@@ -173,7 +173,7 @@ test("记录服用带幂等键，且同一动作不会因重试产生第二条�
   assert.ok(confirm);
   assert.equal(confirm[1], "occ-9");
   assert.equal(confirm[2], "taken");
-  assert.match(confirm[3], /^dose-occ-9-\d+$/, "幂等键必须由操作本身生成");
+  assert.match(confirm[3], /^dose-\d+-\d+-[a-z0-9]+$/, "幂等键必须由操作本身生成");
   assert.equal(page.data.confirmingId, "", "操作结束后必须解除按钮忙状态");
 });
 
@@ -504,4 +504,3 @@ test("实例已不在当前日期列表时作废点击", async () => {
   await page.onConfirmDose({ currentTarget: { dataset: { id: "occ-missing", action: "taken" } } });
   assert.equal(calls.some(([kind]) => kind === "confirm"), false, "不属于当前列表的实例不应写入");
 });
-

@@ -104,11 +104,23 @@ class ApiPlanRepository extends ChangeNotifier {
     String occurrenceId, {
     required String action,
     required String idempotencyKey,
+    void Function(String status)? onConfirmed,
   }) async {
-    await api.post(
+    final result = await api.post(
       '/api/v1/dose-occurrences/$occurrenceId/confirm',
       body: {'action': action, 'idempotencyKey': idempotencyKey},
     );
+    final status = result is Map<String, dynamic> ? result['status'] : null;
+    if (status != 'taken' && status != 'skipped') {
+      throw const ApiException(
+        statusCode: 502,
+        code: 'INVALID_RESPONSE',
+        message: '记录返回结果无法识别，请重试上次记录以核对结果。',
+      );
+    }
+    // The server write is acknowledged before notification/schedule refreshes.
+    // Their failure must not turn a known success into an uncertain new write.
+    onConfirmed?.call(status as String);
     await _changed();
   }
 

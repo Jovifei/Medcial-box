@@ -19,7 +19,7 @@ void main() {
               tokenProvider: () async => 'token',
               client: MockClient((r) async {
                 requested.add(r.url.toString());
-                if (r.method == 'POST') return http.Response('{}', 200);
+                if (r.method == 'POST') return http.Response('{"status":"taken"}', 200);
                 return http.Response(
                   jsonEncode({
                     'date': r.url.queryParameters['date'] ?? '2026-12-29',

@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession, type SessionIdentity } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type {
   CareProfileSummary,
@@ -6,6 +6,25 @@ import type {
   MedicationPlanSummary,
   ScheduleEntry,
 } from "../../services/api-types";
+
+// Keep only unresolved operation metadata in memory, across tab/page remounts.
+// Never replay on load; a different action waits for the original explicit retry.
+interface DoseAttempt {
+  identity: SessionIdentity;
+  date: string;
+  action: "taken" | "skipped";
+  key: string;
+  busy: boolean;
+}
+const doseAttempts = new Map<string, DoseAttempt>();
+const doseObservers = new Set<(id: string, date: string) => void>();
+let doseSequence = 0;
+function pendingDose(id: string): DoseAttempt | undefined {
+  for (const [key, attempt] of doseAttempts) {
+    if (!isCurrentSession(attempt.identity)) doseAttempts.delete(key);
+  }
+  return doseAttempts.get(id);
+}
 
 interface SubscribeCapableWx {
   requestSubscribeMessage?: (options: {
@@ -33,6 +52,7 @@ interface ScheduleCard extends ScheduleEntry {
   statusLabel: string;
   statusClass: string;
   overdue: boolean;
+  retryAction: "" | "taken" | "skipped";
 }
 
 interface PlanCard extends MedicationPlanSummary {
@@ -80,12 +100,14 @@ function isFutureEntry(entry: ScheduleEntry, date: string): boolean {
 }
 
 function toScheduleCard(entry: ScheduleEntry, date: string): ScheduleCard {
+  const pending = pendingDose(entry.occurrenceId);
   const statusLabels: Record<string, string> = { pending: "未确认", taken: "已服用", skipped: "本次跳过" };
   return {
     ...entry,
     statusLabel: statusLabels[entry.status] ?? "未确认",
     statusClass: entry.status === "taken" ? "taken" : entry.status === "skipped" ? "skipped" : "pending",
     overdue: entry.status === "pending" && !isFutureEntry(entry, date),
+    retryAction: pending?.date === date ? pending.action : "",
   };
 }
 
@@ -128,8 +150,18 @@ Page({
 
   /** 请求代号：每次 refresh 自增，用于作废旧响应（非渲染字段）。 */
   requestSeq: 0,
+  loadedIdentity: null as SessionIdentity | null,
+  loadedDate: "",
+  doseObserver: null as ((id: string, date: string) => void) | null,
   /** 今日模式：为 true 时回前台跨零点自动前进日期；用户手选日期后置 false。 */
   followToday: true,
+
+  onUnload(): void {
+    this.requestSeq += 1;
+    this.loadedIdentity = null;
+    if (this.doseObserver) doseObservers.delete(this.doseObserver);
+    this.doseObserver = null;
+  },
 
   async onShow(): Promise<void> {
     // 回前台与写入返回统一走这里合并刷新：今日模式跨零点自动前进，用户手选日期保持不变。
@@ -144,11 +176,19 @@ Page({
   },
 
   async refresh(): Promise<void> {
+    if (!this.doseObserver) {
+      this.doseObserver = (_id: string, date: string): void => {
+        if ((this.data as MedicationPlansPageData).date === date) void this.refresh();
+      };
+      doseObservers.add(this.doseObserver);
+    }
     const seq = ++this.requestSeq;
     const requestedDate = (this.data as MedicationPlansPageData).date;
     this.setData({ loading: true, errorMessage: "" });
     try {
       await ensureLoggedIn();
+      const identity = captureSessionIdentity();
+      pendingDose("");
       // 计划列表始终拉全量（含已结束），状态筛选在客户端做，避免切换时漏掉历史。
       // 日期用请求发起时捕获的值，避免加载途中被再次切换导致张冠李戴。
       const [schedule, plans, careProfiles] = await Promise.all([
@@ -164,7 +204,9 @@ Page({
         deliveries: [] as DoseReminderDelivery[],
       }));
       // 旧响应作废：仅当本次请求仍是最新一次、且日期未被再次切换时才写入。
-      if (seq !== this.requestSeq || requestedDate !== (this.data as MedicationPlansPageData).date) return;
+      if (!isCurrentSession(identity) || seq !== this.requestSeq || requestedDate !== (this.data as MedicationPlansPageData).date) return;
+      this.loadedIdentity = identity;
+      this.loadedDate = requestedDate;
       this.setData({
         // 后端已按时间排序；客户端再排一次，避免不同来源的顺序差异把早晚弄反。
         entries: [...schedule.entries]
@@ -287,47 +329,98 @@ Page({
     this.refresh();
   },
 
-  /** 已服用/跳过：幂等键由操作本身生成，重试不会重复记账。 */
+  /** Same explicit retry reuses its key; unresolved writes cannot be corrected. */
   async onConfirmDose(event: { currentTarget: { dataset: { id?: string; action?: string } } }): Promise<void> {
     const id = event.currentTarget.dataset.id;
     const action = event.currentTarget.dataset.action;
     if (!id || (action !== "taken" && action !== "skipped")) return;
     const data = this.data as MedicationPlansPageData;
-    // 加载中或已有确认在进行时锁定，避免对旧列表/切换中的日期误操作。
     if (data.loading || data.confirmingId !== "") return;
-    // 提交前核对当前实例：只确认仍属于当前展示日期列表的记录。
     const target = data.entries.find((item) => item.occurrenceId === id);
     if (!target) return;
-    // 纠正已有状态时需要用户明确确认，避免手滑改写历史。
-    if (target.status !== "pending") {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        wx.showModal({
-          title: "纠正记录",
-          content: `当前记录是“${target.statusLabel}”，改为“${action === "taken" ? "已服用" : "本次跳过"}”会保留操作历史。`,
-          success: (result) => resolve(result.confirm),
-          fail: () => resolve(false),
-        });
-      });
-      if (!confirmed) return;
-      // 弹窗期间可能切了日期或已刷新：重新核对实例与日期归属。
-      const current = this.data as MedicationPlansPageData;
-      if (current.loading || current.confirmingId !== "") return;
-      if (!current.entries.some((item) => item.occurrenceId === id)) {
-        wx.showToast({ title: "列表已更新，请重新确认", icon: "none", duration: 2800 });
-        return;
-      }
+    const identity = this.loadedIdentity;
+    const date = data.date;
+    const sequence = this.requestSeq;
+    const isCurrentTarget = (): boolean => identity !== null && identity === this.loadedIdentity && isCurrentSession(identity)
+      && sequence === this.requestSeq && this.loadedDate === date && (this.data as MedicationPlansPageData).date === date
+      && !(this.data as MedicationPlansPageData).loading
+      && (this.data as MedicationPlansPageData).entries.some((item) => item.occurrenceId === id);
+    if (!isCurrentTarget()) {
+      wx.showToast({ title: "列表已更新，请刷新后重新确认", icon: "none" });
+      return;
     }
+    let attempt = pendingDose(id);
+    const wasPending = attempt !== undefined;
+    let writeStarted = false;
+    if (attempt?.busy) return;
+    if (attempt && (attempt.action !== action || attempt.date !== date)) {
+      wx.showToast({ title: `上次“${attempt.action === "taken" ? "已服用" : "跳过"}”结果未确定，请先重试上次记录，再纠正`, icon: "none", duration: 3500 });
+      return;
+    }
+    // Lock before the correction dialog, not after it, so double taps cannot
+    // create two dialogs or two independent operations.
     this.setData({ confirmingId: id });
     try {
+      if (target.status !== "pending" && !attempt) {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          wx.showModal({
+            title: "纠正记录",
+            content: `当前记录是“${target.statusLabel}”，改为“${action === "taken" ? "已服用" : "本次跳过"}”会保留操作历史。`,
+            success: (result) => resolve(result.confirm),
+            fail: () => resolve(false),
+          });
+        });
+        if (!confirmed || !isCurrentTarget()) return;
+      }
+      // A remounted page can be acting on the same occurrence while a dialog
+      // is open. Recheck the shared lock before reserving the original key.
+      const currentAttempt = pendingDose(id);
+      if (currentAttempt?.busy || (currentAttempt && currentAttempt !== attempt)) return;
+      attempt ??= { identity: identity!, date, action, key: `dose-${Date.now()}-${++doseSequence}-${Math.random().toString(36).slice(2, 10)}`, busy: false };
+      attempt.busy = true;
+      doseAttempts.set(id, attempt);
       await ensureLoggedIn();
-      await api.confirmDoseOccurrence(id, action, `dose-${id}-${Date.now()}`);
+      if (!isCurrentTarget()) return;
+      writeStarted = true;
+      const result = await api.confirmDoseOccurrence(id, action, attempt.key);
+      if (result.status !== "taken" && result.status !== "skipped") throw new Error("Unrecognized confirmation response");
+      if (doseAttempts.get(id) === attempt) doseAttempts.delete(id);
+      if (identity && isCurrentSession(identity)) {
+        // An older page may finish while a new instance is open. Invalidate
+        // that page's pre-ACK read and refresh it before another write is allowed.
+        for (const observer of doseObservers) {
+          if (observer !== this.doseObserver) observer(id, date);
+        }
+      }
+      if (!identity || !isCurrentSession(identity) || !this.loadedIdentity
+          || !isCurrentSession(this.loadedIdentity)
+          || (this.data as MedicationPlansPageData).date !== date || this.loadedDate !== date) return;
+      // Invalidate any read started before this acknowledged write.
+      this.requestSeq += 1;
+      this.setData({ loading: false });
+      // Preserve the acknowledged server status even when the following read
+      // fails; never invite a fresh duplicate write against stale pending UI.
+      this.setData({ entries: (this.data as MedicationPlansPageData).entries.map((item) =>
+        item.occurrenceId === id ? toScheduleCard({ ...item, status: result.status }, date) : item) });
+      this.applyFilters();
       await this.refresh();
-      wx.showToast({ title: action === "taken" ? "已记录服用" : "已记录跳过", icon: "success" });
+      if (identity && isCurrentSession(identity) && (this.data as MedicationPlansPageData).date === date) {
+        wx.showToast({ title: result.status === "taken" ? "当前记录：已服用" : "当前记录：已跳过", icon: "success" });
+      }
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "操作失败，请重试";
+      if (!identity || !isCurrentSession(identity) || (this.data as MedicationPlansPageData).date !== date) return;
+      const message = error instanceof ApiError ? error.message : "结果尚未确定，请重试上次记录";
       wx.showToast({ title: message, icon: "none", duration: 2800 });
     } finally {
-      this.setData({ confirmingId: "" });
+      if (attempt && doseAttempts.get(id) === attempt) {
+        attempt.busy = false;
+        // No POST was started: cancelling/changing identity during login is not
+        // an uncertain server write and must not freeze an unsubmitted intent.
+        if (!wasPending && !writeStarted) doseAttempts.delete(id);
+      }
+      this.setData({ confirmingId: "", entries: (this.data as MedicationPlansPageData).entries
+        .map((item) => toScheduleCard(item, (this.data as MedicationPlansPageData).date)) });
+      this.applyFilters();
     }
   },
 
