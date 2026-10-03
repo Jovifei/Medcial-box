@@ -30,15 +30,24 @@ npm run prepare:mini -- --appid wx0000000000000000 --api-base https://<测试域
 
 ## 备份与恢复演练
 
-在测试服务器上使用项目脚本。数据库 dump 与说明书图片卷分别备份，备份文件保存在 Git 忽略目录，目录本身应受文件权限保护。图片验收脚本只将归档解压到独立临时目录，不会覆盖现有图片卷。
+在Linux测试服务器上使用项目脚本，需要Bash及GNU coreutils（包括支持 `--no-clobber --no-target-directory` 的 `mv`、`mktemp`、`sha256sum`）。数据库 dump 与说明书图片卷必须在同一个独占停写窗口采集；在线先导出数据库、再打包图片可能在删除竞争中产生“元数据仍在但图片已缺失”的备份。
+
+执行前按获准运维流程记录 API 原运行状态，停止本药箱 API（同时停止同进程提醒/图片清理 job），并暂停其他可能修改数据库或图片卷的任务、外部写入者和自动重启/更新操作。保持数据库运行，保持这个独占窗口直到脚本结束。停止 API 会影响请求与后台任务，需在维护窗口执行；备份脚本本身不会停启任何服务，不接受仅靠环境变量声称已经停写。失败或中断后先检查原因、保留既有备份，再由运维仅恢复维护前正在运行的服务和任务；原本已停止的服务保持停止。
+
+脚本要求唯一现存 API 容器已停止、私有图片目录来自命名卷，并在采集前、数据库采集后和图片采集后复核容器/镜像/卷身份及卷使用者。发现运行、暂停、重启、身份变化或未知状态就失败，不发布备份。图片使用该容器的已有镜像 ID，禁止拉取，启动无网络、只读根文件系统与只读图片卷的临时 tar 读取器；不启动 Compose 依赖或 API 入口，不传服务器环境。镜像或容器不存在时先排查，不由备份脚本重建。
+
+这些状态检查可以发现观察到的重启，并不能锁住 Docker 或主机：两次检查间的启动后又停止、直接写数据库/卷、其他 Docker daemon/主机写入均必须由独占运维窗口排除。发现无法排除的写入者时停止备份，不把检查通过当作并发环境中的原子快照保证。
+
+成功结果位于 `.local-data/backups/medbox-时间-PID/`，内含 `database.dump`、`photos.tar.gz`、`SHA256SUMS`。两次采集和摘要生成都成功后，才用同一文件系统的一次目录重命名发布整组；目标已存在时不覆盖。失败/SIGINT/SIGTERM仅清理本次创建的未发布临时文件，保留原备份和其他文件。强制终止或断电可能留下隐藏临时目录，应保留并另行核对，不能视为成功备份；此流程不声称断电持久性。目录/文件默认0700/0600，禁止将数据库或照片加入Git或报告。
 
 ```bash
 bash scripts/staging-backup.sh deploy/.env.staging .local-data/backups
-bash scripts/verify-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID.dump
-bash scripts/verify-photo-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID.dump.photos.tar.gz
+bash scripts/verify-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID/database.dump
+bash scripts/verify-photo-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID/photos.tar.gz
+(cd /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID && sha256sum -c SHA256SUMS)
 ```
 
-检查 `.sha256`、两个验证脚本的退出码和数据库恢复输出中的家庭、药品、批次数量。图片验证会做路径检查并解压到临时目录。正式恢复必须另行制定停写、快照和回滚步骤，再把验证后的图片归档恢复到目标卷；不要把临时目录验证误记为服务器恢复通过。
+检查 `SHA256SUMS`、两个验证脚本的退出码和数据库恢复输出中的家庭、药品、批次数量。图片验证会做路径检查并解压到独立临时目录，不会覆盖现有图片卷。旧格式的 `.dump`、`.dump.photos.tar.gz` 和 `.sha256` 仍保留，验证脚本仍接受旧文件路径，但不能从历史成功输出推断当时存在停写窗口。正式恢复必须另行制定停写、快照和回滚步骤，再把验证后的图片归档恢复到目标卷；逐条核对活动图片关联、授权下载和权限，不能只看计数或把临时目录验证误记为服务器恢复通过。
 
 ## 证据边界
 
