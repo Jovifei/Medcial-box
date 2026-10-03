@@ -449,6 +449,7 @@ Page({
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
+  leaveNavigationPending: false,
 
   onLoad(options: { id?: string; capture?: string; scan?: string }): void {
     const medicineId = options.id ?? "";
@@ -559,6 +560,12 @@ Page({
   refreshDraftScope(): void {
     const key = draftStorageKey(this.data.medicineId as string);
     if (key === this.draftStorageKey) return;
+    // 身份首次就绪可绑定；已打开的表单不得随换账号/家庭迁移到新归属。
+    if (this.draftStorageKey !== null) {
+      this.pendingStoredDraft = null;
+      this.setData({ draftAvailable: false, draftForeign: false });
+      return;
+    }
     this.draftStorageKey = key;
     this.loadStoredDraft();
   },
@@ -607,9 +614,12 @@ Page({
     }
   },
 
-  persistCurrentDraft(updateBanner = true): void {
+  persistCurrentDraft(updateBanner = true): boolean {
     const key = this.draftStorageKey;
-    if (key === null) return;
+    if (key === null || key !== draftStorageKey(this.data.medicineId as string)) {
+      wx.showToast({ title: "登录身份尚未确认或已变化，草稿未保存", icon: "none" });
+      return false;
+    }
     try {
       const data = this.data as MedicineEditPageData;
       const fields = draftValues(data);
@@ -623,8 +633,10 @@ Page({
       wx.setStorageSync(key, stored);
       this.pendingStoredDraft = fields;
       if (updateBanner) this.setData({ draftAvailable: true, draftForeign: false });
+      return true;
     } catch {
       wx.showToast({ title: "本机草稿保存失败，请先复制或完成保存", icon: "none" });
+      return false;
     }
   },
 
@@ -675,6 +687,7 @@ Page({
   },
 
   onRequestLeave(): void {
+    if (this.leaveNavigationPending) return;
     const data = this.data as MedicineEditPageData;
     if (data.submitting || data.recognizing || data.medicineLoading) {
       wx.showToast({ title: "请等待当前操作完成后再离开", icon: "none" });
@@ -688,10 +701,11 @@ Page({
   },
 
   onLeaveChoice(event: { currentTarget: { dataset: { choice?: string } } }): void {
+    if (!this.data.leaveSheetVisible || this.leaveNavigationPending) return;
     const choice = event.currentTarget.dataset.choice;
+    if (choice === "keep" && !this.persistCurrentDraft()) return;
     this.setData({ leaveSheetVisible: false });
     if (choice === "continue") return;
-    if (choice === "keep") this.persistCurrentDraft();
     if (choice === "discard") {
       this.discardingDraft = true;
       this.removeStoredDraft();
@@ -703,7 +717,12 @@ Page({
   },
 
   navigateBackFromForm(): void {
-    wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: "/pages/index/index" }) });
+    if (this.leaveNavigationPending) return;
+    this.leaveNavigationPending = true;
+    wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({
+      url: "/pages/index/index",
+      fail: () => { this.leaveNavigationPending = false; },
+    }) });
   },
 
   /** 标记字段被用户显式修改（含清空）：这是"我已决定这里的值"的唯一依据。 */
