@@ -1,9 +1,10 @@
 # 当前状态 · 2026-10-03 云端补充收尾
 
-- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前核对源码 `736d762`，既有分支 `codex/flutter-ui-prototype`
-- 已连续发布9批独立修复：小程序会话、提醒发送边界、Flutter照护契约、双端确认及计划创建重试、历史纠正、仅接收提醒隐私、导出生命周期及明确家庭失效清理
-- 当前自动化证据：Mini220、严格PG参与API356、tooling6、独立PG135；最新Flutter268/analyze通过。9批精确提交CI均通过（包括debug APK），全部链接见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
-- 仍有代码工作：Flutter星期/库存绑定/持久草稿、跨进程原始文件和异常退出恢复；不能宣称只剩人工验收
+- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `6ec8d7a`，既有分支 `codex/flutter-ui-prototype`
+- 已发布17批独立修复；在既有会话/提醒/历史/幂等/权限/清理边界之上，补齐Flutter计划表单、重启身份、精确导出原件恢复，以及五批单页录入可靠性修复
+- 云端本地最终Flutter660/analyze与独立聚焦76通过；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
+- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位，最终源码重新生成45张Flutter引擎图；原生系统Back、真实输入法、相机与官方WeChat仍待验，详见 [录入可靠性与视觉证据](reports/closeout/16-entry-reliability-and-visual-verification.md)
+- C4仍PARTIAL：仅恢复清理精确登记且证据一致的完整原件；中断未登记、替换和旧模糊文件保留。旧原始令牌无可信来源记录需重新连接；未知草稿保留隔离。不能宣称跨进程、断电或所有持久写入失败场景均已关闭
 - 官方小程序编译在本云环境SKIPPED；CI debug APK未配置生产API/正式签名。真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍NOT_RUN
 - 本轮只使用云端源码与合成数据；未访问原Windows工作区、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
 
