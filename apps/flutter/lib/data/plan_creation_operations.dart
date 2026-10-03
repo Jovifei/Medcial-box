@@ -4,13 +4,15 @@ import 'dart:math';
 import '../models/plan_models.dart';
 import 'api_client.dart';
 import 'app_stores.dart';
+import 'plan_form_drafts.dart';
 
 /// The original submitted payload, not a mutable form draft. Stored in the
 /// existing private family-data lifecycle; never contains credentials.
 class PendingPlanCreation {
-  PendingPlanCreation._(this.key, this._payloadJson);
+  PendingPlanCreation._(this.key, this._payloadJson, [this.formDraft]);
   final String key;
   final String _payloadJson;
+  final PlanFormDraftReference? formDraft;
   Map<String, Object?> get payload =>
       Map<String, Object?>.from(jsonDecode(_payloadJson) as Map);
   MedicationPlanDraft get draft {
@@ -70,6 +72,7 @@ class PlanCreationOperations {
   PlanCreationOperations({required this.api, required this.store});
   final ApiClient api;
   final LocalAppStore store;
+  PlanFormDrafts? formDrafts;
   final _pending = <String, PendingPlanCreation>{};
   final _orphans = <String, String>{};
   final _loaded = <String>{};
@@ -99,7 +102,10 @@ class PlanCreationOperations {
     }
   }
 
-  Future<PlanCreationSession> open({bool Function()? isCurrent}) async {
+  Future<PlanCreationSession> open({
+    bool Function()? isCurrent,
+    bool loadPending = true,
+  }) async {
     final epoch = api.identityEpoch;
     _requireCurrent(epoch, isCurrent);
     await api.waitForIdentityCleanup();
@@ -121,6 +127,9 @@ class PlanCreationOperations {
       utf8.encode(jsonEncode([api.baseUrl, user['id'], family['id']])),
     );
     final session = PlanCreationSession._(scope, epoch);
+    // Editing another plan needs the same validated identity scope, but does
+    // not depend on an unrelated new-plan operation being readable.
+    if (!loadPending) return session;
     await _serialized(() async {
       _requireCurrent(epoch, isCurrent);
       if (_loaded.contains(scope)) return;
@@ -139,7 +148,8 @@ class PlanCreationOperations {
         try {
           final record = jsonDecode(raw) as Map;
           final key = record['key'] as String;
-          if (record['version'] != 1 ||
+          if (!const [1, 2].contains(record['version']) ||
+              (record['version'] == 2 && record['formDraft'] == null) ||
               record['scope'] != scope ||
               !RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(key)) {
             throw const FormatException();
@@ -148,9 +158,14 @@ class PlanCreationOperations {
           final intent = PendingPlanCreation._(
             key,
             record['payload'] as String,
+            record['formDraft'] == null
+                ? null
+                : PlanFormDraftReference.fromJson(record['formDraft']),
           );
           final draft = intent.draft;
-          if (draft.careProfileId.isEmpty ||
+          if ((intent.formDraft != null &&
+                  !PlanFormDrafts.isCreationReference(intent.formDraft!)) ||
+              draft.careProfileId.isEmpty ||
               draft.medicineName.isEmpty ||
               draft.dosageText.isEmpty ||
               draft.timeSlots.isEmpty ||
@@ -243,6 +258,7 @@ class PlanCreationOperations {
     PlanCreationSession session, {
     MedicationPlanDraft? draft,
     required bool retry,
+    PlanFormDraftHandle? formDraft,
     bool Function()? isCurrent,
   }) async {
     final epoch = session.identityEpoch;
@@ -254,6 +270,7 @@ class PlanCreationOperations {
     PendingPlanCreation? intent;
     var firstDispatch = false;
     var requestStarted = false;
+    var acknowledged = false;
     try {
       await _serialized(() async {
         _requireCurrent(epoch, isCurrent);
@@ -273,11 +290,22 @@ class PlanCreationOperations {
             throw const PlanCreationException('上次创建结果尚未确定，请先重试原计划。');
           }
           if (draft == null) throw ArgumentError.notNull('draft');
+          final association = formDraft == null
+              ? null
+              : await formDrafts!.freeze(formDraft);
+          _requireCurrent(epoch, isCurrent);
+          if (formDraft != null &&
+              (formDraft.session.scope != session.scope ||
+                  formDraft.planId != null ||
+                  !formDrafts!.isCurrent(formDraft))) {
+            throw const PlanCreationException('计划草稿所属页面已变更。');
+          }
           final key =
               'plan-${List.generate(24, (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
           intent = PendingPlanCreation._(
             key,
             jsonEncode(draft.toCreatePayload()),
+            association,
           );
           _pending[session.scope] = intent!;
           firstDispatch = true;
@@ -291,10 +319,13 @@ class PlanCreationOperations {
         await store.saveDraft(
           storageKey(session),
           jsonEncode({
-            'version': 1,
+            // v2 prevents older clients ignoring the ordinary-draft association.
+            'version': intent!.formDraft == null ? 1 : 2,
             'scope': session.scope,
             'key': intent!.key,
             'payload': intent!._payloadJson,
+            if (intent!.formDraft != null)
+              'formDraft': intent!.formDraft!.toJson(),
           }),
         );
         _requireCurrent(epoch, isCurrent);
@@ -306,7 +337,9 @@ class PlanCreationOperations {
         body: {...intent!.payload, 'idempotencyKey': intent!.key},
         // Token storage awaits too: this is checked immediately before send.
         isCurrent: () =>
-            epoch == api.identityEpoch && (isCurrent?.call() ?? true),
+            epoch == api.identityEpoch &&
+            (isCurrent?.call() ?? true) &&
+            (formDraft == null || formDrafts!.isCurrent(formDraft)),
       );
       _requireCurrent(epoch);
       if (result is! Map ||
@@ -325,7 +358,8 @@ class PlanCreationOperations {
       );
       // Acknowledged success is never reversed by local cleanup. A retained
       // on-disk intent is safe to explicitly replay after process restart.
-      await _forget(session, intent!);
+      acknowledged = true;
+      await _forget(session, intent!, acknowledged: true);
       return receipt;
     } catch (error) {
       if (firstDispatch &&
@@ -339,18 +373,28 @@ class PlanCreationOperations {
       }
       rethrow;
     } finally {
+      if (!acknowledged && formDraft != null) formDrafts?.resume(formDraft);
       _busy.remove(lock);
     }
   }
 
   Future<void> _forget(
     PlanCreationSession session,
-    PendingPlanCreation intent,
-  ) async {
+    PendingPlanCreation intent, {
+    bool acknowledged = false,
+  }) async {
     try {
       await _serialized(() async {
         if (session.identityEpoch != api.identityEpoch) return;
         if (!identical(_pending[session.scope], intent)) return;
+        // A known ACK may release the original key only after its associated
+        // ordinary draft is removed. Otherwise restart could restore that form
+        // and create it again with a new key after selective cleanup failure.
+        if (acknowledged && intent.formDraft != null) {
+          if (formDrafts == null) return;
+          await formDrafts!.acknowledgeReference(session, intent.formDraft);
+          if (session.identityEpoch != api.identityEpoch) return;
+        }
         // Remove the marker first. If private-intent deletion fails or the
         // process stops, reopening restores the SAME key from that intent.
         await store.deletePlanCreationMarker(session.scope);

@@ -211,8 +211,11 @@ class ApiClient {
     isCurrent: isCurrent,
   );
 
-  Future<dynamic> put(String path, Map<String, Object?> body) =>
-      _send('PUT', path, body: body);
+  Future<dynamic> put(
+    String path,
+    Map<String, Object?> body, {
+    bool Function()? isCurrent,
+  }) => _send('PUT', path, body: body, isCurrent: isCurrent);
 
   Future<dynamic> delete(String path) => _send('DELETE', path);
 

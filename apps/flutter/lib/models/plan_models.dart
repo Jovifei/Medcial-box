@@ -336,6 +336,7 @@ class MedicationPlanDraft {
   const MedicationPlanDraft({
     required this.careProfileId,
     this.medicineId,
+    this.medicineBindingChanged = false,
     required this.medicineName,
     required this.dosageText,
     required this.timeSlots,
@@ -346,6 +347,7 @@ class MedicationPlanDraft {
 
   final String careProfileId;
   final String? medicineId;
+  final bool medicineBindingChanged;
   final String medicineName;
   final String dosageText;
   final List<String> timeSlots;
@@ -365,6 +367,7 @@ class MedicationPlanDraft {
   };
 
   Map<String, Object?> toUpdatePayload({required int version}) => {
+    if (medicineBindingChanged) 'medicineId': medicineId,
     'medicineName': medicineName.trim(),
     'dosageText': dosageText.trim(),
     'timeSlots': timeSlots,

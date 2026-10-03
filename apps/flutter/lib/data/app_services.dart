@@ -114,6 +114,7 @@ class AppServices {
       late final AppServices services;
       Future<void> clearIdentityData({bool familyMissing = false}) async {
         api.invalidateIdentity();
+        plans.formDrafts.resetForIdentity();
         final clearExports = workflow.exportFiles.resetForIdentity();
         final epoch = api.identityEpoch;
         scheduleRequest++;

@@ -8,7 +8,8 @@ import { applyMigrations } from "../dist/db/migrations.js";
 import { buildServer } from "../dist/app.js";
 import { createReminderTemplateConfig } from "../dist/services/subscribe-messages.js";
 import { createTestGateway } from "./helpers/fake-wechat.mjs";
-import { isolatedPostgres } from "./helpers/isolated-pg.mjs";
+import { issueSessionToken } from "../dist/auth/session.js";
+import { isolatedPostgres, contend } from "./helpers/isolated-pg.mjs";
 
 const url = process.env.TEST_DATABASE_URL?.trim() ?? "";
 const required = process.env.REQUIRE_POSTGRES_TESTS === "1";
@@ -233,6 +234,165 @@ test("real PostgreSQL: dose occurrence lifecycle and history (S1 R01-R04/R06)", 
     });
   } finally {
     if (app !== undefined) await app.close();
+    await fixture.close();
+  }
+});
+
+
+// Synthetic-only inventory binding repair; independent sessions avoid auth rate limits.
+test("real PostgreSQL: plan edit preserves explicit medicine identity and current authorization", {
+  skip: !url && !required ? "TEST_DATABASE_URL absent: optional local PostgreSQL suite" : false,
+  concurrency: 1,
+}, async (t) => {
+  assert.ok(url, "REQUIRE_POSTGRES_TESTS=1 requires TEST_DATABASE_URL");
+  const fixture = await isolatedPostgres(url);
+  const { pool, database } = fixture;
+  let app;
+  let beforeTransaction;
+  try {
+    await applyMigrations(pool);
+    app = await buildServer({ database: { ...database, async withTransaction(fn) {
+      if (beforeTransaction) { const change = beforeTransaction; beforeTransaction = null; await change(); }
+      return database.withTransaction(fn);
+    } }, logger: false });
+    const request = (who, method, path, payload) => app.inject({ method, url: `/api/v1${path}`, headers: { authorization: `Bearer ${who.token}` }, ...(payload === undefined ? {} : { payload }) });
+    async function group() {
+      const id = randomUUID();
+      const users = [];
+      for (let i = 0; i < 2; i++) {
+        const userId = randomUUID();
+        await pool.query("INSERT INTO users(id,openid) VALUES($1,$2)", [userId, `synthetic-edit-${userId}`]);
+        users.push({ id: userId, ...await issueSessionToken(database, userId) });
+      }
+      const [owner, member] = users;
+      await pool.query("INSERT INTO families(id,name,created_by) VALUES($1,'Synthetic binding family',$2)", [id, owner.id]);
+      for (const [who, role] of [[owner, "owner"], [member, "member"]]) await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,$3)", [id, who.id, role]);
+      const profileId = randomUUID();
+      await pool.query("INSERT INTO care_profiles(id,family_id,display_name,created_by) VALUES($1,$2,'Synthetic profile',$3)", [profileId, id, owner.id]);
+      await pool.query("INSERT INTO care_grants(family_id,care_profile_id,member_user_id,can_manage,created_by) VALUES($1,$2,$3,true,$4)", [id, profileId, member.id, owner.id]);
+      const medicineIds = [randomUUID(), randomUUID()];
+      for (const medicineId of medicineIds) await pool.query("INSERT INTO medicines(id,family_id,name,created_by,updated_by) VALUES($1,$2,'Same inventory name',$3,$3)", [medicineId, id, owner.id]);
+      const plan = status(await request(owner, "POST", "/medication-plans", { careProfileId: profileId, medicineId: medicineIds[0], medicineName: "Original label", dosageText: "Original text", timeSlots: ["08:00"], startDate: "2026-01-01" }), 201);
+      const edit = (payload, who = owner) => request(who, "PUT", `/medication-plans/${plan.planId}`, { version: 1, ...payload });
+      const detail = async () => status(await request(owner, "GET", `/medication-plans/${plan.planId}`), 200).plan;
+      return { id, owner, member, profileId, medicineIds, plan, edit, detail };
+    }
+
+    await t.test("deleted existing binding rejects explicit ID, survives omitted dose/time edits, and allows null unlink", async () => {
+      const g = await group();
+      await pool.query("UPDATE medicines SET deleted_at=now() WHERE id=$1", [g.medicineIds[0]]);
+      status(await g.edit({ medicineId: g.medicineIds[0], dosageText: "Must not persist" }), 404);
+      assert.equal((await g.detail()).version, 1);
+      status(await g.edit({ dosageText: "Changed user-entered text", timeSlots: ["09:00", "20:00"] }), 200);
+      const preserved = await g.detail();
+      assert.equal(preserved.medicineId, g.medicineIds[0]); assert.equal(preserved.medicineName, "Original label");
+      assert.equal(preserved.dosageText, "Changed user-entered text"); assert.deepEqual(preserved.timeSlots, ["09:00", "20:00"]);
+      assert.equal(preserved.version, 2);
+      status(await g.edit({ version: 2, medicineId: null, medicineName: "Manual replacement" }), 200);
+      const detail = await g.detail();
+      assert.equal(detail.medicineId, null); assert.equal(detail.medicineName, "Manual replacement");
+      assert.equal(detail.version, 3);
+    });
+
+    await t.test("explicit identity switches inventory without inferring identity or replacing entered label", async () => {
+      const g = await group();
+      status(await g.edit({ medicineId: ` ${g.medicineIds[1].toUpperCase()} `, medicineName: "Chosen label" }), 200);
+      const detail = await g.detail();
+      assert.equal(detail.medicineId, g.medicineIds[1]); assert.equal(detail.medicineName, "Chosen label");
+      status(await g.edit({ version: 2, medicineId: null }), 200);
+      assert.equal((await g.detail()).medicineId, null);
+      status(await g.edit({ version: 3, medicineId: g.medicineIds[0] }), 200);
+      assert.equal((await g.detail()).medicineId, g.medicineIds[0]);
+    });
+
+    await t.test("foreign, missing and deleted IDs are rejected atomically; malformed values return 400", async () => {
+      const g = await group(); const other = await group();
+      await pool.query("UPDATE medicines SET deleted_at=now() WHERE id=$1", [g.medicineIds[1]]);
+      for (const medicineId of [other.medicineIds[0], randomUUID(), g.medicineIds[1]]) status(await g.edit({ medicineId, medicineName: "Must not persist", timeSlots: ["09:00"] }), 404);
+      for (const medicineId of ["bad-id", "", false, 1, []]) status(await g.edit({ medicineId }), 400);
+      const detail = await g.detail();
+      assert.equal(detail.medicineId, g.medicineIds[0]); assert.equal(detail.medicineName, "Original label");
+      assert.equal(detail.version, 1); assert.deepEqual(detail.timeSlots, ["08:00"]);
+    });
+
+    await t.test("medicine deleted after preflight is rejected by the current transaction", async () => {
+      const g = await group();
+      beforeTransaction = () => pool.query("UPDATE medicines SET deleted_at=now() WHERE id=$1", [g.medicineIds[1]]);
+      status(await g.edit({ medicineId: g.medicineIds[1] }), 404);
+      assert.equal((await g.detail()).version, 1);
+    });
+
+    await t.test("rebinding preserves historical snapshots and rematerializes only future pending instances", async () => {
+      const g = await group(); const today = shanghaiToday(); const tomorrow = shanghaiDate(1);
+      const past = status(await request(g.owner, "GET", `/medication-plans/schedule?date=${today}`), 200).entries[0];
+      status(await request(g.owner, "POST", `/dose-occurrences/${past.occurrenceId}/confirm`, { action: "taken", idempotencyKey: randomUUID() }), 200);
+      const future = status(await request(g.owner, "GET", `/medication-plans/schedule?date=${tomorrow}`), 200).entries[0];
+      status(await g.edit({ medicineId: g.medicineIds[1], medicineName: "New label", dosageText: "New text" }), 200);
+      const historical = status(await request(g.owner, "GET", `/medication-plans/schedule?date=${today}`), 200).entries.find(row => row.occurrenceId === past.occurrenceId);
+      assert.equal(historical.status, "taken"); assert.equal(historical.medicineName, "Original label"); assert.equal(historical.dosageText, "Original text");
+      const next = status(await request(g.owner, "GET", `/medication-plans/schedule?date=${tomorrow}`), 200).entries;
+      assert.equal(next.length, 1); assert.notEqual(next[0].occurrenceId, future.occurrenceId); assert.equal(next[0].medicineName, "New label");
+      assert.equal((await g.detail()).medicineId, g.medicineIds[1]);
+      status(await request(g.owner, "POST", `/dose-occurrences/${future.occurrenceId}/confirm`, { action: "taken", idempotencyKey: randomUUID() }), 409);
+    });
+
+    for (const change of ["membership", "grant", "profile"]) {
+      await t.test(`revoked ${change} while edit waits on the family lock cannot rebind`, async () => {
+        const g = await group();
+        const [, edited] = await contend(fixture, /SELECT id FROM families WHERE/, () => database.withTransaction(async (tx) => {
+          await tx.query("SELECT id FROM families WHERE id=$1 FOR UPDATE", [g.id]);
+          if (change === "membership") await tx.query("DELETE FROM family_members WHERE family_id=$1 AND user_id=$2", [g.id, g.member.id]);
+          if (change === "grant") await tx.query("DELETE FROM care_grants WHERE care_profile_id=$1 AND member_user_id=$2", [g.profileId, g.member.id]);
+          if (change === "profile") await tx.query("UPDATE care_profiles SET archived_at=now() WHERE id=$1", [g.profileId]);
+        }), () => g.edit({ medicineId: g.medicineIds[1] }, g.member));
+        status(edited, change === "grant" ? 403 : 404);
+        const row = (await pool.query("SELECT medicine_id,version FROM medication_plans WHERE id=$1", [g.plan.planId])).rows[0];
+        assert.equal(row.medicine_id, g.medicineIds[0]); assert.equal(row.version, 1);
+      });
+    }
+
+    for (const change of ["membership", "grant", "profile"]) {
+      await t.test(`revoked ${change} after preflight is rechecked before rebinding`, async () => {
+        const g = await group();
+        beforeTransaction = () => change === "membership"
+          ? pool.query("DELETE FROM family_members WHERE family_id=$1 AND user_id=$2", [g.id, g.member.id])
+          : change === "grant"
+            ? pool.query("DELETE FROM care_grants WHERE care_profile_id=$1 AND member_user_id=$2", [g.profileId, g.member.id])
+            : pool.query("UPDATE care_profiles SET archived_at=now() WHERE id=$1", [g.profileId]);
+        status(await g.edit({ medicineId: g.medicineIds[1] }, g.member), change === "grant" ? 403 : 404);
+        const row = (await pool.query("SELECT medicine_id,version FROM medication_plans WHERE id=$1", [g.plan.planId])).rows[0];
+        assert.equal(row.medicine_id, g.medicineIds[0]); assert.equal(row.version, 1);
+      });
+    }
+
+    await t.test("edit holds management authorization through its medicine check until commit", async () => {
+      const g = await group();
+      const [edited] = await contend(fixture, /SELECT id FROM medicines WHERE|DELETE FROM care_grants WHERE/, () => g.edit({ medicineId: g.medicineIds[1] }, g.member), () => database.withTransaction(async (tx) => {
+        await tx.query("DELETE FROM care_grants WHERE care_profile_id=$1 AND member_user_id=$2", [g.profileId, g.member.id]);
+      }));
+      status(edited, 200); assert.equal((await g.detail()).medicineId, g.medicineIds[1]);
+      status(await g.edit({ version: 2, medicineId: null }, g.member), 403);
+      assert.equal((await g.detail()).version, 2);
+    });
+
+    await t.test("medicine deletion winning its row lock is rechecked before rebinding", async () => {
+      const g = await group();
+      const [, edited] = await contend(fixture, /SELECT id FROM medicines WHERE/, () => database.withTransaction(async (tx) => {
+        await tx.query("SELECT id FROM medicines WHERE id=$1 FOR UPDATE", [g.medicineIds[1]]);
+        await tx.query("UPDATE medicines SET deleted_at=now() WHERE id=$1", [g.medicineIds[1]]);
+      }), () => g.edit({ medicineId: g.medicineIds[1] }));
+      status(edited, 404); assert.equal((await g.detail()).version, 1);
+    });
+
+    await t.test("concurrent rebinding keeps optimistic-version isolation", async () => {
+      const g = await group();
+      const responses = await Promise.all([g.edit({ medicineId: g.medicineIds[1] }), g.edit({ medicineId: null })]);
+      assert.deepEqual(responses.map(r => r.statusCode).sort(), [200, 409]);
+      const expectedId = responses[0].statusCode === 200 ? g.medicineIds[1] : null;
+      const detail = await g.detail(); assert.equal(detail.version, 2); assert.equal(detail.medicineId, expectedId);
+    });
+  } finally {
+    if (app) await app.close();
     await fixture.close();
   }
 });
