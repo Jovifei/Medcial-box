@@ -63,7 +63,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   bool categoryExpanded = false;
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
+    isCurrent: () => mounted && _isDraftIdentityCurrent,
   );
+  late final (ApiClient, LocalAppStore, String, int, String?, String?, String?)
+  entryIdentity;
+  Future<void> draftPersistence = Future.value();
   String draftId = DateTime.now().microsecondsSinceEpoch.toString();
   String? savedMedicineId;
   String? savedBatchId;
@@ -92,22 +96,60 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   @override
   void initState() {
     super.initState();
+    entryIdentity = _identitySnapshot();
     unawaited(_restoreDraft());
+  }
+
+  (ApiClient, LocalAppStore, String, int, String?, String?, String?)
+  _identitySnapshot() {
+    final api = widget.repository.api;
+    final identity = api.identityState;
+    return (
+      api,
+      widget.localStore,
+      api.baseUrl,
+      api.identityEpoch,
+      identity?.generation,
+      identity?.owner?.userId,
+      identity?.owner?.familyId,
+    );
+  }
+
+  bool get _isDraftIdentityCurrent => entryIdentity == _identitySnapshot();
+
+  // Keep the queue and legacy draft writes in the same order, including
+  // autosaves that were already running when the user chose to leave.
+  Future<void> _persistDraft(Future<void> Function() operation) {
+    final next = draftPersistence.then((_) async {
+      if (mounted && _isDraftIdentityCurrent) await operation();
+    });
+    draftPersistence = next.catchError((Object _) {});
+    return next;
   }
 
   Future<void> _restoreDraft() async {
     try {
       final queue = await draftQueue.list();
+      if (!mounted || !_isDraftIdentityCurrent) return;
       final legacy = await widget.localStore.readDraft(_draftKey);
       final raw = legacy ?? (queue.isEmpty ? null : jsonEncode(queue.last));
-      if (raw == null || raw.isEmpty || !mounted || dirty) return;
+      if (raw == null ||
+          raw.isEmpty ||
+          !mounted ||
+          dirty ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
       final json = jsonDecode(raw);
       if (json is! Map<String, dynamic>) {
         throw const FormatException('本地录入草稿格式无效');
       }
       _applyDraft(json);
     } catch (_) {
-      await widget.localStore.deleteDraft(_draftKey);
+      if (mounted && _isDraftIdentityCurrent) {
+        await _persistDraft(() => widget.localStore.deleteDraft(_draftKey))
+            .catchError((Object _) {});
+      }
     } finally {
       if (mounted) setState(() => restoringDraft = false);
     }
@@ -191,19 +233,32 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         : 'review',
   };
   Future<void> _saveDraft({bool legacy = true}) async {
-    await draftQueue.save(draftId, _draftFields());
-    if (legacy) {
-      await widget.localStore.saveDraft(
-        _draftKey,
-        jsonEncode({..._draftFields(), 'id': draftId}),
-      );
-    }
+    if (!mounted || !_isDraftIdentityCurrent) return;
+    final id = draftId;
+    final fields = _draftFields();
+    await _persistDraft(() async {
+      await draftQueue.save(id, fields);
+      if (legacy && mounted && _isDraftIdentityCurrent) {
+        await widget.localStore.saveDraft(
+          _draftKey,
+          jsonEncode({...fields, 'id': id}),
+        );
+      }
+    });
   }
 
   Future<void> _chooseDraft() async {
+    if (handlingBack || !_isDraftIdentityCurrent) return;
+    final originalId = draftId;
     if (dirty) await _saveDraft(legacy: false);
+    if (!mounted || !_isDraftIdentityCurrent || handlingBack) return;
     final drafts = await draftQueue.list();
-    if (!mounted) return;
+    if (!mounted ||
+        !_isDraftIdentityCurrent ||
+        handlingBack ||
+        draftId != originalId) {
+      return;
+    }
     final selected = await showAppSheet<Map<String, dynamic>>(
       context,
       title: '本机待核对草稿（${drafts.length}/10）',
@@ -234,7 +289,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ],
       ),
     );
-    if (selected == null || !mounted) return;
+    if (selected == null ||
+        !mounted ||
+        !_isDraftIdentityCurrent ||
+        handlingBack ||
+        draftId != originalId) {
+      return;
+    }
     recognitionRequest++;
     if (selected.isEmpty) {
       if (drafts.length >= 10) {
@@ -251,13 +312,21 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       recognitionFailure = null;
       restoredDraft = selected.isNotEmpty;
     });
-    await widget.localStore.deleteDraft(_draftKey);
-    if (selected.isNotEmpty) await _saveDraft();
+    final selectedId = draftId;
+    await _persistDraft(() => widget.localStore.deleteDraft(_draftKey));
+    if (selected.isNotEmpty &&
+        mounted &&
+        _isDraftIdentityCurrent &&
+        !handlingBack &&
+        draftId == selectedId) {
+      await _saveDraft();
+    }
   }
 
   void _markDirty() {
     if (!dirty && mounted) setState(() => dirty = true);
     autoSave?.cancel();
+    if (handlingBack || !_isDraftIdentityCurrent) return;
     autoSave = Timer(const Duration(milliseconds: 200), () {
       if (mounted) {
         unawaited(_saveDraft(legacy: false).catchError((Object _) {}));
@@ -266,49 +335,106 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _confirmLeave() async {
-    if (handlingBack || (!dirty && !restoredDraft) || saving) return;
-    handlingBack = true;
-    final action = await showDialog<_DraftExitAction>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('保留这次录入？'),
-        content: const Text('尚未保存的内容可以暂存在本机，之后继续核对。照片只在本机保留，确认保存前不会上传。'),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.continueEditing),
-            child: const Text('继续编辑'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.discard),
-            child: const Text('放弃修改'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.keep),
-            child: const Text('保留草稿'),
-          ),
-        ],
-      ),
-    );
-    handlingBack = false;
-    if (!mounted ||
-        action == null ||
-        action == _DraftExitAction.continueEditing) {
+    if (handlingBack ||
+        (!dirty && !restoredDraft) ||
+        saving ||
+        !_isDraftIdentityCurrent) {
       return;
     }
-    if (action == _DraftExitAction.keep) {
-      await _saveDraft();
-      restoredDraft = true;
-    } else {
-      await widget.localStore.deleteDraft(_draftKey);
-      await draftQueue.remove(draftId);
-      restoredDraft = false;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final navigator = Navigator.of(context);
+    final id = draftId;
+    bool isCurrentIntent() =>
+        mounted && _isDraftIdentityCurrent && draftId == id && route.isCurrent;
+    setState(() => handlingBack = true);
+    autoSave?.cancel();
+    _DraftExitAction? action;
+    try {
+      action = await showDialog<_DraftExitAction>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('保留这次录入？'),
+          content: const Text('尚未保存的内容可以暂存在本机，之后继续核对。照片只在本机保留，确认保存前不会上传。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _DraftExitAction.continueEditing,
+              ),
+              child: const Text('继续编辑'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DraftExitAction.discard),
+              child: const Text('放弃修改'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DraftExitAction.keep),
+              child: const Text('保留草稿'),
+            ),
+          ],
+        ),
+      );
+      if (!isCurrentIntent() ||
+          action == null ||
+          action == _DraftExitAction.continueEditing) {
+        return;
+      }
+      if (action == _DraftExitAction.keep) {
+        // Edits remain available during slow storage. Only leave after both
+        // stores have acknowledged the latest complete field snapshot.
+        String snapshot;
+        do {
+          snapshot = jsonEncode(_draftFields());
+          await _saveDraft();
+          if (!isCurrentIntent()) return;
+        } while (snapshot != jsonEncode(_draftFields()));
+      } else {
+        final snapshot = jsonEncode(_draftFields());
+        await _persistDraft(() async {
+          if (!isCurrentIntent()) return;
+          await widget.localStore.deleteDraft(_draftKey);
+          if (!isCurrentIntent()) return;
+          await draftQueue.remove(id);
+        });
+        if (!isCurrentIntent()) return;
+        if (snapshot != jsonEncode(_draftFields())) {
+          // The discard decision did not cover edits entered while deleting.
+          await _saveDraft();
+          return;
+        }
+      }
+      if (!isCurrentIntent()) return;
+      setState(() {
+        dirty = false;
+        restoredDraft = action == _DraftExitAction.keep;
+      });
+      navigator.pop();
+    } catch (_) {
+      if (!mounted || !isCurrentIntent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            action == _DraftExitAction.discard
+                ? '草稿删除失败，内容仍在当前页面。请重试。'
+                : '草稿保存失败，内容仍在当前页面。请重试。',
+          ),
+          action: SnackBarAction(
+            label: '重试',
+            onPressed: () {
+              if (isCurrentIntent()) unawaited(_confirmLeave());
+            },
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => handlingBack = false);
+      if (isCurrentIntent() && dirty) {
+        _markDirty();
+      }
     }
-    if (!mounted) return;
-    setState(() => dirty = false);
-    Navigator.of(context).pop();
   }
 
   @override
@@ -590,7 +716,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _save() async {
-    if (saving) return;
+    if (saving || handlingBack || !_isDraftIdentityCurrent) return;
     final name = nameController.text.trim();
     if (name.isEmpty) {
       setState(() => touchedName = true);
@@ -770,7 +896,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         WidgetsBinding.instance.scheduleFrame();
       }
     } catch (error) {
-      if (savedMedicineId == null && error is ApiException && error.statusCode == 400) {
+      if (savedMedicineId == null &&
+          error is ApiException &&
+          error.statusCode == 400) {
         attemptedPayload = null;
         await _saveDraft(legacy: false);
       }
@@ -899,7 +1027,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   @override
   Widget build(BuildContext context) => PopScope<Object?>(
     key: const ValueKey('medicine-entry-pop-scope'),
-    canPop: !dirty && !restoredDraft && !saving,
+    canPop: !dirty && !restoredDraft && !saving && !handlingBack,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop && (dirty || restoredDraft) && !saving) {
         unawaited(_confirmLeave());
@@ -911,7 +1039,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         actions: [
           IconButton(
             tooltip: '本机草稿',
-            onPressed: saving ? null : _chooseDraft,
+            onPressed: saving || handlingBack ? null : _chooseDraft,
             icon: const Icon(Icons.layers_outlined),
           ),
         ],
@@ -929,7 +1057,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                 ? '重试原提交'
                 : '核对后保存',
             icon: Icons.check_rounded,
-            onPressed: saving ? null : _save,
+            onPressed: saving || handlingBack ? null : _save,
           ),
         ),
       ),
@@ -1190,10 +1318,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
                         const SizedBox(height: 8),
                         _openingSegments(
-                          labels: const {
-                            'duration': '经过时长',
-                            'date': '截止日期',
-                          },
+                          labels: const {'duration': '经过时长', 'date': '截止日期'},
                           selected: afterOpenKind,
                           onSelectionChanged: (value) {
                             setState(() => afterOpenKind = value.first);
@@ -1223,8 +1348,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                               ),
                               hint: const Text('选择'),
                               items: const [
-                                DropdownMenuItem(value: 'day', child: Text('天')),
-                                DropdownMenuItem(value: 'month', child: Text('月')),
+                                DropdownMenuItem(
+                                  value: 'day',
+                                  child: Text('天'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'month',
+                                  child: Text('月'),
+                                ),
                               ],
                               onChanged: (value) {
                                 setState(() => afterOpenUnit = value);
