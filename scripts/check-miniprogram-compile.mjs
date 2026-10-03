@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * 本机小程序编译门禁：调用微信开发者工具自带的官方编译器（wcc / wcsc）
- * 逐个编译 WXML 与 WXSS，捕获只有真实编译器才能发现的问题
+ * 按完整依赖分组编译 WXML 与 WXSS，捕获只有真实编译器才能发现的问题
  * （标签闭合、绑定语法、wx:elif 顺序、样式语法等）。
  *
  * 设计取舍：
  * - 找不到开发者工具时打印提示并以 0 退出，避免在没有安装工具的环境里阻塞 CI；
- * - 逐个文件编译而不是整包，便于精确定位到具体页面；
+ * - 同类文件一起编译，确保 import/include 依赖可解析；
  * - 该脚本不替代 IDE 预览，只回答"官方编译器能否通过"。
  */
 import { existsSync, readdirSync } from "node:fs";
@@ -47,15 +47,15 @@ const compilerDir = findCompilerDir();
 if (compilerDir === null) {
   console.log("[check:miniprogram] 未找到微信开发者工具，跳过官方编译器校验。");
   console.log("设置 WECHAT_DEVTOOLS_ROOT 指向安装目录即可启用（例如 E:\\AI_Tools\\Other\\WeChatDevTools）。");
-  process.exit(0);
+  process.exit(process.env.REQUIRE_WECHAT_COMPILER === "1" ? 1 : 0);
 }
 
 const wcc = path.join(compilerDir, "wcc.exe");
 const wcsc = path.join(compilerDir, "wcsc.exe");
 
-function compile(executable, file, extraArgs) {
+function compile(executable, files, extraArgs) {
   try {
-    execFileSync(executable, [...extraArgs, file], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+    execFileSync(executable, [...extraArgs, ...files], { cwd: projectRoot, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
     return null;
   } catch (error) {
     const stderr = error.stderr?.toString().trim() ?? "";
@@ -64,23 +64,18 @@ function compile(executable, file, extraArgs) {
   }
 }
 
-const targets = [
-  ...collect(projectRoot, ".wxml").map((file) => ({ file, executable: wcc, args: [] })),
-  ...collect(projectRoot, ".wxss").map((file) => ({ file, executable: wcsc, args: ["-lc"] })),
+const groups = [
+  { extension: ".wxml", executable: wcc, args: [] },
+  { extension: ".wxss", executable: wcsc, args: ["-lc"] },
 ];
-
+let count = 0;
 const failures = [];
-for (const { file, executable, args } of targets) {
-  const failure = compile(executable, file, args);
-  if (failure !== null) failures.push({ file: path.relative(repoRoot, file), failure });
+for (const group of groups) {
+  const files = collect(projectRoot, group.extension).map(file => path.relative(projectRoot, file).replaceAll("\\", "/")).sort();
+  count += files.length;
+  const failure = compile(group.executable, files, group.args);
+  if (failure !== null) failures.push({ file: group.extension, failure });
 }
-
-console.log(`[check:miniprogram] 官方编译器：${compilerDir}`);
-console.log(`[check:miniprogram] 编译 ${targets.length} 个文件（WXML ${targets.filter((t) => t.executable === wcc).length}、WXSS ${targets.length - targets.filter((t) => t.executable === wcc).length}）`);
-if (failures.length === 0) {
-  console.log("[check:miniprogram] 全部通过。");
-  process.exit(0);
-}
+console.log(`[check:miniprogram] 编译 ${count} 个文件，按依赖完整分组。`);
 for (const { file, failure } of failures) console.error(`[check:miniprogram] 失败 ${file}: ${failure}`);
-console.error(`[check:miniprogram] ${failures.length} 个文件编译失败。`);
-process.exit(1);
+process.exit(failures.length ? 1 : 0);

@@ -30,12 +30,14 @@
         <view class="grant-name">{{grant.displayName}}</view>
         <view class="hint">{{grant.canManage ? "可代记" : "仅查看"}}</view>
       </view>
+      <view class="btn btn-ghost" wx:if="{{!item.isPrivate && item.canManage && grant.canManage}}" data-profile="{{item.id}}" data-member="{{grant.memberUserId}}" data-action="transfer" bindtap="onCareManagement">交接管理</view>
       <view class="btn btn-danger revoke-button" wx:if="{{item.canManage}}"
         data-profile="{{item.id}}" data-member="{{grant.memberUserId}}" data-name="{{grant.displayName}}"
         bindtap="onRevokeGrant">{{workingProfileId === item.id ? "撤销中…" : "撤销"}}</view>
     </view>
     <view class="profile-actions" wx:if="{{!item.isPrivate && item.canManage}}">
       <view class="action-btn ghost" data-id="{{item.id}}" bindtap="onOpenGrant">授权给家人</view>
+      <view class="action-btn ghost" data-profile="{{item.id}}" data-action="archive" bindtap="onCareManagement">归档此人</view>
     </view>
   </view>
 
@@ -72,7 +74,7 @@
       <view class="sheet-title">授权给家人</view>
       <view class="hint sheet-hint">只有查看权限时家人能看到安排但不能代记；代记权限可以代为确认服用。</view>
       <view class="field" wx:if="{{memberNames.length === 0}}">
-        <view class="hint">家庭里还没有其他成员，先去“我的 → 邀请家人加入”。</view>
+        <view class="hint">家庭里还没有其他成员，先去“我的 → 我的家庭 → 邀请家人”。</view>
       </view>
       <block wx:else>
         <view class="field">
@@ -87,6 +89,7 @@
             <switch checked="{{grantCanManage}}" bindchange="onGrantManageChange" />
           </view>
         </view>
+        <view class="row-line"><view class="field-label">接收此人的服药提醒（独立选择）</view><switch checked="{{grantReceiveDoseReminders}}" bindchange="onGrantRemindersChange" /></view>
         <view class="btn btn-primary {{granting ? 'disabled' : ''}}" bindtap="onSubmitGrant">{{granting ? "保存中…" : "确认授权"}}</view>
       </block>
       <view class="btn btn-ghost" bindtap="onCloseGrant">取消</view>

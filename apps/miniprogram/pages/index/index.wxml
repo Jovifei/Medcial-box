@@ -15,33 +15,19 @@
     <text class="search-icon">⌕</text>
     <input class="search-input" placeholder="搜索药名、成分、厂家或位置" value="{{keyword}}"
       bindinput="onSearchInput" confirm-type="search" />
-    <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearFilters">清除</view>
+    <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearSearch">清除</view>
   </view>
 
-  <scroll-view class="filter-row" scroll-x="true" show-scrollbar="false">
-    <view class="filter-chip {{filterKind === 'expiring' ? 'selected' : ''}}" data-kind="expiring" bindtap="onSelectFilter">
-      临期 / 过期 <text>{{expiringCount + expiredCount}}</text>
-    </view>
-    <view class="filter-chip {{filterKind === 'low' ? 'selected' : ''}}" data-kind="low" bindtap="onSelectFilter">
-      库存不足 <text>{{lowStockCount}}</text>
-    </view>
-    <view class="filter-chip {{filterKind === 'missing' ? 'selected' : ''}}" data-kind="missing" bindtap="onSelectFilter">
-      待补资料 <text>{{missingInfoCount}}</text>
-    </view>
-  </scroll-view>
-
-  <scroll-view class="filter-row tag-filter-row" scroll-x="true" show-scrollbar="false">
-    <view class="filter-chip tag-chip {{item.selected ? 'selected' : ''}}"
-      wx:for="{{populationChips}}" wx:key="value"
-      data-value="{{item.value}}" bindtap="onTogglePopulation">{{item.label}}</view>
-    <view class="filter-chip tag-chip {{item.selected ? 'selected' : ''}}"
-      wx:for="{{purposeChips}}" wx:key="value"
-      data-value="{{item.value}}" bindtap="onTogglePurpose">{{item.label}}</view>
-    <picker class="sort-picker" range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange">
-      <view class="filter-chip sort-chip">排序：{{sortLabels[sortIndex]}} ▾</view>
-    </picker>
-  </scroll-view>
-
+  <view class="filter-toolbar">
+    <view class="filter-chip" data-panel="purpose" bindtap="onOpenFilterPanel">用途 {{selectedPurposes.length || ''}} ▾</view><view class="filter-chip" data-panel="population" bindtap="onOpenFilterPanel">人群 {{selectedPopulations.length || ''}} ▾</view><view class="filter-chip" data-panel="status" bindtap="onOpenFilterPanel">状态 ▾</view><picker range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange"><view class="filter-chip">排序 ▾</view></picker>
+  </view>
+  <view class="card" wx:if="{{filterPanel !== ''}}">
+    <view wx:if="{{filterPanel === 'purpose'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{purposeChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePurpose">{{item.label}}</view></view>
+    <view wx:if="{{filterPanel === 'population'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{populationChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePopulation">{{item.label}}</view></view>
+    <view wx:if="{{filterPanel === 'status'}}" class="tag-picker"><view class="filter-chip" data-kind="expiring" bindtap="onSelectFilter">临期/过期 {{expiringCount + expiredCount}}</view><view class="filter-chip" data-kind="expired" bindtap="onSelectFilter">已过期 {{expiredCount}}</view><view class="filter-chip" data-kind="low" bindtap="onSelectFilter">库存不足 {{lowStockCount}}</view><view class="filter-chip" data-kind="exhausted" bindtap="onSelectFilter">已用完</view><view class="filter-chip" data-kind="unknown" bindtap="onSelectFilter">数量/日期未知</view><view class="filter-chip" data-kind="opened" bindtap="onSelectFilter">已开封</view><view class="filter-chip" data-kind="archived" bindtap="onSelectFilter">已归档</view><view class="filter-chip" data-kind="missing" bindtap="onSelectFilter">待补资料 {{missingInfoCount}}</view></view>
+  </view>
+  <view class="hint" wx:if="{{isFiltered}}">已选状态：{{filterLabel}} · 排序：{{sortLabels[sortIndex]}} <text bindtap="onClearFilters">重置筛选</text></view>
+  <view class="card" wx:if="{{savedMessage}}"><view class="hint">{{savedMessage}}</view><view class="btn btn-ghost" bindtap="onViewSaved">查看刚保存的药品</view><view class="btn btn-ghost" bindtap="onTapAdd">再添加</view></view>
   <view class="card error-card" wx:if="{{errorMessage !== ''}}">
     <view class="section-title">暂时无法加载药箱</view>
     <view class="hint">{{errorMessage}}</view>
@@ -60,7 +46,7 @@
     <view class="btn btn-ghost" bindtap="onClearFilters">清除筛选</view>
   </view>
 
-  <view wx:for="{{items}}" wx:key="id" class="medicine-card {{item.isArchived ? 'archived' : ''}}" bindtap="onTapMedicine" data-id="{{item.id}}">
+  <view wx:for="{{items}}" wx:key="id" id="medicine-{{item.id}}" class="medicine-card {{item.id === highlightedId ? 'highlighted' : ''}} {{item.isArchived ? 'archived' : ''}}" bindtap="onTapMedicine" data-id="{{item.id}}">
     <view class="medicine-card-head">
       <view class="medicine-thumb-box">
         <image wx:if="{{item.coverPhotoPath !== ''}}" class="medicine-thumb" src="{{item.coverPhotoPath}}" mode="aspectFill" />

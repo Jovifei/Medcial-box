@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 // 药品端点（家庭作用域）：列表、详情、新建、编辑（version → 409）、归档。
 // 审核修复 #2/#3：创建（药品+初始批次）与编辑（药品+批次同步）都在
 // database.withTransaction 内绑定同一连接执行，任一步失败整体回滚。
@@ -74,17 +75,39 @@ export async function registerMedicineRoutes(
       return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
     }
 
-    // 药品与初始批次同事务写入：中途失败整体回滚，不会留下半成品记录。
-    const created = await database.withTransaction(async (tx) => {
-      const medicine = await insertMedicine(tx, ctx.familyId, parsed.value, ctx.userId);
-      const batches: MedicationBatchSummary[] = [];
-      for (const batchFields of parsed.value.batches) {
-        const batchRow = await insertBatch(tx, medicine.id, ctx.familyId, batchFields, ctx.userId);
-        batches.push(toBatchSummary(batchRow));
-      }
-      return toMedicineSummary(medicine, batches);
-    });
-    return reply.code(201).send(created);
+    const key = (request.body as { idempotencyKey?: unknown }).idempotencyKey;
+    if (key !== undefined && (typeof key !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(key))) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "提交标识格式不正确"));
+    }
+    const hash = createHash("sha256").update(JSON.stringify(parsed.value)).digest("hex");
+    try {
+      // 药品与初始批次同事务写入：中途失败整体回滚，不会留下半成品记录。
+      const created = await database.withTransaction(async (tx) => {
+        if (typeof key === "string") {
+          await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [JSON.stringify([ctx.familyId, ctx.userId, key])]);
+          const receipt = await tx.query<{payload_hash: string; response: MedicationSummary}>(
+            "SELECT payload_hash, response FROM medicine_create_receipts WHERE family_id=$1 AND user_id=$2 AND request_key=$3", [ctx.familyId, ctx.userId, key]);
+          const previous = receipt.rows[0];
+          if (previous) {
+            if (previous.payload_hash !== hash) throw new TransactionConflictError(409, errorBody("VERSION_CONFLICT", "相同提交标识的内容已改变，请核对已保存记录"));
+            return previous.response;
+          }
+        }
+        const medicine = await insertMedicine(tx, ctx.familyId, parsed.value, ctx.userId);
+        const batches: MedicationBatchSummary[] = [];
+        for (const batchFields of parsed.value.batches) {
+          const batchRow = await insertBatch(tx, medicine.id, ctx.familyId, batchFields, ctx.userId);
+          batches.push(toBatchSummary(batchRow));
+        }
+        const summary = toMedicineSummary(medicine, batches);
+        if (typeof key === "string") await tx.query("INSERT INTO medicine_create_receipts (family_id,user_id,request_key,payload_hash,response) VALUES ($1,$2,$3,$4,$5)", [ctx.familyId,ctx.userId,key,hash,JSON.stringify(summary)]);
+        return summary;
+      });
+      return reply.code(201).send(created);
+    } catch (error) {
+      if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
+      throw error;
+    }
   });
 
   app.get("/api/v1/medicines/:medicineId", async (request, reply) => {
@@ -103,11 +126,6 @@ export async function registerMedicineRoutes(
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
     const { medicineId } = request.params as { medicineId: string };
-    const parsed = validateMedicineUpdateInput(request.body);
-    if (!parsed.ok) {
-      return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
-    }
-
     try {
       // 单连接事务：药品版本更新 + 批次同步（按 id 增/改/删）。
       // 页面提交的批次带 id/version；未出现在提交里的已有批次 = 用户已删除。
@@ -116,6 +134,9 @@ export async function registerMedicineRoutes(
         if (existing === null) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }
+        const existingRows = await listBatchesByMedicine(tx, medicineId, ctx.familyId);
+        const parsed = validateMedicineUpdateInput(request.body, existingRows);
+        if (!parsed.ok) throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", parsed.message));
         const updated = await updateMedicine(
           tx,
           medicineId,
@@ -128,7 +149,6 @@ export async function registerMedicineRoutes(
           throw new TransactionConflictError(409, CONFLICT_BODY);
         }
 
-        const existingRows = await listBatchesByMedicine(tx, medicineId, ctx.familyId);
         const byId = new Map(existingRows.map((row) => [row.id, row]));
         const keptIds = new Set<string>();
         for (const fields of parsed.value.batches) {

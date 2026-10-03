@@ -4,6 +4,7 @@ import { ensureLoggedIn } from "../../services/auth";
 import type { DeviceSessionSummary } from "../../services/api-types";
 
 const ROUTES: Record<string, string> = {
+  account: "/pages/account-settings/account-settings",
   family: "/pages/family-settings/family-settings",
   care: "/pages/care-profiles/care-profiles",
   invite: "/pages/invite/invite",

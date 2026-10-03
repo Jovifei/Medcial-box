@@ -16,7 +16,6 @@ import { requireFamily } from "../auth/session.js";
 import type { Database } from "../types.js";
 import {
   cancelDoseReminders,
-  cancelDoseRemindersForMember,
   cancelDoseRemindersForOccurrence,
   cancelDoseRemindersForPlan,
 } from "../jobs/dose-reminder-scheduler.js";
@@ -82,6 +81,14 @@ async function accessFor(
   return { canView: grant.rows[0].can_view || grant.rows[0].can_manage, canManage: grant.rows[0].can_manage };
 }
 
+async function receivesAndroidDose(database: Pick<Database, "query">, profile: CareProfileRow, userId: string): Promise<boolean> {
+  const prefs = (await database.query<{ channels: string[] }>("SELECT channels FROM notification_preferences WHERE user_id=$1", [userId])).rows[0];
+  if (!prefs?.channels.includes("android")) return false;
+  if (profile.linked_user_id === userId || (profile.linked_user_id === null && profile.created_by === userId)) return true;
+  if (profile.linked_user_id !== null) return false;
+  return (await database.query<{ receive_dose_reminders: boolean }>("SELECT receive_dose_reminders FROM care_grants WHERE care_profile_id=$1 AND member_user_id=$2", [profile.id, userId])).rows[0]?.receive_dose_reminders === true;
+}
+
 /** 当前生效的时间点（归档的只保留历史，不再物化）。 */
 async function loadSlots(database: Pick<Database, "query">, planId: string): Promise<Array<{ id: string; time: string }>> {
   const slots = await database.query<{ id: string; time_of_day: string }>(
@@ -93,7 +100,7 @@ async function loadSlots(database: Pick<Database, "query">, planId: string): Pro
 
 async function loadProfile(database: Pick<Database, "query">, familyId: string, profileId: string): Promise<CareProfileRow | null> {
   const rows = await database.query<CareProfileRow>(
-    "SELECT id, display_name, linked_user_id, created_by FROM care_profiles WHERE id = $1 AND family_id = $2",
+    "SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE id = $1 AND family_id = $2 AND archived_at IS NULL",
     [profileId, familyId],
   );
   return rows.rows[0] ?? null;
@@ -175,7 +182,7 @@ export async function registerMedicationPlanRoutes(
     );
     if (member.rowCount === 0) return reply.code(404).send(errorBody("NOT_FOUND", "成员不存在或不在当前家庭"));
     const existing = await database.query<CareProfileRow>(
-      "SELECT id, display_name, linked_user_id, created_by FROM care_profiles WHERE family_id = $1 AND linked_user_id = $2",
+      "SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE family_id = $1 AND linked_user_id = $2 AND archived_at IS NULL",
       [ctx.familyId, ctx.userId],
     );
     if (existing.rows[0]) {
@@ -191,7 +198,7 @@ export async function registerMedicationPlanRoutes(
     const created = await database.query<CareProfileRow>(
       `INSERT INTO care_profiles (family_id, display_name, linked_user_id, created_by)
        VALUES ($1, $2, $3, $3)
-       ON CONFLICT (family_id, linked_user_id) WHERE linked_user_id IS NOT NULL DO NOTHING
+       ON CONFLICT (family_id, linked_user_id) WHERE linked_user_id IS NOT NULL AND archived_at IS NULL DO NOTHING
        RETURNING id, display_name, linked_user_id, created_by`,
       [ctx.familyId, displayName, ctx.userId],
     );
@@ -200,7 +207,7 @@ export async function registerMedicationPlanRoutes(
     if (profile === undefined) {
       // R06：并发下另一请求已抢先创建本人档案——回读既有行，绝不产生第二个。
       const reread = await database.query<CareProfileRow>(
-        "SELECT id, display_name, linked_user_id, created_by FROM care_profiles WHERE family_id = $1 AND linked_user_id = $2",
+        "SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE family_id = $1 AND linked_user_id = $2 AND archived_at IS NULL",
         [ctx.familyId, ctx.userId],
       );
       profile = reread.rows[0];
@@ -222,7 +229,7 @@ export async function registerMedicationPlanRoutes(
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
     const rows = await database.query<CareProfileRow>(
-      "SELECT id, display_name, linked_user_id, created_by FROM care_profiles WHERE family_id = $1 ORDER BY created_at",
+      "SELECT id, display_name, linked_user_id, COALESCE(managed_by, created_by) AS created_by FROM care_profiles WHERE family_id = $1 AND archived_at IS NULL ORDER BY created_at",
       [ctx.familyId],
     );
     const visible = [];
@@ -243,6 +250,8 @@ export async function registerMedicationPlanRoutes(
     const body = request.body as Record<string, unknown> | null;
     const memberUserId = typeof body?.memberUserId === "string" ? body.memberUserId.trim() : "";
     const canManage = body?.canManage === true;
+    const canView = canManage || body?.canView !== false;
+    const receiveDoseReminders = body?.receiveDoseReminders === true;
     if (memberUserId === "") return reply.code(400).send(errorBody("VALIDATION_ERROR", "memberUserId 必填"));
     if (memberUserId === ctx.userId) return reply.code(400).send(errorBody("VALIDATION_ERROR", "不需要给自己授权"));
     const member = await database.query<{ id: string }>(
@@ -252,13 +261,14 @@ export async function registerMedicationPlanRoutes(
     if (member.rowCount === 0) return reply.code(404).send(errorBody("NOT_FOUND", "成员不存在或不在当前家庭"));
     // 授权他人查看/管理：can_view 恒为 true（canManage 蕴含查看）。
     await database.query(
-      `INSERT INTO care_grants (family_id, care_profile_id, member_user_id, can_view, can_manage, created_by)
-       VALUES ($1, $2, $3, true, $4, $5)
+      `INSERT INTO care_grants (family_id, care_profile_id, member_user_id, can_view, can_manage, created_by, receive_dose_reminders)
+       VALUES ($1, $2, $3, $6, $4, $5, $7)
        ON CONFLICT (care_profile_id, member_user_id)
-       DO UPDATE SET can_view = true, can_manage = EXCLUDED.can_manage, created_by = EXCLUDED.created_by`,
-      [ctx.familyId, profile.id, memberUserId, canManage, ctx.userId],
+       DO UPDATE SET can_view = EXCLUDED.can_view, can_manage = EXCLUDED.can_manage, created_by = EXCLUDED.created_by, receive_dose_reminders = EXCLUDED.receive_dose_reminders`,
+      [ctx.familyId, profile.id, memberUserId, canManage, ctx.userId, canView, receiveDoseReminders],
     );
-    return { careProfileId: profile.id, memberUserId, canManage };
+    if (!receiveDoseReminders) await cancelDoseReminders(database, "user_id = $1 AND plan_id IN (SELECT id FROM medication_plans WHERE care_profile_id = $2)", [memberUserId, profile.id]);
+    return { careProfileId: profile.id, memberUserId, canView, canManage, receiveDoseReminders };
   });
 
   app.get<{ Params: { careProfileId: string } }>("/api/v1/care-profiles/:careProfileId/grants", async (request, reply) => {
@@ -268,8 +278,8 @@ export async function registerMedicationPlanRoutes(
     if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
     const access = await accessFor(database, profile, ctx.userId);
     if (!access.canManage) return reply.code(403).send(errorBody("FORBIDDEN", "只有该照护对象的管理者可以查看授权"));
-    const rows = await database.query<{ member_user_id: string; nickname: string | null; can_view: boolean; can_manage: boolean }>(
-      `SELECT g.member_user_id, u.nickname, g.can_view, g.can_manage
+    const rows = await database.query<{ member_user_id: string; nickname: string | null; can_view: boolean; can_manage: boolean; receive_dose_reminders: boolean }>(
+      `SELECT g.member_user_id, u.nickname, g.can_view, g.can_manage, g.receive_dose_reminders
        FROM care_grants g JOIN family_members m ON m.user_id = g.member_user_id AND m.family_id = g.family_id
        LEFT JOIN users u ON u.id = g.member_user_id
        WHERE g.care_profile_id = $1 ORDER BY u.nickname NULLS LAST`,
@@ -283,6 +293,7 @@ export async function registerMedicationPlanRoutes(
         displayName: row.nickname ?? "家人",
         canView: row.can_view,
         canManage: row.can_manage,
+        receiveDoseReminders: row.receive_dose_reminders,
       })),
     };
   });
@@ -300,9 +311,44 @@ export async function registerMedicationPlanRoutes(
     );
     // 撤销后该成员立刻看不到该对象的计划与服药安排；已产生的记录保留在家庭内。
     if ((removed.rowCount ?? 0) > 0) {
-      await cancelDoseRemindersForMember(database, ctx.familyId, request.params.memberUserId);
+      await cancelDoseReminders(database, "user_id = $1 AND plan_id IN (SELECT id FROM medication_plans WHERE care_profile_id = $2)", [request.params.memberUserId, profile.id]);
     }
     return { careProfileId: profile.id, memberUserId: request.params.memberUserId, removed: (removed.rowCount ?? 0) > 0 };
+  });
+
+  app.post<{ Params: { careProfileId: string } }>("/api/v1/care-profiles/:careProfileId/transfer-management", async (request, reply) => {
+    const ctx = requireFamily(request, reply); if (ctx === null) return;
+    const profile = await loadProfile(database, ctx.familyId, request.params.careProfileId);
+    if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
+    if (profile.linked_user_id !== null || profile.created_by !== ctx.userId) return reply.code(403).send(errorBody("FORBIDDEN", "只有当前负责人可交接"));
+    const body = request.body as Record<string, unknown> | null;
+    const target = typeof body?.memberUserId === "string" ? body.memberUserId : "";
+    const result = await database.withTransaction(async (tx) => {
+      await tx.query("SELECT id FROM families WHERE id=$1 FOR UPDATE", [ctx.familyId]);
+      const member = await tx.query(`SELECT fm.user_id FROM family_members fm JOIN care_grants g ON g.member_user_id=fm.user_id AND g.family_id=fm.family_id WHERE fm.family_id=$1 AND fm.user_id=$2 AND g.care_profile_id=$3 AND g.can_manage`, [ctx.familyId, target, profile.id]);
+      if (member.rowCount === 0) return "invalid";
+      const updated = await tx.query("UPDATE care_profiles SET managed_by=$1 WHERE id=$2 AND family_id=$3 AND archived_at IS NULL AND COALESCE(managed_by,created_by)=$4", [target, profile.id, ctx.familyId, ctx.userId]);
+      return updated.rowCount === 0 ? "conflict" : "ok";
+    });
+    if (result === "invalid") return reply.code(400).send(errorBody("VALIDATION_ERROR", "接收人须为当前已获管理权限的家庭成员"));
+    if (result === "conflict") return reply.code(409).send(errorBody("VERSION_CONFLICT", "负责人已变化，请刷新"));
+    return { careProfileId: profile.id, transferred: true };
+  });
+  app.post<{ Params: { careProfileId: string } }>("/api/v1/care-profiles/:careProfileId/archive", async (request, reply) => {
+    const ctx = requireFamily(request, reply); if (ctx === null) return;
+    const profile = await loadProfile(database, ctx.familyId, request.params.careProfileId);
+    if (profile === null) return reply.code(404).send(errorBody("NOT_FOUND", "照护对象不存在"));
+    if (profile.created_by !== ctx.userId && profile.linked_user_id !== ctx.userId) return reply.code(403).send(errorBody("FORBIDDEN", "只有负责人可归档"));
+    const archived = await database.withTransaction(async (tx) => {
+      await tx.query("SELECT id FROM families WHERE id=$1 FOR UPDATE", [ctx.familyId]);
+      const archived = await tx.query("UPDATE care_profiles SET archived_at=now() WHERE id=$1 AND family_id=$2 AND archived_at IS NULL AND (COALESCE(managed_by,created_by)=$3 OR linked_user_id=$3)", [profile.id, ctx.familyId, ctx.userId]);
+      if (archived.rowCount === 0) return false;
+      await tx.query("UPDATE medication_plans SET status='ended',version=version+1 WHERE care_profile_id=$1 AND status <> 'ended'", [profile.id]);
+      await cancelDoseReminders(tx, "plan_id IN (SELECT id FROM medication_plans WHERE care_profile_id=$1)", [profile.id]);
+      return true;
+    });
+    if (!archived) return reply.code(409).send(errorBody("VERSION_CONFLICT", "负责人已变化，请刷新"));
+    return { careProfileId: profile.id, archived: true };
   });
 
   // —— 计划 ——
@@ -370,9 +416,9 @@ export async function registerMedicationPlanRoutes(
     const plans = await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
       `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
               p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
-              c.display_name, c.linked_user_id, c.created_by
+              c.display_name, c.linked_user_id, COALESCE(c.managed_by,c.created_by) AS created_by
        FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
-       WHERE p.family_id = $1 ${statusFilter}
+       WHERE p.family_id = $1 AND c.archived_at IS NULL ${statusFilter}
        ORDER BY p.created_at`,
       [ctx.familyId],
     );
@@ -423,9 +469,9 @@ export async function registerMedicationPlanRoutes(
     const plan = (await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
       `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
               p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
-              c.display_name, c.linked_user_id, c.created_by
+              c.display_name, c.linked_user_id, COALESCE(c.managed_by,c.created_by) AS created_by
        FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
-       WHERE p.id = $1 AND p.family_id = $2`,
+       WHERE p.id = $1 AND p.family_id = $2 AND c.archived_at IS NULL`,
       [request.params.planId, ctx.familyId],
     )).rows[0];
     if (plan === undefined) return reply.code(404).send(errorBody("NOT_FOUND", "计划不存在"));
@@ -465,9 +511,9 @@ export async function registerMedicationPlanRoutes(
     const plan = (await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
       `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
               p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
-              c.display_name, c.linked_user_id, c.created_by
+              c.display_name, c.linked_user_id, COALESCE(c.managed_by,c.created_by) AS created_by
        FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
-       WHERE p.id = $1 AND p.family_id = $2`,
+       WHERE p.id = $1 AND p.family_id = $2 AND c.archived_at IS NULL`,
       [request.params.planId, ctx.familyId],
     )).rows[0];
     if (plan === undefined) {
@@ -683,7 +729,7 @@ export async function registerMedicationPlanRoutes(
     const isPast = date < shanghaiToday();
     const entries: Array<Record<string, unknown>> = [];
 
-    if (isPast) {
+    {
       // R03/B08：过去日期只读历史——直接按已物化实例投影，不重新物化，
       // 且不受当前计划状态/星期/起止影响（暂停、结束、改范围都不会抹掉历史入口）。
       // 仍按当前照护权限鉴权；显示实例快照（旧数据无快照时回退当前计划并标注不完整）。
@@ -697,13 +743,14 @@ export async function registerMedicationPlanRoutes(
         `SELECT o.id, o.plan_id, o.care_profile_id, o.time_of_day::text AS time_of_day, o.status,
                 o.medicine_name_snapshot, o.dosage_text_snapshot, o.care_profile_name_snapshot,
                 p.medicine_name, p.dosage_text,
-                c.display_name, c.linked_user_id, c.created_by
+                c.display_name, c.linked_user_id, COALESCE(c.managed_by,c.created_by) AS created_by
          FROM dose_occurrences o
          JOIN medication_plans p ON p.id = o.plan_id
          JOIN care_profiles c ON c.id = o.care_profile_id
-         WHERE o.family_id = $1 AND o.dose_date = $2 AND o.superseded_at IS NULL
+         WHERE o.family_id = $1 AND o.dose_date = $2 AND o.superseded_at IS NULL AND c.archived_at IS NULL
+           AND ($3 OR o.status IN ('taken', 'skipped'))
          ORDER BY o.time_of_day`,
-        [ctx.familyId, date],
+        [ctx.familyId, date, isPast],
       );
       for (const row of past.rows) {
         const profile: CareProfileRow = { id: row.care_profile_id, display_name: row.display_name, linked_user_id: row.linked_user_id, created_by: row.created_by };
@@ -720,18 +767,19 @@ export async function registerMedicationPlanRoutes(
           time: row.time_of_day.slice(0, 5),
           status: row.status,
           snapshotComplete: complete,
+          receiveDoseReminders: await receivesAndroidDose(database, profile, ctx.userId),
         });
       }
       entries.sort((left, right) => String(left.time).localeCompare(String(right.time)));
-      return { date, entries };
+      if (isPast) return { date, entries };
     }
 
     const candidates = await database.query<PlanRow & { display_name: string; linked_user_id: string | null; created_by: string }>(
       `SELECT p.id, p.care_profile_id, p.medicine_id, p.medicine_name, p.dosage_text, p.weekdays,
               p.start_date::text AS start_date, p.end_date::text AS end_date, p.status, p.version,
-              c.display_name, c.linked_user_id, c.created_by
+              c.display_name, c.linked_user_id, COALESCE(c.managed_by,c.created_by) AS created_by
        FROM medication_plans p JOIN care_profiles c ON c.id = p.care_profile_id
-       WHERE p.family_id = $1 AND p.status = 'active'
+       WHERE p.family_id = $1 AND p.status = 'active' AND c.archived_at IS NULL
          AND p.start_date <= $2 AND (p.end_date IS NULL OR p.end_date >= $2)`,
       [ctx.familyId, date],
     );
@@ -761,7 +809,7 @@ export async function registerMedicationPlanRoutes(
              FROM dose_occurrences WHERE slot_id = $1 AND dose_date = $2 AND superseded_at IS NULL`,
             [slot.id, date],
           )).rows[0];
-        if (existing === undefined) continue;
+        if (existing === undefined || entries.some((entry) => entry.occurrenceId === existing.id)) continue;
         const complete = existing.medicine_name_snapshot !== null;
         entries.push({
           occurrenceId: existing.id,
@@ -773,6 +821,7 @@ export async function registerMedicationPlanRoutes(
           time: slot.time,
           status: existing.status,
           snapshotComplete: complete,
+          receiveDoseReminders: await receivesAndroidDose(database, profile, ctx.userId),
         });
       }
     }

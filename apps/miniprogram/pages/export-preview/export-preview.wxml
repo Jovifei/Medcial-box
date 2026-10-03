@@ -1,6 +1,7 @@
 <view class="page">
   <view class="card">
     <view class="section-title">导出选项</view>
+    <picker range="{{formats}}" value="{{formatIndex}}" bindchange="onFormatChange"><view class="picker-box">格式：{{formats[formatIndex]}}</view></picker>
     <view class="row option-row">
       <view>
         <view class="option-title">包含个人剂量备注</view>
@@ -35,7 +36,8 @@
 
   <view class="hint" wx:if="{{actionBusy}}">正在处理导出，请稍候…</view>
   <view class="btn btn-primary" bindtap="onCopy">复制文本</view>
-  <view class="btn btn-ghost" bindtap="onShareFile">写本地 .md 并分享</view>
+  <view class="btn btn-ghost" bindtap="onShareFile">分享 {{formats[formatIndex]}} 文件</view>
   <view class="hint footnote" wx:if="{{lastAction !== ''}}">{{lastAction}}</view>
-  <view class="hint footnote">分享前会先将 Markdown 写入本地临时 .md 文件；真机不支持分享时自动回退为复制文本。导出内容仅供家庭管理参考，以说明书和医嘱为准。</view>
+  <view class="btn btn-ghost" bindtap="onRefreshSnapshot">重新生成最新快照</view>
+  <view class="hint footnote">三个格式使用同一只读库存快照。分享不可用时复制文本；PDF 回退为同一快照的 Markdown。导出内容仅供家庭管理参考，以说明书和医嘱为准。</view>
 </view>

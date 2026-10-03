@@ -1,7 +1,8 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { clearDirtyDraft, registerDirtyDraft } from "../../services/draft-guard";
-import type { CareProfileSummary } from "../../services/api-types";
+import { scopedStorageKey, readSessionScope } from "../../services/session-scope";
+import type { CareProfileSummary, MedicationSummary } from "../../services/api-types";
 
 /**
  * 独立创建用药计划页（R12）：
@@ -13,7 +14,7 @@ import type { CareProfileSummary } from "../../services/api-types";
  *   误触返回也会先提示，不静默丢草稿。
  */
 
-const LEAVE_WARNING = "创建计划表单有未保存内容，离开会丢失；如需保留请先保存。";
+const LEAVE_WARNING = "创建计划表单有未保存内容，离开会保留本机草稿；左下方取消可选择保留或放弃。";
 
 const WEEKDAY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "mon", label: "一" }, { value: "tue", label: "二" }, { value: "wed", label: "三" },
@@ -24,6 +25,9 @@ const WEEKDAY_OPTIONS: Array<{ value: string; label: string }> = [
 interface WeekdayOption { value: string; label: string; on: boolean; }
 
 interface PlanCreatePageData {
+  draftAvailable: boolean;
+  leaveSheetVisible: boolean;
+  inventoryMedicines: MedicationSummary[];
   loading: boolean;
   errorMessage: string;
   careProfiles: CareProfileSummary[];
@@ -54,6 +58,9 @@ function weekdayOptionsFor(selected: string[]): WeekdayOption[] {
 
 Page({
   data: {
+    draftAvailable: false,
+    leaveSheetVisible: false,
+    inventoryMedicines: [] as MedicationSummary[],
     loading: false,
     errorMessage: "",
     careProfiles: [] as CareProfileSummary[],
@@ -73,18 +80,26 @@ Page({
 
   /** 是否有未保存草稿（非渲染字段），用于更新重启前登记与原生返回确认。 */
   dirty: false,
+  discarding: false,
+  draftKey: null as string | null,
+  draftEntity: "new",
+  restoring: false,
 
   onLoad(options: { medicineId?: string; medicineName?: string }): void {
     this.setData({
       medicineId: options.medicineId ?? "",
       medicineName: options.medicineName ?? "",
     });
+    this.draftEntity = options.medicineId || "new";
+    this.draftKey = scopedStorageKey("plan-create-draft", this.draftEntity);
+    this.checkStoredDraft();
     // 从药品详情带入名称即视为已有未保存内容。
     this.updateDirtyState();
     this.bootstrap();
   },
 
   onUnload(): void {
+    if (this.dirty && !this.discarding) this.persistDraft();
     // 离开本页时释放草稿登记与原生返回确认，避免影响其它页面。
     this.releaseDraftGuard();
   },
@@ -94,6 +109,7 @@ Page({
     const data = this.data as PlanCreatePageData;
     const dirty = data.medicineName.trim() !== "" || data.dosageText.trim() !== "" ||
       data.timeSlots.length > 0 || data.endDate !== "" || data.selectedWeekdays.length > 0 || !data.everyDay;
+    if (dirty && !this.data.draftAvailable) this.persistDraft();
     if (dirty === this.dirty) return;
     this.dirty = dirty;
     if (dirty) {
@@ -123,7 +139,13 @@ Page({
         await api.ensureSelfCareProfile("我自己");
         careProfiles = (await api.listCareProfiles()).careProfiles;
       }
+      this.draftKey = scopedStorageKey("plan-create-draft", this.draftEntity);
+      if (!this.dirty) this.checkStoredDraft();
       this.setData({ careProfiles, careProfileIndex: 0, loading: false });
+      if (api.listMedicines) {
+        const inventory = await api.listMedicines();
+        this.setData({ inventoryMedicines: inventory.medicines });
+      }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "加载照护对象失败，请重试";
       this.setData({ loading: false, errorMessage: message });
@@ -133,7 +155,7 @@ Page({
   onFormInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
-    this.setData({ [field]: event.detail.value });
+    this.setData({ [field]: event.detail.value, ...(field === "medicineName" ? { medicineId: "" } : {}) });
     this.updateDirtyState();
   },
 
@@ -146,6 +168,7 @@ Page({
 
   onCareProfileChange(event: { detail: { value: string | number } }): void {
     this.setData({ careProfileIndex: Number(event.detail.value) });
+    this.updateDirtyState();
   },
 
   onEveryDayChange(event: { detail: { value: boolean } }): void {
@@ -222,6 +245,8 @@ Page({
     this.setData({ creating: true });
     try {
       await this.submitPlan();
+      this.discarding = true;
+      this.removeDraft();
       this.releaseDraftGuard();
       wx.showToast({ title: "计划已保存", icon: "success" });
       // 用药计划是 tabBar 页，只能用 switchTab 返回；返回后其 onShow 会合并刷新。
@@ -233,8 +258,51 @@ Page({
     }
   },
 
+  checkStoredDraft(): void {
+    const scope = readSessionScope();
+    if (!scope || !this.draftKey) return;
+    const stored = wx.getStorageSync(this.draftKey) as { ownerUserId?: string; ownerFamilyId?: string } | undefined;
+    this.setData({ draftAvailable: stored?.ownerUserId === scope.userId && stored?.ownerFamilyId === scope.familyId });
+  },
+  persistDraft(): void {
+    const scope = readSessionScope();
+    if (!scope || !this.draftKey || this.discarding || this.draftKey !== scopedStorageKey("plan-create-draft", this.draftEntity)) return;
+    const { medicineId, medicineName, dosageText, startDate, endDate, timeInput, timeSlots, everyDay, selectedWeekdays, careProfileIndex } = this.data as PlanCreatePageData;
+    wx.setStorageSync(this.draftKey, { ownerUserId: scope.userId, ownerFamilyId: scope.familyId,
+      fields: { medicineId, medicineName, dosageText, startDate, endDate, timeInput, timeSlots, everyDay, selectedWeekdays, careProfileIndex } });
+  },
+  onRestoreDraft(): void {
+    this.checkStoredDraft();
+    if (!this.data.draftAvailable || !this.draftKey) return;
+    const stored = wx.getStorageSync(this.draftKey) as { fields: Partial<PlanCreatePageData> };
+    this.setData({ ...stored.fields, weekdayOptions: weekdayOptionsFor(stored.fields.selectedWeekdays ?? []), draftAvailable: false });
+    this.updateDirtyState();
+  },
+  removeDraft(): void {
+    if (this.draftKey) wx.removeStorageSync(this.draftKey);
+    this.setData({ draftAvailable: false });
+  },
+  onInventoryMedicineChange(event: { detail: { value: string | number } }): void {
+    const medicine = (this.data as PlanCreatePageData).inventoryMedicines[Number(event.detail.value)];
+    if (!medicine) return;
+    this.setData({ medicineId: medicine.id, medicineName: medicine.name });
+    this.updateDirtyState();
+  },
   onCancel(): void {
+    if (this.dirty) { this.setData({ leaveSheetVisible: true }); return; }
+    this.navigateFromForm();
+  },
+  onLeaveChoice(event: { currentTarget: { dataset: { choice?: string } } }): void {
+    const choice = event.currentTarget.dataset.choice;
+    this.setData({ leaveSheetVisible: false });
+    if (choice === "continue") return;
+    if (choice === "keep") this.persistDraft();
+    else if (choice === "discard") { this.discarding = true; this.removeDraft(); }
+    else return;
     this.releaseDraftGuard();
+    this.navigateFromForm();
+  },
+  navigateFromForm(): void {
     wx.navigateBack({ fail: () => wx.switchTab({ url: "/pages/medication-plans/medication-plans" }) });
   },
 });

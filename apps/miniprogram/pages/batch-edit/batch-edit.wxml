@@ -42,6 +42,7 @@
       <input class="input" type="number" data-field="quantity" bindinput="onFieldInput" value="{{quantity}}" />
     </view>
     <view class="field">
+      <view class="field-label">换算后的单位</view><picker range="{{unitLabels}}" value="{{conversionUnitIndex}}" bindchange="onConversionUnitChange"><view class="picker-box">{{unitLabels[conversionUnitIndex]}}</view></picker>
       <view class="field-label">每包装换算数（本人已确认后填写）</view>
       <input class="input" type="number" data-field="confirmedUnits" bindinput="onFieldInput" value="{{confirmedUnits}}" placeholder="例如：24" />
     </view>

@@ -1,7 +1,7 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
-import { isStrictNonNegativeInteger } from "../../services/input-validation";
-import type { StocktakeItemInput, StocktakeSession } from "../../services/api-types";
+import { parseQuantityByUnit } from "../../services/input-validation";
+import type { QuantityUnit, StocktakeItemInput, StocktakeSession } from "../../services/api-types";
 
 type Outcome = StocktakeItemInput["outcome"];
 interface StocktakeViewItem {
@@ -147,11 +147,12 @@ Page({
     for (const item of data.items.filter((entry) => entry.result !== "saved" && entry.result !== "not_found")) {
       let quantity: number | null | undefined;
       if (item.outcome === "adjusted") {
-        if (!isStrictNonNegativeInteger(item.adjustedQuantity.trim())) {
+        const parsed = parseQuantityByUnit(item.adjustedQuantity, item.unit as QuantityUnit);
+        if (parsed === null) {
           wx.showToast({ title: `请填写“${item.medicineName}”的真实余量`, icon: "none" });
           return;
         }
-        quantity = Number(item.adjustedQuantity.trim());
+        quantity = parsed;
       } else if (item.outcome === "empty") {
         quantity = 0;
       }

@@ -50,6 +50,7 @@ export interface MedicationBatchSummary {
   quantity: number | null;
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
+  conversionUnit?: QuantityUnit | null;
   storageLocation: string | null;
   openedState?: OpenedState;
   openedAt?: string | null;
@@ -64,6 +65,8 @@ export interface MedicationBatchSummary {
 }
 
 export interface MedicationSummary {
+  createdAt?: string;
+  updatedAt?: string;
   id: string;
   name: string;
   /** 人群整理标签（可多选）；空数组 = 未标注。 */
@@ -111,6 +114,7 @@ export interface BatchPayload {
   quantity?: number | null;
   unit?: QuantityUnit;
   confirmedUnitsPerPackage?: number | null;
+  conversionUnit?: QuantityUnit | null;
   storageLocation?: string | null;
   openedState?: OpenedState;
   openedAt?: string | null;
@@ -132,6 +136,7 @@ export interface SplitBatchResponse {
 }
 
 export interface MedicinePayload {
+  idempotencyKey?: string;
   name: string;
   specification?: string | null;
   manufacturer?: string | null;
@@ -415,6 +420,8 @@ export interface MedicineRecognitionResponse {
 }
 
 export interface LeafletPhotoSummary {
+  purpose?: "box_front" | "expiry" | "leaflet";
+  batchId?: string | null;
   id: string;
   medicineId: string;
   contentType: "image/jpeg" | "image/png";
@@ -523,6 +530,7 @@ export interface CareGrantSummary {
   displayName: string;
   canView: boolean;
   canManage: boolean;
+  receiveDoseReminders?: boolean;
 }
 
 export interface DoseReminderDelivery {
@@ -545,3 +553,5 @@ export interface CareGrantListResponse {
   displayName: string;
   grants: CareGrantSummary[];
 }
+
+export interface NotificationPreferences { stockReminderTime: string; timezone: "Asia/Shanghai"; channels: Array<"wechat" | "android">; }

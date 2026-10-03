@@ -9,8 +9,7 @@ List<String> _stringList(Object? value) =>
 
 int _intOr(Object? value, int fallback) => value is int ? value : fallback;
 
-bool _boolOr(Object? value, bool fallback) =>
-    value is bool ? value : fallback;
+bool _boolOr(Object? value, bool fallback) => value is bool ? value : fallback;
 
 Map<String, dynamic> _asMap(Object? value) =>
     value is Map<String, dynamic> ? value : const <String, dynamic>{};
@@ -99,6 +98,7 @@ class ScheduleEntry {
     required this.dosageText,
     required this.time,
     required this.status,
+    this.receiveDoseReminders = false,
   });
 
   final String occurrenceId;
@@ -109,6 +109,7 @@ class ScheduleEntry {
   final String dosageText;
   final String time;
   final String status;
+  final bool receiveDoseReminders;
 
   bool get isPending => status == 'pending';
 
@@ -127,6 +128,7 @@ class ScheduleEntry {
     dosageText: _stringOr(json['dosageText']),
     time: _stringOr(json['time']),
     status: _stringOr(json['status'], 'pending'),
+    receiveDoseReminders: _boolOr(json['receiveDoseReminders'], false),
   );
 }
 
@@ -172,7 +174,23 @@ class PlanHistoryRecord {
     required this.status,
     required this.corrected,
     required this.events,
+    this.medicineName = '',
+    this.dosageText = '',
+    this.snapshotComplete = false,
+    this.superseded = false,
   });
+
+  final String medicineName;
+  final String dosageText;
+  final bool snapshotComplete;
+  final bool superseded;
+  String get statusLabel => superseded
+      ? '已因改期作废'
+      : switch (status) {
+          'taken' => '已服用',
+          'skipped' => '已跳过',
+          _ => '未确认',
+        };
 
   final String occurrenceId;
   final String date;
@@ -183,6 +201,10 @@ class PlanHistoryRecord {
 
   factory PlanHistoryRecord.fromJson(Map<String, dynamic> json) =>
       PlanHistoryRecord(
+        medicineName: _stringOr(json['medicineName']),
+        dosageText: _stringOr(json['dosageText']),
+        snapshotComplete: _boolOr(json['snapshotComplete'], false),
+        superseded: _boolOr(json['superseded'], false),
         occurrenceId: _stringOr(json['occurrenceId']),
         date: _stringOr(json['date']),
         time: _stringOr(json['time']),
@@ -248,20 +270,22 @@ class CareGrant {
     required this.displayName,
     required this.canView,
     required this.canManage,
+    this.receiveDoseReminders = false,
   });
   final String memberUserId;
   final String displayName;
   final bool canView;
   final bool canManage;
+  final bool receiveDoseReminders;
 
-  String get levelLabel =>
-      canManage ? '可查看与管理' : (canView ? '仅查看' : '无权限');
+  String get levelLabel => canManage ? '可查看与管理' : (canView ? '仅查看' : '无权限');
 
   factory CareGrant.fromJson(Map<String, dynamic> json) => CareGrant(
     memberUserId: _stringOr(json['memberUserId']),
     displayName: _stringOr(json['displayName']),
     canView: _boolOr(json['canView'], false),
     canManage: _boolOr(json['canManage'], false),
+    receiveDoseReminders: _boolOr(json['receiveDoseReminders'], false),
   );
 }
 

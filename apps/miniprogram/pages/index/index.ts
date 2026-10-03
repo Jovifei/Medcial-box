@@ -1,4 +1,5 @@
 import { api, ApiError, readToken } from "../../services/api";
+import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 import type {
   ExpiryState,
@@ -8,6 +9,7 @@ import type {
 
 interface CabinetItem {
   id: string;
+  updatedAt: string;
   name: string;
   specification: string;
   purpose: string;
@@ -41,7 +43,7 @@ interface CabinetItem {
   isArchived: boolean;
 }
 
-type CabinetFilter = "all" | "expiring" | "low" | "missing";
+type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted";
 
 const UNIT_SHORT: Record<QuantityUnit, string> = {
   tablet: "片",
@@ -115,6 +117,7 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
   const openedText = openedCount === 0 ? "" : openedCount === 1 ? "已开封" : `已开封 · ${openedCount} 批`;
   return {
     id: medicine.id,
+    updatedAt: medicine.createdAt ?? medicine.updatedAt ?? "",
     name: medicine.name,
     specification: medicine.specification ?? "规格未记录",
     purpose: purposeText(medicine),
@@ -182,6 +185,7 @@ interface IndexPageData {
   missingInfoCount: number;
   keyword: string;
   filterKind: CabinetFilter;
+  filterLabel: string;
   filters: Array<{ id: CabinetFilter; label: string; count: number }>;
   selectedPopulations: string[];
   selectedPurposes: string[];
@@ -194,6 +198,9 @@ interface IndexPageData {
   items: CabinetItem[];
   allItems: CabinetItem[];
   errorMessage: string;
+  highlightedId: string;
+  savedMessage: string;
+  filterPanel: string;
   entrySheetVisible: boolean;
 }
 
@@ -208,6 +215,7 @@ Page({
     missingInfoCount: 0,
     keyword: "",
     filterKind: "all" as CabinetFilter,
+    filterLabel: "全部",
     filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
     /** 人群多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPopulations: [] as string[],
@@ -217,12 +225,15 @@ Page({
     purposeChips: chipOptions(PURPOSE_CHIPS, []),
     /** 排序：最早管理截止升序（默认）/降序/名称；未知日期始终置末。 */
     sortKey: "deadline_asc",
-    sortLabels: ["最早截止在前", "最早截止在后", "名称 A-Z"],
+    sortLabels: ["最早截止在前", "最早截止在后", "名称 A-Z", "最近添加"],
     sortIndex: 0,
     familyName: "",
     items: [] as CabinetItem[],
     allItems: [] as CabinetItem[],
     errorMessage: "",
+    highlightedId: "",
+    savedMessage: "",
+    filterPanel: "",
     entrySheetVisible: false,
   },
 
@@ -298,7 +309,10 @@ Page({
         { id: "missing", label: "待补资料", count: missingInfoCount },
       ],
     });
+    const id = wx.getStorageSync(scopedStorageKey("cabinet-saved-highlight") ?? "cabinet-no-highlight") as string | undefined;
+    if (id) { this.setData({ highlightedId: id }); wx.removeStorageSync(scopedStorageKey("cabinet-saved-highlight") ?? "cabinet-no-highlight"); }
     this.applyFilter();
+    if (id) this.setData({ savedMessage: this.data.items.some((item) => item.id === id) ? "已添加，药品在下方突出显示；可继续添加或点开查看。" : "已保存，当前筛选未显示；可点击查看，筛选保持原样。" });
   },
 
   /**
@@ -368,7 +382,12 @@ Page({
       const matchesFilter = data.filterKind === "all" ||
         (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
         (data.filterKind === "low" && (item.stockState === "low" || item.stockState === "exhausted")) ||
-        (data.filterKind === "missing" && item.needsInfo);
+        (data.filterKind === "missing" && item.needsInfo) ||
+        (data.filterKind === "expired" && item.state === "expired") ||
+        (data.filterKind === "opened" && item.openedText !== "") ||
+        (data.filterKind === "archived" && item.isArchived) ||
+        (data.filterKind === "unknown" && (item.stockState === "unknown" || item.state === "unknown")) ||
+        (data.filterKind === "exhausted" && item.stockState === "exhausted");
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
         item.populationTags.some((tag) => data.selectedPopulations.includes(tag.kind));
@@ -377,6 +396,7 @@ Page({
       return matchesKeyword && matchesFilter && matchesPopulation && matchesPurpose;
     });
     const items = filtered.map(withDisplayTags).sort((left, right) => {
+      if (data.sortKey === "recent") return right.updatedAt.localeCompare(left.updatedAt);
       if (data.sortKey === "name") return left.name.localeCompare(right.name, "zh-Hans-CN");
       // B19：未知日期两种方向都置末；已知日期按方向比较，同日期保持稳定排序。
       if (left.earliestDate === null && right.earliestDate === null) return 0;
@@ -386,7 +406,8 @@ Page({
       return data.sortKey === "deadline_desc" ? -compared : compared;
     });
     const tagFiltersActive = data.selectedPopulations.length > 0 || data.selectedPurposes.length > 0 || data.sortKey !== "deadline_asc";
-    this.setData({ items, isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
+    const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "待补资料", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完" };
+    this.setData({ items, filterLabel: labels[data.filterKind], isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
   },
 
   onTogglePopulation(event: { currentTarget: { dataset: { value?: string } } }): void {
@@ -420,7 +441,7 @@ Page({
 
   onSortChange(event: { detail: { value: string | number } }): void {
     const index = Number(event.detail.value);
-    const keys = ["deadline_asc", "deadline_desc", "name"];
+    const keys = ["deadline_asc", "deadline_desc", "name", "recent"];
     this.setData({ sortIndex: index, sortKey: keys[index] ?? "deadline_asc" });
     this.applyFilter();
   },
@@ -430,6 +451,15 @@ Page({
     if (!selected) return;
     const current = (this.data as IndexPageData).filterKind;
     this.setData({ filterKind: current === selected ? "all" : selected });
+    this.applyFilter();
+  },
+
+  onOpenFilterPanel(event: { currentTarget: { dataset: { panel?: string } } }): void {
+    this.setData({ filterPanel: this.data.filterPanel === event.currentTarget.dataset.panel ? "" : event.currentTarget.dataset.panel ?? "" });
+  },
+  onViewSaved(): void { if (this.data.highlightedId) wx.navigateTo({ url: `/pages/medicine-detail/medicine-detail?id=${this.data.highlightedId}` }); },
+  onClearSearch(): void {
+    this.setData({ keyword: "" });
     this.applyFilter();
   },
 
@@ -451,7 +481,7 @@ Page({
   },
 
   onTapAdd(): void {
-    this.setData({ entrySheetVisible: true });
+    wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
   },
 
   onCloseEntrySheet(): void {

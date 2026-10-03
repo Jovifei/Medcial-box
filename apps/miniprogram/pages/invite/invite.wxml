@@ -17,30 +17,6 @@
       <view class="btn btn-ghost" bindtap="onCopyInvitation">复制邀请码</view>
     </view>
 
-    <view class="member-block" wx:if="{{members.length > 0}}">
-      <view class="section-title small">家庭成员</view>
-      <view class="member-row" wx:for="{{members}}" wx:key="id">
-        <view class="member-info">
-          <view class="member-role">
-            {{item.role === 'owner' ? '管理员' : '成员'}}：{{item.displayName}}{{item.isSelf ? '（我）' : ''}}
-          </view>
-          <view class="member-joined">{{item.joinedDate}} 加入</view>
-        </view>
-        <view class="member-actions" wx:if="{{item.role === 'member' && !item.isSelf}}">
-          <view
-            class="btn btn-ghost btn-small"
-            data-member-id="{{item.id}}"
-            bindtap="onTransferOwnership"
-          >转让</view>
-          <view
-            class="btn btn-danger btn-small"
-            data-member-id="{{item.id}}"
-            bindtap="onRemoveMember"
-          >移除</view>
-        </view>
-      </view>
-      <view class="hint">转让后你变为普通成员，即可使用下方退出功能。</view>
-    </view>
   </view>
 
   <!-- 无家庭：点卡片自动填充，或手动粘贴邀请码加入 -->
@@ -68,22 +44,7 @@
   <view class="card" wx:if="{{mode === 'member'}}">
     <view class="section-title">已在家庭（{{familyName}}）</view>
     <view class="hint">邀请与移除成员由家庭管理员管理。每个账号只属于一个家庭；退出后立即失去本药箱的访问权限，重新加入需要新的邀请（药品不会自动搬移或合并）。</view>
-    <view class="btn btn-danger {{leaving ? 'disabled' : ''}}" bindtap="onLeaveFamily">
-      {{leaving ? "退出中…" : "退出家庭"}}
-    </view>
-  </view>
-
-  <view class="card profile-card" wx:if="{{mode === 'owner' || mode === 'member'}}">
-    <view class="section-title">我的显示名</view>
-    <view class="hint">用于家庭成员列表区分家人，可留空恢复为系统生成的成员标签。</view>
-    <input class="input" value="{{nicknameDraft}}" bindinput="onNicknameInput" maxlength="20" placeholder="例如：爸爸" />
-    <view class="btn btn-ghost {{profileSubmitting ? 'disabled' : ''}}" bindtap="onSaveNickname">
-      {{profileSubmitting ? "保存中…" : "保存显示名"}}
-    </view>
-  </view>
-
-  <view class="card logout-card" wx:if="{{mode === 'owner' || mode === 'member'}}">
-    <view class="btn btn-danger" bindtap="onLogout">退出登录</view>
+    <view class="btn btn-ghost" bindtap="onOpenFamily">打开我的家庭</view>
   </view>
 
   <view class="hint footnote">家庭共享仅同步库存管理信息；个人剂量备注默认仅本人可见，主动选择"全家可见"后其他成员只读。</view>

@@ -78,11 +78,6 @@ export async function registerBatchRoutes(
       medicineId: string;
       batchId: string;
     };
-    const parsed = validateBatchUpdateInput(request.body);
-    if (!parsed.ok) {
-      return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
-    }
-
     try {
       const updated = await database.withTransaction(async (tx) => {
         const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
@@ -93,6 +88,8 @@ export async function registerBatchRoutes(
         if (existing === null) {
           throw new TransactionConflictError(404, BATCH_NOT_FOUND_BODY);
         }
+        const parsed = validateBatchUpdateInput(request.body, existing);
+        if (!parsed.ok) throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", parsed.message));
         const row = await updateBatch(
           tx,
           batchId,

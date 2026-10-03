@@ -3,15 +3,12 @@
     <view class="family-caption">当前家庭</view>
     <view class="family-name">{{familyName || (loading ? "正在读取…" : "尚未加入家庭")}}</view>
     <view class="hint">{{roleLabel}}</view>
-    <view class="btn btn-ghost" bindtap="onOpenItem" data-route="family">家庭成员与盘点设置</view>
-    <view class="btn btn-primary" bindtap="onOpenItem" data-route="invite">邀请家人加入</view>
     <view class="hint" wx:if="{{errorMessage}}">{{errorMessage}} <text class="retry-link" bindtap="onRetry">重试</text></view>
   </view>
 
   <view class="section-label">家庭与照护</view>
   <view class="menu-card" bindtap="onOpenItem" data-route="family"><view><view class="menu-title">我的家庭</view><view class="menu-hint">成员、角色与盘点设置</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="care"><view><view class="menu-title">照护对象与共享权限</view><view class="menu-hint">本人私有计划、孩子或老人的代记授权</view></view><view class="menu-arrow">›</view></view>
-  <view class="menu-card" bindtap="onOpenItem" data-route="invite"><view><view class="menu-title">邀请家人加入</view><view class="menu-hint">生成一次性邀请码</view></view><view class="menu-arrow">›</view></view>
   <view class="section-label">提醒与设备</view>
   <view class="menu-card" bindtap="onOpenItem" data-route="notifications"><view><view class="menu-title">提醒设置</view><view class="menu-hint">查看待处理项目并主动订阅微信提醒</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="app"><view><view class="menu-title">连接 Android App</view><view class="menu-hint">在小程序确认 App 的临时连接码</view></view><view class="menu-arrow">›</view></view>
@@ -37,6 +34,8 @@
   <view class="menu-card" bindtap="onOpenItem" data-route="backup"><view><view class="menu-title">备份与恢复</view><view class="menu-hint">JSON 备份、导入预览和恢复</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="trash"><view><view class="menu-title">最近删除</view><view class="menu-hint">30 天内恢复删除的药品或批次</view></view><view class="menu-arrow">›</view></view>
   <view class="menu-card" bindtap="onOpenItem" data-route="audit"><view><view class="menu-title">家庭变更记录</view><view class="menu-hint">查看成员对库存所做的修改</view></view><view class="menu-arrow">›</view></view>
+  <view class="section-label">账号</view>
+  <view class="menu-card" bindtap="onOpenItem" data-route="account"><view><view class="menu-title">账号设置</view><view class="menu-hint">显示名、退出登录</view></view><view class="menu-arrow">›</view></view>
   <view class="section-label">应用信息</view>
   <view class="menu-card" bindtap="onOpenItem" data-route="release">
     <view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}；可重新查看本版本说明，新版本就绪后会提示重启</view></view>

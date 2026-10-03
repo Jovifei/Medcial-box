@@ -68,6 +68,7 @@ export type ApiErrorCode =
   | "FAMILY_NOT_FOUND"
   | "VERSION_CONFLICT"
   | "PLAN_ENDED"
+  | "CARE_HANDOVER_REQUIRED"
   | "OCCURRENCE_SUPERSEDED"
   | "ALREADY_IN_FAMILY"
   | "INVITATION_EXPIRED"
@@ -262,6 +263,7 @@ export interface CreateBatchInput {
   quantity?: number | null;
   unit?: QuantityUnit;
   confirmedUnitsPerPackage?: number | null;
+  conversionUnit?: QuantityUnit | null;
   storageLocation?: string | null;
   openedState?: OpenedState;
   openedAt?: string | null;
@@ -286,6 +288,7 @@ export interface SplitBatchResponse {
 }
 
 export interface CreateMedicineInput {
+  idempotencyKey?: string;
   name: string;
   populationTags?: PopulationTag[];
   purposeTags?: PurposeTag[];
@@ -314,6 +317,7 @@ export interface MedicationBatchSummary {
   quantity: number | null;
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
+  conversionUnit?: QuantityUnit | null;
   storageLocation: string | null;
   dispositionStatus?: DispositionStatus;
   openedState?: OpenedState;
@@ -327,6 +331,7 @@ export interface MedicationBatchSummary {
 }
 
 export interface MedicationSummary {
+  createdAt?: string;
   id: string;
   name: string;
   /** 人群整理标签（可多选）；空数组 = 未标注。 */
@@ -566,12 +571,37 @@ export interface DosageNoteListResponse {
 // ---------------------------------------------------------------------------
 
 export interface MarkdownExportRequest {
+  snapshotId?: string;
   includePersonalDosage?: boolean;
   includeArchived?: boolean;
   includeStorageLocation?: boolean;
 }
 
 export interface MarkdownExportResponse {
+  snapshotId?: string;
   markdown: string;
   generatedAt: string;
 }
+
+export type NotificationChannel = "wechat" | "android";
+export interface NotificationPreferences { stockReminderTime: string; timezone: "Asia/Shanghai"; channels: NotificationChannel[] }
+export interface NotificationPreferencesResponse { preferences: NotificationPreferences }
+export interface UpdateNotificationPreferencesRequest { stockReminderTime: string; channels: NotificationChannel[] }
+export interface CareGrantRequest { memberUserId: string; canView?: boolean; canManage: boolean; receiveDoseReminders?: boolean }
+export interface CareGrantSummary { memberUserId: string; displayName: string; canView: boolean; canManage: boolean; receiveDoseReminders: boolean }
+export interface CareGrantsResponse { careProfileId: string; displayName: string; grants: CareGrantSummary[] }
+export interface TransferCareManagementRequest { memberUserId: string }
+export interface CareProfileLifecycleResponse { careProfileId: string; transferred?: true; archived?: true }
+
+export interface DoseScheduleEntry {
+ occurrenceId: string; planId: string; careProfileId: string; careProfileName: string;
+ medicineName: string; dosageText: string; time: string; status: "pending" | "taken" | "skipped";
+ snapshotComplete: boolean; receiveDoseReminders: boolean;
+}
+export interface DoseScheduleResponse { date: string; entries: DoseScheduleEntry[] }
+
+export interface InventoryExportOptions { includePersonalDosage: boolean; includeArchived: boolean; includeStorageLocation: boolean }
+export interface InventoryExportMedicine extends MedicationSummary { dosageNotes?: Array<{userId:string;isMine:boolean;content:string}> }
+export interface InventoryExportSnapshotResponse { snapshotId:string; generatedAt:string; expiresAt:string; options:InventoryExportOptions; medicines:InventoryExportMedicine[] }
+export interface CsvExportResponse { content:string; fileName:string; mimeType:"text/csv; charset=utf-8"; generatedAt:string; snapshotId:string }
+export interface PdfExportResponse { contentBase64:string; fileName:string; mimeType:"application/pdf"; generatedAt:string; snapshotId:string }

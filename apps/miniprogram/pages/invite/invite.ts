@@ -142,6 +142,8 @@ Page({
     }
   },
 
+  onOpenFamily(): void { wx.navigateTo({ url: "/pages/family-settings/family-settings" }); },
+
   onNicknameInput(event: { detail: { value: string } }): void {
     this.setData({ nicknameDraft: event.detail.value });
   },

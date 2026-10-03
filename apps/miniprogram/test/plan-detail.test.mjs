@@ -130,7 +130,7 @@ test("编辑只提交改动并提示只影响之后", async () => {
 });
 
 test("版本冲突时不覆盖他人修改，改为刷新", async () => {
-  const { load, toasts } = loadPlanDetailPage({
+  const { load } = loadPlanDetailPage({
     api: {
       updateMedicationPlan: async () => {
         const error = new ApiError("版本冲突");
@@ -142,9 +142,11 @@ test("版本冲突时不覆盖他人修改，改为刷新", async () => {
   const page = load();
   await page.onLoad({ planId: "plan-1" });
   page.onStartEdit();
+  page.onEditInput({ currentTarget: { dataset: { field: "dosageText" } }, detail: { value: "我的草稿剂量" } });
   await page.onSubmitEdit();
-  assert.equal(page.data.editing, false, "冲突后退出编辑态");
-  assert.ok(toasts.includes("计划已被他人修改，已刷新"));
+  assert.equal(page.data.editing, true, "冲突后保留编辑态");
+  assert.equal(page.data.dosageText, "我的草稿剂量");
+  assert.match(page.data.note, /草稿仍在/);
 });
 
 test("结束日期早于开始日期时阻止保存", async () => {
@@ -239,6 +241,7 @@ test("R14：取消编辑释放草稿守卫并关闭离开提示", async () => {
   assert.equal(draftGuard.registered.length, 1);
   const clearedBefore = draftGuard.cleared;
   page.onCancelEdit();
+  page.onLeaveChoice({ currentTarget: { dataset: { choice: "discard" } } });
   assert.equal(draftGuard.cleared, clearedBefore + 1, "取消编辑清除草稿守卫");
   assert.ok(alerts.some(([kind]) => kind === "disable"), "取消编辑关闭离开提示");
   assert.equal(page.data.editing, false);

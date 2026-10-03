@@ -108,7 +108,13 @@ function expiryText(
   const { label } = describeExpiry(batch.expiry, now);
   const precision = PRECISION_LABELS[batch.expiry.precision];
   const printed = batch.expiry.value ?? "未记录";
-  return `有效期 ${printed}（${precision}，${label}）`;
+  const opening = batch.openedState === "opened"
+    ? `；已开封 ${batch.openedAt ?? "日期待补充"}；开封截止 ${batch.openedExpiryDate ?? "待补充"}`
+    : `；${batch.openedState === "unopened" ? "未开封" : "开封未记录"}`;
+  const basis = batch.afterOpeningLimit?.source ? `；期限依据：${escapeMarkdownText(batch.afterOpeningLimit.source)}` : "";
+  const management = batch.managementExpiryDate ? `；管理截止 ${batch.managementExpiryDate}（${batch.managementExpirySource === "opened" ? "开封期限" : "包装有效期"}，${batch.managementExpiryState?.label ?? "待核对"}）` : "；管理截止待补充";
+  const disposition = batch.dispositionStatus === "handled" ? "；已处理" : "";
+  return `有效期 ${printed}（${precision}，${label}）${opening}${basis}${management}${disposition}`;
 }
 
 function storageText(
@@ -186,7 +192,7 @@ function renderMedicine(
       const confirmed =
         batch.confirmedUnitsPerPackage === null
           ? ""
-          : `；每包装含 ${batch.confirmedUnitsPerPackage} 个最小单位（本人已确认换算）`;
+          : `；每包装含 ${batch.confirmedUnitsPerPackage} ${UNIT_LABELS[batch.conversionUnit ?? (batch.unit === "box" ? "tablet" : "other")]}（本人已确认换算）`;
       lines.push(
         `  - ${lot}：${quantityText(batch)}；${expiryText(batch, now)}` +
           `${storageText(batch, options.includeStorageLocation)}${confirmed}`,

@@ -49,16 +49,16 @@ class _PlanHistoryPageState extends State<PlanHistoryPage> {
         final history = snapshot.data;
         final records = history?.records ?? const <PlanHistoryRecord>[];
         if (records.isEmpty) {
-          return const AppPage(
-            child: AppCard(child: Text('还没有服药记录。')),
-          );
+          return const AppPage(child: AppCard(child: Text('还没有服药记录。')));
         }
         return AppPage(
           child: ListView(
             children: [
               AppCard(
                 color: AppColors.mist,
-                child: Text('共 ${records.length} 条记录 · ${history?.medicineName ?? ''}'),
+                child: Text(
+                  '共 ${records.length} 条记录 · ${history?.medicineName ?? ''}',
+                ),
               ),
               const SizedBox(height: 12),
               ...records.map(_recordCard),
@@ -84,15 +84,13 @@ class _PlanHistoryPageState extends State<PlanHistoryPage> {
                 ),
               ),
               Text(
-                switch (record.status) {
-                  'taken' => '已服用',
-                  'skipped' => '已跳过',
-                  _ => '待确认',
-                },
+                record.statusLabel,
                 style: const TextStyle(color: AppColors.leafDeep),
               ),
             ],
           ),
+          Text('${record.medicineName} · ${record.dosageText}'),
+          if (!record.snapshotComplete) const Text('旧记录资料不完整，请结合原记录核对。'),
           if (record.corrected)
             const Padding(
               padding: EdgeInsets.only(top: 4),

@@ -97,7 +97,10 @@ class SharedPreferencesAppStore implements LocalAppStore {
     if (family == null) {
       await _preferences.remove(_familyKey);
     } else {
-      await _preferences.setString(_familyKey, jsonEncode(family.toCacheJson()));
+      await _preferences.setString(
+        _familyKey,
+        jsonEncode(family.toCacheJson()),
+      );
     }
   }
 
@@ -109,7 +112,10 @@ class SharedPreferencesAppStore implements LocalAppStore {
 
   @override
   Future<void> saveLastSyncedAt(DateTime value) async {
-    await _preferences.setString(_lastSyncedKey, value.toUtc().toIso8601String());
+    await _preferences.setString(
+      _lastSyncedKey,
+      value.toUtc().toIso8601String(),
+    );
   }
 
   @override
@@ -130,7 +136,10 @@ class SharedPreferencesAppStore implements LocalAppStore {
   Future<void> clearFamilyData() async {
     final keys = _preferences.getKeys();
     for (final key in keys) {
-      if (key == _inventoryKey || key == _familyKey || key == _lastSyncedKey || key.startsWith(_draftPrefix)) {
+      if (key == _inventoryKey ||
+          key == _familyKey ||
+          key == _lastSyncedKey ||
+          key.startsWith(_draftPrefix)) {
         await _preferences.remove(key);
       }
     }
@@ -178,5 +187,69 @@ class MemoryInventoryLocalStore implements LocalAppStore {
     family = null;
     lastSyncedAt = null;
     drafts.clear();
+  }
+}
+
+/// Serialize all identity data operations. Clearing invalidates queued writes,
+/// then waits for any already-started write before removing its result.
+class IdentityLocalStore implements LocalAppStore {
+  IdentityLocalStore(this.delegate);
+  final LocalAppStore delegate;
+  int _epoch = 0;
+  Future<void> _tail = Future.value();
+  Future<void> _write(Future<void> Function() action) {
+    final epoch = _epoch;
+    final next = _tail.then((_) async {
+      if (epoch == _epoch) await action();
+    });
+    _tail = next.catchError((Object _) {});
+    return next;
+  }
+
+  @override
+  Future<void> clearFamilyData() {
+    _epoch++;
+    final next = _tail.then((_) => delegate.clearFamilyData());
+    _tail = next.catchError((Object _) {});
+    return next;
+  }
+
+  @override
+  Future<void> saveInventory(List<MedicineRecord> value) =>
+      _write(() => delegate.saveInventory(value));
+  @override
+  Future<void> saveFamily(FamilyRecord? value) =>
+      _write(() => delegate.saveFamily(value));
+  @override
+  Future<void> saveLastSyncedAt(DateTime value) =>
+      _write(() => delegate.saveLastSyncedAt(value));
+  @override
+  Future<void> saveDraft(String key, String json) =>
+      _write(() => delegate.saveDraft(key, json));
+  @override
+  Future<void> deleteDraft(String key) =>
+      _write(() => delegate.deleteDraft(key));
+  @override
+  Future<List<MedicineRecord>?> readInventory() async {
+    await _tail;
+    return delegate.readInventory();
+  }
+
+  @override
+  Future<FamilyRecord?> readFamily() async {
+    await _tail;
+    return delegate.readFamily();
+  }
+
+  @override
+  Future<DateTime?> readLastSyncedAt() async {
+    await _tail;
+    return delegate.readLastSyncedAt();
+  }
+
+  @override
+  Future<String?> readDraft(String key) async {
+    await _tail;
+    return delegate.readDraft(key);
   }
 }

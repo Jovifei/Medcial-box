@@ -61,7 +61,7 @@ export async function materializeDoseOccurrencesForDate(
      FROM medication_plans p
      JOIN plan_time_slots s ON s.plan_id = p.id AND s.archived_at IS NULL
      JOIN care_profiles c ON c.id = p.care_profile_id
-     WHERE p.status = 'active'
+     WHERE p.status = 'active' AND c.archived_at IS NULL
        AND p.start_date <= $1::date
        AND (p.end_date IS NULL OR p.end_date >= $1::date)
        AND $2 = ANY(p.weekdays)
@@ -78,13 +78,16 @@ async function recipientIdsFor(
   careProfileId: string,
   linkedUserId: string | null,
 ): Promise<string[]> {
-  if (linkedUserId !== null) return [linkedUserId];
+  if (linkedUserId !== null) {
+    const member = await database.query<{ user_id: string }>("SELECT user_id FROM family_members WHERE family_id = $1 AND user_id = $2", [familyId, linkedUserId]);
+    return member.rows.map((row) => row.user_id);
+  }
   const rows = await database.query<{ user_id: string }>(
     `SELECT fm.user_id FROM family_members fm
      WHERE fm.family_id = $1
        AND (
-         EXISTS (SELECT 1 FROM care_profiles c WHERE c.id = $2 AND c.created_by = fm.user_id)
-         OR EXISTS (SELECT 1 FROM care_grants g WHERE g.care_profile_id = $2 AND g.member_user_id = fm.user_id AND g.can_view)
+         EXISTS (SELECT 1 FROM care_profiles c WHERE c.id = $2 AND COALESCE(c.managed_by,c.created_by) = fm.user_id)
+         OR EXISTS (SELECT 1 FROM care_grants g WHERE g.care_profile_id = $2 AND g.member_user_id = fm.user_id AND g.receive_dose_reminders)
        )
      ORDER BY fm.user_id`,
     [familyId, careProfileId],
@@ -97,6 +100,7 @@ async function claimGrant(
   familyId: string,
   userId: string,
   templateId: string,
+  deliveryId: string,
 ): Promise<string | null> {
   const grant = await database.query<{ id: string }>(
     `SELECT id FROM wechat_subscription_grants
@@ -107,8 +111,8 @@ async function claimGrant(
   const grantId = grant.rows[0]?.id;
   if (grantId === undefined) return null;
   await database.query(
-    "UPDATE wechat_subscription_grants SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL",
-    [grantId],
+    "UPDATE wechat_subscription_grants SET consumed_at = now(), dose_delivery_id = $2 WHERE id = $1 AND consumed_at IS NULL",
+    [grantId, deliveryId],
   );
   return grantId;
 }
@@ -134,11 +138,12 @@ export async function cancelDoseReminders(
      RETURNING id, subscription_grant_id`,
     params,
   );
-  const grants = refunded.rows.map((row) => row.subscription_grant_id).filter((id): id is string => id !== null);
-  if (grants.length > 0) {
+  // The grant ownership comparison and release are one statement: an old
+  // refunded delivery can never clear a newer delivery's consumption.
+  for (const row of refunded.rows) {
     await database.query(
-      "UPDATE wechat_subscription_grants SET consumed_at = NULL WHERE id = ANY($1::uuid[])",
-      [grants],
+      "UPDATE wechat_subscription_grants SET consumed_at = NULL, dose_delivery_id = NULL WHERE id = $1 AND dose_delivery_id = $2",
+      [row.subscription_grant_id, row.id],
     );
   }
   // 在途或结果不确定：只请求取消，不退授权、不改终态，也不再被领取重发。
@@ -211,7 +216,7 @@ export async function queueDoseReminders(
      JOIN medication_plans p ON p.id = o.plan_id
      JOIN care_profiles c ON c.id = o.care_profile_id
      WHERE o.dose_date = $1::date AND o.status = 'pending' AND p.status = 'active'
-       AND o.superseded_at IS NULL
+       AND o.superseded_at IS NULL AND c.archived_at IS NULL
        AND o.time_of_day <= $2::time AND o.time_of_day >= $3::time
      ORDER BY o.time_of_day, o.id`,
     [clock.date, upperBound, lowerBound],
@@ -227,6 +232,8 @@ export async function queueDoseReminders(
       occurrence.linked_user_id,
     );
     for (const userId of recipients) {
+      const preference = await database.query<{ channels: string[] }>("SELECT channels FROM notification_preferences WHERE user_id=$1", [userId]);
+      if (preference.rows[0] !== undefined && !preference.rows[0].channels.includes("wechat")) continue;
       // B05：先落投递行（唯一键 user_id+occurrence_id），成功后才占用授权。
       // 重复排队撞唯一键时不消耗任何授权；无可用授权则回收本次插入的行。
       const outcome = await database.withTransaction(async (tx) => {
@@ -241,7 +248,7 @@ export async function queueDoseReminders(
         );
         const deliveryId = inserted.rows[0]?.id;
         if (deliveryId === undefined) return "duplicate" as const;
-        const grantId = await claimGrant(tx, occurrence.family_id, userId, config.doseTemplateId);
+        const grantId = await claimGrant(tx, occurrence.family_id, userId, config.doseTemplateId, deliveryId);
         if (grantId === null) {
           await tx.query("DELETE FROM dose_reminder_deliveries WHERE id = $1", [deliveryId]);
           return "no_grant" as const;
@@ -302,7 +309,7 @@ export async function dispatchDoseReminders(
     const rows = await tx.query<{ id: string }>(
       `WITH candidates AS (
          SELECT id FROM dose_reminder_deliveries
-         WHERE status IN ('queued', 'failed', 'sending') AND next_attempt_at <= $1
+         WHERE status IN ('queued', 'failed', 'sending') AND send_started_at IS NULL AND next_attempt_at <= $1
            AND NOT cancel_requested
          ORDER BY next_attempt_at, id
          FOR UPDATE SKIP LOCKED LIMIT $2
@@ -326,9 +333,9 @@ export async function dispatchDoseReminders(
               EXISTS (SELECT 1 FROM family_members fm WHERE fm.family_id = d.family_id AND fm.user_id = d.user_id) AS is_member,
               (
                 c.linked_user_id = d.user_id
-                OR c.created_by = d.user_id
+                OR COALESCE(c.managed_by,c.created_by) = d.user_id
                 OR EXISTS (SELECT 1 FROM care_grants g
-                           WHERE g.care_profile_id = o.care_profile_id AND g.member_user_id = d.user_id AND g.can_view)
+                           WHERE g.care_profile_id = o.care_profile_id AND g.member_user_id = d.user_id AND g.receive_dose_reminders)
               ) AS has_access
        FROM dose_reminder_deliveries d
        JOIN users u ON u.id = d.user_id
@@ -363,8 +370,8 @@ export async function dispatchDoseReminders(
       if (guarded.rowCount === 0) continue;
       if (delivery.subscription_grant_id !== null) {
         await database.query(
-          "UPDATE wechat_subscription_grants SET consumed_at = NULL WHERE id = $1",
-          [delivery.subscription_grant_id],
+          "UPDATE wechat_subscription_grants SET consumed_at = NULL, dose_delivery_id = NULL WHERE id = $1 AND dose_delivery_id = $2",
+          [delivery.subscription_grant_id, delivery.id],
         );
       }
       if (invalid) result.blocked += 1;
@@ -376,7 +383,7 @@ export async function dispatchDoseReminders(
     // 跨过 sender 边界后无法撤回，只能由发送结果决定终态。
     const barrier = await database.query<{ id: string }>(
       `UPDATE dose_reminder_deliveries
-       SET next_attempt_at = now() + interval '5 minutes'
+       SET next_attempt_at = now() + interval '5 minutes', send_started_at = now()
        WHERE id = $1 AND attempts = $2 AND status = 'sending' AND NOT cancel_requested
        RETURNING id`,
       [delivery.id, delivery.attempts],
@@ -412,7 +419,7 @@ export async function dispatchDoseReminders(
       result.sent += 1;
     } catch (error) {
       const code = error instanceof SubscribeMessageUnavailableError ? "NOTIFICATION_UNAVAILABLE" : "SEND_FAILED";
-      // 结果不确定（可能已到达微信）：保留授权消费，仅在仍持有租约时标 failed 待重试。
+      // 结果不确定（可能已到达微信）：保留授权消费，仅在仍持有租约时标 failed 待核实；不自动重发。
       await database.query(
         `UPDATE dose_reminder_deliveries
          SET status = 'failed', last_error_code = $2, next_attempt_at = now() + interval '5 minutes'

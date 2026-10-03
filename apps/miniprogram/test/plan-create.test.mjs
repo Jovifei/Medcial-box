@@ -260,6 +260,8 @@ test("R14：取消或卸载页面时释放草稿守卫", () => {
   const cancelPage = cancel.load();
   cancelPage.onLoad({ medicineName: "儿童退烧药" });
   cancelPage.onCancel();
+  assert.equal(cancelPage.data.leaveSheetVisible, true);
+  cancelPage.onLeaveChoice({ currentTarget: { dataset: { choice: "discard" } } });
   assert.ok(cancel.draftGuard.cleared >= 1, "取消离开清除草稿守卫");
   assert.ok(cancel.alerts.some(([kind]) => kind === "disable"));
 

@@ -43,7 +43,7 @@ export async function isolatedPostgres(connectionString) {
       database: {
         query: (...args) => production.query(...args),
         withTransaction: (fn) => production.withTransaction(async (tx) => {
-          const { rows: [{ pid }] } = await tx.query("SELECT pg_backend_pid() AS pid");
+          const pid = fixture.observe ? (await tx.query("SELECT pg_backend_pid() AS pid")).rows[0].pid : null;
           return fn({ query: (sql, params) => fixture.observe
             ? fixture.observe({ sql, params, pid, run: () => tx.query(sql, params) })
             : tx.query(sql, params) });

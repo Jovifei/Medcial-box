@@ -21,21 +21,43 @@ class _MyPageState extends State<MyPage> {
   Future<FamilyRecord>? familyFuture;
   bool reminderEnabled = false;
   bool loadingWechat = false;
+  bool savingReminder = false;
+  String reminderTime = '09:00';
+  List<String> reminderChannels = [];
   Map<String, dynamic>? wechatTemplates;
 
   @override
   void initState() {
     super.initState();
     familyFuture = widget.services.families!.getCurrentFamily();
-    widget.services.reminders.onNotificationTap = (_) {
-      if (mounted) context.go('/home?tab=pending');
+    widget.services.reminders.onNotificationTap = (payload) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (payload != null && payload.startsWith('dose:')) {
+          context.push('/plan/${payload.substring(5)}');
+        } else {
+          context.go('/home?tab=pending');
+        }
+      });
+      WidgetsBinding.instance.scheduleFrame();
     };
     _restoreReminderState();
     _loadWechatTemplates();
   }
 
+  @override
+  void dispose() {
+    widget.services.reminders.onNotificationTap = null;
+    super.dispose();
+  }
+
   Future<void> _restoreReminderState() async {
     try {
+      final prefs = await widget.services.workflow!.notificationPreferences();
+      reminderTime = prefs['stockReminderTime'] as String? ?? '09:00';
+      reminderChannels = (prefs['channels'] as List<dynamic>? ?? [])
+          .cast<String>();
+      widget.services.reminders.stockReminderTime = reminderTime;
       await widget.services.reminders.resume(widget.services.medicines!);
       if (mounted) {
         setState(() => reminderEnabled = widget.services.reminders.enabled);
@@ -124,6 +146,8 @@ class _MyPageState extends State<MyPage> {
   }
 
   Future<void> _toggleReminders(bool value) async {
+    if (savingReminder) return;
+    setState(() => savingReminder = true);
     try {
       if (value) {
         final granted = await widget.services.reminders.enableFor(
@@ -136,11 +160,54 @@ class _MyPageState extends State<MyPage> {
       } else {
         await widget.services.reminders.disable();
       }
+      final channels = {...reminderChannels};
+      if (value) {
+        channels.add('android');
+      } else {
+        channels.remove('android');
+      }
+      await widget.services.workflow!.updateNotificationPreferences(
+        stockReminderTime: reminderTime,
+        channels: channels.toList(),
+      );
+      reminderChannels = channels.toList();
+      await widget.services.plans!.onChanged?.call();
       if (mounted) {
         setState(() => reminderEnabled = widget.services.reminders.enabled);
       }
     } catch (error) {
-      if (mounted) _showMessage('本地提醒暂不可用：${friendlyApiError(error)}');
+      if (value) await widget.services.reminders.disable();
+      if (mounted) {
+        setState(() => reminderEnabled = widget.services.reminders.enabled);
+        _showMessage('本地提醒暂不可用：${friendlyApiError(error)}');
+      }
+    } finally {
+      if (mounted) setState(() => savingReminder = false);
+    }
+  }
+
+  Future<void> _chooseReminderTime() async {
+    final parts = reminderTime.split(':');
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final next =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    try {
+      await widget.services.workflow!.updateNotificationPreferences(
+        stockReminderTime: next,
+        channels: reminderChannels,
+      );
+      widget.services.reminders.stockReminderTime = next;
+      await widget.services.plans!.onChanged?.call();
+      if (mounted) setState(() => reminderTime = next);
+    } catch (error) {
+      if (mounted) _showError(error);
     }
   }
 
@@ -289,7 +356,14 @@ class _MyPageState extends State<MyPage> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('开启本地通知'),
                     value: reminderEnabled,
-                    onChanged: _toggleReminders,
+                    onChanged: savingReminder ? null : _toggleReminders,
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.schedule_rounded),
+                    title: const Text('库存提醒时间'),
+                    subtitle: Text('$reminderTime · 上海时间'),
+                    onTap: _chooseReminderTime,
                   ),
                   if (!reminderEnabled)
                     const Text(

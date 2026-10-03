@@ -29,7 +29,7 @@ import {
 } from "../repositories/families.js";
 import { consumeInvite, findInviteByTokenHash, insertInvite } from "../repositories/invites.js";
 import { cancelDeliveriesForMember } from "../jobs/reminder-scheduler.js";
-import { cancelDoseRemindersForMember } from "../jobs/dose-reminder-scheduler.js";
+import { cancelDoseReminders, cancelDoseRemindersForMember } from "../jobs/dose-reminder-scheduler.js";
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 
@@ -222,6 +222,8 @@ export async function registerInvitationRoutes(
         if (removedUserId === "") {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }
+        const careOwned = await tx.query(`SELECT id FROM care_profiles WHERE family_id=$1 AND linked_user_id IS NULL AND COALESCE(managed_by,created_by)=$2 AND archived_at IS NULL FOR UPDATE`, [ctx.familyId, removedUserId]);
+        if ((careOwned.rowCount ?? 0) > 0) throw new TransactionConflictError(409, errorBody("CARE_HANDOVER_REQUIRED", "请先交接或归档本人管理的照护对象，再退出或移除成员"));
         const deleted = await deleteMemberById(tx, memberId, ctx.familyId);
         if (!deleted) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
@@ -234,6 +236,12 @@ export async function registerInvitationRoutes(
           [ctx.familyId, removedUserId],
         );
         await cancelDoseRemindersForMember(tx, ctx.familyId, removedUserId);
+        // Archive profiles rather than resurrecting creator authority on rejoin.
+        await tx.query(`UPDATE care_profiles SET archived_at=now()
+          WHERE family_id=$1 AND linked_user_id=$2 AND archived_at IS NULL`, [ctx.familyId, removedUserId]);
+        await tx.query(`UPDATE medication_plans SET status='ended', version=version+1, updated_at=now()
+          WHERE family_id=$1 AND care_profile_id IN (SELECT id FROM care_profiles WHERE family_id=$1 AND archived_at IS NOT NULL) AND status <> 'ended'`, [ctx.familyId]);
+        await cancelDoseReminders(tx, "family_id=$1 AND plan_id IN (SELECT p.id FROM medication_plans p JOIN care_profiles c ON c.id=p.care_profile_id WHERE c.archived_at IS NOT NULL)", [ctx.familyId]);
       });
       return reply.code(204).send();
     } catch (error) {
@@ -290,6 +298,8 @@ export async function registerInvitationRoutes(
             ),
           );
         }
+        const careOwned = await tx.query(`SELECT id FROM care_profiles WHERE family_id=$1 AND linked_user_id IS NULL AND COALESCE(managed_by,created_by)=$2 AND archived_at IS NULL FOR UPDATE`, [ctx.familyId, auth.userId]);
+        if ((careOwned.rowCount ?? 0) > 0) throw new TransactionConflictError(409, errorBody("CARE_HANDOVER_REQUIRED", "请先交接或归档本人管理的照护对象，再退出或移除成员"));
         const deleted = await deleteMembershipByUserId(tx, auth.userId);
         if (!deleted) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
@@ -302,6 +312,12 @@ export async function registerInvitationRoutes(
           [ctx.familyId, auth.userId],
         );
         await cancelDoseRemindersForMember(tx, ctx.familyId, auth.userId);
+        // Archive profiles rather than resurrecting creator authority on rejoin.
+        await tx.query(`UPDATE care_profiles SET archived_at=now()
+          WHERE family_id=$1 AND linked_user_id=$2 AND archived_at IS NULL`, [ctx.familyId, auth.userId]);
+        await tx.query(`UPDATE medication_plans SET status='ended', version=version+1, updated_at=now()
+          WHERE family_id=$1 AND care_profile_id IN (SELECT id FROM care_profiles WHERE family_id=$1 AND archived_at IS NOT NULL) AND status <> 'ended'`, [ctx.familyId]);
+        await cancelDoseReminders(tx, "family_id=$1 AND plan_id IN (SELECT p.id FROM medication_plans p JOIN care_profiles c ON c.id=p.care_profile_id WHERE c.archived_at IS NOT NULL)", [ctx.familyId]);
       });
       return reply.code(204).send();
     } catch (error) {

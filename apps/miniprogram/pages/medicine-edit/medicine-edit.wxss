@@ -1,5 +1,7 @@
 .custom-nav {
-  position: relative;
+  position: fixed;
+  z-index: 80;
+  top: 0; left: 0; right: 0;
   box-sizing: border-box;
   background: #f5f7f4;
 }
@@ -235,3 +237,12 @@
   background: #efe8fb;
   color: #4c3480;
 }
+
+.save-bar { position: fixed; z-index: 85; left: 0; right: 0; bottom: 0; padding: 14rpx 28rpx calc(14rpx + env(safe-area-inset-bottom)); background: #f5f7f4; border-top: 1rpx solid #dce6dc; }
+.save-bar .save-action { margin: 0; }
+.quantity-row { display: flex; align-items: end; gap: 16rpx; }
+.quantity-input { flex: 1; }
+.quantity-unit { width: 150rpx; }
+
+.photo-draft-row { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0; font-size: 24rpx; }
+.draft-thumb { width: 90rpx; height: 90rpx; flex-shrink: 0; border-radius: 12rpx; }

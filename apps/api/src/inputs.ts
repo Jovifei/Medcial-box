@@ -186,6 +186,8 @@ export interface ValidatedBatchFields {
   quantity: number | null;
   unit: QuantityUnit;
   confirmedUnitsPerPackage: number | null;
+  conversionUnit?: QuantityUnit | null;
+  conversionUnitProvided?: boolean;
   storageLocation: string | null;
   openedState: OpenedState;
   openedAt: string | null;
@@ -234,6 +236,15 @@ function parseAfterOpeningLimit(value: unknown): AfterOpeningLimitInput | null {
 function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
   const lotNumber = text(raw.lotNumber, "lotNumber");
   const unit = oneOf(raw.unit, "unit", QUANTITY_UNITS, "other");
+  const conversionUnit = raw.conversionUnit == null || raw.conversionUnit === ""
+    ? null : oneOf(raw.conversionUnit, "conversionUnit", QUANTITY_UNITS, "other");
+  const targets: Partial<Record<QuantityUnit, readonly QuantityUnit[]>> = {
+    box: ["tablet", "capsule", "sachet", "blister", "bottle"],
+    blister: ["tablet", "capsule"], bottle: ["ml"],
+  };
+  if (conversionUnit !== null && !targets[unit]?.includes(conversionUnit)) {
+    throw new InputError("conversionUnit 不是该包装允许的换算目标");
+  }
 
   let expiryValue: string | null = null;
   let expiryPrecision: ExpiryPrecision = "unknown";
@@ -271,7 +282,9 @@ function parseBatch(raw: Record<string, unknown>): ValidatedBatchFields {
     expiryPrecision,
     quantity: quantityOrNull(raw.quantity, "quantity", unit),
     unit,
-    confirmedUnitsPerPackage: positiveQuantityOrNull(raw.confirmedUnitsPerPackage, "confirmedUnitsPerPackage", unit),
+    confirmedUnitsPerPackage: positiveQuantityOrNull(raw.confirmedUnitsPerPackage, "confirmedUnitsPerPackage", conversionUnit ?? unit),
+    conversionUnit,
+    conversionUnitProvided: raw.conversionUnit !== undefined,
     storageLocation: text(raw.storageLocation, "storageLocation"),
     openedState,
     openedAt,
@@ -294,11 +307,14 @@ export function validateBatchInput(raw: unknown): ValidationResult<ValidatedBatc
 
 export function validateBatchUpdateInput(
   raw: unknown,
+  existing?: { unit: string; conversion_unit?: string | null },
 ): ValidationResult<ValidatedBatchFields & { version: number }> {
   try {
     if (!isRecord(raw)) return { ok: false, message: "请求体必须是对象" };
     const version = requireInt(raw.version, "version", 1);
-    return { ok: true, value: { ...parseBatch(raw), version } };
+    const merged = existing !== undefined && raw.conversionUnit === undefined && raw.unit === existing.unit && existing.conversion_unit != null
+      ? { ...raw, conversionUnit: existing.conversion_unit } : raw;
+    return { ok: true, value: { ...parseBatch(merged), version } };
   } catch (error) {
     return { ok: false, message: error instanceof InputError ? error.message : "请求体不合法" };
   }
@@ -460,11 +476,18 @@ export function validateMedicineInput(raw: unknown): ValidationResult<ValidatedM
 
 export function validateMedicineUpdateInput(
   raw: unknown,
+  existingBatches: readonly { id: string; unit: string; conversion_unit?: string | null }[] = [],
 ): ValidationResult<ValidatedMedicineFields & { version: number }> {
   try {
     if (!isRecord(raw)) return { ok: false, message: "请求体必须是对象" };
     const version = requireInt(raw.version, "version", 1);
-    return { ok: true, value: { ...parseMedicine(raw), version } };
+    const merged = Array.isArray(raw.batches) ? { ...raw, batches: raw.batches.map((batch: unknown) => {
+      if (!isRecord(batch)) return batch;
+      const existing = existingBatches.find((row) => row.id === batch.id);
+      return existing !== undefined && batch.conversionUnit === undefined && batch.unit === existing.unit && existing.conversion_unit != null
+        ? { ...batch, conversionUnit: existing.conversion_unit } : batch;
+    }) } : raw;
+    return { ok: true, value: { ...parseMedicine(merged), version } };
   } catch (error) {
     return { ok: false, message: error instanceof InputError ? error.message : "请求体不合法" };
   }

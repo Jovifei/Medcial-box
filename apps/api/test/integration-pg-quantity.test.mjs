@@ -50,6 +50,31 @@ test("real PostgreSQL: decimal quantities and ml/blister units (R1)", {
       return { owner, id: created.family.id };
     }
 
+    await t.test("create retry is idempotent and explicit bottle conversion persists", async () => {
+      const { owner } = await family();
+      const payload = { name: "合成测试勿服用", idempotencyKey: `entry-${randomUUID()}`, lowStockThreshold: { quantity: 200, unit: "ml" }, batches: [{ quantity: 2, unit: "bottle", confirmedUnitsPerPackage: 100.5, conversionUnit: "ml" }] };
+      const [a,b] = await Promise.all([request(owner,"POST","/medicines",payload),request(owner,"POST","/medicines",payload)]);
+      const first=status(a,201); assert.equal(status(b,201).id,first.id);
+      assert.ok(first.createdAt);
+      assert.equal(first.batches[0].conversionUnit,"ml");
+      const list=status(await request(owner,"GET","/medicines"),200);
+      assert.equal(list.medicines.length,1); assert.equal(list.medicines[0].batches[0].confirmedUnitsPerPackage,100.5);
+      status(await request(owner,"POST","/medicines",{...payload,name:"changed"}),409);
+      const receipts=await pool.query("SELECT count(*)::int AS n FROM medicine_create_receipts"); assert.equal(receipts.rows[0].n,1);
+      const batch=first.batches[0];
+      const changed=status(await request(owner,"PUT",`/medicines/${first.id}/batches/${batch.id}`,{
+        version:batch.version,unit:'bottle',quantity:1,confirmedUnitsPerPackage:100.5,
+      }),200);
+      assert.equal(changed.conversionUnit,'ml'); assert.equal(changed.confirmedUnitsPerPackage,100.5);
+      const current=status(await request(owner,"GET",`/medicines/${first.id}`),200);
+      const edited=status(await request(owner,"PUT",`/medicines/${first.id}`,{
+        name:current.name,version:current.version,batches:[{id:changed.id,version:changed.version,unit:'bottle',quantity:2,confirmedUnitsPerPackage:100.5}],
+      }),200);
+      assert.equal(edited.batches[0].conversionUnit,'ml');
+      status(await request(owner,'POST',`/medicines/${first.id}/batches`,{unit:'bottle',quantity:1,confirmedUnitsPerPackage:12.5}),400);
+      await assert.rejects(pool.query("UPDATE medicine_batches SET conversion_unit=NULL, confirmed_units_per_package=12.5 WHERE id=$1",[changed.id]),error=>error.code==='23514');
+    });
+
     await t.test("migration 013 is applied after the established migrations", async () => {
       assert.deepEqual(await applyMigrations(pool), [], "re-running migrations on an up-to-date schema must be empty");
       const columns = await pool.query(

@@ -30,7 +30,7 @@
       <view class="batch-line opening-warning" wx:if="{{item.needsOpeningInfo}}">开封期限待补充</view>
       <view class="batch-line" wx:if="{{item.confirmedText !== ''}}">{{item.confirmedText}}</view>
       <view class="batch-actions">
-        <view class="batch-action-link" data-id="{{item.id}}" catchtap="onTapEditBatch">修改余量</view>
+        <view class="batch-action-link" data-id="{{item.id}}" catchtap="onAdjustQuantity">修改余量</view>
       </view>
       <view class="btn btn-ghost batch-action" wx:if="{{item.canMarkOpened}}" data-id="{{item.id}}" catchtap="onMarkOpened">
         {{busyBatchId === item.id ? "保存中…" : "标记今天已开封"}}
@@ -76,12 +76,6 @@
       </view>
       <view class="batch-edit-hint">点击编辑本批次 ›</view>
     </view>
-  </view>
-
-  <view class="card">
-    <view class="section-title">说明书摘要</view>
-    <view class="badge badge-ok leaflet-badge">{{leafletBadge}}</view>
-    <view class="leaflet-text">{{leafletText}}</view>
   </view>
 
   <view class="card leaflet-photo-section">
@@ -185,3 +179,5 @@
   <view class="btn btn-ghost" bindtap="onArchiveMedicine">归档该药品</view>
   <view class="btn btn-danger" bindtap="onDeleteMedicine">删除该药品</view>
 </view>
+
+<view class="quantity-mask" wx:if="{{quantityPanelId}}"><view class="quantity-sheet"><view class="section-title">修改这份库存的余量</view><input class="input" type="digit" value="{{quantityPanelInput}}" bindinput="onQuantityPanelInput" placeholder="留空表示未知，0表示已用完" /><view class="btn btn-primary" bindtap="onSaveQuantityPanel">{{quantityPanelBusy ? "保存中…" : "保存余量"}}</view><view class="btn btn-ghost" bindtap="onCancelQuantityPanel">取消</view></view></view>

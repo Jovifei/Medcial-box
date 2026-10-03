@@ -41,6 +41,29 @@ export async function registerReminderRoutes(
 ): Promise<void> {
   const limitByUser = createRateLimiter({ windowMs: 60_000, maxRequests: 12 });
 
+  app.get("/api/v1/notification-preferences", async (request, reply) => {
+    const context = requireFamily(request, reply);
+    if (context === null) return;
+    const row = (await database.query<{ stock_reminder_time: string; channels: Array<"wechat" | "android"> }>(
+      "SELECT stock_reminder_time::text, channels FROM notification_preferences WHERE user_id = $1", [context.userId],
+    )).rows[0];
+    return { preferences: { stockReminderTime: row?.stock_reminder_time.slice(0, 5) ?? "09:00", timezone: "Asia/Shanghai", channels: row?.channels ?? [] } };
+  });
+  app.put("/api/v1/notification-preferences", async (request, reply) => {
+    const context = requireFamily(request, reply);
+    if (context === null) return;
+    const body = request.body as Record<string, unknown> | null;
+    const time = body?.stockReminderTime;
+    const channels = body?.channels;
+    if ((body?.timezone !== undefined && body.timezone !== "Asia/Shanghai") || typeof time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || !Array.isArray(channels) || channels.some((channel) => channel !== "wechat" && channel !== "android")) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "提醒时间或渠道不合法"));
+    }
+    const unique = [...new Set(channels)];
+    await database.query(`INSERT INTO notification_preferences (user_id, stock_reminder_time, channels)
+      VALUES ($1, $2::time, $3::text[]) ON CONFLICT (user_id) DO UPDATE SET stock_reminder_time=EXCLUDED.stock_reminder_time, channels=EXCLUDED.channels`, [context.userId, time, unique]);
+    return { preferences: { stockReminderTime: time, timezone: "Asia/Shanghai", channels: unique } };
+  });
+
   app.get("/api/v1/notifications/templates", async (request, reply) => {
     const context = requireFamily(request, reply);
     if (context === null) return;
@@ -69,6 +92,10 @@ export async function registerReminderRoutes(
     }
     const templateIds = [...new Set(acceptedTemplateIds as string[])];
     await database.withTransaction(async (tx) => {
+      if (templateIds.length > 0) {
+        await tx.query(`INSERT INTO notification_preferences (user_id, channels) VALUES ($1, ARRAY['wechat']::text[])
+          ON CONFLICT (user_id) DO UPDATE SET channels = ARRAY(SELECT DISTINCT unnest(notification_preferences.channels || ARRAY['wechat']::text[]))`, [context.userId]);
+      }
       for (const templateId of templateIds) {
         await tx.query(
           "INSERT INTO wechat_subscription_grants (family_id, user_id, template_id) VALUES ($1, $2, $3)",

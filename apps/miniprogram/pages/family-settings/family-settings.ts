@@ -56,6 +56,21 @@ Page({
     }
   },
 
+  async onManageMember(event: { currentTarget: { dataset: { id?: string; action?: string } } }): Promise<void> {
+    const { id, action } = event.currentTarget.dataset;
+    if (!id || this.data.role !== "owner") return;
+    const confirmed = await new Promise<boolean>((resolve) => wx.showModal({ title: action === "transfer" ? "转让管理员" : "移除成员", content: action === "transfer" ? "转让后你将成为普通成员，可退出家庭。" : "该成员将失去此药箱访问权限，库存保留。", success: (result) => resolve(result.confirm), fail: () => resolve(false) }));
+    if (!confirmed) return;
+    try { await ensureLoggedIn(); if (action === "transfer") await api.transferOwnership(id); else await api.removeMember(id); await this.refresh(); }
+    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "操作失败，请重试", icon: "none" }); }
+  },
+  async onLeaveFamily(): Promise<void> {
+    if (this.data.role === "owner") { wx.showToast({ title: "请先转让管理员，再退出家庭", icon: "none" }); return; }
+    const confirmed = await new Promise<boolean>((resolve) => wx.showModal({ title: "退出家庭", content: "退出后立即失去药箱访问权限，重新加入需要新的邀请。", success: (result) => resolve(result.confirm), fail: () => resolve(false) }));
+    if (!confirmed) return;
+    try { await api.leaveFamily(); wx.reLaunch({ url: "/pages/family-entry/family-entry" }); }
+    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "退出失败，请重试", icon: "none" }); }
+  },
   onOpenInvite(): void { wx.navigateTo({ url: "/pages/invite/invite" }); },
   onStartStocktake(): void { wx.navigateTo({ url: "/pages/stocktake/stocktake" }); },
 });

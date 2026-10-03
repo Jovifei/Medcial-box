@@ -78,6 +78,36 @@ test("real PostgreSQL: removed members never receive queued reminders (A07)", {
       return { owner, members, id: created.family.id };
     }
 
+    await t.test("member reminder time is respected before the old global 09:00 window", async () => {
+      const {owner,members:[member]}=await family(1);
+      status(await request(owner,"POST","/medicines",{name:"时刻药",batches:[{quantity:1,unit:"box",expiry:{value:shanghaiDate(0),precision:"day"}}]}),201);
+      for(const u of [owner,member])status(await request(u,"POST","/notifications/subscribe",{acceptedTemplateIds:["synthetic-reminder-template"]}),200);
+      status(await request(member,"PUT","/notification-preferences",{stockReminderTime:"07:35",channels:["wechat"]}),200);
+      const when=new Date(`${shanghaiDate(0)}T00:00:00Z`);
+      const result=await dispatchDueReminderMessages(database,{async send(){return{messageId:"test"}}},reminderConfig,when);
+      assert.equal(result.queued,1);
+      const rows=(await pool.query("SELECT user_id FROM reminder_deliveries WHERE user_id=ANY($1::uuid[])",[[owner.id,member.id]])).rows;
+      assert.deepEqual(rows.map(r=>r.user_id),[member.id]);
+      for(const u of [owner,member]) status(await request(u,"PUT","/notification-preferences",{stockReminderTime:"07:35",channels:[]}),200);
+    });
+    await t.test("creator must transfer shared care before leaving and old authority does not revive", async () => {
+      const {owner,members:[member]}=await family(1);
+      const care=status(await request(member,"POST","/care-profiles",{displayName:"孩子"}),201);
+      status(await request(member,"POST",`/care-profiles/${care.id}/grants`,{memberUserId:owner.id,canManage:true}),200);
+      const privateSelf=status(await request(member,"POST","/care-profiles/self",{}),201);
+      const privatePlan=status(await request(member,"POST","/medication-plans",{careProfileId:privateSelf.id,medicineName:"隐私药",dosageText:"1片",timeSlots:["08:00"],startDate:"2026-01-01"}),201);
+      status(await request(member,"POST","/families/leave"),409);
+      status(await request(member,"POST",`/care-profiles/${care.id}/transfer-management`,{memberUserId:owner.id}),200);
+      status(await request(member,"POST","/families/leave"),204);
+      const invite=status(await request(owner,"POST","/families/invitations"),201);
+      status(await request(member,"POST","/families/invitations/accept",{code:invite.invitationCode}),200);
+      assert.equal(status(await request(member,"GET","/care-profiles"),200).careProfiles.length,0);
+      status(await request(member,"GET",`/medication-plans/${privatePlan.planId}`),404);
+      const fresh=status(await request(member,"POST","/care-profiles/self",{}),201);
+      assert.notEqual(fresh.id,privateSelf.id);
+      assert.equal(status(await request(owner,"GET","/care-profiles"),200).careProfiles[0].id,care.id);
+    });
+
     await t.test("removed member receives nothing and grants are released", async () => {
       const { owner, members: [member], id: familyId } = await family(1);
       status(await request(owner, "POST", "/medicines", {

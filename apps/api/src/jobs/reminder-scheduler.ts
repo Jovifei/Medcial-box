@@ -180,7 +180,7 @@ export async function dispatchDueReminderMessages(
   now: Date = new Date(),
 ): Promise<{ queued: number; sent: number; failed: number }> {
   if (!config.available) return { queued: 0, sent: 0, failed: 0 };
-  if (!isWithinReminderWindow(now)) return { queued: 0, sent: 0, failed: 0 };
+
   let queued = 0;
   const currentDeadlinesByBatch = new Map<string, string | null>();
   const families = await database.query<{ family_id: string }>(
@@ -190,8 +190,10 @@ export async function dispatchDueReminderMessages(
     const rows = await listMedicines(database, familyId, false);
     const medicines = await buildFamilyMedicineSummaries(database, familyId, rows, now);
     const members = await database.query<{ user_id: string }>(
-      "SELECT user_id FROM family_members WHERE family_id = $1 ORDER BY user_id",
-      [familyId],
+      `SELECT fm.user_id FROM family_members fm LEFT JOIN notification_preferences np ON np.user_id=fm.user_id
+       WHERE fm.family_id = $1 AND $2::time >= COALESCE(np.stock_reminder_time, '09:00'::time)
+         AND ('wechat'=ANY(np.channels) OR np.user_id IS NULL) ORDER BY fm.user_id`,
+      [familyId, new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(11, 19)],
     );
     for (const medicine of medicines) {
       for (const batch of medicine.batches) {
@@ -217,6 +219,13 @@ export async function dispatchDueReminderMessages(
   let failed = 0;
   for (const delivery of claimed) {
     const currentDeadline = currentDeadlinesByBatch.get(delivery.batch_id);
+    const preference = (await database.query<{ stock_reminder_time: string; channels: string[] }>("SELECT stock_reminder_time::text, channels FROM notification_preferences WHERE user_id=$1", [delivery.user_id])).rows[0];
+    const localTime = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(11, 19);
+    if (preference !== undefined && (!preference.channels.includes("wechat") || localTime < preference.stock_reminder_time)) {
+      await database.query("UPDATE reminder_deliveries SET status='blocked', last_error_code='PREFERENCE_CHANGED' WHERE id=$1", [delivery.id]);
+      continue;
+    }
+
     // 发送前的最后一道复核：领取之后才被移除的成员也必须被拦下。
     if (!delivery.is_member) {
       await database.query("UPDATE reminder_deliveries SET status = 'blocked', last_error_code = 'NOT_A_MEMBER' WHERE id = $1", [delivery.id]);

@@ -13,6 +13,10 @@ interface SubscribeCapableWx { requestSubscribeMessage?: (options: SubscribeOpti
 
 Page({
   data: {
+    preferences: { stockReminderTime: "09:00", timezone: "Asia/Shanghai" as const, channels: [] as Array<"wechat" | "android"> },
+    wechatEnabled: false,
+    androidEnabled: false,
+    savingPreferences: false,
     loading: true,
     subscribing: false,
     templates: [] as NotificationTemplateSummary[],
@@ -31,6 +35,10 @@ Page({
       const [templateResult, pending] = await Promise.all([
         api.getNotificationTemplates(), api.getPendingNotifications(),
       ]);
+      if (api.getNotificationPreferences) {
+        const { preferences } = await api.getNotificationPreferences();
+        this.setData({ preferences, wechatEnabled: preferences.channels.includes("wechat"), androidEnabled: preferences.channels.includes("android") });
+      }
       const templates = templateResult.templates;
       this.setData({
         templates,
@@ -48,6 +56,16 @@ Page({
     }
   },
 
+  async onPreferenceChange(event: { currentTarget: { dataset: { channel?: "wechat" | "android" } }; detail: { value: string | boolean } }): Promise<void> {
+    if (this.data.savingPreferences) return;
+    const channel = event.currentTarget.dataset.channel;
+    const channels = [...this.data.preferences.channels];
+    const next = { ...this.data.preferences, ...(channel ? { channels: event.detail.value ? [...new Set([...channels, channel])] : channels.filter((item) => item !== channel) } : { stockReminderTime: String(event.detail.value) }) };
+    this.setData({ savingPreferences: true });
+    try { const result = await api.updateNotificationPreferences(next); this.setData({ preferences: result.preferences, wechatEnabled: result.preferences.channels.includes("wechat"), androidEnabled: result.preferences.channels.includes("android") }); }
+    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "设置未保存，请重试", icon: "none" }); }
+    finally { this.setData({ savingPreferences: false }); }
+  },
   onTapSubscribe(): void {
     const templates = this.data.templates as NotificationTemplateSummary[];
     const eligibleIds = templates.filter((template) => template.available).map((template) => template.templateId).slice(0, 3);

@@ -54,6 +54,57 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
     }
   }
 
+  Future<void> _transfer(CareGrant grant) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('交接照护管理'),
+        content: Text('将管理责任交给${grant.displayName}，交接后你可以退出家庭。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认交接'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.repository.transferCareManagement(
+        widget.careProfileId,
+        grant.memberUserId,
+      );
+      await _reload();
+    } catch (error) {
+      if (mounted) _toast(friendlyApiError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setReceive(CareGrant grant, bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.repository.createCareGrant(
+        widget.careProfileId,
+        memberUserId: grant.memberUserId,
+        canManage: grant.canManage,
+        receiveDoseReminders: value,
+      );
+      await _reload();
+    } catch (error) {
+      if (mounted) _toast(friendlyApiError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _setManage(CareGrant grant, bool canManage) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -62,6 +113,7 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
         widget.careProfileId,
         memberUserId: grant.memberUserId,
         canManage: canManage,
+        receiveDoseReminders: grant.receiveDoseReminders,
       );
       await _reload();
     } catch (error) {
@@ -128,7 +180,9 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
                   context,
                   icon: Icons.person_outline_rounded,
                   title: member.displayName,
-                  subtitle: member.isSelf ? '我' : '${member.role == 'owner' ? '管理员' : '成员'}',
+                  subtitle: member.isSelf
+                      ? '我'
+                      : (member.role == 'owner' ? '管理员' : '成员'),
                   onTap: () => Navigator.pop(context, member.id),
                 ),
               ),
@@ -152,9 +206,9 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
     }
   }
 
-  void _toast(String message) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(message)));
+  void _toast(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -215,6 +269,17 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
             value: grant.canManage,
             onChanged: _busy ? null : (value) => _setManage(grant, value),
           ),
+          SwitchListTile.adaptive(
+            title: const Text('接收此人的服药提醒'),
+            subtitle: const Text('与查看和管理权限分开设置'),
+            value: grant.receiveDoseReminders,
+            onChanged: _busy ? null : (value) => _setReceive(grant, value),
+          ),
+          if (grant.canManage)
+            TextButton(
+              onPressed: _busy ? null : () => _transfer(grant),
+              child: const Text('交接管理责任给此成员'),
+            ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(

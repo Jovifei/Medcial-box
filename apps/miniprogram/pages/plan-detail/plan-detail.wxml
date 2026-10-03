@@ -1,4 +1,5 @@
 <view class="page">
+  <view class="card" wx:if="{{draftAvailable}}"><view class="btn btn-ghost" bindtap="onRestoreLocalDraft">恢复未保存的计划草稿</view></view>
   <view class="card" wx:if="{{errorMessage !== ''}}">
     <view class="section-title">暂时无法加载</view>
     <view class="hint">{{errorMessage}}</view>
@@ -82,3 +83,5 @@
     <view class="hint">正在读取计划…</view>
   </view>
 </view>
+
+<view class="leave-mask" wx:if="{{leaveSheetVisible}}"><view class="leave-sheet"><view class="section-title">计划修改尚未保存</view><view class="btn btn-primary" data-choice="keep" bindtap="onLeaveChoice">保留草稿</view><view class="btn btn-danger" data-choice="discard" bindtap="onLeaveChoice">放弃修改</view><view class="btn btn-ghost" data-choice="continue" bindtap="onLeaveChoice">继续编辑</view></view></view>

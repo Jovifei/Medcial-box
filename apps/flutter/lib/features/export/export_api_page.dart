@@ -12,8 +12,6 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
-import '../../models/medicine_models.dart';
-import 'pdf_export.dart';
 import 'restore_preview.dart';
 
 enum ExportKind { markdown, csv, pdf }
@@ -45,9 +43,10 @@ class _ExportOptions {
 
 /// 预览结果与生成它的选项绑定（R16）。
 class _ExportPreview {
-  const _ExportPreview({required this.options, required this.text});
+  const _ExportPreview({required this.options, required this.text, this.bytes});
   final _ExportOptions options;
   final String text;
+  final List<int>? bytes;
 }
 
 class ExportApiPage extends StatefulWidget {
@@ -69,6 +68,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
   bool includeStorage = true;
   bool busy = false;
   Object? failure;
+  final Map<String, Future<String>> snapshots = {};
   Future<_ExportPreview>? previewFuture;
 
   @override
@@ -93,99 +93,40 @@ class _ExportApiPageState extends State<ExportApiPage> {
 
   Future<_ExportPreview> _makePreview(_ExportOptions options) async {
     try {
-      final text = options.kind == ExportKind.markdown || options.kind == ExportKind.pdf
-          ? await widget.workflow.exportMarkdown(
-              includePersonalDosage: options.includeDose,
-              includeArchived: options.includeArchived,
-              includeStorageLocation: options.includeStorage,
-            )
-          : await _buildCsv(options);
-      return _ExportPreview(options: options, text: text);
+      final key =
+          '${options.includeDose}:${options.includeArchived}:${options.includeStorage}';
+      final snapshotId = await snapshots.putIfAbsent(key, () async {
+        final result = await widget.workflow.api.post(
+          '/api/v1/exports/snapshot',
+          body: {
+            'includePersonalDosage': options.includeDose,
+            'includeArchived': options.includeArchived,
+            'includeStorageLocation': options.includeStorage,
+          },
+        ) as Map<String, dynamic>;
+        return result['snapshotId'] as String;
+      });
+      final result = await widget.workflow.exportSnapshotFormat(
+        snapshotId: snapshotId,
+        format: options.kind.name,
+        includePersonalDosage: options.includeDose,
+        includeArchived: options.includeArchived,
+        includeStorageLocation: options.includeStorage,
+      );
+      return _ExportPreview(
+        options: options,
+        text: options.kind == ExportKind.csv
+            ? result['content'] as String
+            : result['markdown'] as String,
+        bytes: options.kind == ExportKind.pdf
+            ? base64Decode(result['contentBase64'] as String)
+            : null,
+      );
     } catch (error) {
+      snapshots.clear();
       failure = error;
       rethrow;
     }
-  }
-
-  /// CSV 用独立只读快照构建（R15）：不写入 repository 的活动库存，
-  /// 因此含归档的导出不会污染首页，也不会触发归档药品的到期提醒。
-  /// 全程只读不可变的 [options]，跨 await 也保持列数与内容一致（R16）。
-  Future<String> _buildCsv(_ExportOptions options) async {
-    final medicines = await widget.workflow.fetchMedicinesForExport(
-      includeArchived: options.includeArchived,
-    );
-    final lines = <List<String>>[
-      [
-        '药品名称',
-        '规格',
-        '厂家',
-        '用途',
-        '批号',
-        '数量',
-        '包装有效期',
-        '开封状态',
-        '开封日期',
-        '开封后期限',
-        '管理期限',
-        '期限来源',
-        if (options.includeStorage) '存放位置',
-        if (options.includeDose) '个人备注',
-      ],
-    ];
-    for (final medicine in medicines) {
-      List<DosageNoteRecord> notes = const [];
-      if (options.includeDose) {
-        notes = await widget.workflow.fetchDosageNotesForExport(medicine.id);
-      }
-      final personal = notes
-          .where((note) => note.isMine)
-          .map((note) => note.content)
-          .join('；');
-      if (medicine.batches.isEmpty) {
-        lines.add([
-          medicine.name,
-          medicine.specificationDisplay,
-          medicine.manufacturer ?? '',
-          medicine.purpose,
-          '',
-          '',
-          '',
-          '',
-          '',
-          '',
-          '',
-          '',
-          if (options.includeStorage) '',
-          if (options.includeDose) personal,
-        ]);
-      }
-      for (final batch in medicine.batches) {
-        final afterLimit = batch.afterOpeningLimit == null
-            ? ''
-            : batch.afterOpeningLimit!.isDate
-            ? batch.afterOpeningLimit!.date ?? ''
-            : '${batch.afterOpeningLimit!.value ?? ''}${batch.afterOpeningLimit!.unit == 'month' ? '个月' : '天'}';
-        lines.add([
-          medicine.name,
-          medicine.specificationDisplay,
-          medicine.manufacturer ?? '',
-          medicine.purpose,
-          batch.lotNumber ?? '',
-          batch.quantity == null
-              ? '数量未知'
-              : '${batch.quantity}${_unit(batch.unit)}',
-          batch.expiryValue ?? '待补充',
-          _openedLabel(batch.openedState),
-          batch.openedAt ?? '',
-          afterLimit,
-          batch.managementExpiryDate ?? '',
-          batch.managementExpirySource ?? '',
-          if (options.includeStorage) batch.storageLocation ?? '',
-          if (options.includeDose) personal,
-        ]);
-      }
-    }
-    return lines.map((row) => row.map(_csvCell).join(',')).join('\r\n');
   }
 
   Future<void> _copy() async {
@@ -215,11 +156,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
         '${directory.path}/medicine-inventory-${DateTime.now().millisecondsSinceEpoch}.${options.extension}',
       );
       if (options.kind == ExportKind.pdf) {
-        final fontBytes = await rootBundle.load(
-          'assets/fonts/MedBoxSansSC-Regular.ttf',
-        );
-        final pdfBytes = await buildInventoryPdf(preview.text, fontBytes);
-        await file.writeAsBytes(pdfBytes, flush: true);
+        await file.writeAsBytes(preview.bytes!, flush: true);
       } else {
         await file.writeAsString(preview.text, encoding: utf8, flush: true);
       }
@@ -302,7 +239,10 @@ class _ExportApiPageState extends State<ExportApiPage> {
         ),
       );
       if (confirmed != true || !mounted) return;
-      final result = await widget.workflow.restoreJsonBackup(backup, confirmationToken);
+      final result = await widget.workflow.restoreJsonBackup(
+        backup,
+        confirmationToken,
+      );
       // 只刷新活动库存（R15）：含归档的查询会把归档记录写回共享快照，污染首页与提醒。
       await widget.repository.listMedicines();
       if (mounted) {
@@ -502,30 +442,10 @@ class _ExportApiPageState extends State<ExportApiPage> {
   );
 }
 
-String _csvCell(String value) {
-  final safe = RegExp(r'^[=+\-@]').hasMatch(value) ? "'$value" : value;
-  return '"${safe.replaceAll('"', '""')}"';
-}
-
 String _extension(ExportKind kind) => switch (kind) {
   ExportKind.markdown => 'md',
   ExportKind.csv => 'csv',
   ExportKind.pdf => 'pdf',
-};
-
-String _unit(String unit) => switch (unit) {
-  'tablet' => '片',
-  'capsule' => '粒',
-  'sachet' => '袋',
-  'bottle' => '瓶',
-  'box' => '盒',
-  _ => '份',
-};
-
-String _openedLabel(String value) => switch (value) {
-  'opened' => '已开封',
-  'unopened' => '未开封',
-  _ => '未记录',
 };
 
 String _restorePreviewText(Map<String, dynamic> preview) {

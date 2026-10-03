@@ -1,4 +1,5 @@
 <view class="page">
+  <view class="card"><view class="section-title">我的库存提醒</view><picker mode="time" value="{{preferences.stockReminderTime}}" bindchange="onPreferenceChange"><view class="picker-box">上海时间 {{preferences.stockReminderTime}}</view></picker><view class="row"><view>微信渠道</view><switch checked="{{wechatEnabled}}" disabled="{{savingPreferences}}" data-channel="wechat" bindchange="onPreferenceChange" /></view><view class="row"><view>Android 渠道</view><switch checked="{{androidEnabled}}" disabled="{{savingPreferences}}" data-channel="android" bindchange="onPreferenceChange" /></view><view class="hint">渠道由你主动选择。开启微信仍需下方模板授权；Android 需在已连接的手机开启权限。两项都开时两端均会提醒。</view></view>
   <view class="card">
     <view class="section-title">提醒设置</view>
     <view class="hint">订阅只会在你主动点击后请求微信授权。是否送达取决于模板可用性、授权结果和微信平台规则。</view>

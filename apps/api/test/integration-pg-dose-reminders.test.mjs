@@ -7,6 +7,7 @@ import test from "node:test";
 import { applyMigrations } from "../dist/db/migrations.js";
 import { buildServer } from "../dist/app.js";
 import {
+  cancelDoseReminders,
   dispatchDoseReminders,
   queueDoseReminders,
   shanghaiClock,
@@ -284,7 +285,7 @@ test("real PostgreSQL: dose reminders (R4)", {
       const group = await family(1);
       const member = group.members[0];
       const child = status(await request(group.owner, "POST", "/care-profiles", { displayName: "孩子" }), 201);
-      status(await request(group.owner, "POST", `/care-profiles/${child.id}/grants`, { memberUserId: member.id, canManage: false }), 200);
+      status(await request(group.owner, "POST", `/care-profiles/${child.id}/grants`, { memberUserId: member.id, canManage: false, receiveDoseReminders: true }), 200);
       status(await request(group.owner, "POST", "/medication-plans", {
         careProfileId: child.id, medicineName: "孩子的药", dosageText: "5ml",
         timeSlots: ["00:20"], startDate: "2026-01-01",
@@ -480,6 +481,58 @@ test("real PostgreSQL: dose reminders (R4)", {
       )).rows[0];
       assert.notEqual(after.status, "sent", "a stale result must not overwrite the newer lease");
       assert.equal(after.message_id, null);
+    });
+
+    await t.test("care recipient defaults off and receives independently of read permission", async () => {
+      const group=await family(1);const member=group.members[0];
+      const profile=status(await request(group.owner,"POST","/care-profiles",{displayName:"孩子"}),201);
+      status(await request(group.owner,"POST","/medication-plans",{careProfileId:profile.id,medicineName:"私密药",dosageText:"1片",timeSlots:["00:39"],startDate:"2026-01-01"}),201);
+      await grantDoseSubscription(member);
+      const initial=status(await request(group.owner,"POST",`/care-profiles/${profile.id}/grants`,{memberUserId:member.id,canManage:false}),200);
+      assert.equal(initial.receiveDoseReminders,false);
+      await queueDoseReminders(database,config,atShanghaiMinutes(50));
+      assert.equal((await pool.query("SELECT count(*)::int n FROM dose_reminder_deliveries WHERE user_id=$1",[member.id])).rows[0].n,0);
+      status(await request(group.owner,"POST",`/care-profiles/${profile.id}/grants`,{memberUserId:member.id,canView:false,canManage:false,receiveDoseReminders:true}),200);
+      assert.equal(status(await request(member,"GET","/medication-plans"),200).plans.length,0);
+      await queueDoseReminders(database,config,atShanghaiMinutes(50));
+      assert.equal((await pool.query("SELECT count(*)::int n FROM dose_reminder_deliveries WHERE user_id=$1",[member.id])).rows[0].n,1);
+      const deliveriesBefore=sent.length;await dispatchDoseReminders(database,sender,config,atShanghaiMinutes(50));
+      assert.equal(sent.length,deliveriesBefore+1);
+      assert.equal("medicineName" in sent.at(-1),false);
+    });
+
+    await t.test("V01: cancelling refunded blocked delivery cannot refund a reused grant", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", {}), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "归属药", dosageText: "1片", timeSlots: ["00:43"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      await queueDoseReminders(database, config, atShanghaiMinutes(50));
+      await pool.query("UPDATE medication_plans SET status='paused' WHERE id=$1", [plan.planId]);
+      await dispatchDoseReminders(database, sender, config, atShanghaiMinutes(50));
+      const old = (await pool.query("SELECT id, subscription_grant_id FROM dose_reminder_deliveries WHERE plan_id=$1", [plan.planId])).rows[0];
+      await pool.query("UPDATE wechat_subscription_grants SET consumed_at=now(), dose_delivery_id=$2 WHERE id=$1", [old.subscription_grant_id, randomUUID()]);
+      await cancelDoseReminders(database, "id=$1", [old.id]);
+      assert.notEqual((await pool.query("SELECT consumed_at FROM wechat_subscription_grants WHERE id=$1", [old.subscription_grant_id])).rows[0].consumed_at, null);
+    });
+    await t.test("V02: ambiguous send is neither retried nor refunded after expiry", async () => {
+      const group = await family(0);
+      const self = status(await request(group.owner, "POST", "/care-profiles/self", {}), 201);
+      const plan = status(await request(group.owner, "POST", "/medication-plans", {
+        careProfileId: self.id, medicineName: "不确定药", dosageText: "1片", timeSlots: ["00:44"], startDate: "2026-01-01",
+      }), 201);
+      await grantDoseSubscription(group.owner);
+      await queueDoseReminders(database, config, atShanghaiMinutes(50));
+      let calls=0;
+      const uncertain={async sendDose(){calls++; throw new Error("uncertain delivery");}};
+      await dispatchDoseReminders(database, uncertain, config, atShanghaiMinutes(50));
+      await pool.query("UPDATE dose_reminder_deliveries SET next_attempt_at=$2 WHERE plan_id=$1",[plan.planId,atShanghaiMinutes(55)]);
+      await dispatchDoseReminders(database, uncertain, config, atShanghaiMinutes(60));
+      await dispatchDoseReminders(database, uncertain, config, atShanghaiMinutes(8*60));
+      assert.equal(calls,1);
+      const grant=(await pool.query("SELECT g.consumed_at FROM wechat_subscription_grants g JOIN dose_reminder_deliveries d ON d.subscription_grant_id=g.id WHERE d.plan_id=$1",[plan.planId])).rows[0];
+      assert.notEqual(grant.consumed_at,null);
     });
 
     await t.test("R05: ten queue+dispatch rounds consume exactly one grant and send once", async () => {

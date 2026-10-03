@@ -2,6 +2,7 @@
 // 401 自动清除本地令牌。所有页面经由本模块访问后端，不直接调用 wx.request。
 import { API_BASE } from "./config";
 import type {
+  NotificationPreferences,
   AcceptInvitationResponse,
   AppDeviceLinkApproveResponse,
   AuthDevicesResponse,
@@ -182,15 +183,19 @@ export const api = {
     imageBase64: string,
     mimeType: "image/jpeg" | "image/png",
     source = "package_leaflet",
+    association?: { purpose: "box_front" | "expiry" | "leaflet"; batchId?: string | null },
   ): Promise<{ photo: LeafletPhotoSummary }> {
     return request({
       method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos`,
-      payload: { imageBase64, mimeType, source },
+      payload: { imageBase64, mimeType, source, ...association },
       timeoutMs: 60000,
     });
   },
 
+  setMedicineCover(medicineId: string, photoId: string | null): Promise<{ coverPhotoId: string | null }> {
+    return request({ method: "POST", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/cover-photo`, payload: { photoId } });
+  },
   downloadLeafletPhoto(medicineId: string, photoId: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const token = readToken();
@@ -407,7 +412,17 @@ export const api = {
     });
   },
 
+  createExportSnapshot(payload: { includePersonalDosage: boolean; includeArchived: boolean; includeStorageLocation: boolean }): Promise<{ snapshotId: string; generatedAt: string; expiresAt: string }> {
+    return request({ method: "POST", path: "/api/v1/exports/snapshot", payload: { ...payload } });
+  },
+  exportCsv(payload: { snapshotId: string; includePersonalDosage: boolean; includeArchived: boolean; includeStorageLocation: boolean }): Promise<{ content: string; fileName: string; mimeType: string }> {
+    return request({ method: "POST", path: "/api/v1/exports/csv", payload: { ...payload } });
+  },
+  exportPdf(payload: { snapshotId: string; includePersonalDosage: boolean; includeArchived: boolean; includeStorageLocation: boolean }): Promise<{ contentBase64: string; fileName: string; mimeType: string }> {
+    return request({ method: "POST", path: "/api/v1/exports/pdf", payload: { ...payload } });
+  },
   exportMarkdown(payload: {
+    snapshotId?: string;
     includePersonalDosage?: boolean;
     includeArchived?: boolean;
     includeStorageLocation?: boolean;
@@ -538,10 +553,22 @@ export const api = {
     return request({ method: "GET", path: "/api/v1/care-profiles" });
   },
 
-  createCareGrant(careProfileId: string, payload: { memberUserId: string; canManage: boolean }): Promise<{ careProfileId: string; memberUserId: string; canManage: boolean }> {
+  createCareGrant(careProfileId: string, payload: { memberUserId: string; canManage: boolean; receiveDoseReminders?: boolean }): Promise<{ careProfileId: string; memberUserId: string; canManage: boolean }> {
     return request({ method: "POST", path: `/api/v1/care-profiles/${careProfileId}/grants`, payload });
   },
 
+  getNotificationPreferences(): Promise<{ preferences: NotificationPreferences }> {
+    return request({ method: "GET", path: "/api/v1/notification-preferences" });
+  },
+  updateNotificationPreferences(preferences: NotificationPreferences): Promise<{ preferences: NotificationPreferences }> {
+    return request({ method: "PUT", path: "/api/v1/notification-preferences", payload: { ...preferences } });
+  },
+  transferCareManagement(careProfileId: string, memberUserId: string): Promise<unknown> {
+    return request({ method: "POST", path: `/api/v1/care-profiles/${encodeURIComponent(careProfileId)}/transfer-management`, payload: { memberUserId } });
+  },
+  archiveCareProfile(careProfileId: string): Promise<unknown> {
+    return request({ method: "POST", path: `/api/v1/care-profiles/${encodeURIComponent(careProfileId)}/archive` });
+  },
   listCareGrants(careProfileId: string): Promise<CareGrantListResponse> {
     return request({ method: "GET", path: `/api/v1/care-profiles/${careProfileId}/grants` });
   },

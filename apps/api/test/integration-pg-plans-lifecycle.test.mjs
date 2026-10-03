@@ -66,6 +66,29 @@ test("real PostgreSQL: dose occurrence lifecycle and history (S1 R01-R04/R06)", 
       return status(await request(owner, "POST", "/care-profiles/self", { displayName: "我" }), 201);
     }
 
+    await t.test("preferences default off and roundtrip per user with validated time", async () => {
+      const group=await family();
+      const read=status(await request(group.owner,"GET","/notification-preferences"),200);
+      assert.deepEqual(read.preferences,{stockReminderTime:"09:00",timezone:"Asia/Shanghai",channels:[]});
+      status(await request(group.owner,"PUT","/notification-preferences",{stockReminderTime:"25:00",channels:["wechat"]}),400);
+      const saved=status(await request(group.owner,"PUT","/notification-preferences",{stockReminderTime:"07:35",channels:["android"]}),200);
+      assert.equal(saved.preferences.stockReminderTime,"07:35");
+      assert.deepEqual(status(await request(group.owner,"GET","/notification-preferences"),200),saved);
+    });
+
+    await t.test("V03: confirmed today remains visible after pause and slot change", async () => {
+      const group=await family(); const self=await selfProfile(group.owner);
+      const plan=status(await request(group.owner,"POST","/medication-plans",{careProfileId:self.id,medicineName:"原药",dosageText:"1片",timeSlots:["08:00"],startDate:"2026-01-01"}),201);
+      const first=status(await request(group.owner,"GET",`/medication-plans/schedule?date=${shanghaiToday()}`),200);
+      const occurrenceId=first.entries[0].occurrenceId;
+      status(await request(group.owner,"POST",`/dose-occurrences/${occurrenceId}/confirm`,{action:"taken",idempotencyKey:randomUUID()}),200);
+      status(await request(group.owner,"PUT",`/medication-plans/${plan.planId}`,{version:1,timeSlots:["09:00"],medicineName:"新药",dosageText:"2片"}),200);
+      status(await request(group.owner,"POST",`/medication-plans/${plan.planId}/pause`,{version:2}),200);
+      const current=status(await request(group.owner,"GET",`/medication-plans/schedule?date=${shanghaiToday()}`),200);
+      assert.equal(current.entries.length,1); assert.equal(current.entries[0].occurrenceId,occurrenceId);
+      assert.equal(current.entries[0].medicineName,"原药"); assert.equal(current.entries[0].status,"taken");
+    });
+
     await t.test("R01: editing dosage keeps exactly one active future occurrence and re-materialises (A->B->A)", async () => {
       const group = await family();
       const self = await selfProfile(group.owner);

@@ -72,7 +72,19 @@ class ApiAuthRepository {
     );
   }
 
-  Future<DeviceLinkExchange> exchangePendingLink() async {
+  Future<void> _identityQueue = Future.value();
+  Future<T> _transition<T>(Future<T> Function() action) {
+    final next = _identityQueue.then((_) async {
+      await api.waitForIdentityCleanup();
+      return action();
+    });
+    _identityQueue = next.then<void>((_) {}, onError: (Object _) {});
+    return next;
+  }
+
+  Future<DeviceLinkExchange> exchangePendingLink() =>
+      _transition(_exchangePendingLink);
+  Future<DeviceLinkExchange> _exchangePendingLink() async {
     final pollToken = await secretStore.read(pendingPollTokenKey);
     if (pollToken == null || pollToken.isEmpty) {
       throw const ApiException(
@@ -135,7 +147,8 @@ class ApiAuthRepository {
   /// - 每个清理步骤各自 try/catch：清理钩子抛错也保证后续令牌删除照常执行，
   ///   不会停留在"无令牌却仍是已登录界面"的状态。
   /// 返回服务端撤销的错误信息；本机清理成功且服务端也撤销成功时返回 null。
-  Future<String?> logout() async {
+  Future<String?> logout() => _transition(_logout);
+  Future<String?> _logout() async {
     String? revokeError;
     try {
       await api.post('/api/v1/auth/logout');
@@ -168,7 +181,11 @@ class InvitationPreview {
 }
 
 class ApiFamilyRepository {
-  ApiFamilyRepository({required this.api, required this.localStore, this.onFamilyChanged});
+  ApiFamilyRepository({
+    required this.api,
+    required this.localStore,
+    this.onFamilyChanged,
+  });
   final ApiClient api;
   final LocalAppStore localStore;
 
@@ -176,8 +193,11 @@ class ApiFamilyRepository {
   final Future<void> Function()? onFamilyChanged;
 
   Future<FamilyRecord> getCurrentFamily() async {
-    final json = await api.get('/api/v1/families/current') as Map<String, dynamic>;
-    final family = FamilyRecord.fromJson(json['family'] as Map<String, dynamic>);
+    final json =
+        await api.get('/api/v1/families/current') as Map<String, dynamic>;
+    final family = FamilyRecord.fromJson(
+      json['family'] as Map<String, dynamic>,
+    );
     await localStore.saveFamily(family);
     return family;
   }
@@ -201,7 +221,10 @@ class ApiFamilyRepository {
   }
 
   Future<FamilyRecord> acceptInvitation(String code) async {
-    await api.post('/api/v1/families/invitations/accept', body: {'code': code.trim()});
+    await api.post(
+      '/api/v1/families/invitations/accept',
+      body: {'code': code.trim()},
+    );
     // 加入新家庭：丢弃上一个家庭的库存快照，稍后重新同步（A03）。
     await _clearPreviousFamilySnapshot();
     return getCurrentFamily();
@@ -216,14 +239,17 @@ class ApiFamilyRepository {
   }
 
   Future<String> createInvitation() async {
-    final json = await api.post('/api/v1/families/invitations') as Map<String, dynamic>;
+    final json =
+        await api.post('/api/v1/families/invitations') as Map<String, dynamic>;
     return json['invitationCode'] as String;
   }
 
   Future<void> updateNickname(String? nickname) async {
     await api.post(
       '/api/v1/users/me/nickname',
-      body: {'nickname': nickname?.trim().isEmpty == true ? null : nickname?.trim()},
+      body: {
+        'nickname': nickname?.trim().isEmpty == true ? null : nickname?.trim(),
+      },
     );
   }
 }

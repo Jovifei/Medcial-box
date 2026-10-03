@@ -14,5 +14,6 @@
     </view>
   </view>
 
+  <view class="btn btn-ghost" bindtap="onExplore">先了解</view><view class="card" wx:if="{{guestExpanded}}"><view class="section-title">游客介绍</view><view class="hint">登录后可以记录家中药品、数量和有效期，邀请家人维护同一药箱。用药计划由你填写，可单独授权照护人。游客仅阅读介绍；保存、共享和提醒需要登录。</view></view>
   <view class="safety-note hint">家庭药箱只用于库存记录，不提供诊疗或选药建议。</view>
 </view>

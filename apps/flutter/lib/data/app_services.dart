@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'api_auth_repository.dart';
 import 'api_client.dart';
 import 'api_medicine_repository.dart';
@@ -36,6 +38,8 @@ class AppServices {
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
 
+  final ValueNotifier<bool> sessionInvalidated = ValueNotifier(false);
+
   bool get isConfigured => api != null && configurationError == null;
 
   static Future<AppServices> create({
@@ -44,7 +48,9 @@ class AppServices {
     LocalAppStore? localStore,
   }) async {
     final secrets = secretStore ?? FlutterSecretStore();
-    final local = localStore ?? await SharedPreferencesAppStore.create();
+    final local = IdentityLocalStore(
+      localStore ?? await SharedPreferencesAppStore.create(),
+    );
     final baseUrl = apiBaseUrl.trim();
     if (baseUrl.isEmpty) {
       return AppServices._(
@@ -61,21 +67,47 @@ class AppServices {
         baseUrl: baseUrl,
         tokenProvider: () => secrets.read(ApiAuthRepository.accessTokenKey),
       );
+      final plans = ApiPlanRepository(api: api);
+      final workflow = ApiWorkflowRepository(api: api);
       final medicines = ApiMedicineRepository(api: api, localStore: local);
       final reminders = LocalReminderService()..watch(medicines);
+      var scheduleRequest = 0;
+      plans.onChanged = () async {
+        final request = ++scheduleRequest;
+        final epoch = reminders.identityEpoch;
+        try {
+          final preferences = await workflow.notificationPreferences();
+          if (epoch != reminders.identityEpoch || request != scheduleRequest) {
+            return;
+          }
+          reminders.stockReminderTime =
+              preferences['stockReminderTime'] as String? ?? '09:00';
+          final channels =
+              preferences['channels'] as List<dynamic>? ?? const [];
+          if (!channels.contains('android')) {
+            await reminders.disable();
+            return;
+          }
+          final schedules = await plans.reminderSchedules();
+          if (request != scheduleRequest) return;
+          await reminders.setSchedules(schedules, identityEpoch: epoch);
+        } catch (_) {
+          if (request != scheduleRequest) return;
+          // Failed refresh cannot retain alarms for a plan already changed.
+          await reminders.setSchedules(const [], identityEpoch: epoch);
+        }
+      };
       // 统一的身份切换清理：内存快照 + 本机家庭数据一起作废，
       // 保证换账号/换家庭后看不到上一个家庭的库存（A03）。
       Future<void> clearIdentityData() async {
+        api.invalidateIdentity();
         medicines.clearSessionSnapshot();
-        await local.clearFamilyData();
+        final clearStorage = local.clearFamilyData();
+        await reminders.resetForIdentity();
+        await clearStorage;
       }
-      // 401 表示会话已在服务端失效：清理内存快照/本机家庭数据并删除令牌，
-      // 让 BootGate 下次进入时路由到连接页，而不是停留在过期会话上（R10）。
-      api.onUnauthorized = () async {
-        await clearIdentityData();
-        await secrets.delete(ApiAuthRepository.accessTokenKey);
-      };
-      return AppServices._(
+
+      final services = AppServices._(
         apiBaseUrl: baseUrl,
         configurationError: null,
         secretStore: secrets,
@@ -93,11 +125,18 @@ class AppServices {
           onFamilyChanged: clearIdentityData,
         ),
         medicines: medicines,
-        workflow: ApiWorkflowRepository(api: api),
-        plans: ApiPlanRepository(api: api),
+        workflow: workflow,
+        plans: plans,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: reminders,
       );
+      api.onUnauthorized = () async {
+        services.sessionInvalidated.value = true;
+        await clearIdentityData();
+        await secrets.delete(ApiAuthRepository.accessTokenKey);
+        services.sessionInvalidated.value = true;
+      };
+      return services;
     } on ArgumentError catch (error) {
       return AppServices._(
         apiBaseUrl: baseUrl,

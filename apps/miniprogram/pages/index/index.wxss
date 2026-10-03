@@ -223,3 +223,7 @@
   color: #596a60;
   background: #eef1ee;
 }
+
+.filter-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 6rpx; }
+.highlighted { box-shadow: 0 0 0 4rpx #63a980; }
+.tag-picker { display: flex; flex-wrap: wrap; gap: 10rpx; }

@@ -34,7 +34,9 @@ class ApiMedicineRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<MedicineRecord>> listMedicines({bool includeArchived = false}) async {
+  Future<List<MedicineRecord>> listMedicines({
+    bool includeArchived = false,
+  }) async {
     final session = _session;
     try {
       final json = await api.get(
@@ -48,9 +50,12 @@ class ApiMedicineRepository extends ChangeNotifier {
       if (!_isCurrentSession(session)) return medicines;
       _medicines = result;
       isOffline = false;
-      lastSyncedAt = DateTime.now();
+      final syncedAt = DateTime.now();
+      lastSyncedAt = syncedAt;
       await localStore.saveInventory(result);
-      await localStore.saveLastSyncedAt(lastSyncedAt!);
+      if (!_isCurrentSession(session)) return medicines;
+      await localStore.saveLastSyncedAt(syncedAt);
+      if (!_isCurrentSession(session)) return medicines;
       notifyListeners();
       return result;
     } on ApiNetworkException {
@@ -59,7 +64,9 @@ class ApiMedicineRepository extends ChangeNotifier {
       if (!_isCurrentSession(session)) return medicines;
       _medicines = cached;
       isOffline = true;
-      lastSyncedAt = await localStore.readLastSyncedAt();
+      final syncedAt = await localStore.readLastSyncedAt();
+      if (!_isCurrentSession(session)) return medicines;
+      lastSyncedAt = syncedAt;
       notifyListeners();
       return cached;
     }
@@ -84,7 +91,10 @@ class ApiMedicineRepository extends ChangeNotifier {
 
   Future<MedicineRecord> createMedicine(Map<String, Object?> payload) async {
     final session = _session;
-    final json = await api.post('/api/v1/medicines', body: payload) as Map<String, dynamic>;
+    final json = await api.post(
+      '/api/v1/medicines',
+      body: payload,
+    ) as Map<String, dynamic>;
     final medicine = MedicineRecord.fromJson(json);
     await _upsertMedicine(medicine, prepend: true, session: session);
     return medicine;
@@ -109,8 +119,10 @@ class ApiMedicineRepository extends ChangeNotifier {
       'version': medicine.version,
       'batches': medicine.batches.map(_batchUpdatePayload).toList(),
     };
-    final json = await api.put('/api/v1/medicines/${medicine.id}', payload)
-        as Map<String, dynamic>;
+    final json = await api.put(
+      '/api/v1/medicines/${medicine.id}',
+      payload,
+    ) as Map<String, dynamic>;
     final updated = MedicineRecord.fromJson(json);
     await _upsertMedicine(updated, session: session);
     return updated;
@@ -121,23 +133,25 @@ class ApiMedicineRepository extends ChangeNotifier {
     Map<String, Object?> payload,
   ) async {
     final session = _session;
-    final json = await api.post('/api/v1/medicines/$medicineId/batches', body: payload)
-        as Map<String, dynamic>;
+    final json = await api.post(
+      '/api/v1/medicines/$medicineId/batches',
+      body: payload,
+    ) as Map<String, dynamic>;
     final batch = BatchRecord.fromJson(json);
     final existing = _findCached(medicineId);
     if (existing != null) {
-      await _upsertMedicine(existing.copyWith(
-        batches: [...existing.batches, batch],
-        version: existing.version + 1,
-      ), session: session);
+      await _upsertMedicine(
+        existing.copyWith(
+          batches: [...existing.batches, batch],
+          version: existing.version + 1,
+        ),
+        session: session,
+      );
     }
     return batch;
   }
 
-  Future<BatchRecord> updateBatch(
-    String medicineId,
-    BatchRecord batch,
-  ) async {
+  Future<BatchRecord> updateBatch(String medicineId, BatchRecord batch) async {
     final session = _session;
     final json = await api.put(
       '/api/v1/medicines/$medicineId/batches/${batch.id}',
@@ -174,7 +188,9 @@ class ApiMedicineRepository extends ChangeNotifier {
         message: '只有已确认未开封的批次可以拆分；状态未记录时请先核实，或按整批记录开封。',
       );
     }
-    if (batch.quantity == null || openedQuantity <= 0 || batch.quantity! <= openedQuantity) {
+    if (batch.quantity == null ||
+        openedQuantity <= 0 ||
+        batch.quantity! <= openedQuantity) {
       throw const ApiException(
         statusCode: 400,
         code: 'INVALID_SPLIT_QUANTITY',
@@ -230,7 +246,9 @@ class ApiMedicineRepository extends ChangeNotifier {
     if (medicine != null) {
       await _upsertMedicine(
         medicine.copyWith(
-          batches: medicine.batches.where((batch) => batch.id != batchId).toList(),
+          batches: medicine.batches
+              .where((batch) => batch.id != batchId)
+              .toList(),
           version: medicine.version + 1,
         ),
         session: session,
@@ -261,9 +279,11 @@ class ApiMedicineRepository extends ChangeNotifier {
     final medicine = _findCached(medicineId);
     if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
-          .map((item) => item.id == medicineId
-              ? item.copyWith(dosageNotes: [...item.dosageNotes, note])
-              : item)
+          .map(
+            (item) => item.id == medicineId
+                ? item.copyWith(dosageNotes: [...item.dosageNotes, note])
+                : item,
+          )
           .toList(growable: false);
       // Private dosage notes are intentionally excluded from the plain local cache.
       await _persistCache(session: session);
@@ -280,19 +300,28 @@ class ApiMedicineRepository extends ChangeNotifier {
     final session = _session;
     final json = await api.put(
       '/api/v1/medicines/$medicineId/dosage-notes/${note.id}',
-      {'content': content, 'visibility': note.visibility, 'version': note.version},
+      {
+        'content': content,
+        'visibility': note.visibility,
+        'version': note.version,
+      },
     ) as Map<String, dynamic>;
     final updated = DosageNoteRecord.fromJson(json);
     final medicine = _findCached(medicineId);
     if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
-          .map((item) => item.id == medicineId
-              ? item.copyWith(
-                  dosageNotes: item.dosageNotes
-                      .map((current) => current.id == note.id ? updated : current)
-                      .toList(growable: false),
-                )
-              : item)
+          .map(
+            (item) => item.id == medicineId
+                ? item.copyWith(
+                    dosageNotes: item.dosageNotes
+                        .map(
+                          (current) =>
+                              current.id == note.id ? updated : current,
+                        )
+                        .toList(growable: false),
+                  )
+                : item,
+          )
           .toList(growable: false);
       await _persistCache(session: session);
       notifyListeners();
@@ -302,8 +331,9 @@ class ApiMedicineRepository extends ChangeNotifier {
 
   Future<List<DosageNoteRecord>> listDosageNotes(String medicineId) async {
     final session = _session;
-    final json = await api.get('/api/v1/medicines/$medicineId/dosage-notes')
-        as Map<String, dynamic>;
+    final json = await api.get(
+      '/api/v1/medicines/$medicineId/dosage-notes',
+    ) as Map<String, dynamic>;
     final notes = (json['notes'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .map(DosageNoteRecord.fromJson)
@@ -311,7 +341,11 @@ class ApiMedicineRepository extends ChangeNotifier {
     final medicine = _findCached(medicineId);
     if (medicine != null && _isCurrentSession(session)) {
       _medicines = _medicines
-          .map((item) => item.id == medicineId ? item.copyWith(dosageNotes: notes) : item)
+          .map(
+            (item) => item.id == medicineId
+                ? item.copyWith(dosageNotes: notes)
+                : item,
+          )
           .toList(growable: false);
       notifyListeners();
     }
@@ -330,7 +364,9 @@ class ApiMedicineRepository extends ChangeNotifier {
     int? session,
   }) async {
     if (session != null && !_isCurrentSession(session)) return;
-    final existingIndex = _medicines.indexWhere((item) => item.id == medicine.id);
+    final existingIndex = _medicines.indexWhere(
+      (item) => item.id == medicine.id,
+    );
     if (existingIndex >= 0) {
       final copy = List<MedicineRecord>.of(_medicines);
       copy[existingIndex] = medicine;
@@ -341,6 +377,7 @@ class ApiMedicineRepository extends ChangeNotifier {
       _medicines = [..._medicines, medicine];
     }
     await _persistCache(session: session);
+    if (session != null && !_isCurrentSession(session)) return;
     isOffline = false;
     notifyListeners();
   }
@@ -359,6 +396,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     'quantity': batch.quantity,
     'unit': batch.unit,
     'confirmedUnitsPerPackage': batch.confirmedUnitsPerPackage,
+    'conversionUnit': batch.conversionUnit,
     'storageLocation': batch.storageLocation,
     'openedState': batch.openedState,
     'openedAt': batch.openedAt,

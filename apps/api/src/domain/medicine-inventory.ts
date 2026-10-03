@@ -89,19 +89,20 @@ export function calculateEffectiveExpiryDate(
 }
 
 function quantityInThresholdUnit(
-  batch: Pick<MedicationBatchSummary, "quantity" | "unit" | "confirmedUnitsPerPackage">,
+  batch: Pick<MedicationBatchSummary, "quantity" | "unit" | "confirmedUnitsPerPackage"> & { conversionUnit?: QuantityUnit | null },
   thresholdUnit: QuantityUnit,
 ): number | null {
   if (batch.quantity === null) return null;
   if (batch.quantity === 0 || batch.unit === thresholdUnit) return batch.quantity;
-  if (batch.unit === "box" && thresholdUnit === "tablet" && batch.confirmedUnitsPerPackage !== null) {
+  const target = batch.conversionUnit ?? (batch.unit === "box" ? "tablet" : null);
+  if (target === thresholdUnit && batch.confirmedUnitsPerPackage !== null) {
     return batch.quantity * batch.confirmedUnitsPerPackage;
   }
   return null;
 }
 
 export function calculateStockStatus(
-  batches: readonly Pick<MedicationBatchSummary, "quantity" | "unit" | "confirmedUnitsPerPackage" | "managementExpiryDate" | "dispositionStatus">[],
+  batches: readonly (Pick<MedicationBatchSummary, "quantity" | "unit" | "confirmedUnitsPerPackage" | "managementExpiryDate" | "dispositionStatus"> & { conversionUnit?: QuantityUnit | null })[],
   threshold: LowStockThresholdInput | null,
   now: Date,
 ): StockStatusResult {

@@ -61,6 +61,9 @@ interface LeafletPhotoView extends LeafletPhotoSummary {
 }
 
 interface MedicineDetailPageData {
+  quantityPanelId: string;
+  quantityPanelInput: string;
+  quantityPanelBusy: boolean;
   medicineId: string;
   medicineSummary: MedicationSummary | null;
   loading: boolean;
@@ -221,6 +224,9 @@ function shanghaiToday(): string {
 
 Page({
   data: {
+    quantityPanelId: "",
+    quantityPanelInput: "",
+    quantityPanelBusy: false,
     medicineId: "",
     medicineSummary: null as MedicationSummary | null,
     loading: true,
@@ -816,6 +822,24 @@ Page({
     wx.navigateTo({ url: `/pages/batch-edit/batch-edit?medicineId=${id}` });
   },
 
+  onAdjustQuantity(event: { currentTarget: { dataset: { id?: string } } }): void {
+    const batch = this.data.medicineSummary?.batches.find((item) => item.id === event.currentTarget.dataset.id);
+    if (batch) this.setData({ quantityPanelId: batch.id, quantityPanelInput: batch.quantity === null ? "" : String(batch.quantity) });
+  },
+  onQuantityPanelInput(event: { detail: { value: string } }): void { this.setData({ quantityPanelInput: event.detail.value }); },
+  onCancelQuantityPanel(): void { if (!this.data.quantityPanelBusy) this.setData({ quantityPanelId: "", quantityPanelInput: "" }); },
+  async onSaveQuantityPanel(): Promise<void> {
+    if (this.data.quantityPanelBusy) return;
+    const batch = this.data.medicineSummary?.batches.find((item) => item.id === this.data.quantityPanelId);
+    if (!batch) return;
+    const raw = this.data.quantityPanelInput.trim();
+    const quantity = raw === "" ? null : parseQuantityByUnit(raw, batch.unit);
+    if (raw !== "" && quantity === null) { wx.showToast({ title: batch.unit === "ml" ? "毫升允许最多3位小数" : "计件数量需为非负整数", icon: "none" }); return; }
+    this.setData({ quantityPanelBusy: true });
+    try { await ensureLoggedIn(); await api.updateBatch(this.data.medicineId, batch.id, { quantity, version: batch.version }); this.setData({ quantityPanelId: "", quantityPanelInput: "" }); await this.refresh(); }
+    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "余量未保存，请重试", icon: "none" }); }
+    finally { this.setData({ quantityPanelBusy: false }); }
+  },
   onTapEditBatch(event: { currentTarget: { dataset: { id?: string } } }): void {
     const batchId = event.currentTarget.dataset.id;
     const medicineId = (this.data as MedicineDetailPageData).medicineId;

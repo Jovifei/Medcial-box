@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,11 @@ import '../pending/pending_page.dart';
 import '../plan/plans_page.dart';
 
 class ProductionShell extends StatefulWidget {
-  const ProductionShell({super.key, required this.services, this.initialTab = 0});
+  const ProductionShell({
+    super.key,
+    required this.services,
+    this.initialTab = 0,
+  });
   final AppServices services;
   final int initialTab;
 
@@ -24,13 +29,42 @@ class ProductionShell extends StatefulWidget {
   State<ProductionShell> createState() => _ProductionShellState();
 }
 
-class _ProductionShellState extends State<ProductionShell> {
+class _ProductionShellState extends State<ProductionShell>
+    with WidgetsBindingObserver {
   int selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     selectedIndex = widget.initialTab.clamp(0, 3).toInt();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refreshReminders());
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductionShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) { selectedIndex = widget.initialTab.clamp(0, 3).toInt(); }
+  }
+
+  Future<void> _refreshReminders() async {
+    try {
+      await widget.services.reminders.resume(widget.services.medicines!);
+      await widget.services.plans!.onChanged?.call();
+    } catch (_) {
+      /* Notification permission failures do not block inventory. */
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refreshReminders());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -43,27 +77,35 @@ class _ProductionShellState extends State<ProductionShell> {
           familyRepository: widget.services.families!,
           workflow: widget.services.workflow!,
         ),
-        PlansPage(
-          repository: widget.services.plans!,
-          onScheduleLoaded: (schedule) =>
-              widget.services.reminders.setTodaySchedule(schedule),
-        ),
-        PendingPage(
-          services: widget.services,
-        ),
-        MyPage(
-          services: widget.services,
-        ),
+        PlansPage(repository: widget.services.plans!),
+        PendingPage(services: widget.services),
+        MyPage(services: widget.services),
       ],
     ),
     bottomNavigationBar: NavigationBar(
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) => setState(() => selectedIndex = index),
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: '药箱'),
-        NavigationDestination(icon: Icon(Icons.medication_outlined), selectedIcon: Icon(Icons.medication), label: '用药计划'),
-        NavigationDestination(icon: Icon(Icons.notifications_none_rounded), selectedIcon: Icon(Icons.notifications_rounded), label: '待处理'),
-        NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: '我的'),
+        NavigationDestination(
+          icon: Icon(Icons.inventory_2_outlined),
+          selectedIcon: Icon(Icons.inventory_2),
+          label: '药箱',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.medication_outlined),
+          selectedIcon: Icon(Icons.medication),
+          label: '用药计划',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.notifications_none_rounded),
+          selectedIcon: Icon(Icons.notifications_rounded),
+          label: '待处理',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline_rounded),
+          selectedIcon: Icon(Icons.person_rounded),
+          label: '我的',
+        ),
       ],
     ),
   );
@@ -89,6 +131,7 @@ enum MedicineFilter { all, expiry, lowStock, missingInfo }
 class _CabinetHomePageState extends State<CabinetHomePage> {
   final searchController = TextEditingController();
   String keyword = '';
+  String sortOrder = 'expiry';
   MedicineFilter filter = MedicineFilter.all;
   Future<void>? initialLoad;
   FamilyRecord? family;
@@ -124,7 +167,9 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     try {
       await Future.wait([
         widget.repository.listMedicines(),
-        widget.familyRepository.getCurrentFamily().then((value) => family = value),
+        widget.familyRepository.getCurrentFamily().then(
+          (value) => family = value,
+        ),
       ]);
       if (mounted) setState(() => failure = null);
     } catch (error) {
@@ -132,42 +177,113 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     }
   }
 
-  List<MedicineRecord> get _visibleMedicines => widget.repository.medicines.where((medicine) {
-    final query = keyword.toLowerCase();
-    final matchesQuery = query.isEmpty || [
-      medicine.name,
-      medicine.specification ?? '',
-      medicine.manufacturer ?? '',
-      medicine.purpose,
-      ...medicine.activeIngredients,
-      ...medicine.batches.map((batch) => batch.storageLocation ?? ''),
-    ].any((value) => value.toLowerCase().contains(query));
-    if (!matchesQuery) return false;
-    if (selectedPopulations.isNotEmpty &&
-        !medicine.populationTags.any(
-          (tag) => selectedPopulations.contains(tag),
-        )) {
-      return false;
+  List<MedicineRecord> get _visibleMedicines {
+    final result = widget.repository.medicines.where((medicine) {
+      final query = keyword.toLowerCase();
+      final matchesQuery =
+          query.isEmpty ||
+          [
+            medicine.name,
+            medicine.specification ?? '',
+            medicine.manufacturer ?? '',
+            medicine.purpose,
+            ...medicine.activeIngredients,
+            ...medicine.batches.map((batch) => batch.storageLocation ?? ''),
+          ].any((value) => value.toLowerCase().contains(query));
+      if (!matchesQuery) return false;
+      if (selectedPopulations.isNotEmpty &&
+          !medicine.populationTags.any(
+            (tag) => selectedPopulations.contains(tag),
+          )) {
+        return false;
+      }
+      if (selectedPurposes.isNotEmpty &&
+          !medicine.purposeTags.any((tag) => selectedPurposes.contains(tag))) {
+        return false;
+      }
+      return switch (filter) {
+        MedicineFilter.all => true,
+        MedicineFilter.expiry => medicine.batches.any(
+          (batch) =>
+              batch.dispositionStatus != 'handled' &&
+              (batch.isExpired ||
+                  [
+                    'due_this_month',
+                    'expiring_soon',
+                  ].contains(batch.managementExpiryState.state)),
+        ),
+        MedicineFilter.lowStock => [
+          'low',
+          'exhausted',
+          'unknown',
+        ].contains(medicine.stockStatus),
+        MedicineFilter.missingInfo =>
+          medicine.batches.any(
+                (batch) =>
+                    batch.dispositionStatus != 'handled' &&
+                    batch.expiryValue == null,
+              ) ||
+              medicine.leaflet.reviewStatus == 'unverified',
+      };
+    }).toList();
+    String? expiry(MedicineRecord medicine) {
+      final dates =
+          medicine.batches
+              .where((batch) => batch.dispositionStatus != 'handled')
+              .map((batch) => batch.managementExpiryDate)
+              .whereType<String>()
+              .toList()
+            ..sort();
+      return dates.isEmpty ? null : dates.first;
     }
-    if (selectedPurposes.isNotEmpty &&
-        !medicine.purposeTags.any((tag) => selectedPurposes.contains(tag))) {
-      return false;
-    }
-    return switch (filter) {
-      MedicineFilter.all => true,
-      MedicineFilter.expiry => medicine.batches.any((batch) => batch.isExpired || ['due_this_month', 'expiring_soon'].contains(batch.managementExpiryState.state)),
-      MedicineFilter.lowStock => ['low', 'exhausted', 'unknown'].contains(medicine.stockStatus),
-      MedicineFilter.missingInfo => medicine.batches.any((batch) => batch.expiryValue == null) || medicine.leaflet.reviewStatus == 'unverified',
-    };
-  }).toList(growable: false);
 
-  int get _expiringCount => widget.repository.medicines.where((medicine) =>
-      medicine.batches.any((batch) => batch.dispositionStatus != 'handled' &&
-        (batch.isExpired || ['due_this_month', 'expiring_soon'].contains(batch.managementExpiryState.state)))).length;
-  int get _lowCount => widget.repository.medicines.where((medicine) => ['low', 'exhausted'].contains(medicine.stockStatus)).length;
-  int get _missingCount => widget.repository.medicines.where((medicine) =>
-      medicine.batches.any((batch) => batch.dispositionStatus != 'handled' && batch.expiryValue == null) ||
-      medicine.leaflet.reviewStatus == 'unverified').length;
+    result.sort((a, b) {
+      final left = sortOrder == 'recent'
+          ? a.createdAt
+          : sortOrder == 'name'
+          ? a.name
+          : expiry(a);
+      final right = sortOrder == 'recent'
+          ? b.createdAt
+          : sortOrder == 'name'
+          ? b.name
+          : expiry(b);
+      if (left == null) return right == null ? a.name.compareTo(b.name) : 1;
+      if (right == null) return -1;
+      return sortOrder == 'recent'
+          ? right.compareTo(left)
+          : left.compareTo(right);
+    });
+    return result;
+  }
+
+  int get _expiringCount => widget.repository.medicines
+      .where(
+        (medicine) => medicine.batches.any(
+          (batch) =>
+              batch.dispositionStatus != 'handled' &&
+              (batch.isExpired ||
+                  [
+                    'due_this_month',
+                    'expiring_soon',
+                  ].contains(batch.managementExpiryState.state)),
+        ),
+      )
+      .length;
+  int get _lowCount => widget.repository.medicines
+      .where((medicine) => ['low', 'exhausted'].contains(medicine.stockStatus))
+      .length;
+  int get _missingCount => widget.repository.medicines
+      .where(
+        (medicine) =>
+            medicine.batches.any(
+              (batch) =>
+                  batch.dispositionStatus != 'handled' &&
+                  batch.expiryValue == null,
+            ) ||
+            medicine.leaflet.reviewStatus == 'unverified',
+      )
+      .length;
 
   Future<void> _refresh() async {
     await _load();
@@ -209,7 +325,10 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
           children: [
-            Text('家里的药，心里有数。', style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              '家里的药，心里有数。',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
             const SizedBox(height: 5),
             const Text('库存记录不代表适合服用，请按说明书或医护人员指导。'),
             const SizedBox(height: 14),
@@ -225,7 +344,10 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(friendlyApiError(failure!), style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      friendlyApiError(failure!),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: 10),
                     SoftButton(label: '重新加载', onPressed: _refresh),
                   ],
@@ -260,6 +382,15 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
             Wrap(
               spacing: 8,
               children: [
+                DropdownButton<String>(
+                  value: sortOrder,
+                  onChanged: (value) => setState(() => sortOrder = value!),
+                  items: const [
+                    DropdownMenuItem(value: 'expiry', child: Text('到期优先')),
+                    DropdownMenuItem(value: 'recent', child: Text('最近录入')),
+                    DropdownMenuItem(value: 'name', child: Text('药名排序')),
+                  ],
+                ),
                 _filterChip('全部', MedicineFilter.all),
                 _filterChip('临期/过期', MedicineFilter.expiry),
                 _filterChip('库存不足', MedicineFilter.lowStock),
@@ -282,15 +413,17 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
             if (widget.repository.medicines.isEmpty && failure == null)
               _EmptyCabinet(onAdd: () => context.push('/medicine/new'))
             else if (_visibleMedicines.isEmpty)
-              _NoSearchResults(onClear: () {
-                searchController.clear();
-                setState(() {
-                  keyword = '';
-                  filter = MedicineFilter.all;
-                  selectedPopulations.clear();
-                  selectedPurposes.clear();
-                });
-              })
+              _NoSearchResults(
+                onClear: () {
+                  searchController.clear();
+                  setState(() {
+                    keyword = '';
+                    filter = MedicineFilter.all;
+                    selectedPopulations.clear();
+                    selectedPurposes.clear();
+                  });
+                },
+              )
             else
               ..._visibleMedicines.map(
                 (medicine) => _MedicineCard(
@@ -324,7 +457,12 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
 }
 
 class _QuickStatus extends StatelessWidget {
-  const _QuickStatus({required this.expiring, required this.low, required this.missing, required this.onTap});
+  const _QuickStatus({
+    required this.expiring,
+    required this.low,
+    required this.missing,
+    required this.onTap,
+  });
   final int expiring;
   final int low;
   final int missing;
@@ -333,17 +471,37 @@ class _QuickStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      _StatusBox(label: '临期/过期', count: expiring, color: AppColors.terracotta, onTap: () => onTap(MedicineFilter.expiry)),
+      _StatusBox(
+        label: '临期/过期',
+        count: expiring,
+        color: AppColors.terracotta,
+        onTap: () => onTap(MedicineFilter.expiry),
+      ),
       const SizedBox(width: 8),
-      _StatusBox(label: '库存不足', count: low, color: AppColors.amber, onTap: () => onTap(MedicineFilter.lowStock)),
+      _StatusBox(
+        label: '库存不足',
+        count: low,
+        color: AppColors.amber,
+        onTap: () => onTap(MedicineFilter.lowStock),
+      ),
       const SizedBox(width: 8),
-      _StatusBox(label: '待补资料', count: missing, color: AppColors.leaf, onTap: () => onTap(MedicineFilter.missingInfo)),
+      _StatusBox(
+        label: '待补资料',
+        count: missing,
+        color: AppColors.leaf,
+        onTap: () => onTap(MedicineFilter.missingInfo),
+      ),
     ],
   );
 }
 
 class _StatusBox extends StatelessWidget {
-  const _StatusBox({required this.label, required this.count, required this.color, required this.onTap});
+  const _StatusBox({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.onTap,
+  });
   final String label;
   final int count;
   final Color color;
@@ -359,9 +517,19 @@ class _StatusBox extends StatelessWidget {
         color: color.withValues(alpha: 0.08),
         child: Column(
           children: [
-            Text('$count', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: color)),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: color,
+              ),
+            ),
             const SizedBox(height: 3),
-            FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: TextStyle(fontSize: 11, color: color))),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label, style: TextStyle(fontSize: 11, color: color)),
+            ),
           ],
         ),
       ),
@@ -377,14 +545,18 @@ class _MedicineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // B23：在库口径 = 未处置批次；已处理批次保留在详情/历史，不驱动卡片摘要。
-    final inCabinet = medicine.batches.where((batch) => batch.dispositionStatus != 'handled').toList();
-    final batch = inCabinet.isEmpty ? null : inCabinet.reduce((a, b) {
-      final aDate = a.managementExpiryDate ?? a.expiryValue;
-      final bDate = b.managementExpiryDate ?? b.expiryValue;
-      if (aDate == null) return bDate == null ? a : b;
-      if (bDate == null) return a;
-      return aDate.compareTo(bDate) <= 0 ? a : b;
-    });
+    final inCabinet = medicine.batches
+        .where((batch) => batch.dispositionStatus != 'handled')
+        .toList();
+    final batch = inCabinet.isEmpty
+        ? null
+        : inCabinet.reduce((a, b) {
+            final aDate = a.managementExpiryDate ?? a.expiryValue;
+            final bDate = b.managementExpiryDate ?? b.expiryValue;
+            if (aDate == null) return bDate == null ? a : b;
+            if (bDate == null) return a;
+            return aDate.compareTo(bDate) <= 0 ? a : b;
+          });
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
@@ -402,26 +574,46 @@ class _MedicineCard extends StatelessWidget {
                     _CoverThumb(medicine: medicine, workflow: workflow),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(medicine.name, style: Theme.of(context).textTheme.titleMedium),
+                      child: Text(
+                        medicine.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                     _MedicineStatus(medicine: medicine, batch: batch),
                   ],
                 ),
                 const SizedBox(height: 5),
-                Text(medicine.specificationDisplay, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  medicine.specificationDisplay,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 14,
                   runSpacing: 4,
                   children: [
-                    Text('余量：${_totalDisplay(inCabinet)}', style: Theme.of(context).textTheme.bodyMedium),
-                    Text('最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}', style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      '余量：${_totalDisplay(inCabinet)}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    Text(
+                      '最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     if (batch?.storageLocation?.isNotEmpty == true)
-                      Text('位置：${batch!.storageLocation}', style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        '位置：${batch!.storageLocation}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(medicine.purpose, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.leafDeep)),
+                Text(
+                  medicine.purpose,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.leafDeep),
+                ),
               ],
             ),
           ),
@@ -435,9 +627,17 @@ class _MedicineCard extends StatelessWidget {
     final unknown = batches.any((batch) => batch.quantity == null);
     final groups = <String, double>{};
     for (final batch in batches) {
-      if (batch.quantity != null) groups.update(batch.unit, (value) => value + batch.quantity!, ifAbsent: () => batch.quantity!);
+      if (batch.quantity != null) {
+        groups.update(
+          batch.unit,
+          (value) => value + batch.quantity!,
+          ifAbsent: () => batch.quantity!,
+        );
+      }
     }
-    final values = groups.entries.map((entry) => '${entry.value}${unitLabel(entry.key)}').join(' + ');
+    final values = groups.entries
+        .map((entry) => '${entry.value}${unitLabel(entry.key)}')
+        .join(' + ');
     if (unknown && values.isNotEmpty) return '$values + 未知';
     if (unknown) return '数量未知';
     return values.isEmpty ? '0' : values;
@@ -523,15 +723,19 @@ class _MedicineStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = batch?.managementExpiryState.state ?? 'unknown';
-    final (label, color, background) = batch?.isExpired == true || state == 'expired'
+    final (
+      label,
+      color,
+      background,
+    ) = batch?.isExpired == true || state == 'expired'
         ? ('已过期', AppColors.terracotta, const Color(0xFFF8E7E0))
         : ['due_this_month', 'expiring_soon'].contains(state)
-            ? ('临期', AppColors.amber, const Color(0xFFFFF2DA))
-            : medicine.stockStatus == 'low' || medicine.stockStatus == 'exhausted'
-                ? ('库存不足', AppColors.terracotta, const Color(0xFFF8E7E0))
-                : medicine.stockStatus == 'unknown'
-                    ? ('库存待核对', AppColors.muted, const Color(0xFFEEF0ED))
-                    : ('有效', AppColors.leafDeep, const Color(0xFFE7F1E9));
+        ? ('临期', AppColors.amber, const Color(0xFFFFF2DA))
+        : medicine.stockStatus == 'low' || medicine.stockStatus == 'exhausted'
+        ? ('库存不足', AppColors.terracotta, const Color(0xFFF8E7E0))
+        : medicine.stockStatus == 'unknown'
+        ? ('库存待核对', AppColors.muted, const Color(0xFFEEF0ED))
+        : ('有效', AppColors.leafDeep, const Color(0xFFE7F1E9));
     return StatusPill(label: label, color: color, background: background);
   }
 }
@@ -544,7 +748,11 @@ class _EmptyCabinet extends StatelessWidget {
   Widget build(BuildContext context) => AppCard(
     child: Column(
       children: [
-        const Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.muted),
+        const Icon(
+          Icons.inventory_2_outlined,
+          size: 40,
+          color: AppColors.muted,
+        ),
         const SizedBox(height: 10),
         Text('还没有记录药品', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
@@ -580,7 +788,13 @@ class _ConnectionBanner extends StatelessWidget {
     child: AppCard(
       color: const Color(0xFFFFF2DA),
       padding: const EdgeInsets.all(12),
-      child: Row(children: [const Icon(Icons.cloud_off_outlined), const SizedBox(width: 10), Expanded(child: Text(text))]),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+        ],
+      ),
     ),
   );
 }

@@ -17,6 +17,7 @@ export interface MedicineBatchRow {
   quantity: number | string | null;
   unit: string;
   confirmed_units_per_package: number | string | null;
+  conversion_unit?: string | null;
   storage_location: string | null;
   opened_state: string;
   opened_at: string | Date | null;
@@ -27,7 +28,7 @@ export interface MedicineBatchRow {
 }
 
 const BATCH_COLUMNS =
-  "id, medicine_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, storage_location, opened_state, opened_at, after_opening_limit, disposition_status, deleted_at, version";
+  "id, medicine_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, conversion_unit, storage_location, opened_state, opened_at, after_opening_limit, disposition_status, deleted_at, version";
 
 function openingLimit(value: unknown): AfterOpeningLimitInput | null {
   if (value === null || value === undefined) return null;
@@ -88,6 +89,7 @@ export function toBatchSummary(
     quantity: decimalOrNull(row.quantity),
     unit: row.unit as QuantityUnit,
     confirmedUnitsPerPackage: decimalOrNull(row.confirmed_units_per_package),
+    conversionUnit: (row.conversion_unit ?? null) as QuantityUnit | null,
     storageLocation: row.storage_location ?? null,
     openedState: row.opened_state as OpenedState,
     openedAt,
@@ -189,11 +191,11 @@ export async function insertOpenedBatchSplit(
     `INSERT INTO medicine_batches (
        medicine_id, family_id, lot_number, expiry_value, expiry_precision,
        quantity, unit, confirmed_units_per_package, storage_location,
-       opened_state, opened_at, after_opening_limit, created_by, updated_by
+       opened_state, opened_at, after_opening_limit, created_by, updated_by, conversion_unit
      )
      SELECT medicine_id, family_id, lot_number, expiry_value, expiry_precision,
        $5, unit, confirmed_units_per_package, storage_location,
-       'opened', $6::date, $7::jsonb, $8, $8
+       'opened', $6::date, $7::jsonb, $8, $8, conversion_unit
      FROM medicine_batches
      WHERE id = $1 AND medicine_id = $2 AND family_id = $3
        AND version = $4 AND deleted_at IS NULL
@@ -221,8 +223,8 @@ export async function insertBatch(
   options: { dispositionStatus?: DispositionStatus } = {},
 ): Promise<MedicineBatchRow> {
   const result = await database.query<MedicineBatchRow>(
-    `INSERT INTO medicine_batches (medicine_id, family_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, storage_location, opened_state, opened_at, after_opening_limit, disposition_status, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    `INSERT INTO medicine_batches (medicine_id, family_id, lot_number, expiry_value, expiry_precision, quantity, unit, confirmed_units_per_package, storage_location, opened_state, opened_at, after_opening_limit, disposition_status, created_by, updated_by, conversion_unit)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING ${BATCH_COLUMNS}`,
     [
       medicineId,
@@ -240,6 +242,7 @@ export async function insertBatch(
       options.dispositionStatus ?? "active",
       userId,
       userId,
+      fields.conversionUnit ?? null,
     ],
   );
   return result.rows[0];
@@ -265,6 +268,7 @@ export async function updateBatch(
        opened_state = CASE WHEN $11 THEN $12 ELSE opened_state END,
        opened_at = CASE WHEN $11 THEN $13::date ELSE opened_at END,
        after_opening_limit = CASE WHEN $11 THEN $14::jsonb ELSE after_opening_limit END,
+       conversion_unit = CASE WHEN $17 THEN $18 WHEN unit = $8 THEN conversion_unit ELSE NULL END,
        updated_by = $15, version = version + 1, updated_at = now()
      WHERE id = $1 AND medicine_id = $2 AND family_id = $3 AND deleted_at IS NULL AND version = $16
      RETURNING ${BATCH_COLUMNS}`,
@@ -285,6 +289,8 @@ export async function updateBatch(
       fields.afterOpeningLimit === null ? null : JSON.stringify(fields.afterOpeningLimit),
       userId,
       expectedVersion,
+      fields.conversionUnitProvided === true,
+      fields.conversionUnit ?? null,
     ],
   );
   return result.rows[0] ?? null;

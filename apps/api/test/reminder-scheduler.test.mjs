@@ -20,13 +20,13 @@ test("reminder delivery window starts at 09:00 Asia/Shanghai", () => {
   assert.equal(scheduler.isWithinReminderWindow(new Date("2026-09-28T15:00:00Z")), true);
 });
 
-test("scheduler does not query inventory or consume consent before the reminder window", async () => {
+test("scheduler does not query inventory or consume consent when template unavailable", async () => {
   assert.ok(scheduler, "reminder scheduler has not been implemented");
   let queried = false;
   const result = await scheduler.dispatchDueReminderMessages(
     { query: async () => { queried = true; return { rows: [], rowCount: 0 }; } },
     { send: async () => ({ messageId: "unexpected" }) },
-    { available: true, templateId: "configured-template" },
+    { available: false, templateId: "configured-template" },
     new Date("2026-09-28T00:59:00Z"),
   );
   assert.deepEqual(result, { queued: 0, sent: 0, failed: 0 });

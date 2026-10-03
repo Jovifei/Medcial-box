@@ -1,4 +1,26 @@
-# 当前状态 · 2026-10-01 双端录入体验与用药计划（R3/R4 服务端与小程序完成，R5 待真机）
+# 当前状态 · 2026-10-03 收尾修复
+
+- 状态：**LOCAL_VERIFICATION / PARTIAL**。已按授权修复实例历史、提醒授权、数量换算、会话及失败恢复；新增单页录入、十份持久草稿、成员提醒设置和同快照多格式导出。
+- 唯一目录 `E:\project\medcial_box`，分支 `codex/flutter-ui-prototype`，实施基线45bb7aa。保留所有者AGENTS、overview及本地工具状态，不纳入业务提交。
+- 根lint/typecheck/test/build PASS；Mini157、API191（普通运行9套可选PG跳过）、tooling6 PASS；严格真实PG84 PASS；官方编译51文件PASS。Flutter analyze、61项测试与最终Debug APK PASS；未配置生产API及正式签名。
+- 详细证据：[本次收尾修复与审核](reviews/2026-10-03-closeout-repair-and-verification.md)。严格PG是隔离schema及测试微信网关，不代表真实登录。
+- 真实双账号两手机、拍扫权限/识别质量、微信消息与分享、Android系统通知、独立HTTPS及数据库图片恢复仍NOT_RUN；正式Android签名与生产API构建配置未完成。不得标记整项目完成。
+- GitHub fetch本轮出现443连接失败；提交/推送及main状态以本次报告末尾回执为准，不自动合并main。
+
+---
+
+# 当前状态 · 2026-10-02 项目收尾规划
+
+- 状态：**CLOSEOUT_PLANNED / PARTIAL**，尚未完成真实双端家庭交付。
+- 唯一剩余工作入口：[家庭药箱v1收尾执行计划](plans/2026-10-02-project-closeout.md)，顺序C0工程归一→C1可靠性→C2简洁交互→C3双端补齐→C4资料/导出→C5门禁→C6部署恢复→C7家庭试用。
+- 当前主目录 `E:\project\medcial_box`，分支 `codex/flutter-ui-prototype`；编写基线7a94f50。H0/S1/S2/S3已有修复提交；S4会话/导航/草稿/导出等工作区改动待验收整合，不重新实现。
+- 本轮仅核对代码/文档并创建计划、同步台账，测试/构建/真机/平台/部署全部**本轮NOT_RUN**；下方旧统计及旧阻塞是历史记录。
+- 仍需完成：单页添加体验、Android既定计划/通知等功能、真实拍扫/资料和分享、独立HTTPS及恢复、双账号两手机验收。专用AppID已有配置，不能继续称未确认；SDK/CLI按当前环境检查，不沿用旧“无SDK”结论。
+- 不扩入：独立搜药目录、药箱分析、就诊/健康档案、自动扣库存、多家庭、iOS与商业化。必交微信模板若受平台阻塞如实登记，不静默删范围或标完成。
+
+---
+
+# 历史状态 · 2026-10-01 双端录入体验与用药计划
 
 - **2026-10-02 模拟器实跑通过**：`wechatide` CLI skill 通道首次打通（CodeBuddy 客户端已授权、工具已登录 Jovi），项目导入开发者工具后在模拟器内完成**全链路实跑**：真实 wx.login（开发网关）→ 建家庭 → 录药 → 详情 → 创建计划 → 今日安排确认 → 计划详情历史 → 版本说明；console 无错误，PG 逐条核验一致。新增 `scripts/dev-simulator-server.mjs`（真实 API + 真实 PG + 开发网关，端口 13300；本机 3000 被其他项目占用）。发现并修复 `dist/` 陈旧导致的 auth/me 404（教训：跑 dist 前先构建）。证据 14 张截图 + 报告：[模拟器实跑报告](reports/2026-10-02-simulator-run.md)。
 

@@ -1,6 +1,7 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { clearDirtyDraft, registerDirtyDraft } from "../../services/draft-guard";
+import { scopedStorageKey } from "../../services/session-scope";
 import type { MedicationPlanSummary, PlanHistoryRecord } from "../../services/api-types";
 
 /**
@@ -35,6 +36,8 @@ interface PlanDetailPageData {
   rangeText: string;
   history: HistoryCard[];
   historyEmpty: boolean;
+  leaveSheetVisible: boolean;
+  draftAvailable: boolean;
   editing: boolean;
   dosageText: string;
   startDate: string;
@@ -70,6 +73,8 @@ Page({
     rangeText: "",
     history: [] as HistoryCard[],
     historyEmpty: false,
+    leaveSheetVisible: false,
+    draftAvailable: false,
     editing: false,
     dosageText: "",
     startDate: "",
@@ -87,14 +92,19 @@ Page({
   async onLoad(options: { planId?: string }): Promise<void> {
     this.setData({ planId: options.planId ?? "" });
     await this.refresh();
+    const key = scopedStorageKey("plan-edit-draft", this.data.planId);
+    this.setData({ draftAvailable: key !== null && Boolean(wx.getStorageSync(key)) });
   },
 
   onUnload(): void {
+    if (this.dirty) this.persistLocalDraft();
     this.releaseDraftGuard();
   },
 
   async refresh(): Promise<void> {
-    const planId = (this.data as PlanDetailPageData).planId;
+    const data = this.data as PlanDetailPageData;
+    const retained = this.dirty ? this.editFields() : null;
+    const planId = data.planId;
     if (planId === "") {
       this.setData({ errorMessage: "缺少计划标识，请从用药计划页进入" });
       return;
@@ -124,6 +134,7 @@ Page({
         timeSlots: [...plan.timeSlots],
         loading: false,
       });
+      if (retained !== null) this.setData(retained);
       this.updateDirtyState();
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "加载失败，请重试";
@@ -141,6 +152,11 @@ Page({
   },
 
   onCancelEdit(): void {
+    if (this.dirty) { this.setData({ leaveSheetVisible: true }); return; }
+    this.discardEdit();
+  },
+
+  discardEdit(): void {
     const plan = (this.data as PlanDetailPageData).plan;
     if (plan === null) return;
     this.setData({
@@ -207,6 +223,7 @@ Page({
         data.timeSlots.length !== plan.timeSlots.length ||
         data.timeSlots.some((slot, index) => slot !== plan.timeSlots[index]);
     }
+    if (changed) this.persistLocalDraft();
     if (changed && !this.dirty) {
       this.dirty = true;
       registerDirtyDraft({
@@ -285,15 +302,16 @@ Page({
     try {
       const note = await this.persistEdit();
       this.releaseDraftGuard();
+      this.removeLocalDraft();
       this.setData({ editing: false, saving: false, note });
       await this.refresh();
       wx.showToast({ title: "已保存", icon: "success" });
     } catch (error) {
       if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
-        wx.showToast({ title: "计划已被他人修改，已刷新", icon: "none", duration: 2800 });
-        this.releaseDraftGuard();
-        this.setData({ editing: false, saving: false });
+        this.persistLocalDraft();
+        this.setData({ saving: false });
         await this.refresh();
+        this.setData({ note: "家人已修改计划。你的草稿仍在编辑区，已读取最新版本；请对照当前计划核对，再保存。" });
       } else {
         wx.showToast({ title: error instanceof ApiError ? error.message : "保存失败", icon: "none", duration: 2800 });
         this.setData({ saving: false });
@@ -340,7 +358,33 @@ Page({
     }
   },
 
+  editFields(): Pick<PlanDetailPageData, "dosageText" | "startDate" | "endDate" | "timeSlots" | "timeInput"> {
+    const { dosageText, startDate, endDate, timeSlots, timeInput } = this.data as PlanDetailPageData;
+    return { dosageText, startDate, endDate, timeSlots: [...timeSlots], timeInput };
+  },
+  persistLocalDraft(): void {
+    const key = scopedStorageKey("plan-edit-draft", this.data.planId);
+    if (key) wx.setStorageSync(key, this.editFields());
+  },
+  removeLocalDraft(): void { const key = scopedStorageKey("plan-edit-draft", this.data.planId); if (key) wx.removeStorageSync(key); this.setData({ draftAvailable: false }); },
+  onRestoreLocalDraft(): void {
+    const key = scopedStorageKey("plan-edit-draft", this.data.planId);
+    if (!key || !this.data.canManage) return;
+    const fields = wx.getStorageSync(key) as Partial<PlanDetailPageData> | undefined;
+    if (fields) { this.setData({ ...fields, editing: true, draftAvailable: false }); this.updateDirtyState(); }
+  },
+  onLeaveChoice(event: { currentTarget: { dataset: { choice?: string } } }): void {
+    const choice = event.currentTarget.dataset.choice;
+    this.setData({ leaveSheetVisible: false });
+    if (choice === "continue") return;
+    if (choice === "keep") this.persistLocalDraft();
+    else if (choice === "discard") this.removeLocalDraft();
+    else return;
+    this.releaseDraftGuard();
+    this.discardEdit();
+  },
   onBack(): void {
+    if (this.dirty) { this.setData({ leaveSheetVisible: true }); return; }
     wx.navigateBack();
   },
 });

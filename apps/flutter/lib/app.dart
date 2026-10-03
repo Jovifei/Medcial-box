@@ -71,7 +71,10 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         path: '/demo/medicine/:id',
         pageBuilder: (context, state) => _transitionPage(
           state,
-          MedicineDetailPage(repository: demo, medicineId: state.pathParameters['id']!),
+          MedicineDetailPage(
+            repository: demo,
+            medicineId: state.pathParameters['id']!,
+          ),
         ),
       ),
       _route('/demo/export', ExportPage(repository: demo)),
@@ -79,7 +82,10 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     if (services.isConfigured) {
       routes.addAll([
         _route('/connect', DeviceLinkPage(services: services)),
-        _route('/family-choice', FamilyChoiceApiPage(repository: services.families!)),
+        _route(
+          '/family-choice',
+          FamilyChoiceApiPage(repository: services.families!),
+        ),
         GoRoute(
           path: '/home',
           pageBuilder: (context, state) => _transitionPage(
@@ -95,11 +101,14 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             ),
           ),
         ),
-        _route('/medicine/new', MedicineEntryApiPage(
-          repository: services.medicines!,
-          workflow: services.workflow!,
-          localStore: services.localStore,
-        )),
+        _route(
+          '/medicine/new',
+          MedicineEntryApiPage(
+            repository: services.medicines!,
+            workflow: services.workflow!,
+            localStore: services.localStore,
+          ),
+        ),
         GoRoute(
           path: '/medicine/:id',
           pageBuilder: (context, state) => _transitionPage(
@@ -121,7 +130,13 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             ),
           ),
         ),
-        _route('/export', ExportApiPage(repository: services.medicines!, workflow: services.workflow!)),
+        _route(
+          '/export',
+          ExportApiPage(
+            repository: services.medicines!,
+            workflow: services.workflow!,
+          ),
+        ),
         GoRoute(
           path: '/stocktake/:stocktakeId',
           pageBuilder: (context, state) => _transitionPage(
@@ -133,7 +148,13 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             ),
           ),
         ),
-        _route('/trash', TrashPage(workflow: services.workflow!, medicines: services.medicines!)),
+        _route(
+          '/trash',
+          TrashPage(
+            workflow: services.workflow!,
+            medicines: services.medicines!,
+          ),
+        ),
         _route('/audit', AuditPage(workflow: services.workflow!)),
         _route('/release-notes', const ReleaseNotesPage()),
         _route('/plans/new', PlanFormPage(repository: services.plans!)),
@@ -189,11 +210,21 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     }
     return GoRouter(
       initialLocation: widget.initialLocation,
+      refreshListenable: services.sessionInvalidated,
+      redirect: (context, state) =>
+          services.sessionInvalidated.value &&
+              state.matchedLocation != '/connect' &&
+              !state.matchedLocation.startsWith('/demo')
+          ? '/connect'
+          : null,
       routes: routes,
       errorBuilder: (context, state) => Scaffold(
         appBar: AppBar(title: const Text('页面未找到')),
         body: Center(
-          child: TextButton(onPressed: () => context.go('/'), child: const Text('返回家庭药箱')),
+          child: TextButton(
+            onPressed: () => context.go('/'),
+            child: const Text('返回家庭药箱'),
+          ),
         ),
       ),
     );
@@ -204,23 +235,31 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     pageBuilder: (context, state) => _transitionPage(state, child),
   );
 
-  CustomTransitionPage<void> _transitionPage(GoRouterState state, Widget child) =>
-      CustomTransitionPage<void>(
-        key: state.pageKey,
-        child: child,
-        transitionDuration: AppMotion.route,
-        reverseTransitionDuration: AppMotion.route,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(.035, 0), end: Offset.zero).animate(curved),
-              child: child,
-            ),
-          );
-        },
+  CustomTransitionPage<void> _transitionPage(
+    GoRouterState state,
+    Widget child,
+  ) => CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: AppMotion.route,
+    reverseTransitionDuration: AppMotion.route,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
       );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(.035, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) => FutureBuilder<AppServices>(
@@ -229,16 +268,16 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
       if (snapshot.hasError) {
         return MaterialApp(
           theme: appTheme,
-          home: Scaffold(
-            body: Center(child: Text('初始化失败：${snapshot.error}')),
-          ),
+          home: Scaffold(body: Center(child: Text('初始化失败：${snapshot.error}'))),
         );
       }
       if (!snapshot.hasData) {
         return MaterialApp(
           title: '家庭药箱',
           theme: appTheme,
-          home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+          home: const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          ),
         );
       }
       router ??= _createRouter(snapshot.data!);

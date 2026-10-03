@@ -14,6 +14,7 @@ import type { MedicationBatchSummary } from "@home-medicine/contracts";
 
 export interface MedicineRow {
   id: string;
+  created_at?: Date | string;
   name: string;
   specification: string | null;
   manufacturer: string | null;
@@ -40,7 +41,7 @@ export interface MedicineRow {
 }
 
 const MEDICINE_COLUMNS =
-  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, cover_photo_id, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version";
+  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, cover_photo_id, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version, created_at";
 
 /** text[] 列经 pg 返回字符串数组；null/异常一律按空数组处理。 */
 function textArray(value: unknown): string[] {
@@ -66,6 +67,7 @@ export function toMedicineSummary(
         };
   return {
     id: row.id,
+    ...(row.created_at ? { createdAt: new Date(row.created_at).toISOString() } : {}),
     name: row.name,
     specification: row.specification ?? null,
     manufacturer: row.manufacturer ?? null,

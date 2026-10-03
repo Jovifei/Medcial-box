@@ -47,6 +47,7 @@ class _BootGatePageState extends State<BootGatePage> {
     try {
       final profile = await services.auth!.getCurrentUser();
       if (!mounted) return;
+      services.sessionInvalidated.value = false;
       if (profile.hasFamily && profile.family != null) {
         context.go('/home');
       } else {
@@ -98,10 +99,14 @@ class _BootGatePageState extends State<BootGatePage> {
                   children: [
                     const Icon(Icons.cloud_off_rounded, size: 36),
                     const SizedBox(height: 16),
-                    Text('先配置药箱服务', style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      '先配置药箱服务',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 10),
                     Text(
-                      widget.services.configurationError ?? missingApiConfigurationMessage,
+                      widget.services.configurationError ??
+                          missingApiConfigurationMessage,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 14),
@@ -110,11 +115,13 @@ class _BootGatePageState extends State<BootGatePage> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 10),
-                    const Text('Android 模拟器访问本机服务时通常使用 10.0.2.2；真机请使用本机局域网地址或 HTTPS 域名。'),
+                    const Text(
+                      'Android 模拟器访问本机服务时通常使用 10.0.2.2；真机请使用本机局域网地址或 HTTPS 域名。',
+                    ),
                     const SizedBox(height: 14),
                     SoftButton(
                       label: '查看演示界面',
-                  onPressed: () => context.go('/demo/welcome'),
+                      onPressed: () => context.go('/demo/welcome'),
                     ),
                   ],
                 ),
@@ -214,10 +221,15 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
       final result = await widget.services.auth!.exchangePendingLink();
       if (!mounted) return;
       if (result.state == 'approved') {
+        widget.services.sessionInvalidated.value = false;
         pollTimer?.cancel();
         final profile = await widget.services.auth!.getCurrentUser();
         if (!mounted) return;
-        context.go(profile.hasFamily && profile.family != null ? '/home' : '/family-choice');
+        context.go(
+          profile.hasFamily && profile.family != null
+              ? '/home'
+              : '/family-choice',
+        );
       } else if (result.state == 'expired') {
         pollTimer?.cancel();
         setState(() => message = '连接码已失效，请重新获取。');
@@ -236,9 +248,8 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
     if (value == null) return;
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('连接码已复制')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('连接码已复制')));
   }
 
   @override
@@ -257,7 +268,10 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                   children: [
                     const Icon(Icons.medical_services_outlined, size: 40),
                     const SizedBox(height: 12),
-                    Text('家庭药箱', style: Theme.of(context).textTheme.headlineMedium),
+                    Text(
+                      '家庭药箱',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     const SizedBox(height: 6),
                     const Text('需要在已登录的小程序中确认，App 不会接触微信密码或 AppSecret。'),
                   ],
@@ -268,7 +282,10 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('一次性连接码', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '一次性连接码',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 16),
                     Center(
                       child: starting

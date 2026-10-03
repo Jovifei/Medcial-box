@@ -12,18 +12,41 @@ import '../models/plan_models.dart';
 import 'api_medicine_repository.dart';
 
 class LocalReminderService {
-  LocalReminderService({this.onNotificationTap});
-  void Function(String? payload)? onNotificationTap;
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  LocalReminderService({
+    void Function(String? payload)? onNotificationTap,
+    FlutterLocalNotificationsPlugin? plugin,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin() {
+    _onNotificationTap = onNotificationTap;
+  }
+  void Function(String? payload)? _onNotificationTap;
+  String? _pendingTap;
+  bool _hasPendingTap = false;
+  set onNotificationTap(void Function(String? payload)? callback) {
+    _onNotificationTap = callback;
+    if (callback != null && _hasPendingTap) {
+      final payload = _pendingTap;
+      _pendingTap = null;
+      _hasPendingTap = false;
+      callback(payload);
+    }
+  }
+  void handleNotificationTap(String? payload) {
+    final callback = _onNotificationTap;
+    if (callback == null) { _pendingTap = payload; _hasPendingTap = true; } else { callback(payload); }
+  }
+  final FlutterLocalNotificationsPlugin _plugin;
+  Future<void> _queue = Future.value();
+  int _epoch = 0;
+  Future<void>? _initializing;
   bool _initialized = false;
   bool enabled = false;
+  String stockReminderTime = '09:00';
 
   /// 精确闹钟是否可用；不可用时回退到非精确调度，不阻断提醒。
   bool _exactAllowed = false;
   VoidCallback? _inventoryListener;
   List<MedicineRecord> _medicines = const [];
-  ScheduleDay? _today;
+  List<ScheduleDay> _schedule = const [];
 
   static const String _enabledKey = 'home_medicine.local_reminders.enabled';
 
@@ -42,26 +65,35 @@ class LocalReminderService {
   }
 
   Future<bool> enableFor(List<MedicineRecord> medicines) async {
+    final epoch = _epoch;
     _medicines = medicines;
     await _initialize();
-    final android = _plugin.resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin
-    >();
+    if (epoch != _epoch) return false;
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final granted = await android?.requestNotificationsPermission() ?? false;
-    if (!granted) return false;
+    if (!granted || epoch != _epoch) return false;
     // 服药/到期提醒希望按时触发；精确闹钟权限单独申请，拒绝则回退非精确。
     _exactAllowed = await android?.requestExactAlarmsPermission() ?? false;
+    if (epoch != _epoch) return false;
     enabled = true;
     await (await SharedPreferences.getInstance()).setBool(_enabledKey, true);
     await _reschedule();
     return true;
   }
 
-  /// 今日待确认服药实例（由用药计划页在加载后回灌）。到点后自动失效（重排会取消旧的）。
-  void setTodaySchedule(ScheduleDay schedule) {
-    _today = schedule;
-    if (enabled) unawaited(_reschedule());
+  Future<void> setSchedules(
+    List<ScheduleDay> schedules, {
+    required int identityEpoch,
+  }) {
+    if (identityEpoch != _epoch) return Future.value();
+    _schedule = List.unmodifiable(schedules);
+    return enabled ? _reschedule() : Future.value();
   }
+
+  int get identityEpoch => _epoch;
 
   Future<void> sync(List<MedicineRecord> medicines) async {
     _medicines = medicines;
@@ -69,9 +101,20 @@ class LocalReminderService {
   }
 
   /// 统一重排：到期/开封提醒 + 今日服药提醒，一次 cancelAll 覆盖两类，避免相互清除。
-  Future<void> _reschedule() async {
+  Future<void> _reschedule() {
+    final epoch = _epoch;
+    final next = _queue.then((_) => _scheduleCurrent(epoch));
+    _queue = next.catchError((Object _) {});
+    return next;
+  }
+
+  bool _current(int epoch) => epoch == _epoch && enabled;
+
+  Future<void> _scheduleCurrent(int epoch) async {
     await _initialize();
+    if (!_current(epoch)) return;
     await _plugin.cancelAll();
+    if (!_current(epoch)) return;
     final now = tz.TZDateTime.now(tz.local);
     final scheduled = <int>{};
     final mode = _exactAllowed
@@ -92,11 +135,13 @@ class LocalReminderService {
             date.year,
             date.month,
             date.day,
-            9,
+            int.parse(stockReminderTime.split(':').first),
+            int.parse(stockReminderTime.split(':').last),
           );
           if (!scheduledDate.isAfter(now)) continue;
           final id = _stableId('exp:${medicine.id}:${batch.id}:$daysBefore');
           if (!scheduled.add(id)) continue;
+          if (!_current(epoch)) return;
           await _plugin.zonedSchedule(
             id: id,
             title: '家庭药箱有待处理事项',
@@ -119,18 +164,18 @@ class LocalReminderService {
       }
     }
 
-    final today = _today;
-    if (today != null) {
+    for (final today in _schedule) {
       for (final entry in today.entries) {
-        if (!entry.isPending) continue;
+        if (!entry.isPending || !entry.receiveDoseReminders) continue;
         final when = _occurrenceTime(today.date, entry.time);
         if (when == null || !when.isAfter(now)) continue;
         final id = _stableId('dose:${entry.occurrenceId}');
         if (!scheduled.add(id)) continue;
+        if (!_current(epoch)) return;
         await _plugin.zonedSchedule(
           id: id,
           title: '该服药了',
-          body: '${entry.careProfileName} · ${entry.medicineName} ${entry.dosageText}',
+          body: '有一项用药安排待核对，请打开药箱查看。',
           scheduledDate: when,
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
@@ -142,7 +187,7 @@ class LocalReminderService {
             ),
           ),
           androidScheduleMode: mode,
-          payload: 'dose',
+          payload: 'dose:${entry.planId}',
         );
       }
     }
@@ -161,16 +206,39 @@ class LocalReminderService {
     );
   }
 
+  Future<void> resetForIdentity() async {
+    _epoch++;
+    enabled = false;
+    _medicines = const [];
+    _schedule = const [];
+    _pendingTap = null;
+    _hasPendingTap = false;
+    await _initialize();
+    _pendingTap = null;
+    _hasPendingTap = false;
+    enabled = false;
+    await _queue;
+    await _plugin.cancelAll();
+    await (await SharedPreferences.getInstance()).setBool(_enabledKey, false);
+  }
+
   Future<void> disable() async {
+    _epoch++;
+    enabled = false;
     await _initialize();
     enabled = false;
     _exactAllowed = false;
     await (await SharedPreferences.getInstance()).setBool(_enabledKey, false);
+    await _queue;
     await _plugin.cancelAll();
   }
 
-  Future<void> _initialize() async {
-    if (_initialized) return;
+  Future<void> _initialize() {
+    if (_initialized) return Future.value();
+    return _initializing ??= _initializeOnce();
+  }
+
+  Future<void> _initializeOnce() async {
     timezone_data.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
     enabled =
@@ -180,9 +248,13 @@ class LocalReminderService {
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
       onDidReceiveNotificationResponse: (response) =>
-          onNotificationTap?.call(response.payload),
+          handleNotificationTap(response.payload),
     );
     _initialized = true;
+    final launch = await _plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true) {
+      handleNotificationTap(launch?.notificationResponse?.payload);
+    }
   }
 
   int _stableId(String value) {

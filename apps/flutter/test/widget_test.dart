@@ -248,7 +248,7 @@ void main() {
 
     await tester.tap(find.text('打开真实录入页'));
     await tester.pumpAndSettle();
-    expect(find.text('已恢复本机草稿。照片未保存，需要时请重新拍摄。'), findsOneWidget);
+    expect(find.text('已恢复本机草稿，核对后逐份保存。'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,
       '草稿测试药',
@@ -296,7 +296,7 @@ void main() {
     await tester.tap(find.text('继续编辑'));
     await tester.pumpAndSettle();
 
-    expect(find.text('录入药品'), findsOneWidget);
+    expect(find.text('添加药品'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,
       '继续编辑药',
@@ -377,7 +377,12 @@ void main() {
       );
       await tester.tap(find.textContaining('更多资料'));
       await tester.pumpAndSettle();
-      final ingredientsField = find.byType(TextField).at(7);
+      final ingredientsField = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == '成分（多个请用逗号分开）',
+      );
+      await tester.ensureVisible(ingredientsField);
       await tester.enterText(ingredientsField, '咖啡因');
       expect(
         tester.widget<TextField>(ingredientsField).controller!.text,
@@ -422,7 +427,7 @@ void main() {
 
       await tester.tap(find.text('返回核对'));
       await tester.pumpAndSettle();
-      expect(find.text('录入药品'), findsOneWidget);
+      expect(find.text('添加药品'), findsOneWidget);
       expect(requests.where((request) => request.method == 'POST'), isEmpty);
       await tester.tap(find.text('核对后保存'));
       await tester.pumpAndSettle();
@@ -440,6 +445,31 @@ void main() {
       );
     },
   );
+
+  testWidgets('uncertain create locks draft and retries identical request', (tester) async {
+    final payloads = <String>[];
+    final store = MemoryInventoryLocalStore();
+    await _openProductionEntry(tester, store, client: MockClient((request) async {
+      if (request.method == 'POST' && request.url.path == '/api/v1/medicines') {
+        payloads.add(request.body);
+        if (payloads.length == 1) return http.Response('{}', 503);
+        return http.Response(jsonEncode({'id':'saved','name':'synthetic medicine','batches':[],'version':1}),201);
+      }
+      return http.Response(jsonEncode({'medicines':[]}),200);
+    }));
+    await tester.enterText(find.byType(TextField).first, '待确认药');
+    await tester.tap(find.text('核对后保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('重试原提交'), findsOneWidget);
+    final queue = await store.readDraft('medicine-entry-queue.v1');
+    expect(jsonDecode(queue!) as List, hasLength(1));
+    expect((jsonDecode(queue) as List).single['attemptedPayload']['name'], '待确认药');
+    await tester.tap(find.text('重试原提交'));
+    await tester.pumpAndSettle();
+    expect(payloads, hasLength(2));
+    expect(payloads[1], payloads[0]);
+    expect(find.text('打开真实录入页'), findsOneWidget);
+  });
 
   testWidgets('primary controls expose button semantics', (tester) async {
     await tester.pumpWidget(_demoApp());

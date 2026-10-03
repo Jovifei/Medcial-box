@@ -23,7 +23,8 @@
     "pages/trash/trash",
     "pages/audit/audit",
     "pages/backup-restore/backup-restore",
-    "pages/notification-settings/notification-settings"
+    "pages/notification-settings/notification-settings",
+    "pages/account-settings/account-settings"
   ],
   "window": {
     "navigationBarTitleText": "家庭药箱",

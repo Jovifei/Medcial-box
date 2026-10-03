@@ -29,6 +29,7 @@ interface CareProfilesPageData {
   saving: boolean;
   grantProfileId: string;
   grantMemberIndex: number;
+  grantReceiveDoseReminders: boolean;
   grantCanManage: boolean;
   granting: boolean;
   workingProfileId: string;
@@ -49,6 +50,7 @@ Page({
     saving: false,
     grantProfileId: "",
     grantMemberIndex: 0,
+    grantReceiveDoseReminders: false,
     grantCanManage: false,
     granting: false,
     workingProfileId: "",
@@ -156,7 +158,7 @@ Page({
   onOpenGrant(event: { currentTarget: { dataset: { id?: string } } }): void {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
-    this.setData({ grantProfileId: id, grantMemberIndex: 0, grantCanManage: false });
+    this.setData({ grantProfileId: id, grantMemberIndex: 0, grantReceiveDoseReminders: false, grantCanManage: false });
   },
 
   onCloseGrant(): void {
@@ -166,6 +168,8 @@ Page({
   onGrantMemberChange(event: { detail: { value: string | number } }): void {
     this.setData({ grantMemberIndex: Number(event.detail.value) });
   },
+
+  onGrantRemindersChange(event: { detail: { value: boolean } }): void { this.setData({ grantReceiveDoseReminders: event.detail.value }); },
 
   onGrantManageChange(event: { detail: { value: boolean } }): void {
     this.setData({ grantCanManage: event.detail.value });
@@ -182,7 +186,7 @@ Page({
     this.setData({ granting: true });
     try {
       await ensureLoggedIn();
-      await api.createCareGrant(data.grantProfileId, { memberUserId: member.userId, canManage: data.grantCanManage });
+      await api.createCareGrant(data.grantProfileId, { memberUserId: member.userId, canManage: data.grantCanManage, receiveDoseReminders: data.grantReceiveDoseReminders });
       this.setData({ grantProfileId: "", granting: false, note: `${member.displayName} 已获得${data.grantCanManage ? "代记" : "查看"}权限` });
       await this.refresh();
       wx.showToast({ title: "已授权", icon: "success" });
@@ -192,6 +196,16 @@ Page({
     }
   },
 
+  async onCareManagement(event: { currentTarget: { dataset: { profile?: string; member?: string; action?: string } } }): Promise<void> {
+    const { profile, member, action } = event.currentTarget.dataset;
+    if (!profile || this.data.workingProfileId) return;
+    const confirmed = await new Promise<boolean>((resolve) => wx.showModal({ title: action === "transfer" ? "交接照护管理" : "归档用药的人", content: action === "transfer" ? "将此人的管理责任交接给已获代记权限的家人。" : "归档将结束此人的计划并取消后续提醒，历史仍保留。", success: (result) => resolve(result.confirm), fail: () => resolve(false) }));
+    if (!confirmed || action === "transfer" && !member) return;
+    this.setData({ workingProfileId: profile });
+    try { await ensureLoggedIn(); if (action === "transfer") await api.transferCareManagement(profile, member!); else await api.archiveCareProfile(profile); await this.refresh(); }
+    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "操作失败，请重试", icon: "none" }); }
+    finally { this.setData({ workingProfileId: "" }); }
+  },
   async onRevokeGrant(event: { currentTarget: { dataset: { profile?: string; member?: string; name?: string } } }): Promise<void> {
     const dataset = event.currentTarget.dataset;
     if (!dataset.profile || !dataset.member) return;

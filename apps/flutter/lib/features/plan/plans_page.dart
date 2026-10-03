@@ -10,12 +10,9 @@ import '../../models/plan_models.dart';
 /// 用药计划首页（第 4 个导航）：今日安排 + 计划列表。
 /// 「今日」日期来自服务端上海日历，客户端不本地猜日期（对齐 R11）。
 class PlansPage extends StatefulWidget {
-  const PlansPage({
-    super.key,
-    required this.repository,
-    this.onScheduleLoaded,
-  });
+  const PlansPage({super.key, required this.repository, this.onScheduleLoaded});
   final ApiPlanRepository repository;
+
   /// 今日安排加载后回灌给本地提醒服务，用于排服药到点提醒。
   final void Function(ScheduleDay schedule)? onScheduleLoaded;
 
@@ -34,12 +31,23 @@ class _PlansPageState extends State<PlansPage> {
   void initState() {
     super.initState();
     _load = _reload();
+    widget.repository.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() => _load = _reload());
+  }
+
+  @override
+  void dispose() {
+    widget.repository.removeListener(_onChanged);
+    super.dispose();
   }
 
   Future<void> _reload() async {
     try {
       final schedule = await widget.repository.schedule();
-      widget.onScheduleLoaded?.call(schedule);
+      if (!mounted) return;
       final plans = await widget.repository.listPlans();
       if (!mounted) return;
       setState(() {
@@ -66,9 +74,8 @@ class _PlansPageState extends State<PlansPage> {
       await _reload();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
       }
     } finally {
       if (mounted) setState(() => _confirming.remove(entry.occurrenceId));
@@ -129,9 +136,7 @@ class _PlansPageState extends State<PlansPage> {
         const Eyebrow('今日安排'),
         const SizedBox(height: 6),
         Text(
-          schedule == null
-              ? '正在读取今天的安排…'
-              : '${schedule.date} · 日期以服务端为准',
+          schedule == null ? '正在读取今天的安排…' : '${schedule.date} · 日期以服务端为准',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 10),
@@ -207,9 +212,7 @@ class _PlansPageState extends State<PlansPage> {
         const Eyebrow('我的用药计划'),
         const SizedBox(height: 10),
         if (_plans.isEmpty)
-          const AppCard(
-            child: Text('还没有用药计划。点右下角“新建计划”，为家人安排每天该吃的药。'),
-          )
+          const AppCard(child: Text('还没有用药计划。点右下角“新建计划”，为家人安排每天该吃的药。'))
         else
           ..._plans.map(
             (plan) => Padding(
@@ -222,7 +225,9 @@ class _PlansPageState extends State<PlansPage> {
                     plan.medicineName,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  subtitle: Text('${plan.careProfileName} · ${plan.scheduleLabel}'),
+                  subtitle: Text(
+                    '${plan.careProfileName} · ${plan.scheduleLabel}',
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

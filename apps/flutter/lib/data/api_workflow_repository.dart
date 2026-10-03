@@ -67,6 +67,8 @@ class ApiWorkflowRepository {
     Uint8List bytes, {
     required String mimeType,
     String source = 'package_leaflet',
+    String purpose = 'leaflet',
+    String? batchId,
   }) async {
     if (bytes.isEmpty || bytes.length > 8 * 1024 * 1024) {
       throw const FormatException('图片大小必须在 1 字节到 8 MB 之间。');
@@ -80,9 +82,18 @@ class ApiWorkflowRepository {
         'imageBase64': base64Encode(bytes),
         'mimeType': mimeType,
         'source': source,
+        'purpose': purpose,
+        'batchId': ?batchId,
       },
     ) as Map<String, dynamic>;
     return LeafletPhotoRecord.fromJson(result['photo'] as Map<String, dynamic>);
+  }
+
+  Future<void> setCoverPhoto(String medicineId, String? photoId) async {
+    await api.post(
+      '/api/v1/medicines/$medicineId/cover-photo',
+      body: {'photoId': photoId},
+    );
   }
 
   Future<List<LeafletPhotoRecord>> listLeafletPhotos(String medicineId) async {
@@ -98,38 +109,42 @@ class ApiWorkflowRepository {
   Future<ApiBinaryResponse> readLeafletPhoto(
     String medicineId,
     String photoId,
-  ) => api.getBinary(
-    '/api/v1/medicines/$medicineId/leaflet-photos/$photoId',
-  );
+  ) => api.getBinary('/api/v1/medicines/$medicineId/leaflet-photos/$photoId');
 
   Future<void> deleteLeafletPhoto(String medicineId, String photoId) async {
-    await api.delete(
-      '/api/v1/medicines/$medicineId/leaflet-photos/$photoId',
-    );
+    await api.delete('/api/v1/medicines/$medicineId/leaflet-photos/$photoId');
   }
 
   Future<FamilySettingsRecord> getSettings() async {
-    final result = await api.get('/api/v1/families/settings') as Map<String, dynamic>;
-    return FamilySettingsRecord.fromJson(result['settings'] as Map<String, dynamic>);
+    final result =
+        await api.get('/api/v1/families/settings') as Map<String, dynamic>;
+    return FamilySettingsRecord.fromJson(
+      result['settings'] as Map<String, dynamic>,
+    );
   }
 
-  Future<FamilySettingsRecord> updateSettings(FamilySettingsRecord settings) async {
+  Future<FamilySettingsRecord> updateSettings(
+    FamilySettingsRecord settings,
+  ) async {
     final result = await api.put(
       '/api/v1/families/settings',
       settings.toJson(),
     ) as Map<String, dynamic>;
-    return FamilySettingsRecord.fromJson(result['settings'] as Map<String, dynamic>);
+    return FamilySettingsRecord.fromJson(
+      result['settings'] as Map<String, dynamic>,
+    );
   }
 
   Future<Map<String, dynamic>?> currentStocktake() async {
-    final result = await api.get('/api/v1/families/stocktakes/current')
-        as Map<String, dynamic>;
+    final result = await api.get(
+      '/api/v1/families/stocktakes/current',
+    ) as Map<String, dynamic>;
     return result['stocktake'] as Map<String, dynamic>?;
   }
 
   Future<Map<String, dynamic>> startStocktake() async {
-    final result = await api.post('/api/v1/families/stocktakes')
-        as Map<String, dynamic>;
+    final result =
+        await api.post('/api/v1/families/stocktakes') as Map<String, dynamic>;
     return result['stocktake'] as Map<String, dynamic>;
   }
 
@@ -147,15 +162,17 @@ class ApiWorkflowRepository {
   }
 
   Future<DateTime?> completeStocktake(String sessionId) async {
-    final result = await api.post('/api/v1/families/stocktakes/$sessionId/complete')
-        as Map<String, dynamic>;
+    final result = await api.post(
+      '/api/v1/families/stocktakes/$sessionId/complete',
+    ) as Map<String, dynamic>;
     return result['completedAt'] is String
         ? DateTime.tryParse(result['completedAt']! as String)
         : null;
   }
 
   Future<List<Map<String, dynamic>>> listRestockItems() async {
-    final result = await api.get('/api/v1/families/restock') as Map<String, dynamic>;
+    final result =
+        await api.get('/api/v1/families/restock') as Map<String, dynamic>;
     return (result['items'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
@@ -183,14 +200,11 @@ class ApiWorkflowRepository {
     required int version,
     double? desiredQuantity,
   }) async {
-    final result = await api.put(
-      '/api/v1/families/restock/$itemId',
-      {
-        'status': status,
-        'version': version,
-        'desiredQuantity': ?desiredQuantity,
-      },
-    ) as Map<String, dynamic>;
+    final result = await api.put('/api/v1/families/restock/$itemId', {
+      'status': status,
+      'version': version,
+      'desiredQuantity': ?desiredQuantity,
+    }) as Map<String, dynamic>;
     return (result['item'] ?? result) as Map<String, dynamic>;
   }
 
@@ -210,7 +224,8 @@ class ApiWorkflowRepository {
   }
 
   Future<List<Map<String, dynamic>>> listAuditEvents() async {
-    final result = await api.get('/api/v1/families/audit') as Map<String, dynamic>;
+    final result =
+        await api.get('/api/v1/families/audit') as Map<String, dynamic>;
     return (result['events'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
@@ -248,7 +263,9 @@ class ApiWorkflowRepository {
   }
 
   /// 只读拉取某药品的剂量备注用于导出（R15）：不写入共享快照。
-  Future<List<DosageNoteRecord>> fetchDosageNotesForExport(String medicineId) async {
+  Future<List<DosageNoteRecord>> fetchDosageNotesForExport(
+    String medicineId,
+  ) async {
     final result = await api.get(
       '/api/v1/medicines/$medicineId/dosage-notes',
     ) as Map<String, dynamic>;
@@ -263,21 +280,75 @@ class ApiWorkflowRepository {
 
   Future<Map<String, dynamic>> previewJsonRestore(
     Map<String, dynamic> backup,
-  ) async => await api.post(
-    '/api/v1/backups/preview',
-    body: {'backup': backup},
-  ) as Map<String, dynamic>;
+  ) async =>
+      await api.post('/api/v1/backups/preview', body: {'backup': backup})
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> restoreJsonBackup(
     Map<String, dynamic> backup,
     String confirmationToken,
   ) async => await api.post(
     '/api/v1/backups/restore',
-    body: {'backup': backup, 'confirmationToken': confirmationToken, 'confirmed': true},
+    body: {
+      'backup': backup,
+      'confirmationToken': confirmationToken,
+      'confirmed': true,
+    },
   ) as Map<String, dynamic>;
 
+  Future<Map<String, dynamic>> exportSnapshotFormat({
+    required String format,
+    required bool includePersonalDosage,
+    required bool includeArchived,
+    required bool includeStorageLocation,
+    String? snapshotId,
+  }) async {
+    final options = <String, dynamic>{
+      'includePersonalDosage': includePersonalDosage,
+      'includeArchived': includeArchived,
+      'includeStorageLocation': includeStorageLocation,
+    };
+    if (snapshotId == null) {
+      final snapshot = await api.post(
+        '/api/v1/exports/snapshot',
+        body: options,
+      ) as Map<String, dynamic>;
+      snapshotId = snapshot['snapshotId'] as String;
+    }
+    options['snapshotId'] = snapshotId;
+    final markdown = await api.post(
+      '/api/v1/exports/markdown',
+      body: options,
+    ) as Map<String, dynamic>;
+    if (format == 'markdown') return markdown;
+    final result = await api.post(
+      '/api/v1/exports/$format',
+      body: options,
+    ) as Map<String, dynamic>;
+    return {...result, 'markdown': markdown['markdown']};
+  }
+
+  Future<Map<String, dynamic>> notificationPreferences() async {
+    final result = await api.get(
+      '/api/v1/notification-preferences',
+    ) as Map<String, dynamic>;
+    return result['preferences'] as Map<String, dynamic>;
+  }
+
+  Future<void> updateNotificationPreferences({
+    required String stockReminderTime,
+    required List<String> channels,
+  }) async {
+    await api.put('/api/v1/notification-preferences', {
+      'stockReminderTime': stockReminderTime,
+      'channels': channels,
+    });
+  }
+
   Future<List<Map<String, dynamic>>> notificationTemplates() async {
-    final result = await api.get('/api/v1/notifications/templates') as Map<String, dynamic>;
+    final result = await api.get(
+      '/api/v1/notifications/templates',
+    ) as Map<String, dynamic>;
     return (result['templates'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
@@ -294,10 +365,13 @@ class ApiWorkflowRepository {
     '/api/v1/medicine-catalog/candidates',
     body: {
       if (name?.trim().isNotEmpty == true) 'name': name!.trim(),
-      if (manufacturer?.trim().isNotEmpty == true) 'manufacturer': manufacturer!.trim(),
-      if (approvalNumber?.trim().isNotEmpty == true) 'approvalNumber': approvalNumber!.trim(),
+      if (manufacturer?.trim().isNotEmpty == true)
+        'manufacturer': manufacturer!.trim(),
+      if (approvalNumber?.trim().isNotEmpty == true)
+        'approvalNumber': approvalNumber!.trim(),
       if (barcode?.trim().isNotEmpty == true) 'barcode': barcode!.trim(),
-      if (specification?.trim().isNotEmpty == true) 'specification': specification!.trim(),
+      if (specification?.trim().isNotEmpty == true)
+        'specification': specification!.trim(),
       'consentToShare': consentToShare,
     },
   ) as Map<String, dynamic>;
@@ -313,7 +387,8 @@ class ApiWorkflowRepository {
   ) as Map<String, dynamic>;
 
   Future<List<Map<String, dynamic>>> pendingNotifications() async {
-    final result = await api.get('/api/v1/notifications/pending') as Map<String, dynamic>;
+    final result =
+        await api.get('/api/v1/notifications/pending') as Map<String, dynamic>;
     return (result['items'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);

@@ -53,12 +53,22 @@ class ApiClient {
   /// 收到 401 时触发（会话已在服务端失效）：由上层清理本机会话、删除令牌并回到未登录态（R10）。
   /// 用可设置字段而非构造参数，避免与依赖 ApiClient 的仓库形成构造期循环依赖。
   Future<void> Function()? onUnauthorized;
+  Future<void> _identityCleanup = Future.value();
+  Future<void> waitForIdentityCleanup() => _identityCleanup;
+  int identityEpoch = 0;
+  void invalidateIdentity() => identityEpoch++;
 
   static String _normalizeBaseUrl(String value) {
     final trimmed = value.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasAuthority || !{'http', 'https'}.contains(uri.scheme)) {
-      throw ArgumentError.value(value, 'baseUrl', '必须是 http(s):// 开头的有效 API 地址');
+    if (uri == null ||
+        !uri.hasAuthority ||
+        !{'http', 'https'}.contains(uri.scheme)) {
+      throw ArgumentError.value(
+        value,
+        'baseUrl',
+        '必须是 http(s):// 开头的有效 API 地址',
+      );
     }
     return trimmed;
   }
@@ -66,7 +76,10 @@ class ApiClient {
   Future<dynamic> get(String path, {bool authenticated = true}) =>
       _send('GET', path, authenticated: authenticated);
 
-  Future<ApiBinaryResponse> getBinary(String path, {bool authenticated = true}) async {
+  Future<ApiBinaryResponse> getBinary(
+    String path, {
+    bool authenticated = true,
+  }) async {
     final response = await _sendRequest(
       'GET',
       path,
@@ -94,8 +107,7 @@ class ApiClient {
     String path, {
     Map<String, Object?> body = const {},
     bool authenticated = true,
-  }) =>
-      _send('POST', path, body: body, authenticated: authenticated);
+  }) => _send('POST', path, body: body, authenticated: authenticated);
 
   Future<dynamic> put(String path, Map<String, Object?> body) =>
       _send('PUT', path, body: body);
@@ -141,25 +153,47 @@ class ApiClient {
     bool authenticated = true,
     String accept = 'application/json',
   }) async {
+    final epoch = identityEpoch;
     final token = authenticated ? await tokenProvider() : null;
     final headers = <String, String>{'accept': accept};
-    if (body != null) headers['content-type'] = 'application/json; charset=utf-8';
-    if (token != null && token.isNotEmpty) headers['authorization'] = 'Bearer $token';
+    if (body != null) {
+      headers['content-type'] = 'application/json; charset=utf-8';
+    }
+    if (token != null && token.isNotEmpty) {
+      headers['authorization'] = 'Bearer $token';
+    }
     final uri = Uri.parse('$baseUrl${path.startsWith('/') ? path : '/$path'}');
 
     http.Response response;
     try {
-      final request = http.Request(method, uri)
-        ..headers.addAll(headers);
+      final request = http.Request(method, uri)..headers.addAll(headers);
       if (body != null) request.body = jsonEncode(body);
       final streamed = await _client.send(request).timeout(requestTimeout);
-      response = await http.Response.fromStream(streamed).timeout(requestTimeout);
+      response = await http.Response.fromStream(streamed)
+          .timeout(requestTimeout);
     } on TimeoutException {
       throw const ApiNetworkException('连接超时，请检查网络后重试。');
     } on SocketException {
       throw const ApiNetworkException('无法连接服务器，请检查网络后重试。');
     } on http.ClientException {
       throw const ApiNetworkException('无法连接服务器，请检查网络后重试。');
+    }
+    if (response.statusCode == 401 &&
+        authenticated &&
+        epoch == identityEpoch &&
+        token == await tokenProvider()) {
+      final cleanup = onUnauthorized?.call();
+      if (cleanup != null) {
+        _identityCleanup = cleanup;
+        await cleanup;
+      }
+    }
+    if (authenticated && epoch != identityEpoch && response.statusCode != 401) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '会话已变更，请重新加载。',
+      );
     }
     return response;
   }
@@ -175,12 +209,9 @@ class ApiClient {
 
   void _throwIfFailed(http.Response response, dynamic decoded) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
-    if (response.statusCode == 401) {
-      // 会话已在服务端失效：通知上层清理本机状态（不阻塞本次错误上抛）（R10）。
-      final handler = onUnauthorized;
-      if (handler != null) unawaited(handler());
-    }
-    final error = decoded is Map<String, dynamic> && decoded['error'] is Map<String, dynamic>
+    final error =
+        decoded is Map<String, dynamic> &&
+            decoded['error'] is Map<String, dynamic>
         ? decoded['error']! as Map<String, dynamic>
         : const <String, dynamic>{};
     throw ApiException(

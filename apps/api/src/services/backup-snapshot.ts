@@ -119,6 +119,7 @@ export function createFamilyMedicineBackup<T extends MedicationSummary>(
         quantity: batch.quantity,
         unit: batch.unit,
         confirmedUnitsPerPackage: batch.confirmedUnitsPerPackage,
+        conversionUnit: batch.conversionUnit ?? null,
         storageLocation: batch.storageLocation,
         openedState: batch.openedState ?? "unknown",
         openedAt: batch.openedAt ?? null,

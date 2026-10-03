@@ -90,7 +90,9 @@ class _PlanFormPageState extends State<PlanFormPage> {
     if (_dosage.text.trim().isEmpty) return '请填写剂量说明';
     if (_timeSlots.isEmpty) return '请至少添加一个服药时间';
     if (_startDate.isEmpty) return '请选择开始日期';
-    if (_endDate != null && _endDate!.isNotEmpty && _endDate!.compareTo(_startDate) < 0) {
+    if (_endDate != null &&
+        _endDate!.isNotEmpty &&
+        _endDate!.compareTo(_startDate) < 0) {
       return '结束日期不能早于开始日期';
     }
     return null;
@@ -103,13 +105,17 @@ class _PlanFormPageState extends State<PlanFormPage> {
     );
     if (picked == null) return;
     setState(() {
-      _timeSlots = [..._timeSlots, '${_two(picked.hour)}:${_two(picked.minute)}']
-        ..sort();
+      _timeSlots = [
+        ..._timeSlots,
+        '${_two(picked.hour)}:${_two(picked.minute)}',
+      ]..sort();
     });
   }
 
   Future<void> _pickDate({required bool isStart}) async {
-    final initial = DateTime.tryParse(isStart ? _startDate : (_endDate ?? _startDate));
+    final initial = DateTime.tryParse(
+      isStart ? _startDate : (_endDate ?? _startDate),
+    );
     final picked = await showDatePicker(
       context: context,
       initialDate: initial ?? DateTime.now(),
@@ -130,9 +136,8 @@ class _PlanFormPageState extends State<PlanFormPage> {
     if (_saving) return;
     final invalid = _validate();
     if (invalid != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(invalid)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(invalid)));
       return;
     }
     setState(() => _saving = true);
@@ -156,16 +161,15 @@ class _PlanFormPageState extends State<PlanFormPage> {
         await widget.repository.createPlan(draft);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(widget.isEdit ? '计划已更新' : '计划已创建')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.isEdit ? '计划已更新' : '计划已创建')),
+      );
       context.pop();
     } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
       }
     }
   }
@@ -306,7 +310,10 @@ class _PlanFormPageState extends State<PlanFormPage> {
         Row(
           children: [
             Expanded(
-              child: Text('服药时间', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                '服药时间',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             TextButton.icon(
               onPressed: _addTimeSlot,
@@ -343,6 +350,11 @@ class _PlanFormPageState extends State<PlanFormPage> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_endDate != null)
+          TextButton(
+            onPressed: () => setState(() => _endDate = null),
+            child: const Text('清除结束日期，改为长期'),
+          ),
         Text('有效期', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Row(
@@ -359,7 +371,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
               child: OutlinedButton.icon(
                 onPressed: () => _pickDate(isStart: false),
                 icon: const Icon(Icons.event_available_rounded),
-                label: Text('结束：${_endDate == null ? '长期' : _endDate}'),
+                label: Text('结束：${_endDate ?? '长期'}'),
               ),
             ),
           ],

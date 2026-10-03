@@ -34,6 +34,7 @@ interface BatchEditPageData {
   quantity: string;
   quantityUnknown: boolean;
   unitIndex: number;
+  conversionUnitIndex: number;
   confirmedUnits: string;
   storageLocation: string;
   openedState: "unknown" | "unopened" | "opened";
@@ -61,6 +62,7 @@ function fillFromBatch(batch: MedicationBatchSummary): Partial<BatchEditPageData
     quantity: batch.quantity === null ? "" : String(batch.quantity),
     quantityUnknown: batch.quantity === null,
     unitIndex: Math.max(0, UNIT_VALUES.indexOf(batch.unit)),
+    conversionUnitIndex: Math.max(0, UNIT_VALUES.indexOf(batch.conversionUnit ?? "tablet")),
     confirmedUnits:
       batch.confirmedUnitsPerPackage === null ? "" : String(batch.confirmedUnitsPerPackage),
     storageLocation: batch.storageLocation ?? "",
@@ -103,6 +105,7 @@ Page({
     quantity: "",
     quantityUnknown: false,
     unitIndex: 4,
+    conversionUnitIndex: 0,
     confirmedUnits: "",
     storageLocation: "",
     openedState: "unknown" as BatchEditPageData["openedState"],
@@ -173,6 +176,7 @@ Page({
     this.setData({ precisionIndex: Number(event.detail.value) });
   },
 
+  onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
   onUnitChange(event: { detail: { value: string | number } }): void {
     const nextIndex = Number(event.detail.value);
     const nextUnit = UNIT_VALUES[nextIndex];
@@ -259,7 +263,7 @@ Page({
     let quantity: number | null = null;
     if (!data.quantityUnknown) {
       const raw = data.quantity.trim();
-      const unit = UNIT_VALUES[data.unitIndex] ?? "other";
+      const unit = UNIT_VALUES[data.conversionUnitIndex] ?? "tablet";
       if (unit === "ml") {
         // 毫升最多 3 位小数；保存前归一到定点，避免浮点尾数入库。
         if (!isNonNegativeDecimalQuantity(raw)) {
@@ -276,7 +280,7 @@ Page({
     let confirmedUnits: number | null = null;
     if (data.confirmedUnits.trim() !== "") {
       const rawUnits = data.confirmedUnits.trim();
-      const unit = UNIT_VALUES[data.unitIndex] ?? "other";
+      const unit = UNIT_VALUES[data.conversionUnitIndex] ?? "tablet";
       if (unit === "ml") {
         if (!isNonNegativeDecimalQuantity(rawUnits) || Number(rawUnits) <= 0) {
           return { payload: null, error: "每瓶毫升数需为大于 0 的数字（仅在本人确认后填写）" };
@@ -296,6 +300,7 @@ Page({
         quantity,
         unit: UNIT_VALUES[data.unitIndex] ?? "other",
         confirmedUnitsPerPackage: confirmedUnits,
+        conversionUnit: confirmedUnits === null ? null : UNIT_VALUES[data.conversionUnitIndex] ?? "tablet",
         storageLocation: data.storageLocation.trim() === "" ? null : data.storageLocation.trim(),
         openedState: data.openedState,
         openedAt: data.openedState === "opened" && data.openedAt.trim() !== "" ? data.openedAt.trim() : null,
