@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -12,6 +11,8 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
+import '../../data/export_temporary_store.dart';
+import '../../data/export_file_share.dart';
 import 'restore_preview.dart';
 
 enum ExportKind { markdown, csv, pdf }
@@ -70,10 +71,19 @@ class _ExportApiPageState extends State<ExportApiPage> {
   Object? failure;
   final Map<String, Future<String>> snapshots = {};
   Future<_ExportPreview>? previewFuture;
+  late final int _identityEpoch;
+  late final int _exportEpoch;
+
+  bool get _isCurrent =>
+      mounted &&
+      widget.workflow.api.identityEpoch == _identityEpoch &&
+      widget.workflow.exportFiles.identityEpoch == _exportEpoch;
 
   @override
   void initState() {
     super.initState();
+    _identityEpoch = widget.workflow.api.identityEpoch;
+    _exportEpoch = widget.workflow.exportFiles.identityEpoch;
     previewFuture = _makePreview(_currentOptions());
   }
 
@@ -85,6 +95,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
   );
 
   Future<void> _refreshPreview() async {
+    if (!_isCurrent) return;
     setState(() {
       failure = null;
       previewFuture = _makePreview(_currentOptions());
@@ -130,10 +141,12 @@ class _ExportApiPageState extends State<ExportApiPage> {
   }
 
   Future<void> _copy() async {
+    if (!_isCurrent) return;
     try {
       final preview = await previewFuture!;
+      if (!_isCurrent) return;
       await Clipboard.setData(ClipboardData(text: preview.text));
-      if (mounted) {
+      if (_isCurrent) {
         _message(
           preview.options.kind == ExportKind.pdf
               ? 'PDF 对应的清单文本已复制。'
@@ -141,81 +154,122 @@ class _ExportApiPageState extends State<ExportApiPage> {
         );
       }
     } catch (error) {
-      if (mounted) _error(error);
+      if (_isCurrent) _error(error);
     }
   }
 
   Future<void> _shareFile() async {
+    if (busy || !_isCurrent) return;
     setState(() => busy = true);
+    OwnedExportFile? owned;
     try {
-      // 绑定同一份预览的选项：扩展名、MIME 与内容来自同一次生成，绝不混用（R16）。
       final preview = await previewFuture!;
+      if (!_isCurrent) return;
       final options = preview.options;
-      final directory = await getTemporaryDirectory();
-      final file = File(
-        '${directory.path}/medicine-inventory-${DateTime.now().millisecondsSinceEpoch}.${options.extension}',
+      owned = await widget.workflow.exportFiles.create(
+        bytes: preview.bytes ?? utf8.encode(preview.text),
+        extension: options.extension,
+        identityEpoch: _exportEpoch,
+        isCurrent: () => _isCurrent,
       );
-      if (options.kind == ExportKind.pdf) {
-        await file.writeAsBytes(preview.bytes!, flush: true);
-      } else {
-        await file.writeAsString(preview.text, encoding: utf8, flush: true);
-      }
-      if (!mounted) return;
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: options.mimeType)],
+      if (!_isCurrent) return;
+      final result = await widget.workflow.exportFiles.handoff(
+        owned,
+        isCurrent: () => _isCurrent,
+        send: (file) => ExportFileShare.share(
+          file: file,
+          mimeType: options.mimeType,
           subject: '家庭药箱库存清单',
           text: '家庭药箱库存记录，仅供核对。库存存在不代表适合服用。',
+          isCurrent: () => _isCurrent,
         ),
       );
+      if (_isCurrent) _shareResult(result);
     } catch (error) {
-      if (mounted) _error(error);
+      if (_isCurrent) _shareError(error);
     } finally {
+      await _releaseExport(owned);
       if (mounted) setState(() => busy = false);
     }
   }
 
   Future<void> _createBackup() async {
+    if (busy || !_isCurrent) return;
     setState(() => busy = true);
+    OwnedExportFile? owned;
     try {
       final backup = await widget.workflow.createJsonBackup();
-      final directory = await getTemporaryDirectory();
-      final id = backup['backupId'] is String
-          ? backup['backupId']! as String
-          : DateTime.now().millisecondsSinceEpoch.toString();
-      final file = File('${directory.path}/medicine-cabinet-backup-$id.json');
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(backup),
-        encoding: utf8,
-        flush: true,
+      if (!_isCurrent) return;
+      owned = await widget.workflow.exportFiles.create(
+        bytes: utf8.encode(const JsonEncoder.withIndent('  ').convert(backup)),
+        extension: 'json',
+        identityEpoch: _exportEpoch,
+        isCurrent: () => _isCurrent,
+        backup: true,
       );
-      if (!mounted) return;
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'application/json')],
+      if (!_isCurrent) return;
+      final result = await widget.workflow.exportFiles.handoff(
+        owned,
+        isCurrent: () => _isCurrent,
+        send: (file) => ExportFileShare.share(
+          file: file,
+          mimeType: 'application/json',
           subject: '家庭药箱 JSON 备份',
           text: '该备份不包含登录令牌和个人剂量备注。请安全保存。',
+          isCurrent: () => _isCurrent,
         ),
       );
+      if (_isCurrent) _shareResult(result);
     } catch (error) {
-      if (mounted) _error(error);
+      if (_isCurrent) _shareError(error);
     } finally {
+      await _releaseExport(owned);
       if (mounted) setState(() => busy = false);
     }
   }
 
+  Future<void> _releaseExport(OwnedExportFile? owned) async {
+    try {
+      await owned?.release();
+    } catch (_) {
+      if (_isCurrent) _message('临时导出文件未能清理，请稍后重新连接药箱再试。');
+    }
+  }
+
+  void _shareResult(ShareResult result) => _message(switch (result.status) {
+    ShareResultStatus.success => '已选择分享目标，请在目标应用确认结果。',
+    ShareResultStatus.dismissed => '已取消分享。',
+    ShareResultStatus.unavailable => '分享结果无法确认，请在目标应用核对。',
+  });
+
+  void _shareError(Object error) {
+    if (error is ExportTemporaryException) {
+      _message(error.message);
+    } else if (error is FileSystemException) {
+      _message('无法准备临时导出文件，请检查存储空间后重试。');
+    } else if (error is PlatformException ||
+        error is MissingPluginException ||
+        error is UnimplementedError) {
+      _message('未能打开分享，请稍后重试。');
+    } else {
+      _error(error);
+    }
+  }
+
   Future<void> _restoreBackup() async {
+    if (busy || !_isCurrent) return;
     setState(() => busy = true);
     try {
       final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['json'],
       );
-      if (file == null || !mounted) return;
+      if (file == null || !_isCurrent) return;
       final bytes = await file.readAsBytes();
+      if (!_isCurrent) return;
       final backup = widget.workflow.parseBackupFile(utf8.decode(bytes));
       final preview = await widget.workflow.previewJsonRestore(backup);
-      if (!mounted) return;
+      if (!mounted || !_isCurrent) return;
       final blockReason = backupRestoreBlockReason(preview);
       if (blockReason != null) throw FormatException(blockReason);
       final confirmationToken = preview['confirmationToken'] as String;
@@ -238,19 +292,20 @@ class _ExportApiPageState extends State<ExportApiPage> {
           ],
         ),
       );
-      if (confirmed != true || !mounted) return;
+      if (confirmed != true || !_isCurrent) return;
       final result = await widget.workflow.restoreJsonBackup(
         backup,
         confirmationToken,
       );
+      if (!_isCurrent) return;
       // 只刷新活动库存（R15）：含归档的查询会把归档记录写回共享快照，污染首页与提醒。
       await widget.repository.listMedicines();
-      if (mounted) {
+      if (_isCurrent) {
         _message('恢复完成：新增 ${result['restoredCount'] ?? '已处理'} 项。');
         await _refreshPreview();
       }
     } catch (error) {
-      if (mounted) _error(error);
+      if (_isCurrent) _error(error);
     } finally {
       if (mounted) setState(() => busy = false);
     }

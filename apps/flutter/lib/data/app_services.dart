@@ -101,10 +101,14 @@ class AppServices {
       // 保证换账号/换家庭后看不到上一个家庭的库存（A03）。
       Future<void> clearIdentityData() async {
         api.invalidateIdentity();
+        final clearExports = workflow.exportFiles.resetForIdentity();
         medicines.clearSessionSnapshot();
         final clearStorage = local.clearFamilyData();
-        await reminders.resetForIdentity();
-        await clearStorage;
+        await Future.wait([
+          reminders.resetForIdentity(),
+          clearStorage,
+          clearExports,
+        ]);
       }
 
       final services = AppServices._(

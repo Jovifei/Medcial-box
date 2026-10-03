@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../models/medicine_models.dart';
 import 'api_client.dart';
+import 'export_temporary_store.dart';
 
 class FamilySettingsRecord {
   const FamilySettingsRecord({
@@ -59,8 +60,10 @@ class LeafletPhotoRecord {
 }
 
 class ApiWorkflowRepository {
-  ApiWorkflowRepository({required this.api});
+  ApiWorkflowRepository({required this.api, ExportTemporaryStore? exportFiles})
+    : exportFiles = exportFiles ?? ExportTemporaryStore();
   final ApiClient api;
+  final ExportTemporaryStore exportFiles;
 
   Future<LeafletPhotoRecord> uploadLeafletPhoto(
     String medicineId,
