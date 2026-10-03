@@ -64,7 +64,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   bool categoryExpanded = false;
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
+    isCurrent: () => mounted && _isDraftIdentityCurrent,
+    scope: entryIdentity,
   );
+  late final (ApiClient, LocalAppStore, String, int, String?, String?, String?)
+  entryIdentity;
+  Future<void> draftPersistence = Future.value();
   String draftId = DateTime.now().microsecondsSinceEpoch.toString();
   String? savedMedicineId;
   String? savedBatchId;
@@ -78,6 +83,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   bool recognizing = false;
   bool searchingCatalog = false;
   bool saving = false;
+  Object? inventorySaveIntent;
   bool dirty = false;
   bool handlingBack = false;
   bool restoringDraft = true;
@@ -93,22 +99,60 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   @override
   void initState() {
     super.initState();
+    entryIdentity = _identitySnapshot();
     unawaited(_restoreDraft());
+  }
+
+  (ApiClient, LocalAppStore, String, int, String?, String?, String?)
+  _identitySnapshot() {
+    final api = widget.repository.api;
+    final identity = api.identityState;
+    return (
+      api,
+      widget.localStore,
+      api.baseUrl,
+      api.identityEpoch,
+      identity?.generation,
+      identity?.owner?.userId,
+      identity?.owner?.familyId,
+    );
+  }
+
+  bool get _isDraftIdentityCurrent => entryIdentity == _identitySnapshot();
+
+  // Keep the queue and legacy draft writes in the same order, including
+  // autosaves that were already running when the user chose to leave.
+  Future<void> _persistDraft(Future<void> Function() operation) {
+    final next = draftPersistence.then((_) async {
+      if (mounted && _isDraftIdentityCurrent) await operation();
+    });
+    draftPersistence = next.catchError((Object _) {});
+    return next;
   }
 
   Future<void> _restoreDraft() async {
     try {
       final queue = await draftQueue.list();
+      if (!mounted || !_isDraftIdentityCurrent) return;
       final legacy = await widget.localStore.readDraft(_draftKey);
       final raw = legacy ?? (queue.isEmpty ? null : jsonEncode(queue.last));
-      if (raw == null || raw.isEmpty || !mounted || dirty) return;
+      if (raw == null ||
+          raw.isEmpty ||
+          !mounted ||
+          dirty ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
       final json = jsonDecode(raw);
       if (json is! Map<String, dynamic>) {
         throw const FormatException('本地录入草稿格式无效');
       }
       _applyDraft(json);
     } catch (_) {
-      await widget.localStore.deleteDraft(_draftKey);
+      if (mounted && _isDraftIdentityCurrent) {
+        await _persistDraft(() => widget.localStore.deleteDraft(_draftKey))
+            .catchError((Object _) {});
+      }
     } finally {
       if (mounted) setState(() => restoringDraft = false);
     }
@@ -192,19 +236,32 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         : 'review',
   };
   Future<void> _saveDraft({bool legacy = true}) async {
-    await draftQueue.save(draftId, _draftFields());
-    if (legacy) {
-      await widget.localStore.saveDraft(
-        _draftKey,
-        jsonEncode({..._draftFields(), 'id': draftId}),
-      );
-    }
+    if (!mounted || !_isDraftIdentityCurrent) return;
+    final id = draftId;
+    final fields = _draftFields();
+    await _persistDraft(() async {
+      await draftQueue.save(id, fields);
+      if (legacy && mounted && _isDraftIdentityCurrent) {
+        await widget.localStore.saveDraft(
+          _draftKey,
+          jsonEncode({...fields, 'id': id}),
+        );
+      }
+    });
   }
 
   Future<void> _chooseDraft() async {
+    if (handlingBack || !_isDraftIdentityCurrent) return;
+    final originalId = draftId;
     if (dirty) await _saveDraft(legacy: false);
+    if (!mounted || !_isDraftIdentityCurrent || handlingBack) return;
     final drafts = await draftQueue.list();
-    if (!mounted) return;
+    if (!mounted ||
+        !_isDraftIdentityCurrent ||
+        handlingBack ||
+        draftId != originalId) {
+      return;
+    }
     final selected = await showAppSheet<Map<String, dynamic>>(
       context,
       title: '本机待核对草稿（${drafts.length}/10）',
@@ -235,7 +292,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ],
       ),
     );
-    if (selected == null || !mounted) return;
+    if (selected == null ||
+        !mounted ||
+        !_isDraftIdentityCurrent ||
+        handlingBack ||
+        draftId != originalId) {
+      return;
+    }
     recognitionRequest++;
     if (selected.isEmpty) {
       if (drafts.length >= 10) {
@@ -252,13 +315,21 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       recognitionFailure = null;
       restoredDraft = selected.isNotEmpty;
     });
-    await widget.localStore.deleteDraft(_draftKey);
-    if (selected.isNotEmpty) await _saveDraft();
+    final selectedId = draftId;
+    await _persistDraft(() => widget.localStore.deleteDraft(_draftKey));
+    if (selected.isNotEmpty &&
+        mounted &&
+        _isDraftIdentityCurrent &&
+        !handlingBack &&
+        draftId == selectedId) {
+      await _saveDraft();
+    }
   }
 
   void _markDirty() {
     if (!dirty && mounted) setState(() => dirty = true);
     autoSave?.cancel();
+    if (handlingBack || !_isDraftIdentityCurrent) return;
     autoSave = Timer(const Duration(milliseconds: 200), () {
       if (mounted) {
         unawaited(_saveDraft(legacy: false).catchError((Object _) {}));
@@ -267,49 +338,106 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _confirmLeave() async {
-    if (handlingBack || (!dirty && !restoredDraft) || saving) return;
-    handlingBack = true;
-    final action = await showDialog<_DraftExitAction>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('保留这次录入？'),
-        content: const Text('尚未保存的内容可以暂存在本机，之后继续核对。照片只在本机保留，确认保存前不会上传。'),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.continueEditing),
-            child: const Text('继续编辑'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.discard),
-            child: const Text('放弃修改'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, _DraftExitAction.keep),
-            child: const Text('保留草稿'),
-          ),
-        ],
-      ),
-    );
-    handlingBack = false;
-    if (!mounted ||
-        action == null ||
-        action == _DraftExitAction.continueEditing) {
+    if (handlingBack ||
+        (!dirty && !restoredDraft) ||
+        saving ||
+        !_isDraftIdentityCurrent) {
       return;
     }
-    if (action == _DraftExitAction.keep) {
-      await _saveDraft();
-      restoredDraft = true;
-    } else {
-      await widget.localStore.deleteDraft(_draftKey);
-      await draftQueue.remove(draftId);
-      restoredDraft = false;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final navigator = Navigator.of(context);
+    final id = draftId;
+    bool isCurrentIntent() =>
+        mounted && _isDraftIdentityCurrent && draftId == id && route.isCurrent;
+    setState(() => handlingBack = true);
+    autoSave?.cancel();
+    _DraftExitAction? action;
+    try {
+      action = await showDialog<_DraftExitAction>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('保留这次录入？'),
+          content: const Text('尚未保存的内容可以暂存在本机，之后继续核对。照片只在本机保留，确认保存前不会上传。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _DraftExitAction.continueEditing,
+              ),
+              child: const Text('继续编辑'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DraftExitAction.discard),
+              child: const Text('放弃修改'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DraftExitAction.keep),
+              child: const Text('保留草稿'),
+            ),
+          ],
+        ),
+      );
+      if (!isCurrentIntent() ||
+          action == null ||
+          action == _DraftExitAction.continueEditing) {
+        return;
+      }
+      if (action == _DraftExitAction.keep) {
+        // Edits remain available during slow storage. Only leave after both
+        // stores have acknowledged the latest complete field snapshot.
+        String snapshot;
+        do {
+          snapshot = jsonEncode(_draftFields());
+          await _saveDraft();
+          if (!isCurrentIntent()) return;
+        } while (snapshot != jsonEncode(_draftFields()));
+      } else {
+        final snapshot = jsonEncode(_draftFields());
+        await _persistDraft(() async {
+          if (!isCurrentIntent()) return;
+          await widget.localStore.deleteDraft(_draftKey);
+          if (!isCurrentIntent()) return;
+          await draftQueue.remove(id);
+        });
+        if (!isCurrentIntent()) return;
+        if (snapshot != jsonEncode(_draftFields())) {
+          // The discard decision did not cover edits entered while deleting.
+          await _saveDraft();
+          return;
+        }
+      }
+      if (!isCurrentIntent()) return;
+      setState(() {
+        dirty = false;
+        restoredDraft = action == _DraftExitAction.keep;
+      });
+      navigator.pop();
+    } catch (_) {
+      if (!mounted || !isCurrentIntent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            action == _DraftExitAction.discard
+                ? '草稿删除失败，内容仍在当前页面。请重试。'
+                : '草稿保存失败，内容仍在当前页面。请重试。',
+          ),
+          action: SnackBarAction(
+            label: '重试',
+            onPressed: () {
+              if (isCurrentIntent()) unawaited(_confirmLeave());
+            },
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => handlingBack = false);
+      if (isCurrentIntent() && dirty) {
+        _markDirty();
+      }
     }
-    if (!mounted) return;
-    setState(() => dirty = false);
-    Navigator.of(context).pop();
   }
 
   @override
@@ -591,7 +719,45 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _save() async {
-    if (saving) return;
+    if (saving || handlingBack || !_isDraftIdentityCurrent) return;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final navigator = Navigator.of(context);
+    final repository = widget.repository;
+    final workflow = widget.workflow;
+    final localStore = widget.localStore;
+    final id = draftId;
+    final intent = Object();
+    final workflowApi = workflow.api;
+    Object workflowIdentity() => (
+      workflowApi.identityEpoch,
+      workflowApi.identityState?.generation,
+      workflowApi.identityState?.owner?.userId,
+      workflowApi.identityState?.owner?.familyId,
+    );
+    final originalWorkflowIdentity = workflowIdentity();
+    bool sameDraft() =>
+        mounted &&
+        draftId == id &&
+        identical(widget.repository, repository) &&
+        identical(widget.workflow, workflow) &&
+        identical(widget.localStore, localStore) &&
+        identical(inventorySaveIntent, intent);
+    bool isCurrentIntent() =>
+        sameDraft() &&
+        route.isCurrent &&
+        _isDraftIdentityCurrent &&
+        workflowIdentity() == originalWorkflowIdentity;
+    void requireCurrentIntent() {
+      if (!isCurrentIntent()) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '会话已变更，请重新加载。',
+        );
+      }
+    }
+
     final name = nameController.text.trim();
     if (name.isEmpty) {
       setState(() => touchedName = true);
@@ -635,50 +801,73 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (limit != null) batch['afterOpeningLimit'] = limit;
     }
 
-    bool uploadPhotos = false;
-    if (image != null || expiryImage != null) {
-      final consent = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('保存药盒照片？'),
-          content: const Text('照片将上传并保存在此家庭的私有药品资料中，用于核对药盒和有效期。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('只保存库存'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确认上传照片'),
-            ),
-          ],
-        ),
-      );
-      if (consent == null || !mounted) return;
-      uploadPhotos = consent;
-    }
+    final ingredients = ingredientController.text
+        .split(RegExp(r'[,，、;；]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final verifiedIngredients = ingredientsVerified;
+    final candidatePayload = <String, Object?>{
+      'idempotencyKey': 'draft-$id',
+      'name': name,
+      'barcodeValue': _nullableText(scannedCode ?? ''),
+      'specification': _nullableText(specificationController.text),
+      'manufacturer': _nullableText(manufacturerController.text),
+      'approvalNumber': _nullableText(approvalController.text),
+      'activeIngredients': ingredients,
+      'purposeCategory': _nullableText(purposeController.text),
+      'leaflet': {
+        'reviewStatus': verifiedIngredients ? 'user_confirmed' : 'unverified',
+      },
+      'batches': [batch],
+    };
+    final front = image;
+    final expiryPhoto = expiryImage;
+    inventorySaveIntent = intent;
     autoSave?.cancel();
+    FocusScope.of(context).unfocus();
     setState(() => saving = true);
     try {
-      final ingredients = ingredientController.text
-          .split(RegExp(r'[,，、;；]'))
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-      if (ingredientsVerified && ingredients.isNotEmpty) {
+      bool uploadPhotos = false;
+      if (front != null || expiryPhoto != null) {
+        final consent = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('保存药盒照片？'),
+            content: const Text('照片将上传并保存在此家庭的私有药品资料中，用于核对药盒和有效期。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('只保存库存'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('确认上传照片'),
+              ),
+            ],
+          ),
+        );
+        if (consent == null || !isCurrentIntent()) return;
+        uploadPhotos = consent;
+      }
+      if (verifiedIngredients && ingredients.isNotEmpty) {
         var matches = const <MedicineRecord>[];
         try {
-          final householdMedicines = await widget.repository.listMedicines();
+          final householdMedicines = await repository.listMedicines(
+            isCurrent: isCurrentIntent,
+          );
+          requireCurrentIntent();
           matches = findVerifiedIngredientMatches(
             candidateIngredients: ingredients,
             medicines: householdMedicines,
             candidateIngredientsVerified: true,
           );
         } on ApiNetworkException {
-          // The hint is best-effort and must never prevent inventory entry.
+          // The hint is best-effort only while the original intent is current.
         } on ApiException {
-          // Duplicate-ingredient hints are best-effort and never block inventory entry.
+          // Stale requests are stopped by the intent check below.
         }
+        if (!isCurrentIntent()) return;
         if (matches.isNotEmpty && mounted) {
           final proceed = await showDialog<bool>(
             context: context,
@@ -699,39 +888,34 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               ],
             ),
           );
-          if (proceed != true) {
-            if (mounted) setState(() => saving = false);
-            return;
-          }
+          if (proceed != true || !isCurrentIntent()) return;
         }
       }
-      attemptedPayload ??= {
-        'idempotencyKey': 'draft-$draftId',
-        'name': name,
-        'barcodeValue': _nullableText(scannedCode ?? ''),
-        'specification': _nullableText(specificationController.text),
-        'manufacturer': _nullableText(manufacturerController.text),
-        'approvalNumber': _nullableText(approvalController.text),
-        'activeIngredients': ingredients,
-        'purposeCategory': _nullableText(purposeController.text),
-        'leaflet': {
-          'reviewStatus': ingredientsVerified ? 'user_confirmed' : 'unverified',
-        },
-        'batches': [batch],
-      };
+      requireCurrentIntent();
+      attemptedPayload ??= candidatePayload;
       await _saveDraft(legacy: false);
+      requireCurrentIntent();
       final medicine = savedMedicineId == null
-          ? await widget.repository.createMedicine(attemptedPayload!)
-          : await widget.repository.getMedicine(savedMedicineId!);
+          ? await repository.createMedicine(
+              attemptedPayload!,
+              isCurrent: isCurrentIntent,
+            )
+          : await repository.getMedicine(
+              savedMedicineId!,
+              isCurrent: isCurrentIntent,
+            );
+      requireCurrentIntent();
       savedMedicineId = medicine.id;
       savedBatchId ??= medicine.batches.isEmpty
           ? null
           : medicine.batches.first.id;
       await _saveDraft(legacy: false);
+      requireCurrentIntent();
       if (uploadPhotos) {
         Future<String> upload(XFile file, String purpose) async {
           final bytes = await file.readAsBytes();
-          final photo = await widget.workflow.uploadLeafletPhoto(
+          requireCurrentIntent();
+          final photo = await workflow.uploadLeafletPhoto(
             medicine.id,
             bytes,
             mimeType: file.path.toLowerCase().endsWith('.png')
@@ -740,45 +924,62 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             source: 'user_capture',
             purpose: purpose,
             batchId: savedBatchId,
+            isCurrent: isCurrentIntent,
           );
+          requireCurrentIntent();
           return photo.id;
         }
 
-        if (image != null) {
-          frontPhotoId ??= await upload(image!, 'box_front');
+        if (front != null) {
+          final photoId = frontPhotoId ?? await upload(front, 'box_front');
+          requireCurrentIntent();
+          frontPhotoId = photoId;
           await _saveDraft(legacy: false);
-          await widget.workflow.setCoverPhoto(medicine.id, frontPhotoId);
+          requireCurrentIntent();
+          await workflow.setCoverPhoto(
+            medicine.id,
+            photoId,
+            isCurrent: isCurrentIntent,
+          );
+          requireCurrentIntent();
         }
-        if (expiryImage != null) {
-          expiryPhotoId ??= await upload(expiryImage!, 'expiry');
+        if (expiryPhoto != null) {
+          final photoId = expiryPhotoId ?? await upload(expiryPhoto, 'expiry');
+          requireCurrentIntent();
+          expiryPhotoId = photoId;
           await _saveDraft(legacy: false);
+          requireCurrentIntent();
         }
       }
-      await widget.localStore.deleteDraft(_draftKey);
-      await draftQueue.remove(draftId);
-      if (mounted) {
-        setState(() {
-          dirty = false;
-          restoredDraft = false;
-          saving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存到药箱。当前筛选可能隐藏新记录，可切换全部查看。')),
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) Navigator.of(context).pop(medicine.id);
-        });
-        WidgetsBinding.instance.scheduleFrame();
-      }
+      await _persistDraft(() async {
+        requireCurrentIntent();
+        await localStore.deleteDraft(_draftKey);
+        requireCurrentIntent();
+        await draftQueue.remove(id);
+      });
+      requireCurrentIntent();
+      setState(() {
+        dirty = false;
+        restoredDraft = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已保存到药箱。当前筛选可能隐藏新记录，可切换全部查看。')),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (isCurrentIntent()) navigator.pop(medicine.id);
+      });
+      WidgetsBinding.instance.scheduleFrame();
     } catch (error) {
+      if (!isCurrentIntent()) return;
       if (savedMedicineId == null &&
           error is ApiException &&
           error.statusCode == 400) {
         attemptedPayload = null;
-        await _saveDraft(legacy: false);
+        await _saveDraft(legacy: false).catchError((Object _) {});
+        if (!isCurrentIntent()) return;
       }
       if (!mounted) return;
-      setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -788,6 +989,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           ),
         ),
       );
+    } finally {
+      // A superseded operation must never reset a newer page/draft operation.
+      if (sameDraft()) setState(() => saving = false);
+      if (isCurrentIntent() && dirty && attemptedPayload == null) _markDirty();
     }
   }
 
@@ -848,10 +1053,92 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     _markDirty();
   }
 
+  double _labelWidth(Iterable<String> labels, TextStyle? style) {
+    var width = 0.0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      if (painter.width > width) width = painter.width;
+      painter.dispose();
+    }
+    return width.ceilToDouble();
+  }
+
+  Widget _quantityUnitFields({
+    required Widget quantityField,
+    required Widget unitField,
+    required List<String> quantityLabels,
+    required Iterable<String> unitLabels,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      final theme = Theme.of(context);
+      final padding =
+          theme.inputDecorationTheme.contentPadding
+              ?.resolve(Directionality.of(context))
+              .horizontal ??
+          32;
+      final quantityWidth =
+          _labelWidth(quantityLabels, theme.textTheme.bodyLarge) + padding + 16;
+      // Reserve the arrow and its spacing as well as the widest unit, even
+      // when a shorter unit is selected. Never shrink the user's text scale.
+      final unitWidth =
+          (_labelWidth(unitLabels, theme.textTheme.titleMedium) + padding + 32)
+              .clamp(112.0, double.infinity);
+      final stacked = constraints.maxWidth < quantityWidth + 10 + unitWidth;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 12,
+        children: [
+          SizedBox(
+            width: stacked
+                ? constraints.maxWidth
+                : constraints.maxWidth - unitWidth - 10,
+            child: quantityField,
+          ),
+          SizedBox(
+            width: stacked ? constraints.maxWidth : unitWidth,
+            child: unitField,
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _openingSegments({
+    required Map<String, String> labels,
+    required String selected,
+    required ValueChanged<Set<String>> onSelectionChanged,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Each equal-width segment needs a full label, the selected checkmark,
+      // its gap and button padding. Stack before any label has to wrap.
+      final segmentWidth =
+          _labelWidth(labels.values, Theme.of(context).textTheme.labelLarge) +
+          56;
+      return SizedBox(
+        width: constraints.maxWidth,
+        child: SegmentedButton<String>(
+          direction: constraints.maxWidth < segmentWidth * labels.length
+              ? Axis.vertical
+              : Axis.horizontal,
+          segments: [
+            for (final entry in labels.entries)
+              ButtonSegment(value: entry.key, label: Text(entry.value)),
+          ],
+          selected: {selected},
+          onSelectionChanged: onSelectionChanged,
+        ),
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) => PopScope<Object?>(
     key: const ValueKey('medicine-entry-pop-scope'),
-    canPop: !dirty && !restoredDraft && !saving,
+    canPop: !dirty && !restoredDraft && !saving && !handlingBack,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop && (dirty || restoredDraft) && !saving) {
         unawaited(_confirmLeave());
@@ -863,7 +1150,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         actions: [
           IconButton(
             tooltip: '本机草稿',
-            onPressed: saving ? null : _chooseDraft,
+            onPressed: saving || handlingBack ? null : _chooseDraft,
             icon: const Icon(Icons.layers_outlined),
           ),
         ],
@@ -881,12 +1168,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                 ? '重试原提交'
                 : '核对后保存',
             icon: Icons.check_rounded,
-            onPressed: saving ? null : _save,
+            onPressed: saving || handlingBack ? null : _save,
           ),
         ),
       ),
       body: AbsorbPointer(
-        absorbing: attemptedPayload != null,
+        absorbing: attemptedPayload != null || saving,
         child: AppPage(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
           child: ListView(
@@ -1014,45 +1301,40 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: quantityController,
-                            onChanged: (_) => _markDirty(),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: '剩余数量',
-                              hintText: '未知可留空',
-                            ),
-                          ),
+                    _quantityUnitFields(
+                      quantityLabels: const ['剩余数量', '未知可留空'],
+                      unitLabels: kQuantityUnitValues.map(unitLabel),
+                      quantityField: TextField(
+                        controller: quantityController,
+                        onChanged: (_) => _markDirty(),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 112,
-                          child: DropdownButtonFormField<String>(
-                            key: ValueKey(unit),
-                            initialValue: unit,
-                            decoration: const InputDecoration(labelText: '单位'),
-                            // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
-                            // 避免 initialValue 找不到 item 触发断言。
-                            items: kQuantityUnitValues
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(unitLabel(value)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              setState(() => unit = value ?? 'box');
-                              _markDirty();
-                            },
-                          ),
+                        decoration: const InputDecoration(
+                          labelText: '剩余数量',
+                          hintText: '未知可留空',
                         ),
-                      ],
+                      ),
+                      unitField: DropdownButtonFormField<String>(
+                        key: ValueKey(unit),
+                        initialValue: unit,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: '单位'),
+                        // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
+                        // 避免 initialValue 找不到 item 触发断言。
+                        items: kQuantityUnitValues
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(unitLabel(value)),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setState(() => unit = value ?? 'box');
+                          _markDirty();
+                        },
+                      ),
                     ),
                     const SizedBox(height: 12),
                     InkWell(
@@ -1120,13 +1402,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     ),
                     if (openingExpanded) ...[
                       const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'unknown', label: Text('未记录')),
-                          ButtonSegment(value: 'unopened', label: Text('未开封')),
-                          ButtonSegment(value: 'opened', label: Text('已开封')),
-                        ],
-                        selected: {openedState},
+                      _openingSegments(
+                        labels: const {
+                          'unknown': '未记录',
+                          'unopened': '未开封',
+                          'opened': '已开封',
+                        },
+                        selected: openedState,
                         onSelectionChanged: (value) {
                           setState(() => openedState = value.first);
                           _markDirty();
@@ -1142,15 +1424,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         const SizedBox(height: 10),
                         const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
                         const SizedBox(height: 8),
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(
-                              value: 'duration',
-                              label: Text('经过时长'),
-                            ),
-                            ButtonSegment(value: 'date', label: Text('截止日期')),
-                          ],
-                          selected: {afterOpenKind},
+                        _openingSegments(
+                          labels: const {'duration': '经过时长', 'date': '截止日期'},
+                          selected: afterOpenKind,
                           onSelectionChanged: (value) {
                             setState(() => afterOpenKind = value.first);
                             _markDirty();
@@ -1158,45 +1434,41 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         ),
                         const SizedBox(height: 10),
                         if (afterOpenKind == 'duration')
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: afterOpenValueController,
-                                  onChanged: (_) => _markDirty(),
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: '开封后期限',
-                                    hintText: '例如 30',
-                                  ),
-                                ),
+                          _quantityUnitFields(
+                            quantityLabels: const ['开封后期限', '例如 30'],
+                            unitLabels: const ['选择', '天', '月'],
+                            quantityField: TextField(
+                              controller: afterOpenValueController,
+                              onChanged: (_) => _markDirty(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: '开封后期限',
+                                hintText: '例如 30',
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  key: ValueKey(afterOpenUnit),
-                                  initialValue: afterOpenUnit,
-                                  decoration: const InputDecoration(
-                                    labelText: '单位',
-                                  ),
-                                  hint: const Text('选择'),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'day',
-                                      child: Text('天'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'month',
-                                      child: Text('月'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() => afterOpenUnit = value);
-                                    _markDirty();
-                                  },
-                                ),
+                            ),
+                            unitField: DropdownButtonFormField<String>(
+                              key: ValueKey(afterOpenUnit),
+                              initialValue: afterOpenUnit,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: '单位',
                               ),
-                            ],
+                              hint: const Text('选择'),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'day',
+                                  child: Text('天'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'month',
+                                  child: Text('月'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => afterOpenUnit = value);
+                                _markDirty();
+                              },
+                            ),
                           )
                         else
                           TextField(
@@ -1204,7 +1476,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             onChanged: (_) => _markDirty(),
                             keyboardType: TextInputType.datetime,
                             decoration: const InputDecoration(
-                              labelText: '开封后截止日期',
+                              label: Text('开封后截止日期'),
                               hintText: 'YYYY-MM-DD',
                             ),
                           ),

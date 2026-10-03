@@ -1,7 +1,14 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+import 'package:home_medicine_flutter/data/export_temporary_store.dart';
+
 // Production export lifecycle regressions; all adapters and data are synthetic.
 // ignore_for_file: depend_on_referenced_packages
 // Synthetic fixtures only; platform share, clipboard and notifications are fake.
 import 'dart:async';
+
+import 'support/identity_fixture.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -30,8 +37,6 @@ class FakePaths extends PathProviderPlatform {
   Completer<void>? gate;
   @override
   Future<String?> getTemporaryPath() async {
-    entered?.complete();
-    await gate?.future;
     return directory.path;
   }
 }
@@ -209,10 +214,24 @@ void main() {
       ),
     );
     services = await http.runWithClient(
-      () => AppServices.create(
+      () async => AppServices.create(
         apiBaseUrl: 'https://medicine.example',
         secretStore: secrets,
+        identityStore: await identityFixture(secrets, localStore: storage),
         localStore: storage,
+        exportFiles: ExportTemporaryStore(
+          process: ExportProcessCoordinator(
+            temporaryDirectory: () async => paths.directory,
+            journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+          ),
+          writeBytes: (file, bytes) async {
+            if (paths.entered != null && !paths.entered!.isCompleted) {
+              paths.entered!.complete();
+            }
+            await paths.gate?.future;
+            await file.writeAsBytes(bytes, flush: true);
+          },
+        ),
       ),
       () => MockClient((request) async {
         final path = request.url.path;
@@ -371,7 +390,7 @@ void main() {
 
   for (final backup in [false, true]) {
     testWidgets(
-      '${backup ? 'JSON' : 'MD'}: disposed during temp lookup leaves no abandoned file',
+      '${backup ? 'JSON' : 'MD'}: disposed during private file write leaves no abandoned file',
       (tester) async {
         await mount(tester);
         paths.entered = Completer<void>.sync();
@@ -391,22 +410,27 @@ void main() {
       },
     );
     testWidgets(
-      '${backup ? 'JSON' : 'MD'}: completed logout during temp lookup prevents dispatch while mounted',
+      '${backup ? 'JSON' : 'MD'}: logout during private file write drains it and prevents dispatch while mounted',
       (tester) async {
         await mount(tester);
         paths.entered = Completer<void>.sync();
         paths.gate = Completer<void>.sync();
         late Future<void> action;
+        late Future<String?> logout;
         await tester.runAsync(() async {
           action = invoke(tester, backup);
           await paths.entered!.future.timeout(const Duration(seconds: 3));
-          await services.auth!.logout();
+          logout = services.auth!.logout();
+          paths.gate!.complete();
+        });
+        // Flush widget-zone continuations before awaiting external filesystem
+        // work; no fake-clock Future is held inside the real-IO callback.
+        await tester.pump();
+        await tester.runAsync(() async {
+          await action.timeout(const Duration(seconds: 5));
+          await logout.timeout(const Duration(seconds: 5));
         });
         expect(await secrets.read(ApiAuthRepository.accessTokenKey), isNull);
-        await tester.runAsync(() async {
-          paths.gate!.complete();
-          await action;
-        });
         expect(share.calls, isEmpty);
         expect(paths.directory.listSync(), isEmpty);
       },
@@ -571,10 +595,8 @@ void main() {
 
   Future<void> rotateIdentity() async {
     await services.auth!.onIdentitySwitch!();
-    await secrets.write(
-      ApiAuthRepository.accessTokenKey,
-      'synthetic-account-b',
-    );
+    final identity = services.api!.identityState!;
+    await identity.acceptToken(identity.beginLink(), 'synthetic-account-b');
   }
 
   testWidgets('restore entry on a stale mounted page cannot open picker', (

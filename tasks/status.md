@@ -1,4 +1,12 @@
-# 当前状态 · 2026-10-04 Android 本机复核
+# 当前状态 · 2026-10-03 云端补充收尾
+
+- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `6ec8d7a`，既有分支 `codex/flutter-ui-prototype`
+- 已发布17批独立修复；在既有会话/提醒/历史/幂等/权限/清理边界之上，补齐Flutter计划表单、重启身份、精确导出原件恢复，以及五批单页录入可靠性修复
+- 云端本地最终Flutter660/analyze与独立聚焦76通过；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
+- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位，最终源码重新生成45张Flutter引擎图；原生系统Back、真实输入法、相机与官方WeChat仍待验，详见 [录入可靠性与视觉证据](reports/closeout/16-entry-reliability-and-visual-verification.md)
+- C4仍PARTIAL：仅恢复清理精确登记且证据一致的完整原件；中断未登记、替换和旧模糊文件保留。旧原始令牌无可信来源记录需重新连接；未知草稿保留隔离。不能宣称跨进程、断电或所有持久写入失败场景均已关闭
+- 官方小程序编译在本云环境SKIPPED；CI debug APK未配置生产API/正式签名。真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍NOT_RUN
+- 本轮只使用云端源码与合成数据；未访问原Windows工作区、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
 
 - 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；源码 `codex/flutter-ui-prototype / 736d7623435e2a38e3ebb51859574d43dffa0120`。项目未达到 LOCAL_RC_READY、STAGING_READY 或 V1_DELIVERED。
 - 本地已快进同步远端 10 个提交。计划创建重试使用迁移 028 持久回执；新“支”单位使用迁移 029。新环境需先应用所有待用迁移，再更新 API，最后更新客户端。
@@ -194,3 +202,8 @@
 - 允许范围：当前本地项目文件、合成数据、本地依赖缓存目录 `E:\Claude_allow\Download\medcial_box`。
 - 不包括：真实微信账号、真实用户照片／健康信息、真实线上 API 密钥、生产网站或服务器变更、推送／发布。
 - 下一步：真实环境补证（Docker 引擎恢复后设 `TEST_DATABASE_URL` 跑 `integration-pg.test.mjs`；装微信开发者工具用 `touristappid` 预览；AppID 批复后真机验收），随后评估 P3 拍照识别排期。
+
+
+### 2026-10-04 本地整合补充
+
+远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。

@@ -34,14 +34,29 @@ class ApiMedicineRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _requireIntent(bool Function()? isCurrent) {
+    if (isCurrent != null && !isCurrent()) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '会话已变更，请重新加载。',
+      );
+    }
+  }
+
   Future<List<MedicineRecord>> listMedicines({
     bool includeArchived = false,
+    bool Function()? isCurrent,
   }) async {
+    _requireIntent(isCurrent);
     final session = _session;
     try {
       final json = await api.get(
         '/api/v1/medicines${includeArchived ? '?includeArchived=true' : ''}',
+        isCurrent: isCurrent,
+        responseIsCurrent: isCurrent,
       ) as Map<String, dynamic>;
+      _requireIntent(isCurrent);
       final result = (json['medicines'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(MedicineRecord.fromJson)
@@ -52,19 +67,25 @@ class ApiMedicineRepository extends ChangeNotifier {
       isOffline = false;
       final syncedAt = DateTime.now();
       lastSyncedAt = syncedAt;
+      _requireIntent(isCurrent);
       await localStore.saveInventory(result);
+      _requireIntent(isCurrent);
       if (!_isCurrentSession(session)) return medicines;
       await localStore.saveLastSyncedAt(syncedAt);
+      _requireIntent(isCurrent);
       if (!_isCurrentSession(session)) return medicines;
       notifyListeners();
       return result;
     } on ApiNetworkException {
+      _requireIntent(isCurrent);
       final cached = await localStore.readInventory();
+      _requireIntent(isCurrent);
       if (cached == null) rethrow;
       if (!_isCurrentSession(session)) return medicines;
       _medicines = cached;
       isOffline = true;
       final syncedAt = await localStore.readLastSyncedAt();
+      _requireIntent(isCurrent);
       if (!_isCurrentSession(session)) return medicines;
       lastSyncedAt = syncedAt;
       notifyListeners();
@@ -72,31 +93,55 @@ class ApiMedicineRepository extends ChangeNotifier {
     }
   }
 
-  Future<MedicineRecord> getMedicine(String id) async {
+  Future<MedicineRecord> getMedicine(
+    String id, {
+    bool Function()? isCurrent,
+  }) async {
+    _requireIntent(isCurrent);
     final session = _session;
     try {
-      final json = await api.get('/api/v1/medicines/$id');
+      final json = await api.get(
+        '/api/v1/medicines/$id',
+        isCurrent: isCurrent,
+        responseIsCurrent: isCurrent,
+      );
+      _requireIntent(isCurrent);
       final medicine = MedicineRecord.fromJson(json as Map<String, dynamic>);
-      await _upsertMedicine(medicine, session: session);
+      await _upsertMedicine(medicine, session: session, isCurrent: isCurrent);
       return medicine;
     } on ApiNetworkException {
+      _requireIntent(isCurrent);
       final cached = _findCached(id);
       if (cached == null) rethrow;
       if (!_isCurrentSession(session)) return cached;
       isOffline = true;
-      lastSyncedAt ??= await localStore.readLastSyncedAt();
+      final syncedAt = lastSyncedAt ?? await localStore.readLastSyncedAt();
+      _requireIntent(isCurrent);
+      lastSyncedAt = syncedAt;
       return cached;
     }
   }
 
-  Future<MedicineRecord> createMedicine(Map<String, Object?> payload) async {
+  Future<MedicineRecord> createMedicine(
+    Map<String, Object?> payload, {
+    bool Function()? isCurrent,
+  }) async {
+    _requireIntent(isCurrent);
     final session = _session;
     final json = await api.post(
       '/api/v1/medicines',
       body: payload,
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
     ) as Map<String, dynamic>;
+    _requireIntent(isCurrent);
     final medicine = MedicineRecord.fromJson(json);
-    await _upsertMedicine(medicine, prepend: true, session: session);
+    await _upsertMedicine(
+      medicine,
+      prepend: true,
+      session: session,
+      isCurrent: isCurrent,
+    );
     return medicine;
   }
 
@@ -352,7 +397,8 @@ class ApiMedicineRepository extends ChangeNotifier {
     return notes;
   }
 
-  Future<void> _persistCache({int? session}) {
+  Future<void> _persistCache({int? session, bool Function()? isCurrent}) {
+    _requireIntent(isCurrent);
     // 会话已切换时不写缓存，避免旧会话数据落到本机（R10）。
     if (session != null && !_isCurrentSession(session)) return Future.value();
     return localStore.saveInventory(_medicines);
@@ -362,7 +408,9 @@ class ApiMedicineRepository extends ChangeNotifier {
     MedicineRecord medicine, {
     bool prepend = false,
     int? session,
+    bool Function()? isCurrent,
   }) async {
+    _requireIntent(isCurrent);
     if (session != null && !_isCurrentSession(session)) return;
     final existingIndex = _medicines.indexWhere(
       (item) => item.id == medicine.id,
@@ -376,7 +424,8 @@ class ApiMedicineRepository extends ChangeNotifier {
     } else {
       _medicines = [..._medicines, medicine];
     }
-    await _persistCache(session: session);
+    await _persistCache(session: session, isCurrent: isCurrent);
+    _requireIntent(isCurrent);
     if (session != null && !_isCurrentSession(session)) return;
     isOffline = false;
     notifyListeners();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'api_auth_repository.dart';
@@ -7,7 +9,10 @@ import 'api_plan_repository.dart';
 import 'api_workflow_repository.dart';
 import 'app_stores.dart';
 import 'demo_repositories.dart';
+import 'export_temporary_store.dart';
 import 'local_reminder_service.dart';
+import 'private_atomic_state.dart';
+import 'session_identity_state.dart';
 
 class AppServices {
   AppServices._({
@@ -17,6 +22,8 @@ class AppServices {
     required this.localStore,
     required this.demoMedicineRepository,
     required this.reminders,
+    required this.exportFiles,
+    required this.exportRecovery,
     this.api,
     this.auth,
     this.families,
@@ -37,7 +44,14 @@ class AppServices {
   final ApiPlanRepository? plans;
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
+  final ExportTemporaryStore exportFiles;
+  // Settles the shared startup attempt, including a typed export-only failure.
+  // This Future is deliberately not an authentication/ordinary-work gate.
+  final Future<void> exportRecovery;
+  List<ExportRecoveryIssue> get exportRecoveryIssues =>
+      exportFiles.recoveryIssues;
 
+  bool offlineCacheMatchesOwner = false;
   final ValueNotifier<bool> sessionInvalidated = ValueNotifier(false);
   final ValueNotifier<bool> familyInvalidated = ValueNotifier(false);
 
@@ -47,11 +61,15 @@ class AppServices {
     required String apiBaseUrl,
     SecretStore? secretStore,
     LocalAppStore? localStore,
+    PrivateAtomicState? identityStore,
+    ExportTemporaryStore? exportFiles,
   }) async {
     final secrets = secretStore ?? FlutterSecretStore();
     final local = IdentityLocalStore(
       localStore ?? await SharedPreferencesAppStore.create(),
     );
+    final exports = exportFiles ?? ExportTemporaryStore();
+    final exportRecovery = exports.recoverForStartup();
     final baseUrl = apiBaseUrl.trim();
     if (baseUrl.isEmpty) {
       return AppServices._(
@@ -61,15 +79,39 @@ class AppServices {
         localStore: local,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: LocalReminderService(),
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
     }
     try {
+      // Validate/normalize the API before any stored credential is considered.
+      final identity = SessionIdentityState(
+        origin: ApiClient.normalizeBaseUrl(baseUrl),
+        secrets: secrets,
+        persistence: identityStore ?? FilePrivateAtomicState(),
+      );
+      await identity.initialize();
+      final cachedFamily = await local.readFamily();
+      final owner = identity.owner;
+      final mismatchedCache =
+          identity.accepted &&
+          (owner == null ||
+              owner.familyId == null ||
+              cachedFamily?.id != owner.familyId);
+      if (mismatchedCache) {
+        await local.quarantineLegacyFamilyData(
+          preserveVerifiedPlanScope: owner?.familyId == null
+              ? null
+              : SessionIdentityState.scopeForOwner(owner!),
+        );
+      }
       final api = ApiClient(
         baseUrl: baseUrl,
-        tokenProvider: () => secrets.read(ApiAuthRepository.accessTokenKey),
+        tokenProvider: identity.readAccessToken,
+        identityState: identity,
       );
       final plans = ApiPlanRepository(api: api, localStore: local);
-      final workflow = ApiWorkflowRepository(api: api);
+      final workflow = ApiWorkflowRepository(api: api, exportFiles: exports);
       final medicines = ApiMedicineRepository(api: api, localStore: local);
       final reminders = LocalReminderService()..watch(medicines);
       var scheduleRequest = 0;
@@ -114,17 +156,25 @@ class AppServices {
       late final AppServices services;
       Future<void> clearIdentityData({bool familyMissing = false}) async {
         api.invalidateIdentity();
+        final clearOwner = identity.clearFamily();
+        services.offlineCacheMatchesOwner = false;
+        plans.formDrafts.resetForIdentity();
         final clearExports = workflow.exportFiles.resetForIdentity();
         final epoch = api.identityEpoch;
         scheduleRequest++;
         // Keep protected routes closed until every private cleanup succeeds.
         services.familyInvalidated.value = true;
         medicines.clearSessionSnapshot();
-        final clearStorage = local.clearFamilyData();
+        final clearStorage = identity.requiresLegacyQuarantine
+            ? local.quarantineLegacyFamilyData().then(
+                (_) => identity.finishLegacyQuarantine(),
+              )
+            : local.clearFamilyData();
         await Future.wait([
           reminders.resetForIdentity(),
           clearStorage,
           clearExports,
+          clearOwner,
         ]);
         if (epoch == api.identityEpoch) {
           services.familyInvalidated.value = familyMissing;
@@ -143,28 +193,96 @@ class AppServices {
           localStore: local,
           onIdentitySwitch: clearIdentityData,
           onLoggedOut: () => services.sessionInvalidated.value = true,
+          onOwnerValidated: (owner) async {
+            if (owner.familyId == null) return;
+            final epoch = api.identityEpoch;
+            final scope = SessionIdentityState.scopeForOwner(owner);
+            if (identity.owner != owner || epoch != api.identityEpoch) return;
+            if (identity.canRestoreLegacyScope(scope)) {
+              await local.adoptLegacyPlanDrafts(scope);
+            }
+            final family = await local.readFamily();
+            if (identity.owner == owner && epoch == api.identityEpoch) {
+              services.offlineCacheMatchesOwner = family?.id == owner.familyId;
+              services.familyInvalidated.value = false;
+            }
+          },
         ),
         families: ApiFamilyRepository(
           api: api,
           localStore: local,
           onFamilyChanged: clearIdentityData,
+          onFamilyValidated: () async {
+            final context = identity.owner;
+            final family = await local.readFamily();
+            if (context != null && identity.owner == context) {
+              services.offlineCacheMatchesOwner =
+                  context.familyId != null && family?.id == context.familyId;
+              if (services.offlineCacheMatchesOwner) {
+                services.familyInvalidated.value = false;
+              }
+            }
+          },
         ),
         medicines: medicines,
         workflow: workflow,
         plans: plans,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: reminders,
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
+      services.offlineCacheMatchesOwner =
+          !mismatchedCache &&
+          owner != null &&
+          owner.familyId != null &&
+          cachedFamily?.id == owner.familyId;
+      if (mismatchedCache) await reminders.resetForIdentity();
+      services.sessionInvalidated.value = !identity.accepted;
+      identity.onBlocked = () {
+        if (!services.sessionInvalidated.value) api.invalidateIdentity();
+        plans.formDrafts.resetForIdentity();
+        medicines.clearSessionSnapshot();
+        services.sessionInvalidated.value = true;
+        // Storage failure is not permission to discard unknown local drafts.
+        // Private in-memory/native projections close immediately; explicit
+        // identity acceptance still passes the normal full cleanup barrier.
+        unawaited(
+          Future.wait([
+            reminders.resetForIdentity(),
+            workflow.exportFiles.resetForIdentity(),
+          ]).then<void>((_) {}, onError: (Object _) {}),
+        );
+      };
+      api.refreshIdentityContext = () async {
+        await services.auth!.getCurrentUser();
+        return identity.owner;
+      };
       api.onFamilyUnavailable = () => clearIdentityData(familyMissing: true);
       api.onUnauthorized = () async {
+        final intent = identity.beginSignOut();
+        api.invalidateIdentity();
         services.sessionInvalidated.value = true;
+        Object? failure;
+        try {
+          await identity.persistSignOut(intent);
+        } catch (error) {
+          failure = error;
+        }
         try {
           await clearIdentityData();
-        } finally {
-          // Revoked credentials cannot survive a separate native cleanup error.
-          await secrets.delete(ApiAuthRepository.accessTokenKey);
+        } catch (error) {
+          failure ??= error;
+        }
+        try {
+          await identity.deleteSignedOutSecrets(intent);
+        } catch (error) {
+          failure ??= error;
+        }
+        if (identity.isSignOutCurrent(intent)) {
           services.sessionInvalidated.value = true;
         }
+        if (failure != null) throw failure;
       };
       return services;
     } on ArgumentError catch (error) {
@@ -175,6 +293,8 @@ class AppServices {
         localStore: local,
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: LocalReminderService(),
+        exportFiles: exports,
+        exportRecovery: exportRecovery,
       );
     }
   }

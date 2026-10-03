@@ -28,7 +28,12 @@ class CareFixture {
         if (request.method == 'GET' &&
             request.url.path == '/api/v1/families/current') {
           return response({
-            'family': {'id': 'family', 'members': members},
+            'family': {
+              'id': 'family',
+              'name': 'Synthetic family',
+              'role': 'member',
+              'members': members,
+            },
           });
         }
         if (request.method == 'POST' && request.url.path.endsWith('/grants')) {

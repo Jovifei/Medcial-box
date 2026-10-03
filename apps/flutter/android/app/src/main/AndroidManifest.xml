@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 服药/到期本地通知：Android 13+ 通知权限；精确闹钟（SCHEDULE_EXACT_ALARM）与豁免类（USE_EXACT_ALARM）；唤醒。 -->

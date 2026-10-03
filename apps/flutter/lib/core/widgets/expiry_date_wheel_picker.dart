@@ -86,7 +86,10 @@ class _ExpiryDateWheelPickerState extends State<_ExpiryDateWheelPicker> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
-                Text('选择有效期', style: Theme.of(context).textTheme.titleMedium),
+                Expanded(
+                  child: Text('选择有效期', textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium),
+                ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, selectedDate),
                   child: const Text('确定'),

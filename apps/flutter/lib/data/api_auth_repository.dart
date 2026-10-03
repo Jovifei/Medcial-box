@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../models/medicine_models.dart';
 import 'api_client.dart';
 import 'app_stores.dart';
+import 'session_identity_state.dart';
 
 const apiBaseUrlFromBuild = String.fromEnvironment('API_BASE_URL');
 const missingApiConfigurationMessage =
@@ -45,11 +46,19 @@ class ApiAuthRepository {
     this.localStore,
     this.onIdentitySwitch,
     this.onLoggedOut,
-  });
+    this.onOwnerValidated,
+  }) {
+    if (api.identityState == null) {
+      throw ArgumentError(
+        'ApiAuthRepository requires a fenced identity state.',
+      );
+    }
+  }
 
   /// 身份切换（换账号/换家庭）前统一清理内存与本机数据；为空时退回仅清理本机存储。
   final Future<void> Function()? onIdentitySwitch;
   final void Function()? onLoggedOut;
+  final Future<void> Function(VerifiedOwnerContext owner)? onOwnerValidated;
 
   static const accessTokenKey = 'home_medicine.auth.access_token';
   static const pendingPollTokenKey = 'home_medicine.auth.pending_poll_token';
@@ -58,15 +67,35 @@ class ApiAuthRepository {
   final SecretStore secretStore;
   final LocalAppStore? localStore;
 
-  Future<String?> readAccessToken() => secretStore.read(accessTokenKey);
+  SessionIdentityState get identityState => api.identityState!;
+  Future<String?> readAccessToken() => identityState.readAccessToken();
+
+  void _requireLink(String? link, int epoch) {
+    if (link == null ||
+        !identityState.isLinkCurrent(link) ||
+        epoch != api.identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '连接已变更，请重新获取连接码。',
+      );
+    }
+  }
 
   Future<DeviceLink> startDeviceLink() async {
+    final link = identityState.beginLink();
+    final epoch = api.identityEpoch;
     final json = await api.post(
       '/api/v1/auth/device-links',
       authenticated: false,
     ) as Map<String, dynamic>;
     final pollToken = json['pollToken'] as String;
-    await secretStore.write(pendingPollTokenKey, pollToken);
+    _requireLink(link, epoch);
+    await _transition(() async {
+      _requireLink(link, epoch);
+      await identityState.storePendingLink(link, pollToken);
+    });
+    _requireLink(link, epoch);
     return DeviceLink(
       code: json['code'] as String,
       pollToken: pollToken,
@@ -77,10 +106,19 @@ class ApiAuthRepository {
   Future<T> _transition<T>(Future<T> Function() action) =>
       api.transitionIdentity(action);
 
-  Future<DeviceLinkExchange> exchangePendingLink() =>
-      _transition(_exchangePendingLink);
-  Future<DeviceLinkExchange> _exchangePendingLink() async {
-    final pollToken = await secretStore.read(pendingPollTokenKey);
+  Future<DeviceLinkExchange> exchangePendingLink() {
+    final link = identityState.pendingLink;
+    final epoch = api.identityEpoch;
+    return _transition(() => _exchangePendingLink(link, epoch));
+  }
+
+  Future<DeviceLinkExchange> _exchangePendingLink(
+    String? link,
+    int epoch,
+  ) async {
+    _requireLink(link, epoch);
+    final pollToken = await identityState.readPendingLink(link!);
+    _requireLink(link, epoch);
     if (pollToken == null || pollToken.isEmpty) {
       throw const ApiException(
         statusCode: 401,
@@ -93,16 +131,30 @@ class ApiAuthRepository {
       body: {'pollToken': pollToken},
       authenticated: false,
     ) as Map<String, dynamic>;
+    _requireLink(link, epoch);
     final state = json['state'] as String;
     if (state == 'approved' && json['token'] is String) {
       // The approval flow can connect a different account on a device that
       // previously held another household's offline snapshot. Drop that data
       // (memory included) before accepting the new credential.
       await _clearIdentityData();
-      await secretStore.write(accessTokenKey, json['token']! as String);
-      await secretStore.delete(pendingPollTokenKey);
+      if (!identityState.isLinkCurrent(link)) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '连接已变更，请重新连接。',
+        );
+      }
+      await identityState.acceptToken(link, json['token']! as String);
+      if (!identityState.accepted) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '连接已变更，请重新连接。',
+        );
+      }
     } else if (state == 'expired') {
-      await secretStore.delete(pendingPollTokenKey);
+      await identityState.expireLink(link);
     }
     return DeviceLinkExchange(
       state: state,
@@ -123,7 +175,8 @@ class ApiAuthRepository {
   }
 
   Future<AuthProfile> getCurrentUser() async {
-    final epoch = api.identityEpoch;
+    var epoch = api.identityEpoch;
+    final generation = identityState.generation;
     final json = await api.get('/api/v1/auth/me') as Map<String, dynamic>;
     _requireCurrentIdentity(epoch);
     final user = json['user'];
@@ -158,12 +211,35 @@ class ApiAuthRepository {
     final family = familyJson is Map<String, dynamic>
         ? FamilyRecord.fromJson(familyJson)
         : null;
+    final previousOwner = identityState.owner;
+    if (family != null &&
+        previousOwner != null &&
+        (previousOwner.userId != user['id'] ||
+            (previousOwner.familyId != null &&
+                previousOwner.familyId != family.id))) {
+      final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
+      _requireCurrentIdentity(cleanupEpoch);
+      epoch = cleanupEpoch;
+    }
     if (family != null) {
       await localStore?.saveFamily(family);
       _requireCurrentIdentity(epoch);
     } else {
       final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
       _requireCurrentIdentity(cleanupEpoch);
+      epoch = cleanupEpoch;
+    }
+    if (generation != null) {
+      await identityState.recordOwner(
+        expectedGeneration: generation,
+        userId: user['id'] as String,
+        familyId: family?.id,
+        isCurrent: () => epoch == api.identityEpoch,
+      );
+      _requireCurrentIdentity(epoch);
+      final owner = identityState.owner;
+      if (owner != null) await onOwnerValidated?.call(owner);
+      _requireCurrentIdentity(epoch);
     }
     return AuthProfile(
       userId: user['id'] as String,
@@ -173,12 +249,18 @@ class ApiAuthRepository {
     );
   }
 
-  Future<void> _clearIdentityData() async {
-    await api.waitForIdentityCleanup();
+  Future<void> _clearIdentityData({bool explicitLogoutRetry = false}) async {
+    if (!explicitLogoutRetry) await api.waitForIdentityCleanup();
+    // Logout is also the explicit recovery action. A failed fence may have
+    // closed/incremented the API epoch, making the old cleanup retry stale.
+    // Start a fresh full cleanup; cleanupForIdentityTransition still drains
+    // all earlier work before any later session can be accepted.
     if (onIdentitySwitch != null) {
       await api.cleanupForIdentityTransition(onIdentitySwitch!);
       return;
     }
+    api.invalidateIdentity();
+    await identityState.clearFamily();
     await localStore?.clearFamilyData();
   }
 
@@ -188,32 +270,41 @@ class ApiAuthRepository {
   /// - 每个清理步骤各自 try/catch：清理钩子抛错也保证后续令牌删除照常执行，
   ///   不会停留在"无令牌却仍是已登录界面"的状态。
   /// 返回服务端撤销的错误信息；本机清理成功且服务端也撤销成功时返回 null。
-  Future<String?> logout() =>
-      api.transitionIdentity(_logout, allowFailedCleanup: true);
-  Future<String?> _logout() async {
-    String? revokeError;
-    try {
-      await api.post('/api/v1/auth/logout');
-    } catch (error) {
-      revokeError = friendlyApiError(error);
-    }
-    try {
-      await _clearIdentityData();
-    } catch (_) {
-      // 清理钩子失败也要继续删令牌：本机退出优先于任何单步异常。
-    }
-    try {
-      await secretStore.delete(accessTokenKey);
-    } catch (_) {
-      // 令牌删除失败不再抛出，避免调用方因此跳过导航；下一次读取会因缺失令牌回到连接页。
-    }
-    try {
-      await secretStore.delete(pendingPollTokenKey);
-    } catch (_) {
-      // 同上：待连接令牌残留不影响已退出状态。
-    }
+  Future<String?> logout() {
+    final state = identityState;
+    final intent = state.beginSignOut();
+    api.invalidateIdentity();
     onLoggedOut?.call();
-    return revokeError;
+    // Start persistence immediately, not behind a slow link/poll/network queue.
+    final persistence = state
+        .persistSignOut(intent)
+        .then<String?>(
+          (_) => null,
+          onError: (Object error) => error.toString(),
+        );
+    return api.transitionIdentity(() async {
+      final warnings = <String>[];
+      final persistenceWarning = await persistence;
+      if (persistenceWarning != null) warnings.add(persistenceWarning);
+      if (intent.token != null) {
+        try {
+          await api.revokeSession(intent.token!);
+        } catch (error) {
+          warnings.add(friendlyApiError(error));
+        }
+      }
+      if (state.isSignOutCurrent(intent)) {
+        try {
+          await _clearIdentityData(explicitLogoutRetry: true);
+        } catch (_) {}
+        try {
+          await state.deleteSignedOutSecrets(intent);
+        } catch (_) {}
+      }
+      final warning = warnings.isEmpty ? null : warnings.join('\n');
+      state.retainSignOutWarning(intent, warning);
+      return warning;
+    }, allowFailedCleanup: true);
   }
 }
 
@@ -228,20 +319,77 @@ class ApiFamilyRepository {
     required this.api,
     required this.localStore,
     this.onFamilyChanged,
+    this.onFamilyValidated,
   });
   final ApiClient api;
   final LocalAppStore localStore;
 
   /// 加入或创建另一个家庭前清理上一个家庭的库存快照（含内存）。
   final Future<void> Function()? onFamilyChanged;
+  final Future<void> Function()? onFamilyValidated;
 
   Future<FamilyRecord> getCurrentFamily() async {
+    var epoch = api.identityEpoch;
+    final generation = api.identityState?.generation;
+    final userId = api.identityState?.owner?.userId;
     final json =
         await api.get('/api/v1/families/current') as Map<String, dynamic>;
-    final family = FamilyRecord.fromJson(
-      json['family'] as Map<String, dynamic>,
-    );
+    if (epoch != api.identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '家庭身份已变更。',
+      );
+    }
+    final value = json['family'];
+    if (value is! Map<String, dynamic> ||
+        value['id'] is! String ||
+        (value['id'] as String).trim().isEmpty ||
+        value['name'] is! String ||
+        (value['name'] as String).trim().isEmpty ||
+        !const ['owner', 'member'].contains(value['role'])) {
+      throw const ApiException(
+        statusCode: 502,
+        code: 'INVALID_RESPONSE',
+        message: '家庭身份返回结果无法识别，请重试。',
+      );
+    }
+    final family = FamilyRecord.fromJson(value);
+    final oldFamilyId = api.identityState?.owner?.familyId;
+    if (oldFamilyId != null && oldFamilyId != family.id) {
+      epoch = await api.reportNoCurrentFamily(epoch);
+      if (epoch != api.identityEpoch) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '家庭身份已变更。',
+        );
+      }
+    }
     await localStore.saveFamily(family);
+    if (generation != null && userId != null) {
+      await api.identityState!.recordOwner(
+        expectedGeneration: generation,
+        userId: userId,
+        familyId: family.id,
+        isCurrent: () => epoch == api.identityEpoch,
+      );
+    }
+    if (epoch != api.identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '家庭身份已变更。',
+      );
+    }
+    await onFamilyValidated?.call();
+    if (epoch != api.identityEpoch) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '家庭身份已变更。',
+      );
+    }
     return family;
   }
 

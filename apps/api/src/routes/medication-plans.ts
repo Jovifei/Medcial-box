@@ -607,6 +607,17 @@ export async function registerMedicationPlanRoutes(
     if (expectedVersion === null) return reply.code(400).send(errorBody("VALIDATION_ERROR", "version 必填"));
     if (loaded.plan.status === "ended") return reply.code(409).send(errorBody("PLAN_ENDED", "已结束的计划不能再修改"));
 
+    // Omission is the legacy contract: keep the existing inventory identity.
+    // Explicit null is an intentional manual entry; never infer identity from a name.
+    const medicineIdSupplied = body?.medicineId !== undefined;
+    let medicineId: string | null = null;
+    if (medicineIdSupplied && body?.medicineId !== null) {
+      if (typeof body?.medicineId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.medicineId.trim())) {
+        return reply.code(400).send(errorBody("VALIDATION_ERROR", "medicineId 需为药品 ID 或 null"));
+      }
+      medicineId = body.medicineId.trim().toLowerCase();
+    }
+
     const next = {
       medicineName: loaded.plan.medicine_name,
       dosageText: loaded.plan.dosage_text,
@@ -661,12 +672,27 @@ export async function registerMedicationPlanRoutes(
     }
 
     const result = await database.withTransaction(async (tx: Pick<Database, "query">) => {
+      // Preflight authorization may be stale after a lock wait. Keep current access
+      // locked through commit, in the same family -> member -> profile -> grant order
+      // as creation, before locking the explicitly selected inventory item.
+      await tx.query("SELECT id FROM families WHERE id=$1 FOR SHARE", [loaded.ctx.familyId]);
+      const member = await tx.query("SELECT id FROM family_members WHERE family_id=$1 AND user_id=$2 FOR SHARE", [loaded.ctx.familyId, loaded.ctx.userId]);
+      if (member.rowCount === 0) return { failure: { status: 404, body: errorBody("FAMILY_NOT_FOUND", "尚未创建或加入家庭") } };
+      const profile = await loadProfile(tx, loaded.ctx.familyId, loaded.plan.care_profile_id, true);
+      if (profile === null) return { failure: { status: 404, body: errorBody("NOT_FOUND", "照护对象不存在") } };
+      const access = await accessFor(tx, profile, loaded.ctx.userId, true);
+      if (!access.canManage) return { failure: { status: 403, body: errorBody("FORBIDDEN", "没有修改该计划的权限") } };
+      if (medicineId !== null) {
+        const medicine = await tx.query("SELECT id FROM medicines WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL FOR SHARE", [medicineId, loaded.ctx.familyId]);
+        if (medicine.rowCount === 0) return { failure: { status: 404, body: errorBody("NOT_FOUND", "药品不存在或不属于当前家庭") } };
+      }
       const updated = await tx.query<{ version: number }>(
         `UPDATE medication_plans SET medicine_name = $3, dosage_text = $4, weekdays = $5,
-                start_date = $6, end_date = $7, updated_by = $8, updated_at = now(), version = version + 1
+                start_date = $6, end_date = $7, updated_by = $8, updated_at = now(), version = version + 1,
+                medicine_id = CASE WHEN $10 THEN $11::uuid ELSE medicine_id END
          WHERE id = $1 AND family_id = $2 AND version = $9 RETURNING version`,
         [loaded.plan.id, loaded.ctx.familyId, next.medicineName, next.dosageText, next.weekdays,
-          next.startDate, next.endDate, loaded.ctx.userId, expectedVersion],
+          next.startDate, next.endDate, loaded.ctx.userId, expectedVersion, medicineIdSupplied, medicineId],
       );
       if (updated.rowCount === 0) return { conflict: true as const };
       const desired = new Set(next.timeSlots);
@@ -713,6 +739,7 @@ export async function registerMedicationPlanRoutes(
       }
       return { conflict: false as const, version: updated.rows[0].version };
     });
+    if (result.failure) return reply.code(result.failure.status).send(result.failure.body);
     if (result.conflict) return reply.code(409).send(errorBody("VERSION_CONFLICT", "计划已被他人修改，请刷新后重试"));
     return {
       planId: loaded.plan.id,

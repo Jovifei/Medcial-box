@@ -6,18 +6,21 @@ import '../models/plan_models.dart';
 import 'api_client.dart';
 import 'app_stores.dart';
 import 'plan_creation_operations.dart';
+import 'plan_form_drafts.dart';
 
 /// 用药计划 / 今日安排 / 服药确认 / 历史 / 照护对象 / 权限。
 /// 端点与后端 routes/medication-plans、routes/care-profiles 对齐；
 /// 只走 ApiClient，返回类型化模型（R10：这些是无状态读取，不回填共享库存快照）。
 class ApiPlanRepository extends ChangeNotifier {
-  ApiPlanRepository({required this.api, LocalAppStore? localStore})
-    : creations = PlanCreationOperations(
-        api: api,
-        store: localStore ?? MemoryInventoryLocalStore(),
-      );
+  ApiPlanRepository({required this.api, LocalAppStore? localStore}) {
+    final store = localStore ?? MemoryInventoryLocalStore();
+    creations = PlanCreationOperations(api: api, store: store);
+    formDrafts = PlanFormDrafts(api: api, store: store, creations: creations);
+    creations.formDrafts = formDrafts;
+  }
 
-  final PlanCreationOperations creations;
+  late final PlanCreationOperations creations;
+  late final PlanFormDrafts formDrafts;
 
   final ApiClient api;
   Future<void> Function()? onChanged;
@@ -64,12 +67,14 @@ class ApiPlanRepository extends ChangeNotifier {
   Future<PlanCreationReceipt> createPlan(
     MedicationPlanDraft draft, {
     PlanCreationSession? session,
+    PlanFormDraftHandle? formDraft,
     bool Function()? isCurrent,
   }) async {
     final origin = session ?? await creations.open(isCurrent: isCurrent);
     final receipt = await creations.submit(
       origin,
       draft: draft,
+      formDraft: formDraft,
       retry: false,
       isCurrent: isCurrent,
     );
@@ -102,13 +107,48 @@ class ApiPlanRepository extends ChangeNotifier {
     String planId, {
     required MedicationPlanDraft draft,
     required int version,
+    PlanFormDraftHandle? formDraft,
+    bool Function()? isCurrent,
   }) async {
+    if (formDraft?.session.offlineReadOnly == true) {
+      throw const PlanFormDraftException('当前为离线本机草稿，请联网重新加载后保存计划。');
+    }
     final epoch = api.identityEpoch;
-    await api.put(
-      '/api/v1/medication-plans/$planId',
-      draft.toUpdatePayload(version: version),
-    );
-    await _changed(epoch);
+    PlanFormDraftReference? reference;
+    var acknowledged = false;
+    try {
+      if (formDraft != null) {
+        if (formDraft.planId != planId) {
+          throw const PlanFormDraftException('计划草稿不属于当前计划。');
+        }
+        reference = await formDrafts.freeze(formDraft);
+      }
+      final result = await api.put(
+        '/api/v1/medication-plans/$planId',
+        draft.toUpdatePayload(version: version),
+        isCurrent: () =>
+            epoch == api.identityEpoch &&
+            (isCurrent?.call() ?? true) &&
+            (formDraft == null || formDrafts.isCurrent(formDraft)),
+      );
+      if (result is! Map ||
+          result['planId'] != planId ||
+          result['version'] != version + 1) {
+        throw const PlanFormDraftException('保存结果无法确认，请重新加载计划核对。');
+      }
+      acknowledged = true;
+      if (formDraft != null) {
+        try {
+          await formDrafts.acknowledgeReference(formDraft.session, reference);
+        } catch (_) {
+          // Known server success remains success; stale edit revision still
+          // uses the original optimistic version and cannot silently overwrite.
+        }
+      }
+      unawaited(_creationChanged(epoch));
+    } finally {
+      if (!acknowledged && formDraft != null) formDrafts.resume(formDraft);
+    }
   }
 
   Future<void> changeStatus(

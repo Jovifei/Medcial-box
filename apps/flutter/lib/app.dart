@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'data/api_auth_repository.dart';
 import 'data/app_services.dart';
 import 'data/app_stores.dart';
+import 'data/private_atomic_state.dart';
 import 'data/notification_tap_handler.dart';
 import 'features/auth/device_link_page.dart';
 import 'features/export/export_api_page.dart';
@@ -44,12 +45,14 @@ class HomeMedicineApp extends StatefulWidget {
     this.apiBaseUrl,
     this.secretStore,
     this.localStore,
+    this.identityStore,
     this.initialLocation = '/',
   });
 
   final String? apiBaseUrl;
   final SecretStore? secretStore;
   final LocalAppStore? localStore;
+  final PrivateAtomicState? identityStore;
   final String initialLocation;
 
   @override
@@ -61,6 +64,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     apiBaseUrl: widget.apiBaseUrl ?? apiBaseUrlFromBuild,
     secretStore: widget.secretStore,
     localStore: widget.localStore,
+    identityStore: widget.identityStore,
   );
   GoRouter? router;
   NotificationTapHandler? notificationTaps;
@@ -238,6 +242,14 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             state.matchedLocation != '/family-choice' &&
             state.matchedLocation != '/connect') {
           return '/family-choice';
+        }
+        if (services.isConfigured &&
+            (services.api!.identityState?.owner == null ||
+                !services.offlineCacheMatchesOwner) &&
+            state.matchedLocation != '/' &&
+            state.matchedLocation != '/connect' &&
+            state.matchedLocation != '/family-choice') {
+          return '/';
         }
         return null;
       },

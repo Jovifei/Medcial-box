@@ -48,4 +48,31 @@ npm test --workspace @home-medicine/miniprogram
 
 ## 数据与安全边界
 
-照片、家庭库存和剂量备注属于需要保护的家庭健康信息。本地试验只用合成数据。服务端按当前会话和家庭成员关系校验权限；家庭 ID 不能代替授权。微信 AppSecret、模型与药品数据服务密钥只保存在服务端私有配置。识别结果先进入待确认草稿，用户确认前不写入库存。
+开发微信小程序时，先用实际 AppID 和本地回环 API 生成隔离导入包，再在微信开发者工具打开命令输出的目录：
+
+```powershell
+npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 --local
+```
+
+生成包位于 `.local-data\mini-local-<UUID>`，只包含公开客户端配置，不含服务端密钥。源目录的 `project.config.json` 已包含药箱公开 AppID；生成包仍须使用与目标环境一致的公开客户端配置。AppID不是服务端密钥，也不能证明真实登录或模板已经验收。
+
+## 当前候选阶段
+
+本轮在 `codex/flutter-ui-prototype` 分支交付双端共享库存、开封后期限、库存阈值与盘点、补货、待处理、设备连接、条码候选、提醒、导出与恢复。分阶段事项和真实环境阻塞见 [`tasks/todo.md`](tasks/todo.md) 与 [`tasks/status.md`](tasks/status.md)。
+
+计划创建幂等、Flutter指定星期/库存绑定/持久及离线草稿、身份重启恢复和精确登记导出原件恢复已补齐；单页录入的大字布局、草稿返回/并发和原始保存意图边界也已修复。云端本地完整Flutter自动化660项、小程序230项通过；逐提交CI、实际引擎截图及剩余验收边界见 [当前收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。源码已有公开AppID，但真实身份、可用微信模板和两台手机验收未完成；不宣称真实登录、消息送达或家庭试用通过，本轮未部署ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
+
+2026-09-27的手机试用准备历史证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
+
+拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
+
+Flutter Android 客户端的运行和验收边界见 [`apps/flutter/README.md`](apps/flutter/README.md)。字体、资料接口和开源项目来源登记在 [`docs/references/`](docs/references/)。
+
+## 数据和安全边界
+
+照片、库存与剂量备注属于需要保护的家庭健康信息。当前本地验证仅使用合成数据。未来图片使用服务端鉴权和私有存储；模型与药品查询密钥只放在后端环境；后端每次按家庭检查权限。应用内的信息仅作药箱记录和来源核对，不能从库存或通用说明推断某个人应当用药。
+
+
+### 2026-10-04 本地整合补充
+
+远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。

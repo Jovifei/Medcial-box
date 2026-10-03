@@ -1,7 +1,12 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/symlink_capability.dart';
 import 'package:home_medicine_flutter/data/export_temporary_store.dart';
 
 void main() {
@@ -19,7 +24,10 @@ void main() {
   ExportTemporaryStore store({
     Future<void> Function(File, List<int>)? writer,
   }) => ExportTemporaryStore(
-    temporaryDirectory: () async => root,
+    process: ExportProcessCoordinator(
+      temporaryDirectory: () async => root,
+      journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+    ),
     writeBytes: writer,
   );
 
@@ -36,7 +44,10 @@ void main() {
         files.create(bytes: [1, 2, 3], extension: 'md', identityEpoch: 0),
         throwsA(isA<FileSystemException>()),
       );
-      expect(root.listSync().map((f) => f.path), [sibling.path]);
+      expect(
+        root.listSync().map((f) => f.absolute.uri.normalizePath()),
+        [sibling.absolute.uri.normalizePath()],
+      );
     },
   );
 
@@ -70,7 +81,10 @@ void main() {
       expect(cleaned, false);
       gate.complete();
       await Future.wait([rejected, reset]);
-      expect(root.listSync().map((f) => f.path), [sibling.path]);
+      expect(
+        root.listSync().map((f) => f.absolute.uri.normalizePath()),
+        [sibling.absolute.uri.normalizePath()],
+      );
     },
   );
 
@@ -113,10 +127,31 @@ void main() {
         throwsArgumentError,
       );
     }
-    expect(root.listSync().map((f) => f.path), [sibling.path]);
+    expect(
+      root.listSync().map((f) => f.absolute.uri.normalizePath()),
+      [sibling.absolute.uri.normalizePath()],
+    );
   });
 
+  test(
+    'unregistered sibling file survives release without requiring symlinks',
+    () async {
+      final files = store();
+      final owned = await files.create(
+        bytes: [1],
+        extension: 'pdf',
+        identityEpoch: 0,
+      );
+      final extra = await File('${owned.file.parent.path}/user-owned.txt')
+          .writeAsString('keep extra');
+      await owned.release();
+      expect(await owned.file.exists(), false);
+      expect(await extra.readAsString(), 'keep extra');
+    },
+  );
+
   test('unregistered sibling file and symlink inside owned directory are preserved', () async {
+    if (!await requireSymbolicLinks()) return;
     final files = store();
     final owned = await files.create(
       bytes: [1],
@@ -136,6 +171,7 @@ void main() {
   test(
     'registered path substituted with symlink never deletes its target',
     () async {
+      if (!await requireSymbolicLinks()) return;
       final files = store();
       final owned = await files.create(
         bytes: [1],
@@ -144,16 +180,20 @@ void main() {
       );
       await owned.file.delete();
       await Link(owned.file.path).create(sibling.path);
-      await owned.release();
+      await expectLater(
+        owned.release(),
+        throwsA(isA<ExportTemporaryException>()),
+      );
       expect(await sibling.readAsString(), 'preserve');
       expect(
         await FileSystemEntity.type(owned.file.path, followLinks: false),
-        FileSystemEntityType.notFound,
+        FileSystemEntityType.link,
       );
     },
   );
 
   test('unsafe directory cleanup fails closed, retains ownership and retries safely', () async {
+    if (!await requireSymbolicLinks()) return;
     final files = store();
     final owned = await files.create(
       bytes: [1],
@@ -245,7 +285,10 @@ void main() {
       gate.complete();
       await handoff;
       expect(await owned.file.exists(), false);
-      expect(root.listSync().map((f) => f.path), [sibling.path]);
+      expect(
+        root.listSync().map((f) => f.absolute.uri.normalizePath()),
+        [sibling.absolute.uri.normalizePath()],
+      );
     },
   );
   test('plugin cache, pre-existing legacy exports and unrelated directories are not swept', () async {
@@ -266,6 +309,7 @@ void main() {
     expect(await legacy.readAsString(), 'legacy unregistered');
   });
   test('native result survives cleanup failure, which remains separately retryable', () async {
+    if (!await requireSymbolicLinks()) return;
     final files = store();
     final owned = await files.create(
       bytes: [1],

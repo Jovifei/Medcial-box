@@ -1,4 +1,10 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+import 'package:home_medicine_flutter/data/export_temporary_store.dart';
+
 import 'dart:io';
+
+import 'support/identity_fixture.dart';
 
 // ignore: depend_on_referenced_packages
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -143,7 +149,7 @@ void main() {
     await services.plans!.onChanged!();
     failCancel = false;
     await services.auth!.logout();
-    expect(secrets.values[ApiAuthRepository.accessTokenKey], isNull);
+    expect(storedSyntheticToken(secrets), isNull);
   });
   test(
     'current 401 must delete stale token despite native cancellation failure',
@@ -160,7 +166,7 @@ void main() {
       failCancel = true;
       await services.plans!.onChanged!();
       expect(services.sessionInvalidated.value, isTrue);
-      expect(secrets.values[ApiAuthRepository.accessTokenKey], isNull);
+      expect(storedSyntheticToken(secrets), isNull);
     },
   );
   test('acknowledged dose confirmation with offline refresh removes old dose alarm and keeps stock', () async {
@@ -330,7 +336,7 @@ void main() {
     failCancel = true;
     await services.plans!.onChanged!();
     await services.auth!.logout();
-    expect(secrets.values[ApiAuthRepository.accessTokenKey], isNull);
+    expect(storedSyntheticToken(secrets), isNull);
     expect(services.sessionInvalidated.value, isTrue);
   });
 
@@ -473,6 +479,10 @@ void main() {
               HomeMedicineApp(
                 apiBaseUrl: 'https://medicine.example',
                 secretStore: secrets,
+                identityStore: await identityFixture(
+                  secrets,
+                  localStore: delayedLocal,
+                ),
                 localStore: delayedLocal,
               ),
             );
@@ -523,12 +533,13 @@ void main() {
         await tester.tap(find.text('退出 App 登录'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         expect(delayedLocal.entered.isCompleted, isTrue);
         delayedLocal.release.complete();
         await tester.pumpAndSettle();
         expect(
-          secrets.values[ApiAuthRepository.accessTokenKey],
+          storedSyntheticToken(secrets),
           failDelete ? 'synthetic-token' : isNull,
         );
         expect(find.byType(DeviceLinkPage), findsOneWidget);
@@ -561,6 +572,12 @@ void main() {
       },
       secrets: secrets,
       local: local,
+      exportFiles: ExportTemporaryStore(
+        process: ExportProcessCoordinator(
+          temporaryDirectory: () async => root,
+          journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+        ),
+      ),
     );
     await h.seedFamily(services);
     final unrelated = await File('${root.path}/unrelated-synthetic.txt')

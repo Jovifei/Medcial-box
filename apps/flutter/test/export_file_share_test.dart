@@ -1,3 +1,6 @@
+import 'package:home_medicine_flutter/data/export_ownership_journal.dart';
+import 'package:home_medicine_flutter/data/private_atomic_state.dart';
+
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:io';
 
@@ -25,23 +28,32 @@ void main() {
   test(
     'bridge dependency versions stay at their explicitly reviewed boundary',
     () {
-      final lock = File('pubspec.lock').readAsStringSync();
-      String version(String name) {
+      final source = File('pubspec.lock')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+      String version(String name, String lock) {
+        final normalized = lock.replaceAll('\r\n', '\n');
         final section = RegExp(
           '^  $name:\\n([\\s\\S]*?)(?=^  [a-z_]+:|\\z)',
           multiLine: true,
-        ).firstMatch(lock);
+        ).firstMatch(normalized);
         expect(section, isNotNull);
         return RegExp(r'version: "([^"]+)"')
             .firstMatch(section!.group(1)!)!
             .group(1)!;
       }
 
-      expect(version('share_plus'), ExportFileShare.testedSharePlusVersion);
-      expect(
-        version('share_plus_platform_interface'),
-        ExportFileShare.testedPlatformInterfaceVersion,
-      );
+      for (final lineEnding in ['\n', '\r\n']) {
+        final lock = source.replaceAll('\n', lineEnding);
+        expect(
+          version('share_plus', lock),
+          ExportFileShare.testedSharePlusVersion,
+        );
+        expect(
+          version('share_plus_platform_interface', lock),
+          ExportFileShare.testedPlatformInterfaceVersion,
+        );
+      }
     },
   );
 
@@ -108,13 +120,18 @@ void main() {
     });
   }
   test(
-    'guarded native dispatch occurs before same-turn identity reset',
+    'identity reset during owned-file preflight prevents native dispatch',
     () async {
       final root = await Directory.systemTemp.createTemp(
         'export-native-order-',
       );
       addTearDown(() => root.delete(recursive: true));
-      final store = ExportTemporaryStore(temporaryDirectory: () async => root);
+      final store = ExportTemporaryStore(
+        process: ExportProcessCoordinator(
+          temporaryDirectory: () async => root,
+          journal: ExportOwnershipJournal(state: MemoryPrivateAtomicState()),
+        ),
+      );
       final owned = await store.create(
         bytes: [65],
         extension: 'md',
@@ -137,12 +154,16 @@ void main() {
           isCurrent: () => store.identityEpoch == 0,
         ),
       );
+      final rejected = expectLater(
+        handoff,
+        throwsA(isA<ExportTemporaryException>()),
+      );
       final reset = store.resetForIdentity();
-      await Future.wait([handoff, reset]);
+      await Future.wait([rejected, reset]);
       expect(
         nativeEpochs,
-        [0],
-        reason: 'No asynchronous Dart preparation may defer native dispatch past identity reset',
+        isEmpty,
+        reason: 'Preflight rechecks identity before the final synchronous native boundary',
       );
       expect(await owned.file.exists(), false);
     },
