@@ -164,12 +164,19 @@ class ApiPlanRepository extends ChangeNotifier {
     String careProfileId, {
     required String memberUserId,
     required bool canManage,
+    bool canView = true,
     bool receiveDoseReminders = false,
   }) async {
     await api.post(
       '/api/v1/care-profiles/$careProfileId/grants',
-      body: {'memberUserId': memberUserId, 'canManage': canManage},
+      body: {
+        'memberUserId': memberUserId,
+        'canView': canManage || canView,
+        'canManage': canManage,
+        'receiveDoseReminders': receiveDoseReminders,
+      },
     );
+    await _changed();
   }
 
   Future<void> transferCareManagement(

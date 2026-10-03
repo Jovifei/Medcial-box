@@ -95,6 +95,7 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
         widget.careProfileId,
         memberUserId: grant.memberUserId,
         canManage: grant.canManage,
+        canView: grant.canView,
         receiveDoseReminders: value,
       );
       await _reload();
@@ -113,6 +114,7 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
         widget.careProfileId,
         memberUserId: grant.memberUserId,
         canManage: canManage,
+        canView: canManage || grant.canView,
         receiveDoseReminders: grant.receiveDoseReminders,
       );
       await _reload();
@@ -158,11 +160,17 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
   }
 
   Future<void> _addGrant() async {
+    if (_busy) return;
     final granted =
         _grants?.grants.map((grant) => grant.memberUserId).toSet() ??
         <String>{};
     final candidates = _members
-        .where((member) => !granted.contains(member.id))
+        .where(
+          (member) =>
+              !member.isSelf &&
+              member.userId?.trim().isNotEmpty == true &&
+              !granted.contains(member.userId),
+        )
         .toList(growable: false);
     if (candidates.isEmpty) {
       _toast('没有可添加的家庭成员。');
@@ -180,10 +188,8 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
                   context,
                   icon: Icons.person_outline_rounded,
                   title: member.displayName,
-                  subtitle: member.isSelf
-                      ? '我'
-                      : (member.role == 'owner' ? '管理员' : '成员'),
-                  onTap: () => Navigator.pop(context, member.id),
+                  subtitle: member.role == 'owner' ? '管理员' : '成员',
+                  onTap: () => Navigator.pop(context, member.userId),
                 ),
               ),
             )
@@ -197,6 +203,8 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
         widget.careProfileId,
         memberUserId: chosen,
         canManage: false,
+        canView: true,
+        receiveDoseReminders: false,
       );
       await _reload();
     } catch (error) {

@@ -606,12 +606,17 @@ class FamilyRecord {
 class FamilyMemberRecord {
   const FamilyMemberRecord({
     required this.id,
+    this.userId,
     required this.displayName,
     required this.role,
     required this.isSelf,
     required this.joinedAt,
   });
+  /// Family membership row ID; keep for member removal/ownership operations.
   final String id;
+
+  /// Account ID used by care grants; absent in legacy cached family records.
+  final String? userId;
   final String displayName;
   final String role;
   final bool isSelf;
@@ -620,6 +625,9 @@ class FamilyMemberRecord {
   factory FamilyMemberRecord.fromJson(Map<String, dynamic> json) =>
       FamilyMemberRecord(
         id: _stringOr(json['id']),
+        userId: _stringOr(json['userId']).trim().isEmpty
+            ? null
+            : _stringOr(json['userId']),
         displayName: _stringOr(json['displayName'], '家庭成员'),
         role: _stringOr(json['role'], 'member'),
         isSelf: json['isSelf'] == true,
@@ -628,6 +636,7 @@ class FamilyMemberRecord {
 
   Map<String, Object?> toCacheJson() => {
     'id': id,
+    'userId': userId,
     'displayName': displayName,
     'role': role,
     'isSelf': isSelf,
