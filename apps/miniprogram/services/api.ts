@@ -164,6 +164,19 @@ function parseErrorBody(raw: unknown, statusCode: number, invalidatedSession?: S
   return new ApiError("REQUEST_FAILED", `请求失败（${statusCode}）`, statusCode, invalidatedSession);
 }
 
+export function networkFailureError(error?: { errMsg?: string }): ApiError {
+  const detail = error?.errMsg ?? "";
+  let reason = "连接失败";
+  if (/url not in.*domain|domain list|合法域名/i.test(detail)) reason = "微信域名校验拒绝";
+  else if (/ssl|tls|cert|handshake/i.test(detail)) reason = "HTTPS证书或TLS校验失败";
+  else if (/timeout|timed out/i.test(detail)) reason = "连接超时";
+  else {
+    const code = detail.match(/ERR_[A-Z_]+/);
+    if (code !== null) reason = code[0];
+  }
+  return new ApiError("NETWORK_ERROR", `药箱服务${reason}（${API_BASE}）。电脑模拟器与手机网络配置不同，请核对当前测试地址和USB转发。`, 0);
+}
+
 export function request<T>(options: RequestOptions): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const identity = captureSessionIdentity();
@@ -194,9 +207,9 @@ export function request<T>(options: RequestOptions): Promise<T> {
         }
         reject(parseErrorBody(response.data as unknown, status, invalidatedSession));
       },
-      fail: () => {
+      fail: (error) => {
         if (authenticated && !isCurrentSession(identity)) { reject(staleSessionError()); return; }
-        reject(new ApiError("NETWORK_ERROR", "网络不可用，请确认家庭药箱服务已启动", 0));
+        reject(networkFailureError(error));
       },
     });
   });

@@ -1,4 +1,9 @@
 {
-  "desc": "Search indexing rules for the household medicine cabinet mini program.",
-  "rules": []
+  "desc": "家庭药箱含私人健康资料，不参与微信搜索索引。",
+  "rules": [
+    {
+      "action": "disallow",
+      "page": "*"
+    }
+  ]
 }

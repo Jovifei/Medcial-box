@@ -26,12 +26,12 @@ export async function prepareMiniProgram({ appId, apiBase, root = workspace, loc
   const source = join(root, "apps", "miniprogram");
   const output = join(root, ".local-data", `mini-${local ? "local" : "staging"}-${randomUUID()}`);
   await mkdir(output, { recursive: true });
-  const excluded = new Set(["node_modules", "dist", "compiled", "private.config.json", "project.private.config.json"]);
+  const excluded = new Set(["node_modules", "dist", "compiled", "test", "typings", "package.json", "tsconfig.json", "private.config.json", "project.private.config.json"]);
   await cp(source, output, {
     recursive: true,
     filter(path) {
       const name = basename(path);
-      return !excluded.has(name) && !name.startsWith(".") && !name.endsWith(".env");
+      return !excluded.has(name) && !name.startsWith(".") && !name.endsWith(".env") && !name.endsWith(".map");
     },
   });
   const project = JSON.parse(await readFile(join(output, "project.config.json"), "utf8"));

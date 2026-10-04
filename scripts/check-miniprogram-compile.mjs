@@ -13,6 +13,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { checkMiniProgramPackage } from "./check-miniprogram-package.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const projectRoot = path.join(repoRoot, "apps", "miniprogram");
@@ -43,6 +44,12 @@ function collect(directory, extension) {
   return files;
 }
 
+const packageResult = await checkMiniProgramPackage(projectRoot);
+if (!packageResult.ok) {
+  console.error(JSON.stringify(packageResult, null, 2));
+  process.exit(1);
+}
+console.log(`[check:miniprogram] 打包门禁通过：${packageResult.bytes} bytes，${packageResult.files} files。`);
 const compilerDir = findCompilerDir();
 if (compilerDir === null) {
   console.log("[check:miniprogram] 未找到微信开发者工具，跳过官方编译器校验。");

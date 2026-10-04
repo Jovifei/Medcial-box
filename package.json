@@ -22,7 +22,9 @@
     "setup:staging": "node scripts/init-staging-config.mjs",
     "check:miniprogram": "node scripts/check-miniprogram-compile.mjs",
     "build": "npm run build --workspaces --if-present",
-    "dev:api": "npm run dev --workspace @home-medicine/api"
+    "dev:api": "npm run dev --workspace @home-medicine/api",
+    "check:miniprogram:package": "node scripts/check-miniprogram-package.mjs",
+    "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
