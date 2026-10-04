@@ -126,10 +126,15 @@ interface StoredMedicineDraft {
 interface PhotoEntryDraft {
   id: string;
   thumbnail: string;
-  status: "review" | "recognizing" | "failed" | "saved" | "photo_pending";
+  status: "review" | "recognizing" | "failed" | "saved" | "photo_pending" | "cleanup_pending";
   fields: MedicineDraftValues;
   medicineId: string;
-  photos: Array<{ path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry"; batchIndex: number; uploadedId?: string }>;
+  photos: Array<{
+    path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry";
+    batchIndex: number; uploadedId?: string;
+    ownedLocal?: { scopeKey: string; draftId: string; path: string };
+    localFileRemoved?: boolean;
+  }>;
 }
 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
@@ -363,17 +368,47 @@ function showError(error: unknown): void {
   wx.showToast({ title: message, icon: "none", duration: 2800 });
 }
 
-/** 删除仅属于本小程序持久草稿目录的照片，避免药盒图片长期残留在 USER_DATA_PATH。 */
-function removePhotoDraftFiles(draft: PhotoEntryDraft): void {
+/** Only recorded, exact generated originals may be unlinked. Ambiguous files stay put. */
+async function removePhotoDraftFiles(
+  draft: PhotoEntryDraft, scopeKey: string, isCurrent: () => boolean,
+): Promise<boolean> {
   const root = wx.env?.USER_DATA_PATH;
-  if (!root) return;
+  if (!root || !Array.isArray(draft.photos)) return false;
   const fs = wx.getFileSystemManager();
-  const seen = new Set<string>();
+  let complete = true;
   for (const photo of draft.photos) {
-    if (!photo.path.startsWith(`${root}/`) || seen.has(photo.path)) continue;
-    seen.add(photo.path);
-    fs.unlink({ filePath: photo.path, fail: () => undefined });
+    if (!isCurrent()) return false;
+    if (photo.localFileRemoved) continue;
+    // Picker/cache files outside the persistent directory are not owned by us.
+    if (typeof photo.path !== "string") { complete = false; continue; }
+    if (!photo.path.startsWith(`${root}/`)) continue;
+    const owned = photo.ownedLocal;
+    const relative = photo.path.slice(root.length + 1);
+    const extension = photo.mimeType === "image/png" ? "png" : "jpg";
+    const expectedPrefix = `${draft.id}-${photo.purpose}-`;
+    if (!owned || owned.scopeKey !== scopeKey || owned.draftId !== draft.id || owned.path !== photo.path ||
+        !/^photo-\d+-[a-z0-9]{1,6}$/.test(draft.id) ||
+        !["box_front", "expiry"].includes(photo.purpose) ||
+        !relative.startsWith(expectedPrefix) ||
+        !new RegExp(`^\\d+\\.${extension}$`).test(relative.slice(expectedPrefix.length))) {
+      complete = false;
+      continue;
+    }
+    const removed = await new Promise<boolean>((resolve) => {
+      try {
+        fs.unlink({
+          filePath: photo.path,
+          success: () => resolve(true),
+          // The previous removal may have succeeded before storage acknowledged it.
+          fail: (error) => resolve(/(?:ENOENT|no such file or directory)/i.test(error.errMsg ?? "")),
+        });
+      } catch { resolve(false); }
+    });
+    if (!isCurrent()) return false;
+    if (removed) photo.localFileRemoved = true;
+    else complete = false;
   }
+  return complete;
 }
 
 Page({
@@ -446,6 +481,7 @@ Page({
   draftStorageKey: null as string | null,
   photoScopeKey: null as string | null,
   photoDraftStorageWarningShown: false,
+  photoCleanupRunning: false,
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
@@ -994,7 +1030,7 @@ Page({
       if (!this.entryScopeIsCurrent(originalScope)) return;
       const file = selection.tempFiles[0];
       if (!file) return;
-      if (!this.data.activePhotoDraftId && this.data.photoDrafts.filter((item) => item.status !== "saved").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
+      if (!this.data.activePhotoDraftId && this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
       if (file.size > 4 * 1024 * 1024) {
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
@@ -1024,14 +1060,17 @@ Page({
         await new Promise<void>((resolve, reject) => fs.writeFile({ filePath: path, data: imageBase64, encoding: "base64", success: () => resolve(), fail: reject }));
       }
       if (!this.entryScopeIsCurrent(originalScope)) return;
-      const entries = this.data.photoDrafts.filter((item) => item.status !== "saved");
+      const entries = [...this.data.photoDrafts];
       let entry = entries.find((item) => item.id === id);
       if (!entry) {
-        if (entries.filter((item) => item.status !== "saved").length >= 10) { wx.showToast({ title: "最多10份待核对草稿，请先保存或删除", icon: "none" }); return; }
+        if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份待核对草稿，请先保存或删除", icon: "none" }); return; }
         entry = { id, thumbnail: path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
         entries.push(entry);
       }
-      entry.photos.push({ path, mimeType, purpose, batchIndex: 0 });
+      entry.photos.push({ path, mimeType, purpose, batchIndex: 0,
+        ...(path !== file.tempFilePath && originalScope
+          ? { ownedLocal: { scopeKey: originalScope, draftId: id, path } } : {}),
+      });
       entry.status = "recognizing";
       this.setData({ photoDrafts: entries, activePhotoDraftId: id, recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
       this.persistPhotoDrafts();
@@ -1247,10 +1286,8 @@ Page({
     try {
       const drafts = wx.getStorageSync(key) as PhotoEntryDraft[] | undefined;
       if (!Array.isArray(drafts)) return;
-      const pending = drafts.filter((item) => item.status !== "saved");
-      for (const stale of drafts.filter((item) => item.status === "saved")) removePhotoDraftFiles(stale);
-      this.setData({ photoDrafts: pending });
-      if (pending.length !== drafts.length) wx.setStorageSync(key, pending);
+      this.setData({ photoDrafts: drafts });
+      void this.cleanupPhotoDrafts();
       this.photoDraftStorageWarningShown = false;
     } catch {
       if (!this.photoDraftStorageWarningShown) {
@@ -1259,19 +1296,52 @@ Page({
       }
     }
   },
-  persistPhotoDrafts(): void {
+  persistPhotoDrafts(): boolean {
     const key = scopedStorageKey("medicine-photo-drafts");
-    if (!key || key !== this.photoScopeKey) return;
+    if (!key || key !== this.photoScopeKey) return false;
     const active = this.data.photoDrafts.find((item) => item.id === this.data.activePhotoDraftId);
     if (active) active.fields = draftValues(this.data as MedicineEditPageData);
     try {
       wx.setStorageSync(key, this.data.photoDrafts);
       this.photoDraftStorageWarningShown = false;
+      return true;
     } catch {
       if (!this.photoDraftStorageWarningShown) {
         this.photoDraftStorageWarningShown = true;
         wx.showToast({ title: "照片草稿保存失败，请尽快完成当前录入", icon: "none" });
       }
+      return false;
+    }
+  },
+  async cleanupPhotoDrafts(): Promise<void> {
+    const scope = this.photoScopeKey;
+    if (this.photoCleanupRunning || !scope || !this.entryScopeIsCurrent(scope)) return;
+    this.photoCleanupRunning = true;
+    try {
+      // Persist cleanup intent before deleting bytes, so failures can be retried after restart.
+      if (!this.persistPhotoDrafts()) return;
+      for (const draft of [...this.data.photoDrafts]) {
+        if (draft.status !== "saved" && draft.status !== "cleanup_pending") continue;
+        const current = (): boolean => this.entryScopeIsCurrent(scope) && this.data.photoDrafts.includes(draft);
+        if (!current()) return;
+        const removed = await removePhotoDraftFiles(draft, scope, current);
+        if (!current()) return;
+        if (removed) {
+          const prior = this.data.photoDrafts;
+          this.setData({ photoDrafts: prior.filter((item) => item !== draft) });
+          if (!this.persistPhotoDrafts()) {
+            this.setData({ photoDrafts: prior });
+            return;
+          }
+        } else {
+          this.persistPhotoDrafts();
+          wx.showToast({ title: "部分本机照片待清理，记录已保留", icon: "none" });
+        }
+      }
+    } catch {
+      wx.showToast({ title: "本机照片清理未完成，记录已保留", icon: "none" });
+    } finally {
+      this.photoCleanupRunning = false;
     }
   },
   setPhotoDraftStatus(status: PhotoEntryDraft["status"]): void {
@@ -1282,7 +1352,7 @@ Page({
   onSelectPhotoDraft(event: { currentTarget: { dataset: { id?: string } } }): void {
     if (this.data.recognizing || this.data.submitting) return;
     const entry = this.data.photoDrafts.find((item) => item.id === event.currentTarget.dataset.id);
-    if (!entry || entry.status === "saved") return;
+    if (!entry || entry.status === "saved" || entry.status === "cleanup_pending") return;
     this.persistPhotoDrafts();
     this.recognitionToken += 1;
     this.setData({ ...entry.fields, activePhotoDraftId: entry.id, recognitionHint: entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
@@ -1290,7 +1360,7 @@ Page({
   },
   onNewPhotoDraft(): void {
     if (this.data.recognizing || this.data.submitting) return;
-    if (this.data.photoDrafts.filter((item) => item.status !== "saved").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
+    if (this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
     this.persistPhotoDrafts();
     this.recognitionToken += 1;
     this.setData({ attemptedPayload: null, createOperationKey: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`, name: "", specification: "", manufacturer: "", approvalNumber: "", barcodeValue: "", ingredients: "", purposeCategory: "", populationTags: [], purposeTags: [], leafletPurpose: "", leafletUsage: "", leafletContraindications: "", leafletPrecautions: "", leafletSource: "", verified: false, batches: [emptyBatch()], activePhotoDraftId: "", recognitionHint: "", scannedBarcode: "", candidates: [] });
@@ -1305,9 +1375,11 @@ Page({
     wx.showModal({ title: "删除本机照片草稿", content: "已保存的药品和私有照片不受影响。", success: (result) => {
       if (!result.confirm || !this.entryScopeIsCurrent(originalScope) || this.data.recognizing || this.data.submitting) return;
       const draft = this.data.photoDrafts.find((item) => item.id === id);
-      if (draft) removePhotoDraftFiles(draft);
-      this.setData({ photoDrafts: this.data.photoDrafts.filter((item) => item.id !== id), ...(this.data.activePhotoDraftId === id ? { activePhotoDraftId: "" } : {}) });
-      this.persistPhotoDrafts();
+      if (!draft) return;
+      draft.status = "cleanup_pending";
+      this.setData({ photoDrafts: this.data.photoDrafts });
+      if (this.data.activePhotoDraftId === id) this.setData({ activePhotoDraftId: "" });
+      if (this.persistPhotoDrafts()) void this.cleanupPhotoDrafts();
     } });
   },
 
@@ -1429,12 +1501,11 @@ Page({
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
           if (!this.entryScopeIsCurrent(originalScope)) return;
-          removePhotoDraftFiles(activePhoto);
-          this.setData({
-            photoDrafts: this.data.photoDrafts.filter((item) => item.id !== activePhoto.id),
-            activePhotoDraftId: "",
-          });
-          this.persistPhotoDrafts();
+          activePhoto.status = "saved";
+          this.setData({ activePhotoDraftId: "" });
+          if (!this.persistPhotoDrafts()) return;
+          await this.cleanupPhotoDrafts();
+          if (!this.entryScopeIsCurrent(originalScope)) return;
         } catch {
           if (!this.entryScopeIsCurrent(originalScope)) return;
           this.setPhotoDraftStatus("photo_pending");

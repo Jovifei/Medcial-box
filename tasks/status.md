@@ -1,3 +1,13 @@
+# 当前执行补充 · 2026-10-04 最新安全续作
+
+当前原分支 `audit/final-delivery-2026-10-04`，已发布 `4b5b641` 门禁/安全诊断、`5b9ace6` 字体宿主fixture与许可证、`91dd6c1` 录入原家庭异步保护。本轮继续修复照片精确归属及清理失败恢复，状态仍 **PARTIAL**。
+
+最新云端小程序250、API238（13可选PG套件跳过）、工具59及lint/typecheck/build/源包预算PASS。第一批CI验出旧字体资源回归后已修复，后续精确CI和Android构建仍跟踪，不以局部通过代表整项目交付。
+
+详情：[照片清理归属与恢复](reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
+
+---
+
 # 当前执行补充 · 2026-10-04 最新审计分支
 
 状态 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。最新实施基线 `audit/final-delivery-2026-10-04 / 0c19a16`；main 已包含旧 prototype，但最新审计工作尚未进入 main。此前下方状态均按其源码日期保留，不能直接当作当前版本。
