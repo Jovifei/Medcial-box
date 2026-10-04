@@ -37,6 +37,22 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  backup-docker:
+    # Disposable synthetic resources only; no deployment environment or secrets.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Exercise isolated staging backup and restore
+        run: node scripts/test-staging-backup-docker.mjs
+
   flutter:
     runs-on: ubuntu-latest
     defaults:

@@ -1,12 +1,14 @@
 # 当前状态 · 2026-10-03 云端补充收尾
 
-- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `6ec8d7a`，既有分支 `codex/flutter-ui-prototype`
-- 已发布17批独立修复；在既有会话/提醒/历史/幂等/权限/清理边界之上，补齐Flutter计划表单、重启身份、精确导出原件恢复，以及五批单页录入可靠性修复
-- 云端本地最终Flutter660/analyze与独立聚焦76通过；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
-- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位，最终源码重新生成45张Flutter引擎图；原生系统Back、真实输入法、相机与官方WeChat仍待验，详见 [录入可靠性与视觉证据](reports/closeout/16-entry-reliability-and-visual-verification.md)
+- 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `f5e17e5`，既有分支 `codex/flutter-ui-prototype`
+- 已发布19批独立修复与验证补充；在既有会话/提醒/历史/幂等/权限/清理边界之上，补齐Flutter计划表单、重启身份、精确导出原件恢复，以及五批单页录入可靠性修复
+- 最新精确提交Linux CI的Flutter671/analyze通过，15个符号链接安全场景均实际执行；C2冻结时独立聚焦76证据保留；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
+- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位；45张Flutter引擎图对应6ec8d7a的生产页面源码，后续两批未改渲染源码。原生系统Back、真实输入法、相机与WeChat页面仍待验，详见 [录入可靠性与视觉证据](reports/closeout/16-entry-reliability-and-visual-verification.md)
 - C4仍PARTIAL：仅恢复清理精确登记且证据一致的完整原件；中断未登记、替换和旧模糊文件保留。旧原始令牌无可信来源记录需重新连接；未知草稿保留隔离。不能宣称跨进程、断电或所有持久写入失败场景均已关闭
-- 官方小程序编译在本云环境SKIPPED；CI debug APK未配置生产API/正式签名。真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍NOT_RUN
-- 本轮只使用云端源码与合成数据；未访问原Windows工作区、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
+- Windows本机官方WeChat编译25WXML+26WXSS通过，Flutter656 PASS / 0 FAIL / 15 SKIPPED（仅缺少创建符号链接权限errno1314）。非链接保留断言独立执行；这15个本机安全分支不称PASS
+- Android缺失的三个未选OCR脚本各Options/Builder仅用六条精确规则处理，保留R8和默认规则；CI及本机debug/release编译通过。本机release仍使用既有debug签名、API为空，未安装、未验证原生中文OCR，不能称正式发布就绪。详见 [平台编译门禁](reports/closeout/17-platform-build-and-fixture-verification.md)
+- WeChat JS/模拟器页面、真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍未验收
+- 本轮仅合成数据；本机后续使用隔离worktree验证，保留原目录未提交/未跟踪文件，未安装覆盖、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
 
 - 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；源码 `codex/flutter-ui-prototype / 736d7623435e2a38e3ebb51859574d43dffa0120`。项目未达到 LOCAL_RC_READY、STAGING_READY 或 V1_DELIVERED。
 - 本地已快进同步远端 10 个提交。计划创建重试使用迁移 028 持久回执；新“支”单位使用迁移 029。新环境需先应用所有待用迁移，再更新 API，最后更新客户端。

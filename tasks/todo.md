@@ -1,15 +1,17 @@
 # 当前执行补充 · 2026-10-03
 
-以 [v1收尾计划](plans/2026-10-02-project-closeout.md) 和 [当前证据矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md) 为准。状态PARTIAL；当前代码6ec8d7a，以下旧勾选项只代表当时版本。
+以 [v1收尾计划](plans/2026-10-02-project-closeout.md) 和 [当前证据矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md) 为准。状态PARTIAL；当前代码f5e17e5，以下旧勾选项只代表当时版本。
 
-- [x] 发布17批独立可靠性修复，保留各自源码/测试/父提交与回放证据；逐提交CI按矩阵记录
-- [x] 云端本地最终Flutter660/analyze、独立聚焦76；小程序230、工具6及根lint/typecheck/build通过
+- [x] 发布19批独立修复与验证补充，保留各自源码/测试/父提交与回放证据；逐提交CI按矩阵记录
+- [x] 最新Linux CI完整Flutter671/analyze，C2独立聚焦76历史证据保留；小程序230、工具6及根lint/typecheck/build通过
 - [x] 计划创建事务幂等、双端相同意图显式重试（迁移028；先升级API再升级客户端）
 - [x] Flutter计划指定星期、药箱选择/medicineId、会话/家庭隔离的持久普通草稿与已验证归属离线恢复
 - [x] 持久身份代次与退出恢复；精确登记的完整导出原件重启恢复、共享写入/分享租约
 - [x] 小程序保留草稿失败不离页；Flutter大字布局、单次返回意图、同身份并发队列和库存/照片原始保存意图边界；45张最终引擎渲染和回归证据
 - [ ] 目标平台持久状态、C4模糊中断文件保留边界和真实系统分享验收，不把上述代码修复当作完整C4关闭
-- [ ] 官方小程序编译、正式API/签名候选manifest及Android实际系统Back/输入法/后台/锁屏/重启验收
+- [x] 本机官方小程序编译51文件通过；CI和本机R8优化release编译通过，未禁用压缩或扩大语言模型
+- [x] Windows路径/CRLF测试可移植性修复；完整656通过、15项符号链接能力不足明确SKIPPED，Linux15项安全场景全部执行
+- [ ] 正式API/签名候选manifest、原生中文OCR与Android实际系统Back/输入法/后台/锁屏/重启，以及WeChat JS/模拟器页面验收
 - [ ] 真实双账号两手机、拍扫/模板/通知/分享、独立HTTPS与数据库＋图片恢复
 - [ ] Jovi体验验收及另行获准的main合并/正式发布
 
