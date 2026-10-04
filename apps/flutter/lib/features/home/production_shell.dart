@@ -224,7 +224,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         MedicineFilter.lowStock => [
           'low',
           'exhausted',
-          'unknown',
         ].contains(medicine.stockStatus),
         MedicineFilter.missingInfo =>
           medicine.batches.any(
