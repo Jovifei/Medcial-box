@@ -183,7 +183,7 @@ Page({
     const currentUnit = UNIT_VALUES[this.data.unitIndex];
     if (nextUnit === currentUnit) return;
     // 单位切换守卫：数字不换算，由用户确认后生效，避免 2 片悄悄变成 2 盒。
-    const hasValue = this.data.quantity !== "" || this.data.confirmedUnits !== "" || this.data.quantityUnknown;
+    const hasValue = this.data.quantity.trim() !== "" || this.data.confirmedUnits.trim() !== "";
     if (!hasValue) {
       this.setData({ unitIndex: nextIndex });
       return;
@@ -197,6 +197,22 @@ Page({
         if (result.confirm) this.setData({ unitIndex: nextIndex });
       },
     });
+  },
+
+  onExpiryDateChange(event: { detail: { value: string } }): void {
+    this.setData({ expiryValue: this.data.precisionIndex === 1 ? event.detail.value.slice(0, 7) : event.detail.value });
+  },
+
+  onDayDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
+    const field = event.currentTarget.dataset.field;
+    if (field !== "openedAt" && field !== "openingLimitValue") return;
+    this.setData({ [field]: event.detail.value });
+  },
+
+  onClearDate(event: { currentTarget: { dataset: { field?: string } } }): void {
+    const field = event.currentTarget.dataset.field;
+    if (field !== "openedAt" && field !== "openingLimitValue") return;
+    this.setData({ [field]: "" });
   },
 
   onUnknownChange(event: { detail: { value: boolean } }): void {
