@@ -48,7 +48,7 @@ npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 
 
 本轮在 `codex/flutter-ui-prototype` 分支交付双端共享库存、开封后期限、库存阈值与盘点、补货、待处理、设备连接、条码候选、提醒、导出与恢复。分阶段事项和真实环境阻塞见 [`tasks/todo.md`](tasks/todo.md) 与 [`tasks/status.md`](tasks/status.md)。
 
-计划创建幂等、Flutter指定星期/库存绑定/持久及离线草稿、身份重启恢复和精确登记导出原件恢复已补齐；单页录入的大字布局、草稿返回/并发和原始保存意图边界也已修复。云端本地完整Flutter自动化660项、小程序230项通过；逐提交CI、实际引擎截图及剩余验收边界见 [当前收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。源码已有公开AppID，但真实身份、可用微信模板和两台手机验收未完成；不宣称真实登录、消息送达或家庭试用通过，本轮未部署ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
+计划创建幂等、Flutter指定星期/库存绑定/持久及离线草稿、身份重启恢复和精确登记导出原件恢复已补齐；单页录入的大字布局、草稿返回/并发和原始保存意图边界也已修复。最新CI完整Flutter自动化671项、小程序230项通过；Windows本机656项通过、15项因符号链接权限能力不足明确跳过；逐提交CI、实际引擎截图及剩余验收边界见 [当前收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。源码已有公开AppID，但真实身份、可用微信模板和两台手机验收未完成；不宣称真实登录、消息送达或家庭试用通过，本轮未部署ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
 
 2026-09-27的手机试用准备历史证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
 

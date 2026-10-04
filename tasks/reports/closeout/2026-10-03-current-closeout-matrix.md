@@ -1,13 +1,13 @@
 # 当前收尾矩阵 · 2026-10-03
 
-核对源码：`codex/flutter-ui-prototype / 6ec8d7a09ed5f1591bbff392fd8acbadc7b7dc2e`。本文件统一当前判断，下面列出的旧报告保留各自当时的环境与证据，不用旧统计推导当前完成。
+核对源码：`codex/flutter-ui-prototype / f5e17e581df865b2fedf247d00fba1a5a6036981`。本文件统一当前判断，下面列出的旧报告保留各自当时的环境与证据，不用旧统计推导当前完成。
 
 **状态：IMPLEMENTATION_AND_VERIFICATION / PARTIAL。尚未达到 LOCAL_RC_READY、STAGING_READY 或 V1_DELIVERED。** 已关闭的代码缺陷与尚未执行的真实验收分开列出；自动化通过不等于家庭交付。
 
 ## 本轮来源与约束
 
-- 只使用 GitHub 当前分支的云端源码副本、隔离 PostgreSQL schema、合成 HTTP/通知/分享/存储测试适配器；没有访问或覆盖所有者 Windows 工作区。
-- 原主工作区的未跟踪 AGENTS、overview 和工具状态未读写、未加入提交。本文不把云端副本称为原工作区。
+- 云端修复使用当前分支源码、隔离PG和合成适配器；后续Windows验证使用精确提交的隔离worktree，不覆盖原工作区。
+- 原工作区未提交/未跟踪文件和本地工具状态未纳入业务提交或覆盖；没有输出私有环境文件或密钥。
 - 只向既有功能分支普通非强制提交；未合并 main、未部署、未安装或清空用户设备、未调用真实消息发送者或传输真实家庭资料。
 - 依据仍是 [v1收尾计划](../../plans/2026-10-02-project-closeout.md)。未扩入医疗建议、自动扣库存、多家庭或 iOS。
 
@@ -32,8 +32,10 @@
 | [5c5d11a](https://github.com/Jovifei/Medcial-box/commit/5c5d11a23a0e722ef617901fc1bb620d2dc20fd6) | 返回时等候草稿确认、失败重试、原身份与单次离页意图 | [37133215410](https://github.com/Jovifei/Medcial-box/actions/runs/37133215410) PASS |
 | [82fc15b](https://github.com/Jovifei/Medcial-box/commit/82fc15bcac626f7d7a06663aca282805ede65230) | 同身份跨页面队列串行、换身份隔离与录入入口防重复跳转 | [37133258634](https://github.com/Jovifei/Medcial-box/actions/runs/37133258634) PASS |
 | [6ec8d7a](https://github.com/Jovifei/Medcial-box/commit/6ec8d7a09ed5f1591bbff392fd8acbadc7b7dc2e) | 库存/照片原始保存意图贯穿等待、请求与清理；保留计划ACK语义 | [37133305543](https://github.com/Jovifei/Medcial-box/actions/runs/37133305543) PASS |
+| [083f961](https://github.com/Jovifei/Medcial-box/commit/083f961398ebdf5aed240cc998600a70820191a6) | 六个未选OCR脚本精确R8规则、中文脚本契约和优化release CI门禁 | [37136225113](https://github.com/Jovifei/Medcial-box/actions/runs/37136225113) PASS |
+| [f5e17e5](https://github.com/Jovifei/Medcial-box/commit/f5e17e581df865b2fedf247d00fba1a5a6036981) | Windows完整路径/CRLF断言、精确符号链接能力报告及独立非链接保留用例 | [37136392579](https://github.com/Jovifei/Medcial-box/actions/runs/37136392579) PASS |
 
-新增证据：[计划表单](13-flutter-plan-form-parity.md)、[重启身份与离线草稿](14-restart-identity-and-offline-drafts.md)、[导出重启恢复](15-owned-export-restart-recovery.md)、[录入可靠性与实际渲染](16-entry-reliability-and-visual-verification.md)。旧报告中的“未发布/未执行CI”是冻结时事实，后续结果以本表为准。
+新增证据：[平台编译与宿主测试](17-platform-build-and-fixture-verification.md)、[计划表单](13-flutter-plan-form-parity.md)、[重启身份与离线草稿](14-restart-identity-and-offline-drafts.md)、[导出重启恢复](15-owned-export-restart-recovery.md)、[录入可靠性与实际渲染](16-entry-reliability-and-visual-verification.md)。旧报告中的“未发布/未执行CI”是冻结时事实，后续结果以本表为准。
 
 既有证据：[计划创建幂等](12-plan-creation-idempotency.md)、[仅接收提醒](09-receive-only-android-reminders.md)、[导出生命周期](10-export-owned-file-lifecycle.md)、[家庭清理](11-family-notification-cleanup.md)、[历史纠正](flutter-history-correction-2026-10-03.md)。其余独立报告在 `tasks/reviews/2026-10-03-*.md`。
 
@@ -44,12 +46,13 @@
 | 根 lint/typecheck/build | 最新小程序两文件完整根门禁PASS；最新精确提交CI verify按上表记录 |
 | 小程序运行时 | 230 PASS，独立聚焦10；不是官方WXML/WXSS编译或真机点击 |
 | API / 工具 | 计划表单阶段严格隔离PG参与：API382、tooling6 PASS；独立PG150项/12套 PASS。后续身份/导出/C2不改Node/API/SQL，保留对应源码证据，不伪称重复本地执行 |
-| Flutter | 最终组合源码完整660 PASS、analyze无诊断，独立聚焦76 PASS；已保留原计划迟到成功回执回归。历史阶段总数不累加 |
-| 实际渲染 | 最终Flutter源码重新生成45张图，布局14项和返回15项通过；320/360/430逻辑宽、100%/200%字号。仓库CJK字体映射及300逻辑像素键盘占位，不是原生设备/输入法或WeChat截图 |
-| 精确回放 | 五份C2补丁从3ddceac按顺序回放，每阶段tree及文件SHA-256一致；最终公开代码tree为31c43cd1b427437d8e85acf78a95628d42e1dd51 |
-| 官方小程序编译 | 本云环境缺WeChat DevTools，SKIPPED；包装脚本退出0不能改记PASS。旧Windows51文件仅属当时版本/环境 |
-| Android构建 | 本地资格环境无Android SDK，APK命令BLOCKED；逐提交CI debug APK结果按上表记录，不与本地环境混记 |
-| 正式安装/发布 | NOT_RUN。CI未传API_BASE_URL，release仍引用debug签名；构建通过不等于配置好、签名好的候选，也不证明设备效果 |
+| Flutter | 最新Linux精确提交CI671 PASS、analyze无诊断，15项真实符号链接安全场景全部运行；C2冻结时的独立76为对应源码历史证据，不与671累加 |
+| Windows宿主测试 | 精确f5e17e5：656 PASS / 0 FAIL / 15 SKIPPED，仅errno1314创建链接能力不足；其它IO错误照常失败。独立非链接保存/文件/目录断言仍运行，跳过不算通过 |
+| 实际渲染 | C2快照6ec8d7a的生产页面源码生成45张图；后续仅规则/测试/CI变更，不改渲染源码，布局14项和返回15项通过；320/360/430逻辑宽、100%/200%字号。仓库CJK字体映射及300逻辑像素键盘占位，不是原生设备/输入法或WeChat截图 |
+| 精确回放 | 五份C2补丁从3ddceac按顺序回放，每阶段tree及文件SHA-256一致；C2公开代码tree为31c43cd1b427437d8e85acf78a95628d42e1dd51；新增两批逐父提交核对，最新代码tree为d567d0d6de02039d40ae352e363fea78aa5215b6 |
+| 官方小程序编译 | Windows精确6ec8d7a强制REQUIRE_WECHAT_COMPILER=1，25WXML+26WXSS共51 PASS；后续两批未改mini。云环境仍缺工具；WeChat JS/模拟器页面NOT_VERIFIED |
+| Android构建 | 最新精确提交CI及Windows隔离worktree的debug和R8优化release编译PASS；仅技术构建门禁。最终合并release清单已有INTERNET，无需新增权限 |
+| 正式安装/发布 | NOT_RUN。实际API_BASE_URL仍为空，release沿用debug签名，未安装且未做原生中文OCR；功能发布标签按双端同步策略保留，与原生包版本分别记录 |
 
 ## 已修复代码与保留边界
 
@@ -67,12 +70,12 @@
 
 | 工作包 | 当前可确认 | 仍需完成或验收 |
 |---|---|---|
-| C0 工程归一 | 云端精确源码/父提交/变更清单及独立证据可回放 | 所有者工作区、生产配置和发布manifest仍需在对应环境核对 |
+| C0 工程归一 | 云端回放与隔离本机源码/锁文件核对，原工作区保留 | 正式API/签名、完整发布manifest及最终候选确认 |
 | C1 可靠性 | 本轮会话、提醒、历史、创建/确认重试、重启和录入异步边界有行为及相关PG证据 | 目标平台持久状态与整体验收；不标整包关闭 |
 | C2 简洁交互 | 320–430宽、100%/200%字体、模拟键盘占位及返回/草稿回归和最终源码引擎图 | 原生系统Back、实际输入法/字体、WeChat渲染与真实拍扫验收 |
 | C3 Android双端 | 四导航、权限/提醒投影、历史纠正、星期/库存绑定/持久及离线草稿已实现 | 真实后台/锁屏/重启/精确闹钟/拒绝权限及两端一致性 |
 | C4 资料/导出恢复 | 同快照格式、精确原件所有权、重启登记恢复和身份边界有自动化证据 | 模糊中断文件保留边界、真实识别/扫码/说明书、系统分享和数据库＋图片恢复 |
-| C5 门禁/冻结 | 按具体提交记录CI与本地门禁，未把缺工具算PASS | 官方小程序编译、配置正确且有正式签名的候选及manifest |
+| C5 门禁/冻结 | 精确CI、官方51文件编译、Windows能力分项、R8优化release构建均有记录 | 正式API/签名候选及manifest、原生OCR/页面验证；Windows15项不冒充PASS |
 | C6 独立部署 | 保留已有部署/备份runbook | 独立HTTPS、真实服务配置、成对数据库/照片备份恢复与重启持久NOT_RUN |
 | C7 家庭试用 | 保留既有试用清单 | 两真实账号、两手机、真实身份/微信模板/Android通知/相机/分享、Jovi体验确认NOT_RUN |
 
