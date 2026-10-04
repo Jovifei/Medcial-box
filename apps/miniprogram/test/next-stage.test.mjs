@@ -925,6 +925,21 @@ test("mini API uses POST for catalog lookup and app device approval", async () =
   ]);
 });
 
+test("mini API keeps trash delete and archive as distinct medicine lifecycle actions", async () => {
+  const service = loadApi();
+  await service.api.deleteMedicine("medicine / 1");
+  await service.api.archiveMedicine("medicine / 1");
+  const requests = service.requests.map(({ method, url, data }) => [
+    method,
+    url,
+    data === undefined ? null : JSON.parse(JSON.stringify(data)),
+  ]);
+  assert.deepEqual(requests, [
+    ["POST", "https://medicine.test/api/v1/medicines/medicine%20%2F%201/trash", {}],
+    ["DELETE", "https://medicine.test/api/v1/medicines/medicine%20%2F%201", null],
+  ]);
+});
+
 test("mini API sends split-open confirmation with batch version and opened allocation", async () => {
   const service = loadApi();
   const payload = { version: 4, openedQuantity: 2, openedAt: "2026-09-29", afterOpeningLimit: { value: 30, unit: "day", source: "说明书" }, confirmed: true };
