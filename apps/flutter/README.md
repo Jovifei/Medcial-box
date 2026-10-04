@@ -29,3 +29,13 @@ PDF 使用内嵌的精简简体中文字体。上游、字体加工方式、SHA-
 ## 验收边界
 
 Widget/API 契约测试和 Debug APK 构建不代表真实微信账号、实体相机／扫码、通知送达或药品资料供应商已经联调。正式 AppID 对应关系、微信模板及类目、两台手机家庭共享、现场拍照与消息点击路径须单独记录结果；尚未实测时使用 `NOT_RUN` 或 `BLOCKED`。
+
+## 本机独立试用（2026-10-04）
+
+使用已启动的本机开发服务器并设置ADB转发，可构建：
+
+```powershell
+flutter build apk --release --dart-define=API_BASE_URL=http://127.0.0.1:13300 --dart-define=LOCAL_APP_TRIAL=true
+```
+
+此开关只允许loopback与明确声明试用能力的开发服务器。普通构建保持小程序连接流程。当前手机测试结果与源点见docs/operations/07-RPT-最新代码与App独立试用.md。
