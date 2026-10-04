@@ -158,8 +158,11 @@ test("S5-A：开封/归档状态显式化到首页卡片（此前静默）", () 
     batch({ id: "b1", openedState: "opened" }),
     batch({ id: "b2", openedState: "opened" }),
   ] })], "F");
+  assert.equal(page.data.items.length, 0, "默认药箱不混入已归档药品");
+  page.onSelectFilter({ currentTarget: { dataset: { kind: "archived" } } });
   assert.equal(page.data.items[0].isArchived, true);
   assert.equal(page.data.items[0].openedText, "已开封 · 2 批");
+  page.onClearFilters();
   page.applyMedicines([medicine({ batches: [batch({ openedState: "opened" })] })], "F");
   assert.equal(page.data.items[0].openedText, "已开封");
   assert.equal(page.data.items[0].isArchived, false);
