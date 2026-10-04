@@ -174,7 +174,7 @@ export function networkFailureError(error?: { errMsg?: string }): ApiError {
     const code = detail.match(/ERR_[A-Z_]+/);
     if (code !== null) reason = code[0];
   }
-  return new ApiError("NETWORK_ERROR", `药箱服务${reason}（${API_BASE}）。电脑模拟器与手机网络配置不同，请核对当前测试地址和USB转发。`, 0);
+  console.warn(`[medbox] network failure: ${reason}; base=${API_BASE}; detail=${detail}`);\n  return new ApiError("NETWORK_ERROR", "无法连接药箱服务，请检查网络后重试。", 0);
 }
 
 export function request<T>(options: RequestOptions): Promise<T> {
