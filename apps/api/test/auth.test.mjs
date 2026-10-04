@@ -152,6 +152,23 @@ test("wechat login is rate limited per client address", async () => {
   }
 });
 
+test("only declared health endpoints bypass authentication", async () => {
+  const app = await createApp(createFakePool(), createTestGateway({}));
+  try {
+    const live = await app.inject({ method: "GET", url: "/api/v1/health/live" });
+    assert.equal(live.statusCode, 200);
+
+    const unknownHealthPath = await app.inject({
+      method: "GET",
+      url: "/api/v1/health/private",
+    });
+    assert.equal(unknownHealthPath.statusCode, 401);
+    assert.equal(unknownHealthPath.json().error.code, "UNAUTHORIZED");
+  } finally {
+    await app.close();
+  }
+});
+
 test("protected endpoints reject missing and invalid tokens with 401", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({});

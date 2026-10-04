@@ -61,10 +61,12 @@ const PUBLIC_PATHS = new Set<string>([
   "/api/v1/auth/wechat",
   "/api/v1/auth/device-links",
   "/api/v1/auth/device-links/exchange",
+  "/api/v1/health/live",
+  "/api/v1/health/ready",
 ]);
 
 function isPublicPath(path: string): boolean {
-  return PUBLIC_PATHS.has(path) || path.startsWith("/api/v1/health");
+  return PUBLIC_PATHS.has(path);
 }
 
 interface SessionLookupRow {
