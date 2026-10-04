@@ -87,3 +87,11 @@ test("Android release source never falls back to the debug keystore", async () =
   );
   assert.doesNotMatch(gradle, /signingConfig\s*=\s*signingConfigs\.getByName\(["']debug["']\)/);
 });
+
+test("CI validates audit branches and enforces the mini-program package budget", async () => {
+  const workflow = await readFile(
+    join(import.meta.dirname, "..", ".github", "workflows", "ci.yml"), "utf8",
+  );
+  assert.match(workflow, /branches:\s*\[main,\s*"codex\/\*\*",\s*"audit\/\*\*"\]/);
+  assert.match(workflow, /- run: npm run check:miniprogram:package/);
+});

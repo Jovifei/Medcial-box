@@ -172,9 +172,15 @@ export function networkFailureError(error?: { errMsg?: string }): ApiError {
   else if (/timeout|timed out/i.test(detail)) reason = "连接超时";
   else {
     const code = detail.match(/ERR_[A-Z_]+/);
-    if (code !== null) reason = code[0];
+    if (code !== null && ["ERR_NAME_NOT_RESOLVED", "ERR_ADDRESS_INVALID",
+      "ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_INTERNET_DISCONNECTED"].includes(code[0])) {
+      reason = code[0];
+    }
   }
-  console.warn(`[medbox] network failure: ${reason}; base=${API_BASE}; detail=${detail}`);\n  return new ApiError("NETWORK_ERROR", "无法连接药箱服务，请检查网络后重试。", 0);
+  // Raw platform errors may include URLs, query tokens or private payloads.
+  // Keep only a bounded diagnostic category; user copy stays nontechnical.
+  console.warn(`[medbox] network failure: ${reason}`);
+  return new ApiError("NETWORK_ERROR", "无法连接药箱服务，请检查网络后重试。", 0);
 }
 
 export function request<T>(options: RequestOptions): Promise<T> {

@@ -39,7 +39,7 @@ test('photo upload failure preserves association and retry does not create anoth
  const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'../../services/api':{ApiError,api:{createMedicine:async()=>{creates++;return saved},getMedicine:async()=>saved,uploadLeafletPhoto:async(id,b64,mime,source,association)=>{uploads++;assert.equal(id,'m');assert.equal(association.batchId,'saved-batch');if(uploads===1)throw new Error('offline');return {photo:{id:'p'}}}}}},wx:{getFileSystemManager:()=>({readFile:options=>options.success({data:'/9j/a'})})}});
  const page=makePageContext(definition);page.data.name='name';page.data.photoDrafts=[{id:'d',thumbnail:'/local.jpg',status:'review',fields:{},medicineId:'',photos:[{path:'/local.jpg',mimeType:'image/jpeg',purpose:'expiry',batchIndex:0}]}];page.data.activePhotoDraftId='d';
  await page.onSubmit();assert.equal(creates,1);assert.equal(page.data.photoDrafts[0].status,'photo_pending');assert.equal(page.data.photoDrafts[0].medicineId,'m');
- await page.onSubmit();assert.equal(creates,1);assert.equal(uploads,2);assert.equal(page.data.photoDrafts[0].status,'saved');
+ await page.onSubmit();assert.equal(creates,1);assert.equal(uploads,2);assert.equal(page.data.photoDrafts.length,0);assert.equal(page.data.activePhotoDraftId,'');
 });
 test('ten pending photo drafts block adding, switching drafts restores stable id and typed fields',()=>{
  const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{modules:{...auth,'../../services/api':{ApiError,api:{}}}});const page=makePageContext(definition);

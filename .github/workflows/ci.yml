@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main, "codex/**", "audit/**"]
   pull_request:
 
 jobs:
@@ -36,6 +36,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run check:miniprogram:package
 
   backup-docker:
     # Disposable synthetic resources only; no deployment environment or secrets.
