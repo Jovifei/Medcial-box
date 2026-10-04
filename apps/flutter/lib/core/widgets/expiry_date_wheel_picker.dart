@@ -127,11 +127,13 @@ class MedicineDateField extends StatelessWidget {
     required this.label,
     required this.onChanged,
     this.precision = 'day',
+    this.valueKey,
   });
   final TextEditingController controller;
   final String label;
   final VoidCallback onChanged;
   final String precision;
+  final Key? valueKey;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: () async {
@@ -150,6 +152,7 @@ class MedicineDateField extends StatelessWidget {
         suffixIcon: const Icon(Icons.calendar_month_outlined),
       ),
       child: Text(
+        key: valueKey,
         controller.text.isEmpty ? '选择年月日' : displayExpiryDate(controller.text),
       ),
     ),

@@ -100,7 +100,12 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     ];
     if (services.isConfigured) {
       routes.addAll([
-        _route('/connect', DeviceLinkPage(services: services)),
+        _route(
+          '/connect',
+          localAppTrialFromBuild
+              ? BootGatePage(services: services)
+              : DeviceLinkPage(services: services),
+        ),
         _route(
           '/family-choice',
           FamilyChoiceApiPage(repository: services.families!),
@@ -346,6 +351,13 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         locale: _appLocale,
         supportedLocales: const [_appLocale],
         localizationsDelegates: _appLocalizationsDelegates,
+        builder: (context, child) => localAppTrialFromBuild
+            ? Banner(
+                message: '本机试用',
+                location: BannerLocation.topEnd,
+                child: child!,
+              )
+            : child!,
         routerConfig: router!,
       );
     },

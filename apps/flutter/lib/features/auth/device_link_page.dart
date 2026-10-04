@@ -41,11 +41,15 @@ class _BootGatePageState extends State<BootGatePage> {
     final epoch = services.api!.identityEpoch;
     final token = await services.auth!.readAccessToken();
     if (!mounted || epoch != services.api!.identityEpoch) return;
-    if (token == null || token.isEmpty) {
+    if ((token == null || token.isEmpty) && !localAppTrialFromBuild) {
       context.go('/connect');
       return;
     }
     try {
+      if (token == null || token.isEmpty) {
+        await services.auth!.startLocalTrial();
+        if (!mounted) return;
+      }
       final profile = await services.auth!.getCurrentUser();
       if (!mounted) return;
       services.sessionInvalidated.value = false;

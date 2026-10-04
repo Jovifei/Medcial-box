@@ -6,6 +6,7 @@ import 'app_stores.dart';
 import 'session_identity_state.dart';
 
 const apiBaseUrlFromBuild = String.fromEnvironment('API_BASE_URL');
+const localAppTrialFromBuild = bool.fromEnvironment('LOCAL_APP_TRIAL');
 const missingApiConfigurationMessage =
     '尚未配置服务地址。请在运行或构建时添加 --dart-define=API_BASE_URL=https://你的药箱域名';
 
@@ -134,25 +135,7 @@ class ApiAuthRepository {
     _requireLink(link, epoch);
     final state = json['state'] as String;
     if (state == 'approved' && json['token'] is String) {
-      // The approval flow can connect a different account on a device that
-      // previously held another household's offline snapshot. Drop that data
-      // (memory included) before accepting the new credential.
-      await _clearIdentityData();
-      if (!identityState.isLinkCurrent(link)) {
-        throw const ApiException(
-          statusCode: 401,
-          code: 'STALE_SESSION',
-          message: '连接已变更，请重新连接。',
-        );
-      }
-      await identityState.acceptToken(link, json['token']! as String);
-      if (!identityState.accepted) {
-        throw const ApiException(
-          statusCode: 401,
-          code: 'STALE_SESSION',
-          message: '连接已变更，请重新连接。',
-        );
-      }
+      await _acceptLinkedToken(link, json['token']! as String);
     } else if (state == 'expired') {
       await identityState.expireLink(link);
     }
@@ -162,6 +145,58 @@ class ApiAuthRepository {
           ? DateTime.tryParse(json['expiresAt']! as String)
           : null,
     );
+  }
+
+  Future<void> _acceptLinkedToken(String link, String token) async {
+    await _clearIdentityData();
+    if (!identityState.isLinkCurrent(link)) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '连接已变更，请重新连接。',
+      );
+    }
+    await identityState.acceptToken(link, token);
+    if (!identityState.accepted) {
+      throw const ApiException(
+        statusCode: 401,
+        code: 'STALE_SESSION',
+        message: '连接已变更，请重新连接。',
+      );
+    }
+  }
+
+  Future<void> startLocalTrial({bool enabled = localAppTrialFromBuild}) async {
+    final origin = Uri.parse(api.baseUrl);
+    if (!enabled ||
+        origin.scheme != 'http' ||
+        !{'127.0.0.1', 'localhost'}.contains(origin.host)) {
+      throw StateError('本机试用只允许显式启用的本地测试构建。');
+    }
+    final link = identityState.beginLink();
+    final epoch = api.identityEpoch;
+    final marker = await api.get(
+      '/api/v1/health/local-app-trial',
+      authenticated: false,
+    );
+    _requireLink(link, epoch);
+    if (marker is! Map || marker['mode'] != 'local-app-trial') {
+      throw StateError('当前服务不是本机试用服务。');
+    }
+    final result = await api.post(
+      '/api/v1/auth/wechat',
+      authenticated: false,
+      body: {'code': 'local-app-trial'},
+      isCurrent: () => identityState.isLinkCurrent(link),
+    );
+    _requireLink(link, epoch);
+    if (result is! Map || result['token'] is! String) {
+      throw const FormatException('本机试用会话无效。');
+    }
+    await _transition(() async {
+      _requireLink(link, epoch);
+      await _acceptLinkedToken(link, result['token'] as String);
+    });
   }
 
   void _requireCurrentIdentity(int epoch) {

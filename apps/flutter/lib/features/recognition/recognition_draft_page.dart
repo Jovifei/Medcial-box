@@ -104,18 +104,6 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
     Navigator.of(context).pop();
   }
 
-  Future<void> _selectExpiryDate() async {
-    final selected = await showExpiryDateWheelPicker(
-      context,
-      initialDate: expiryDateForPicker(expiryController.text),
-    );
-    if (selected == null || !mounted) return;
-    setState(
-      () =>
-          expiryController.text = formatExpiryDate(selected, precision: 'day'),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -229,21 +217,12 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
+                    MedicineDateField(
                       key: const ValueKey('recognition-expiry-field'),
-                      onTap: _selectExpiryDate,
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '有效期（可选）',
-                          suffixIcon: Icon(Icons.calendar_month_outlined),
-                        ),
-                        child: Text(
-                          key: const ValueKey('recognition-expiry-value'),
-                          expiryController.text.isEmpty
-                              ? '滑动选择年、月、日'
-                              : displayExpiryDate(expiryController.text),
-                        ),
-                      ),
+                      valueKey: const ValueKey('recognition-expiry-value'),
+                      controller: expiryController,
+                      label: '有效期（可选）',
+                      onChanged: () => setState(() {}),
                     ),
                     const SizedBox(height: 18),
                     PrimaryButton(
