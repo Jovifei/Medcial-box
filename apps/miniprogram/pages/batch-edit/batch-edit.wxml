@@ -22,9 +22,10 @@
       </picker>
     </view>
     <view class="field" wx:if="{{precisionIndex !== 2}}">
-      <view class="field-label">有效期原文（保持包装原样）</view>
-      <input class="input" data-field="expiryValue" bindinput="onFieldInput" value="{{expiryValue}}"
-        placeholder="{{precisionIndex === 0 ? 'YYYY-MM-DD' : 'YYYY-MM'}}" />
+      <view class="field-label">有效期</view>
+      <picker mode="date" fields="{{precisionIndex === 1 ? 'month' : 'day'}}" value="{{expiryValue}}" bindchange="onExpiryDateChange">
+        <view class="picker-box">{{expiryValue || (precisionIndex === 0 ? "点击选择有效日期" : "点击选择有效月份")}}</view>
+      </picker>
       <view class="field-hint">仅到月时按“过完该月才过期、当月为本月到期”判断，不伪造日期。</view>
     </view>
     <view class="field">
@@ -62,7 +63,9 @@
     <view wx:if="{{openingExpanded && openedState === 'opened'}}">
       <view class="field">
         <view class="field-label">开封日期（选填）</view>
-        <input class="input" data-field="openedAt" bindinput="onFieldInput" value="{{openedAt}}" placeholder="YYYY-MM-DD" />
+        <picker mode="date" value="{{openedAt}}" data-field="openedAt" bindchange="onDateFieldChange">
+          <view class="picker-box">{{openedAt || "点击选择开封日期"}}</view>
+        </picker>
       </view>
       <view class="field">
         <view class="field-label">开封后期限（有依据时填写）</view>
@@ -76,7 +79,9 @@
       </view>
       <view class="field" wx:if="{{openingLimitMode === 'date'}}">
         <view class="field-label">开封后截止日期</view>
-        <input class="input" data-field="openingLimitValue" bindinput="onFieldInput" value="{{openingLimitValue}}" placeholder="YYYY-MM-DD" />
+        <picker mode="date" value="{{openingLimitValue}}" data-field="openingLimitValue" bindchange="onDateFieldChange">
+          <view class="picker-box">{{openingLimitValue || "点击选择截止日期"}}</view>
+        </picker>
       </view>
       <view class="field" wx:if="{{openingLimitMode !== 'none'}}">
         <view class="field-label">期限依据</view>

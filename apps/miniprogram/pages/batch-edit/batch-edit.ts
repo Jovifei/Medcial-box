@@ -172,8 +172,34 @@ Page({
     this.setData({ [field]: event.detail.value });
   },
 
+  onExpiryDateChange(event: { detail: { value: string } }): void {
+    const precision = PRECISION_VALUES[this.data.precisionIndex] ?? "day";
+    const value = precision === "month" ? event.detail.value.slice(0, 7) : event.detail.value;
+    this.setData({ expiryValue: value });
+  },
+
+  onDateFieldChange(event: {
+    currentTarget: { dataset: { field?: string } };
+    detail: { value: string };
+  }): void {
+    const field = event.currentTarget.dataset.field;
+    if (field !== "openedAt" && field !== "openingLimitValue") return;
+    this.setData({ [field]: event.detail.value });
+  },
+
   onPrecisionChange(event: { detail: { value: string | number } }): void {
-    this.setData({ precisionIndex: Number(event.detail.value) });
+    const precisionIndex = Number(event.detail.value);
+    const current = this.data.expiryValue;
+    this.setData({
+      precisionIndex,
+      ...(precisionIndex === 2
+        ? { expiryValue: "" }
+        : precisionIndex === 1 && /^\d{4}-\d{2}-\d{2}$/.test(current)
+          ? { expiryValue: current.slice(0, 7) }
+          : precisionIndex === 0 && /^\d{4}-\d{2}$/.test(current)
+            ? { expiryValue: "" }
+            : {}),
+    });
   },
 
   onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
@@ -219,8 +245,12 @@ Page({
   onOpeningLimitModeChange(event: { detail: { value: string | number } }): void {
     const index = Number(event.detail.value);
     const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
-    this.setData({ openingLimitMode, openingLimitModeIndex: index,
-      ...(openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
+    const changedKind = openingLimitMode !== this.data.openingLimitMode;
+    this.setData({
+      openingLimitMode,
+      openingLimitModeIndex: index,
+      ...(changedKind || openingLimitMode === "none" ? { openingLimitValue: "" } : {}),
+    });
   },
 
   onToggleOpeningInfo(): void {

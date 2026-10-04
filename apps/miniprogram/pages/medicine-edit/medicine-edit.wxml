@@ -96,7 +96,9 @@
       <view wx:if="{{batch.openingExpanded && batch.openedState === 'opened'}}">
         <view class="field">
           <view class="field-label">开封日期（选填）</view>
-          <input disabled="{{attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="openedAt" bindinput="onBatchFieldInput" value="{{batch.openedAt}}" placeholder="YYYY-MM-DD" />
+          <picker disabled="{{attemptedPayload !== null}}" mode="date" value="{{batch.openedAt}}" data-index="{{index}}" data-field="openedAt" bindchange="onBatchDateChange">
+            <view class="picker-box">{{batch.openedAt || "点击选择开封日期"}}</view>
+          </picker>
         </view>
         <view class="field">
           <view class="field-label">开封后期限（依据包装或说明书填写）</view>
@@ -110,7 +112,9 @@
         </view>
         <view class="field" wx:if="{{batch.openingLimitMode === 'date'}}">
           <view class="field-label">开封后截止日期</view>
-          <input disabled="{{attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="openingLimitValue" bindinput="onBatchFieldInput" value="{{batch.openingLimitValue}}" placeholder="YYYY-MM-DD" />
+          <picker disabled="{{attemptedPayload !== null}}" mode="date" value="{{batch.openingLimitValue}}" data-index="{{index}}" data-field="openingLimitValue" bindchange="onBatchDateChange">
+            <view class="picker-box">{{batch.openingLimitValue || "点击选择截止日期"}}</view>
+          </picker>
         </view>
         <view class="field" wx:if="{{batch.openingLimitMode !== 'none'}}">
           <view class="field-label">期限依据</view>

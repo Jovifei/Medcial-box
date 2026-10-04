@@ -808,7 +808,14 @@ Page({
     const index = Number(event.detail.value);
     const mode = (["none", "day", "month", "date"] as const)[index] ?? "none";
     const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
-    this.setData({ [`batches[${batchIndex}].openingLimitModeIndex`]: index, [`batches[${batchIndex}].openingLimitMode`]: mode });
+    const current = (this.data as MedicineEditPageData).batches[batchIndex];
+    this.setData({
+      [`batches[${batchIndex}].openingLimitModeIndex`]: index,
+      [`batches[${batchIndex}].openingLimitMode`]: mode,
+      ...(current && current.openingLimitMode !== mode
+        ? { [`batches[${batchIndex}].openingLimitValue`]: "" }
+        : {}),
+    });
     this.updateDirtyState();
   },
 
@@ -1110,6 +1117,19 @@ Page({
     this.markFieldTouched(`batches[${index}].expiryValue`);
     this.updateDirtyState();
   },
+  onBatchDateChange(event: {
+    currentTarget: { dataset: { index?: string; field?: string } };
+    detail: { value: string };
+  }): void {
+    if (this.data.attemptedPayload) return;
+    const index = Number(event.currentTarget.dataset.index);
+    const field = event.currentTarget.dataset.field;
+    if (field !== "openedAt" && field !== "openingLimitValue") return;
+    this.markFieldTouched(`batches[${index}].${field}`);
+    this.setData({ [`batches[${index}].${field}`]: event.detail.value });
+    this.updateDirtyState();
+  },
+
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
