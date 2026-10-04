@@ -276,7 +276,8 @@ Page({
     }
     try {
       const family = await api.getCurrentFamily();
-      const list = await api.listMedicines();
+      // 首页需要支持“已归档”筛选，因此取完整集合；默认视图仍只展示未归档药品。
+      const list = await api.listMedicines(true);
       this.applyMedicines(list.medicines, family.family.name);
       void this.loadCovers();
     } catch (error) {
@@ -291,16 +292,17 @@ Page({
 
   applyMedicines(medicines: MedicationSummary[], familyName: string): void {
     const allItems = medicines.map(toCabinetItem);
+    const currentItems = allItems.filter((item) => !item.isArchived);
     let expiredCount = 0;
     let expiringCount = 0;
-    for (const item of allItems) {
+    for (const item of currentItems) {
       const state = item.state;
       if (state === "expired") expiredCount += 1;
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
     this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
-    const lowStockCount = allItems.filter((item) => item.stockState === "low").length;
-    const missingInfoCount = allItems.filter((item) => item.needsInfo).length;
+    const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted").length;
+    const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
     this.setData({
       lowStockCount,
       missingInfoCount,
@@ -310,8 +312,17 @@ Page({
         { id: "missing", label: "待补资料", count: missingInfoCount },
       ],
     });
-    const id = wx.getStorageSync(scopedStorageKey("cabinet-saved-highlight") ?? "cabinet-no-highlight") as string | undefined;
-    if (id) { this.setData({ highlightedId: id }); wx.removeStorageSync(scopedStorageKey("cabinet-saved-highlight") ?? "cabinet-no-highlight"); }
+    const highlightKey = scopedStorageKey("cabinet-saved-highlight");
+    let id: string | undefined;
+    try {
+      if (highlightKey) {
+        id = wx.getStorageSync(highlightKey) as string | undefined;
+        if (id) wx.removeStorageSync(highlightKey);
+      }
+    } catch {
+      // 高亮是纯展示增强；本地存储不可用不能阻断首页数据。
+    }
+    if (id) this.setData({ highlightedId: id });
     this.applyFilter();
     if (id) this.setData({ savedMessage: this.data.items.some((item) => item.id === id) ? "已添加，药品在下方突出显示；可继续添加或点开查看。" : "已保存，当前筛选未显示；可点击查看，筛选保持原样。" });
   },
@@ -380,7 +391,8 @@ Page({
     const keyword = data.keyword.trim().toLocaleLowerCase();
     const filtered = data.allItems.filter((item) => {
       const matchesKeyword = keyword === "" || item.searchText.includes(keyword);
-      const matchesFilter = data.filterKind === "all" ||
+      const matchesArchive = data.filterKind === "archived" ? item.isArchived : !item.isArchived;
+      const matchesFilter = (data.filterKind === "all" ||
         (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
         (data.filterKind === "low" && (item.stockState === "low" || item.stockState === "exhausted")) ||
         (data.filterKind === "missing" && item.needsInfo) ||
@@ -388,7 +400,7 @@ Page({
         (data.filterKind === "opened" && item.openedText !== "") ||
         (data.filterKind === "archived" && item.isArchived) ||
         (data.filterKind === "unknown" && (item.stockState === "unknown" || item.state === "unknown")) ||
-        (data.filterKind === "exhausted" && item.stockState === "exhausted");
+        (data.filterKind === "exhausted" && item.stockState === "exhausted")) && matchesArchive;
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
         item.populationTags.some((tag) => data.selectedPopulations.includes(tag.kind));
