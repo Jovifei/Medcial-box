@@ -401,13 +401,20 @@ export const api = {
     });
   },
 
-  /** 删除药品：软删除进入回收站，30 天内可恢复。 */
+  /** 删除药品：进入回收站，30 天内可恢复；与“归档”是两条不同生命周期。 */
   deleteMedicine(medicineId: string): Promise<null> {
-    return request({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
+    return request({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/trash`,
+      payload: {},
+    });
   },
 
   archiveMedicine(medicineId: string): Promise<null> {
-    return request<null>({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
+    return request<null>({
+      method: "DELETE",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}`,
+    });
   },
 
   createBatch(medicineId: string, payload: BatchPayload): Promise<MedicationSummary["batches"][number]> {
