@@ -127,7 +127,7 @@ class CabinetHomePage extends StatefulWidget {
   State<CabinetHomePage> createState() => _CabinetHomePageState();
 }
 
-enum MedicineFilter { all, expiry, lowStock, missingInfo }
+enum MedicineFilter { all, expiry, lowStock, missingInfo, unknown }
 
 class _CabinetHomePageState extends State<CabinetHomePage> {
   final searchController = TextEditingController();
@@ -186,6 +186,15 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     }
   }
 
+  bool _needsInfo(MedicineRecord medicine) =>
+      medicine.specification == null ||
+      medicine.manufacturer == null ||
+      medicine.activeIngredients.isEmpty ||
+      medicine.leaflet.reviewStatus == 'unverified';
+
+  bool _hasUnknownInventory(MedicineRecord medicine) =>
+      medicine.stockStatus == 'unknown' || medicine.expiryState.state == 'unknown';
+
   List<MedicineRecord> get _visibleMedicines {
     final result = widget.repository.medicines.where((medicine) {
       final query = keyword.toLowerCase();
@@ -225,13 +234,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
           'low',
           'exhausted',
         ].contains(medicine.stockStatus),
-        MedicineFilter.missingInfo =>
-          medicine.batches.any(
-                (batch) =>
-                    batch.dispositionStatus != 'handled' &&
-                    batch.expiryValue == null,
-              ) ||
-              medicine.leaflet.reviewStatus == 'unverified',
+        MedicineFilter.missingInfo => _needsInfo(medicine),
+        MedicineFilter.unknown => _hasUnknownInventory(medicine),
       };
     }).toList();
     String? expiry(MedicineRecord medicine) {
@@ -281,17 +285,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   int get _lowCount => widget.repository.medicines
       .where((medicine) => ['low', 'exhausted'].contains(medicine.stockStatus))
       .length;
-  int get _missingCount => widget.repository.medicines
-      .where(
-        (medicine) =>
-            medicine.batches.any(
-              (batch) =>
-                  batch.dispositionStatus != 'handled' &&
-                  batch.expiryValue == null,
-            ) ||
-            medicine.leaflet.reviewStatus == 'unverified',
-      )
-      .length;
+  int get _missingCount =>
+      widget.repository.medicines.where(_needsInfo).length;
 
   Future<void> _refresh() async {
     await _load();
@@ -404,6 +399,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                 _filterChip('临期/过期', MedicineFilter.expiry),
                 _filterChip('库存不足', MedicineFilter.lowStock),
                 _filterChip('待补资料', MedicineFilter.missingInfo),
+                _filterChip('数量/日期未知', MedicineFilter.unknown),
               ],
             ),
             const SizedBox(height: 10),
