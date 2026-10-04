@@ -36,7 +36,7 @@ export async function prepareMiniProgram({ appId, apiBase, root = workspace, loc
   });
   const project = JSON.parse(await readFile(join(output, "project.config.json"), "utf8"));
   project.appid = config.appId;
-  project.projectname = local ? "home-medicine-local" : "home-medicine-staging";
+  project.projectname = local ? "JF小药箱-本机试用" : "JF小药箱-测试环境";
   project.setting = { ...project.setting, urlCheck: !local };
   await writeFile(join(output, "project.config.json"), JSON.stringify(project, null, 2) + "\n");
   await writeFile(join(output, "services", "config.ts"),

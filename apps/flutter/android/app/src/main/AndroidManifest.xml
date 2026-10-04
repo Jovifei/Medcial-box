@@ -8,9 +8,9 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
-        android:label="家庭药箱 Flutter 原型"
+        android:label="JF小药箱"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/jf_logo">
         <activity
             android:name=".MainActivity"
             android:exported="true"

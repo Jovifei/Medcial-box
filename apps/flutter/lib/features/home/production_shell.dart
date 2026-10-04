@@ -306,7 +306,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('家庭药箱'),
+            const Text('JF小药箱'),
             Text(
               family?.name ?? '同步家庭库存',
               style: const TextStyle(fontSize: 12, color: AppColors.muted),

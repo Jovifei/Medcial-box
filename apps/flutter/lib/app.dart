@@ -333,7 +333,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
       }
       if (!snapshot.hasData) {
         return MaterialApp(
-          title: '家庭药箱',
+          title: 'JF小药箱',
           theme: appTheme,
           locale: _appLocale,
           supportedLocales: const [_appLocale],
@@ -345,7 +345,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
       }
       router ??= _createRouter(snapshot.data!);
       return MaterialApp.router(
-        title: '家庭药箱',
+        title: 'JF小药箱',
         debugShowCheckedModeBanner: false,
         theme: appTheme,
         locale: _appLocale,

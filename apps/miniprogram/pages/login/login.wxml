@@ -1,6 +1,7 @@
 <view class="page">
   <view class="hero">
-    <view class="eyebrow">家庭药箱</view>
+    <image src="/assets/jf-logo.png" style="width:64px;height:64px" mode="aspectFit" />
+    <view class="eyebrow">JF小药箱</view>
     <view class="title">把家里的药，记在一起</view>
     <view class="subtitle">登录后创建或加入家庭药箱，和家人共同维护库存与有效期。</view>
   </view>

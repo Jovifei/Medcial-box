@@ -1,7 +1,7 @@
 {
-  "description": "Jovi 家庭药箱小程序",
+  "description": "JF小药箱微信小程序",
   "appid": "wx1f6dd99d28aab8e5",
-  "projectname": "jovi-home-medicine-cabinet",
+  "projectname": "jf-medicine-box",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
   "libVersion": "trial",

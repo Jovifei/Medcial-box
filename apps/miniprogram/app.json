@@ -27,7 +27,7 @@
     "pages/account-settings/account-settings"
   ],
   "window": {
-    "navigationBarTitleText": "家庭药箱",
+    "navigationBarTitleText": "JF小药箱",
     "navigationBarBackgroundColor": "#f5f7f4",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f7f4"
