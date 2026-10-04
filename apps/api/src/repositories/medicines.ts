@@ -53,9 +53,11 @@ export function toMedicineSummary(
   batches: MedicationBatchSummary[],
   now: Date = new Date(),
 ): MedicationSummary {
+  // 已处理批次仅保留在历史中，不再驱动药品级到期状态（与库存状态/双端首页口径一致）。
+  const inCabinet = batches.filter((batch) => batch.dispositionStatus !== "handled");
   const state =
-    batches.length > 0
-      ? mostSevereState(batches.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state))
+    inCabinet.length > 0
+      ? mostSevereState(inCabinet.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state))
       : "unknown";
   const thresholdQuantity = decimalOrNull(row.low_stock_threshold_quantity);
   const threshold: LowStockThresholdInput | null =
