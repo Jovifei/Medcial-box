@@ -973,6 +973,11 @@ Page({
   ): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
     if (initialData.recognizing || initialData.submitting) return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    if (!this.entryScopeIsCurrent(originalScope)) {
+      wx.showToast({ title: "登录身份已变化，请重新打开录入页", icon: "none" });
+      return;
+    }
     // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
     // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
     if (this.data.attemptedPayload) return;
@@ -982,9 +987,11 @@ Page({
     this.setData({ recognizing: true });
     try {
       if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const eventSource = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.source : sourceOverride;
       const source = eventSource === "album" ? "album" : "camera";
       const selection = await wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: [source], sizeType: ["compressed"] });
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const file = selection.tempFiles[0];
       if (!file) return;
       if (!this.data.activePhotoDraftId && this.data.photoDrafts.filter((item) => item.status !== "saved").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
@@ -1000,6 +1007,7 @@ Page({
           fail: reject,
         });
       });
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       let mimeType: "image/jpeg" | "image/png";
       if (imageBase64.startsWith("/9j/")) mimeType = "image/jpeg";
       else if (imageBase64.startsWith("iVBORw0KGgo")) mimeType = "image/png";
@@ -1015,6 +1023,7 @@ Page({
         path = `${wx.env.USER_DATA_PATH}/${id}-${purpose}-${Date.now()}.${mimeType === "image/png" ? "png" : "jpg"}`;
         await new Promise<void>((resolve, reject) => fs.writeFile({ filePath: path, data: imageBase64, encoding: "base64", success: () => resolve(), fail: reject }));
       }
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const entries = this.data.photoDrafts.filter((item) => item.status !== "saved");
       let entry = entries.find((item) => item.id === id);
       if (!entry) {
@@ -1027,9 +1036,10 @@ Page({
       this.setData({ photoDrafts: entries, activePhotoDraftId: id, recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
       this.persistPhotoDrafts();
       await ensureLoggedIn();
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const result = await api.recognizeMedicine(imageBase64, mimeType);
       // 过期响应（期间又发起过识别/已加载别的药品）直接丢弃。
-      if (token !== this.recognitionToken) return;
+      if (token !== this.recognitionToken || !this.entryScopeIsCurrent(originalScope)) return;
       const draft = result.draft;
       const current = this.data as MedicineEditPageData;
       const first = current.batches[0];
@@ -1072,6 +1082,7 @@ Page({
       this.setPhotoDraftStatus("review");
       this.updateDirtyState();
     } catch (error) {
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (typeof error === "object" && error !== null && "errMsg" in error &&
         String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
       this.setPhotoDraftStatus("failed");
@@ -1205,6 +1216,13 @@ Page({
     this.updateDirtyState();
   },
 
+  /** An open form keeps its original household; async work must not adopt a later login. */
+  entryScopeIsCurrent(scope: string | null): boolean {
+    return scope !== null && scope === scopedStorageKey("medicine-photo-drafts") &&
+      (this.photoScopeKey === null || this.photoScopeKey === scope) &&
+      (this.draftStorageKey === null || this.draftStorageKey === draftStorageKey(this.data.medicineId));
+  },
+
   async checkEntrySession(): Promise<void> {
     try {
       await ensureLoggedIn({ allowInteractive: false });
@@ -1282,8 +1300,10 @@ Page({
   onDeletePhotoDraft(event: { currentTarget: { dataset: { id?: string } } }): void {
     const id = event.currentTarget.dataset.id;
     if (!id || this.data.recognizing || this.data.submitting) return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     wx.showModal({ title: "删除本机照片草稿", content: "已保存的药品和私有照片不受影响。", success: (result) => {
-      if (!result.confirm) return;
+      if (!result.confirm || !this.entryScopeIsCurrent(originalScope) || this.data.recognizing || this.data.submitting) return;
       const draft = this.data.photoDrafts.find((item) => item.id === id);
       if (draft) removePhotoDraftFiles(draft);
       this.setData({ photoDrafts: this.data.photoDrafts.filter((item) => item.id !== id), ...(this.data.activePhotoDraftId === id ? { activePhotoDraftId: "" } : {}) });
@@ -1298,7 +1318,13 @@ Page({
   async onSubmit(): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
     if (initialData.submitting || initialData.recognizing) return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    if (!this.entryScopeIsCurrent(originalScope)) {
+      wx.showToast({ title: "登录身份已变化，请重新打开录入页", icon: "none" });
+      return;
+    }
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     const data = this.data as MedicineEditPageData;
     const name = data.name.trim();
     if (name === "") {
@@ -1348,6 +1374,7 @@ Page({
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (data.verified && ingredients.length > 0) {
         let matches: MedicationSummary[] = [];
         try {
@@ -1361,39 +1388,47 @@ Page({
         } catch {
           // The hint is best-effort and must never prevent inventory entry.
         }
+        if (!this.entryScopeIsCurrent(originalScope)) return;
         if (matches.length > 0 && !(await confirmIngredientOverlap(matches))) return;
       }
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const activePhoto = data.photoDrafts.find((item) => item.id === data.activePhotoDraftId);
       let saved: MedicationSummary;
       if (activePhoto?.medicineId) {
         saved = await api.getMedicine(activePhoto.medicineId);
       } else if (data.isEdit) {
         saved = await api.updateMedicine(data.medicineId, { ...payload, version: data.version });
+        if (!this.entryScopeIsCurrent(originalScope)) return;
         wx.showToast({ title: "已保存", icon: "success" });
       } else {
         if (!this.data.attemptedPayload) { this.setData({ attemptedPayload: payload }); this.persistCurrentDraft(); this.persistPhotoDrafts(); }
         saved = await api.createMedicine(this.data.attemptedPayload ?? payload);
+        if (!this.entryScopeIsCurrent(originalScope)) return;
         if (saved?.id) {
           const highlightKey = scopedStorageKey("cabinet-saved-highlight");
           try { if (highlightKey) wx.setStorageSync(highlightKey, saved.id); } catch { /* post-save highlight is best effort */ }
         }
         wx.showToast({ title: "已录入", icon: "success" });
       }
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (activePhoto && saved?.id) {
         activePhoto.medicineId = saved.id;
         try {
           for (const photo of activePhoto.photos) {
             if (photo.uploadedId) continue;
             const imageBase64 = await new Promise<string>((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: photo.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject }));
+            if (!this.entryScopeIsCurrent(originalScope)) return;
             const batchId = saved.batches[photo.batchIndex]?.id;
             if (photo.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
             const result = await api.uploadLeafletPhoto(saved.id, imageBase64, photo.mimeType, "medicine_entry", { purpose: photo.purpose, ...(batchId ? { batchId } : {}) });
+            if (!this.entryScopeIsCurrent(originalScope)) return;
             photo.uploadedId = result.photo.id;
           }
           if (data.usePhotoAsCover) {
             const front = activePhoto.photos.find((photo) => photo.purpose === "box_front" && photo.uploadedId);
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
+          if (!this.entryScopeIsCurrent(originalScope)) return;
           removePhotoDraftFiles(activePhoto);
           this.setData({
             photoDrafts: this.data.photoDrafts.filter((item) => item.id !== activePhoto.id),
@@ -1401,6 +1436,7 @@ Page({
           });
           this.persistPhotoDrafts();
         } catch {
+          if (!this.entryScopeIsCurrent(originalScope)) return;
           this.setPhotoDraftStatus("photo_pending");
           this.persistPhotoDrafts();
           wx.showToast({ title: "药品已保存，照片待补；点击保存可重试照片", icon: "none", duration: 3500 });
@@ -1412,10 +1448,12 @@ Page({
       this.setData({ isDirty: false });
       this.setNativeLeaveWarning(false);
       setTimeout(() => {
+        if (!this.entryScopeIsCurrent(originalScope)) return;
         if (data.isEdit) this.navigateBackFromForm();
         else wx.switchTab({ url: "/pages/index/index" });
       }, 800);
     } catch (error) {
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (!data.isEdit && error instanceof ApiError && error.statusCode === 400) {
         this.setData({ attemptedPayload: null });
         this.persistCurrentDraft();
