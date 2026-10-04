@@ -1,5 +1,5 @@
 // Host-engine layout regression tests using production widgets and synthetic data.
-// The bundled Chinese font is loaded as sans for deterministic host rendering;
+// A repository-only Chinese font fixture is loaded for deterministic rendering;
 // this does not validate native font substitution or an actual software keyboard.
 import 'dart:convert';
 import 'dart:io';
@@ -19,6 +19,8 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/models/medicine_models.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/chinese_font_fixture.dart';
 
 const captureKey = ValueKey('audit-capture');
 const output = String.fromEnvironment('ENTRY_LAYOUT_OUTPUT');
@@ -244,7 +246,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     final loader = FontLoader('sans')
-      ..addFont(rootBundle.load('assets/fonts/MedBoxSansSC-Regular.ttf'));
+      ..addFont(loadChineseFontFixture());
     await loader.load();
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
