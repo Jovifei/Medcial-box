@@ -67,3 +67,23 @@ test("staging rejects placeholders/default credentials without echoing secret va
     { WECHAT_APP_SECRET: "" }, { STAGING_API_PORT: "80" },
   ]) assert.throws(() => validateStagingEnvironment({ ...env, ...overrides }));
 });
+
+
+test("staging reverse proxy stays aligned with photo and recognition request limits", async () => {
+  const nginx = await readFile(
+    join(import.meta.dirname, "..", "deploy", "nginx.staging.conf.example"),
+    "utf8",
+  );
+  assert.match(nginx, /client_max_body_size\s+12m;/,
+    "8 MiB raw photos expand in base64; HTTPS proxy must allow the API's 12 MiB request body");
+  assert.match(nginx, /proxy_read_timeout\s+75s;/,
+    "proxy timeout must not cut off the 60–70 second client recognition window");
+});
+
+test("Android release source never falls back to the debug keystore", async () => {
+  const gradle = await readFile(
+    join(import.meta.dirname, "..", "apps", "flutter", "android", "app", "build.gradle.kts"),
+    "utf8",
+  );
+  assert.doesNotMatch(gradle, /signingConfig\s*=\s*signingConfigs\.getByName\(["']debug["']\)/);
+});
