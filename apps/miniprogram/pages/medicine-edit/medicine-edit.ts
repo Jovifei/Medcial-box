@@ -8,6 +8,7 @@ import {
   parseQuantityByUnit,
   parseConfirmedUnitsByUnit,
   unitAllowsDecimals,
+  isValidExpiryValue,
 } from "../../services/input-validation";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
@@ -215,21 +216,6 @@ function formFingerprint(data: MedicineEditPageData): string {  const fields = d
   });
 }
 
-const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const MONTH_PATTERN = /^\d{4}-\d{2}$/;
-
-function validExpiryValue(value: string, precision: ExpiryPrecision): boolean {
-  if (precision === "unknown") return value === "";
-  if (precision === "day" && !DAY_PATTERN.test(value)) return false;
-  if (precision === "month" && !MONTH_PATTERN.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (year < 1 || month < 1 || month > 12) return false;
-  if (precision === "month") return true;
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return day >= 1 && day <= days[month - 1];
-}
-
 function emptyBatch(): BatchForm {
   return {
     id: null,
@@ -296,15 +282,15 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
     const openingLimitSource = typeof batch.openingLimitSource === "string" ? batch.openingLimitSource.trim() : "";
     const precision = PRECISION_VALUES[batch.precisionIndex] ?? "unknown";
     let expiryValue: string | null = batch.expiryValue.trim();
-    if (precision === "day" && expiryValue !== "" && !validExpiryValue(expiryValue, precision)) {
+    if (precision === "day" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
       return { payloads: [], error: "按日有效期需为真实日期 YYYY-MM-DD" };
     }
-    if (precision === "month" && expiryValue !== "" && !validExpiryValue(expiryValue, precision)) {
+    if (precision === "month" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
       return { payloads: [], error: "按月有效期需为真实月份 YYYY-MM" };
     }
     if (precision === "unknown" || expiryValue === "") expiryValue = null;
 
-    if (openedAt !== "" && !validExpiryValue(openedAt, "day")) {
+    if (openedAt !== "" && !isValidExpiryValue(openedAt, "day")) {
       return { payloads: [], error: "开封日期需为真实日期 YYYY-MM-DD" };
     }
     let afterOpeningLimit: object | null = null;
@@ -317,7 +303,7 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
         }
         afterOpeningLimit = { value: Number(value), unit: openingLimitMode, source };
       } else if (openingLimitMode === "date") {
-        if (!validExpiryValue(openingLimitValue, "day")) {
+        if (!isValidExpiryValue(openingLimitValue, "day")) {
           return { payloads: [], error: "开封后截止日期需为真实日期 YYYY-MM-DD" };
         }
         afterOpeningLimit = { date: openingLimitValue, source };
@@ -375,6 +361,19 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
 function showError(error: unknown): void {
   const message = error instanceof ApiError ? error.message : "操作失败，请稍后重试";
   wx.showToast({ title: message, icon: "none", duration: 2800 });
+}
+
+/** 删除仅属于本小程序持久草稿目录的照片，避免药盒图片长期残留在 USER_DATA_PATH。 */
+function removePhotoDraftFiles(draft: PhotoEntryDraft): void {
+  const root = wx.env?.USER_DATA_PATH;
+  if (!root) return;
+  const fs = wx.getFileSystemManager();
+  const seen = new Set<string>();
+  for (const photo of draft.photos) {
+    if (!photo.path.startsWith(`${root}/`) || seen.has(photo.path)) continue;
+    seen.add(photo.path);
+    fs.unlink({ filePath: photo.path, fail: () => undefined });
+  }
 }
 
 Page({
@@ -446,6 +445,7 @@ Page({
   recognitionToken: 0,
   draftStorageKey: null as string | null,
   photoScopeKey: null as string | null,
+  photoDraftStorageWarningShown: false,
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
@@ -1110,6 +1110,29 @@ Page({
     this.markFieldTouched(`batches[${index}].expiryValue`);
     this.updateDirtyState();
   },
+
+  onBatchDateChange(event: {
+    currentTarget: { dataset: { index?: string; field?: string } };
+    detail: { value: string };
+  }): void {
+    if (this.data.attemptedPayload) return;
+    const index = event.currentTarget.dataset.index;
+    const field = event.currentTarget.dataset.field;
+    if (index === undefined || (field !== "openedAt" && field !== "openingLimitValue")) return;
+    this.markFieldTouched(`batches[${index}].${field}`);
+    this.setData({ [`batches[${index}].${field}`]: event.detail.value });
+    this.updateDirtyState();
+  },
+
+  onClearBatchDate(event: { currentTarget: { dataset: { index?: string; field?: string } } }): void {
+    if (this.data.attemptedPayload) return;
+    const index = event.currentTarget.dataset.index;
+    const field = event.currentTarget.dataset.field;
+    if (index === undefined || (field !== "openedAt" && field !== "openingLimitValue")) return;
+    this.markFieldTouched(`batches[${index}].${field}`);
+    this.setData({ [`batches[${index}].${field}`]: "" });
+    this.updateDirtyState();
+  },
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
@@ -1137,7 +1160,7 @@ Page({
     const currentUnit = UNIT_VALUES[batch.unitIndex];
     if (nextUnit === undefined || nextUnit === currentUnit) return;
     // 单位切换守卫（与 batch-edit 一致）：数字不换算，由用户确认后生效。
-    const hasValue = batch.quantity !== "" || batch.confirmedUnits !== "" || batch.quantityUnknown;
+    const hasValue = batch.quantity.trim() !== "" || batch.confirmedUnits.trim() !== "";
     if (!hasValue) {
       this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
       this.updateDirtyState();
@@ -1183,24 +1206,55 @@ Page({
   },
 
   async checkEntrySession(): Promise<void> {
-    try { await ensureLoggedIn({ allowInteractive: false }); this.refreshDraftScope(); this.loadPhotoDrafts(); }
-    catch { wx.redirectTo({ url: `/pages/login/login?redirect=${encodeURIComponent("/pages/medicine-edit/medicine-edit" + (this.data.medicineId ? `?id=${this.data.medicineId}` : ""))}` }); }
+    try {
+      await ensureLoggedIn({ allowInteractive: false });
+      this.refreshDraftScope();
+      this.loadPhotoDrafts();
+    } catch (error) {
+      if (error instanceof ApiError &&
+          (error.statusCode === 401 || error.code === "UNAUTHENTICATED" ||
+           error.code === "UNAUTHORIZED" || error.code === "SESSION_EXPIRED")) {
+        wx.redirectTo({ url: `/pages/login/login?redirect=${encodeURIComponent("/pages/medicine-edit/medicine-edit" + (this.data.medicineId ? `?id=${this.data.medicineId}` : ""))}` });
+        return;
+      }
+      showError(error);
+    }
   },
   onCoverChoice(event: { detail: { value: boolean } }): void { this.setData({ usePhotoAsCover: event.detail.value }); },
   loadPhotoDrafts(): void {
     const key = scopedStorageKey("medicine-photo-drafts");
     if (!key) return;
-    const drafts = wx.getStorageSync(key) as PhotoEntryDraft[] | undefined;
     if (this.photoScopeKey !== key) this.setData({ photoDrafts: [], activePhotoDraftId: "" });
     this.photoScopeKey = key;
-    if (Array.isArray(drafts)) this.setData({ photoDrafts: drafts });
+    try {
+      const drafts = wx.getStorageSync(key) as PhotoEntryDraft[] | undefined;
+      if (!Array.isArray(drafts)) return;
+      const pending = drafts.filter((item) => item.status !== "saved");
+      for (const stale of drafts.filter((item) => item.status === "saved")) removePhotoDraftFiles(stale);
+      this.setData({ photoDrafts: pending });
+      if (pending.length !== drafts.length) wx.setStorageSync(key, pending);
+      this.photoDraftStorageWarningShown = false;
+    } catch {
+      if (!this.photoDraftStorageWarningShown) {
+        this.photoDraftStorageWarningShown = true;
+        wx.showToast({ title: "本机照片草稿读取失败，请重新拍照或直接填写", icon: "none" });
+      }
+    }
   },
   persistPhotoDrafts(): void {
     const key = scopedStorageKey("medicine-photo-drafts");
     if (!key || key !== this.photoScopeKey) return;
     const active = this.data.photoDrafts.find((item) => item.id === this.data.activePhotoDraftId);
     if (active) active.fields = draftValues(this.data as MedicineEditPageData);
-    wx.setStorageSync(key, this.data.photoDrafts);
+    try {
+      wx.setStorageSync(key, this.data.photoDrafts);
+      this.photoDraftStorageWarningShown = false;
+    } catch {
+      if (!this.photoDraftStorageWarningShown) {
+        this.photoDraftStorageWarningShown = true;
+        wx.showToast({ title: "照片草稿保存失败，请尽快完成当前录入", icon: "none" });
+      }
+    }
   },
   setPhotoDraftStatus(status: PhotoEntryDraft["status"]): void {
     const drafts = this.data.photoDrafts.map((item) => item.id === this.data.activePhotoDraftId ? { ...item, status } : item);
@@ -1230,6 +1284,8 @@ Page({
     if (!id || this.data.recognizing || this.data.submitting) return;
     wx.showModal({ title: "删除本机照片草稿", content: "已保存的药品和私有照片不受影响。", success: (result) => {
       if (!result.confirm) return;
+      const draft = this.data.photoDrafts.find((item) => item.id === id);
+      if (draft) removePhotoDraftFiles(draft);
       this.setData({ photoDrafts: this.data.photoDrafts.filter((item) => item.id !== id), ...(this.data.activePhotoDraftId === id ? { activePhotoDraftId: "" } : {}) });
       this.persistPhotoDrafts();
     } });
@@ -1317,7 +1373,10 @@ Page({
       } else {
         if (!this.data.attemptedPayload) { this.setData({ attemptedPayload: payload }); this.persistCurrentDraft(); this.persistPhotoDrafts(); }
         saved = await api.createMedicine(this.data.attemptedPayload ?? payload);
-        if (saved?.id) wx.setStorageSync(scopedStorageKey("cabinet-saved-highlight") ?? "cabinet-unscoped-highlight", saved.id);
+        if (saved?.id) {
+          const highlightKey = scopedStorageKey("cabinet-saved-highlight");
+          try { if (highlightKey) wx.setStorageSync(highlightKey, saved.id); } catch { /* post-save highlight is best effort */ }
+        }
         wx.showToast({ title: "已录入", icon: "success" });
       }
       if (activePhoto && saved?.id) {
@@ -1335,7 +1394,12 @@ Page({
             const front = activePhoto.photos.find((photo) => photo.purpose === "box_front" && photo.uploadedId);
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
-          this.setPhotoDraftStatus("saved");
+          removePhotoDraftFiles(activePhoto);
+          this.setData({
+            photoDrafts: this.data.photoDrafts.filter((item) => item.id !== activePhoto.id),
+            activePhotoDraftId: "",
+          });
+          this.persistPhotoDrafts();
         } catch {
           this.setPhotoDraftStatus("photo_pending");
           this.persistPhotoDrafts();
