@@ -8,6 +8,7 @@ import {
   parseQuantityByUnit,
   parseConfirmedUnitsByUnit,
   unitAllowsDecimals,
+  isValidExpiryValue,
 } from "../../services/input-validation";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
@@ -215,21 +216,6 @@ function formFingerprint(data: MedicineEditPageData): string {  const fields = d
   });
 }
 
-const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const MONTH_PATTERN = /^\d{4}-\d{2}$/;
-
-function validExpiryValue(value: string, precision: ExpiryPrecision): boolean {
-  if (precision === "unknown") return value === "";
-  if (precision === "day" && !DAY_PATTERN.test(value)) return false;
-  if (precision === "month" && !MONTH_PATTERN.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (year < 1 || month < 1 || month > 12) return false;
-  if (precision === "month") return true;
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return day >= 1 && day <= days[month - 1];
-}
-
 function emptyBatch(): BatchForm {
   return {
     id: null,
@@ -296,15 +282,15 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
     const openingLimitSource = typeof batch.openingLimitSource === "string" ? batch.openingLimitSource.trim() : "";
     const precision = PRECISION_VALUES[batch.precisionIndex] ?? "unknown";
     let expiryValue: string | null = batch.expiryValue.trim();
-    if (precision === "day" && expiryValue !== "" && !validExpiryValue(expiryValue, precision)) {
+    if (precision === "day" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
       return { payloads: [], error: "按日有效期需为真实日期 YYYY-MM-DD" };
     }
-    if (precision === "month" && expiryValue !== "" && !validExpiryValue(expiryValue, precision)) {
+    if (precision === "month" && expiryValue !== "" && !isValidExpiryValue(expiryValue, precision)) {
       return { payloads: [], error: "按月有效期需为真实月份 YYYY-MM" };
     }
     if (precision === "unknown" || expiryValue === "") expiryValue = null;
 
-    if (openedAt !== "" && !validExpiryValue(openedAt, "day")) {
+    if (openedAt !== "" && !isValidExpiryValue(openedAt, "day")) {
       return { payloads: [], error: "开封日期需为真实日期 YYYY-MM-DD" };
     }
     let afterOpeningLimit: object | null = null;
@@ -317,7 +303,7 @@ function buildBatchPayloads(batches: BatchForm[]): { payloads: object[]; error: 
         }
         afterOpeningLimit = { value: Number(value), unit: openingLimitMode, source };
       } else if (openingLimitMode === "date") {
-        if (!validExpiryValue(openingLimitValue, "day")) {
+        if (!isValidExpiryValue(openingLimitValue, "day")) {
           return { payloads: [], error: "开封后截止日期需为真实日期 YYYY-MM-DD" };
         }
         afterOpeningLimit = { date: openingLimitValue, source };
