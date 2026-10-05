@@ -1454,6 +1454,7 @@ test("A05: a failed load keeps the edit target and blocks saving instead of fall
 });
 
 test("A14: a late recognition response never refills fields the user cleared", async () => {
+  const photoStorage = new Map();
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const draft = {
@@ -1486,7 +1487,18 @@ test("A14: a late recognition response never refills fields the user cleared", a
     },
     wx: {
       chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
-      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      getStorageSync: (key) => photoStorage.get(key),
+      setStorageSync: (key, value) => photoStorage.set(key, JSON.parse(JSON.stringify(value))),
+      env: { USER_DATA_PATH: "/synthetic-owned" },
+      getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 360, SDKVersion: "3.17.3" }),
+      base64ToArrayBuffer: () => new ArrayBuffer(8),
+      getFileSystemManager: () => ({
+        readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }),
+        open: (options) => options.success({ fd: "synthetic-fd" }),
+        write: (options) => options.success({ bytesWritten: options.data.byteLength }),
+        close: (options) => options.success({}),
+        unlink: (options) => options.success({}),
+      }),
       showToast() {},
       showModal(options) { options?.success?.({ confirm: true }); },
     },
@@ -1505,6 +1517,7 @@ test("A14: a late recognition response never refills fields the user cleared", a
 });
 
 test("A14: a late recognition response does not write into a batch the user removed", async () => {
+  const photoStorage = new Map();
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const draft = {
@@ -1533,7 +1546,18 @@ test("A14: a late recognition response does not write into a batch the user remo
     },
     wx: {
       chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
-      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      getStorageSync: (key) => photoStorage.get(key),
+      setStorageSync: (key, value) => photoStorage.set(key, JSON.parse(JSON.stringify(value))),
+      env: { USER_DATA_PATH: "/synthetic-owned" },
+      getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 360, SDKVersion: "3.17.3" }),
+      base64ToArrayBuffer: () => new ArrayBuffer(8),
+      getFileSystemManager: () => ({
+        readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }),
+        open: (options) => options.success({ fd: "synthetic-fd" }),
+        write: (options) => options.success({ bytesWritten: options.data.byteLength }),
+        close: (options) => options.success({}),
+        unlink: (options) => options.success({}),
+      }),
       showToast() {},
       showModal(options) { options?.success?.({ confirm: true }); },
     },

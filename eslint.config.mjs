@@ -6,6 +6,12 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // QA entrypoint templates intentionally use non-hoisted CommonJS requires.
+    files: ["scripts/qa/*.cjs"],
+    languageOptions: { globals: { require: "readonly", module: "readonly", setTimeout: "readonly" } },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     files: ["apps/api/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
       globals: {

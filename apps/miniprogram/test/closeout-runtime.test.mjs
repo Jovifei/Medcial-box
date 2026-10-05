@@ -34,12 +34,12 @@ test('private photo payload binds purpose and exact saved batch, preferences hav
  assert.deepEqual(JSON.parse(JSON.stringify(calls[1].data.channels)),['wechat']);assert.equal(calls[1].data.stockReminderTime,'10:30');
 });
 test('photo upload failure preserves association and retry does not create another medicine',async()=>{
- let creates=0;let uploads=0;
+ let creates=0;let uploads=0;const storage=new Map();
  const saved={id:'m',batches:[{id:'saved-batch'}]};
- const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'../../services/api':{ApiError,api:{createMedicine:async()=>{creates++;return saved},getMedicine:async()=>saved,uploadLeafletPhoto:async(id,b64,mime,source,association)=>{uploads++;assert.equal(id,'m');assert.equal(association.batchId,'saved-batch');if(uploads===1)throw new Error('offline');return {photo:{id:'p'}}}}}},wx:{env:{USER_DATA_PATH:'/owned'},getFileSystemManager:()=>({readFile:options=>options.success({data:'/9j/a'})})}});
+ const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'../../services/api':{ApiError,api:{createMedicine:async()=>{creates++;return saved},getMedicine:async()=>saved,uploadLeafletPhoto:async(id,b64,mime,source,association)=>{uploads++;assert.equal(id,'m');assert.equal(association.batchId,'saved-batch');if(uploads===1)throw new Error('offline');return {photo:{id:'p'}}}}}},wx:{getStorageSync:key=>storage.has(key)?JSON.parse(storage.get(key)):undefined,setStorageSync:(key,value)=>storage.set(key,JSON.stringify(value)),env:{USER_DATA_PATH:'/owned'},getFileSystemManager:()=>({readFile:options=>options.success({data:'/9j/a'})})}});
  const page=makePageContext(definition);page.loadPhotoDrafts();page.data.name='name';page.data.photoDrafts=[{id:'d',thumbnail:'/local.jpg',status:'review',fields:{},medicineId:'',photos:[{path:'/local.jpg',mimeType:'image/jpeg',purpose:'expiry',batchIndex:0}]}];page.data.activePhotoDraftId='d';
- await page.onSubmit();assert.equal(creates,1);assert.equal(page.data.photoDrafts[0].status,'photo_pending');assert.equal(page.data.photoDrafts[0].medicineId,'m');
- await page.onSubmit();assert.equal(creates,1);assert.equal(uploads,2);assert.equal(page.data.photoDrafts.length,0);assert.equal(page.data.activePhotoDraftId,'');
+ await page.onSubmit();assert.equal(creates,1);assert.equal(page.data.photoDrafts[0].status,'photo_pending');assert.equal(page.data.photoDrafts[0].medicineId,'m');assert.equal(JSON.parse(storage.get(page.photoScopeKey))[0].status,'photo_pending');
+ await page.onSubmit();assert.equal(creates,1);assert.equal(uploads,2);assert.equal(page.data.photoDrafts.length,0);assert.equal(page.data.activePhotoDraftId,'');assert.deepEqual(JSON.parse(storage.get(page.photoScopeKey)),[]);
 });
 test('ten pending photo drafts block adding, switching drafts restores stable id and typed fields',()=>{
  const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{modules:{...auth,'../../services/api':{ApiError,api:{}}}});const page=makePageContext(definition);

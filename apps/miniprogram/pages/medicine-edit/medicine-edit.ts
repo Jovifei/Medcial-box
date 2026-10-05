@@ -1,5 +1,7 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { closeOwnedPhotoFile, PhotoFileWriteError, writeOwnedPhotoFile } from "../../services/photo-file-lifecycle";
+import type { OwnedPhotoFile } from "../../services/photo-file-lifecycle";
 import { readSessionScope, scopedStorageKey } from "../../services/session-scope";
 import { confirmIngredientOverlap, findVerifiedIngredientMatches } from "../../services/ingredient-matches";
 import {
@@ -26,6 +28,8 @@ const PURPOSE_OPTIONS = ["未分类", "解热镇痛", "感冒咳嗽", "胃肠消
 interface BatchForm {
   /** 已有批次标识（编辑时从详情带入，保存时随 payload 回传）；null = 新增。 */
   id: string | null;
+  /** Stable identity for an unsaved batch; never sent in the API payload. */
+  draftKey?: string;
   /** 已有批次版本（后端乐观锁门）。 */
   version: number | null;
   lotNumber: string;
@@ -133,9 +137,52 @@ interface PhotoEntryDraft {
   photos: Array<{
     path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry";
     batchIndex: number; uploadedId?: string;
-    ownedLocal?: { scopeKey: string; draftId: string; path: string };
+    ownedLocal?: OwnedPhotoFile;
     localFileRemoved?: boolean;
   }>;
+}
+
+const snapshot = <T>(value: T): T => value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
+/** Apply this page's changes to a fresh durable snapshot, never a stale whole queue. */
+function rebasePhotoValue(current: unknown, baseline: unknown, latest: unknown, field = ""): unknown {
+  if (JSON.stringify(current) === JSON.stringify(latest)) return snapshot(latest);
+  if (JSON.stringify(current) === JSON.stringify(baseline)) return snapshot(latest);
+  if (JSON.stringify(latest) === JSON.stringify(baseline)) return snapshot(current);
+  if (Array.isArray(current) && Array.isArray(baseline) && Array.isArray(latest)) {
+    if (field === "photos") {
+      const result = snapshot(latest) as PhotoEntryDraft["photos"];
+      for (const photo of current as PhotoEntryDraft["photos"]) {
+        const before = (baseline as PhotoEntryDraft["photos"]).find((item) => item.path === photo.path);
+        const index = result.findIndex((item) => item.path === photo.path);
+        if (index < 0) { if (!before) result.push(snapshot(photo)); }
+        else result[index] = rebasePhotoValue(photo, before, result[index]) as PhotoEntryDraft["photos"][number];
+      }
+      return result;
+    }
+    if (field === "batches") {
+      const identities = (items: BatchForm[]): Array<string | null> => items.map((item) =>
+        item.id !== null ? `saved:${item.id}` : item.draftKey ? `draft:${item.draftKey}` : null);
+      const before = identities(baseline);
+      if (before.includes(null) || new Set(before).size !== before.length ||
+          JSON.stringify(identities(current)) !== JSON.stringify(before) ||
+          JSON.stringify(identities(latest)) !== JSON.stringify(before)) {
+        throw new Error("Concurrent photo-draft batch structure changed");
+      }
+      return current.map((item, index) => rebasePhotoValue(item, baseline[index], latest[index]));
+    }
+  }
+  if (current && baseline && latest && typeof current === "object" && typeof baseline === "object" &&
+      typeof latest === "object" && !Array.isArray(current) && !Array.isArray(baseline) && !Array.isArray(latest)) {
+    const local = current as Record<string, unknown>, before = baseline as Record<string, unknown>, stored = latest as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    for (const key of new Set([...Object.keys(local), ...Object.keys(before), ...Object.keys(stored)])) {
+      const value = rebasePhotoValue(local[key], before[key], stored[key], key);
+      if (value !== undefined) result[key] = value;
+    }
+    return result;
+  }
+  // An explicitly changed scalar/selection belongs to the current user action.
+  return snapshot(current);
 }
 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
@@ -222,9 +269,11 @@ function formFingerprint(data: MedicineEditPageData): string {  const fields = d
   });
 }
 
+let localBatchSequence = 0;
 function emptyBatch(): BatchForm {
   return {
     id: null,
+    draftKey: `batch-${Date.now()}-${++localBatchSequence}-${Math.random().toString(36).slice(2, 8)}`,
     version: null,
     lotNumber: "",
     expiryValue: "",
@@ -373,7 +422,7 @@ function showError(error: unknown): void {
 async function removePhotoDraftFiles(
   draft: PhotoEntryDraft, scopeKey: string, isCurrent: () => boolean,
 ): Promise<boolean> {
-  const root = wx.env?.USER_DATA_PATH;
+  const root = wx.env?.USER_DATA_PATH?.replace(/\/+$/, "");
   if (!root || !Array.isArray(draft.photos)) return false;
   const fs = wx.getFileSystemManager();
   let complete = true;
@@ -395,6 +444,7 @@ async function removePhotoDraftFiles(
       complete = false;
       continue;
     }
+    if (!(await closeOwnedPhotoFile(owned)) || !isCurrent()) { complete = false; continue; }
     const removed = await new Promise<boolean>((resolve) => {
       try {
         fs.unlink({
@@ -482,13 +532,19 @@ Page({
   draftStorageKey: null as string | null,
   photoScopeKey: null as string | null,
   photoDraftStorageWarningShown: false,
+  photoQueueBaseline: null as PhotoEntryDraft[] | null,
+  photoFormBaseline: null as { id: string; fields: MedicineDraftValues } | null,
   photoCleanupRunning: false,
+  entryDisposed: false,
   initialDraftSnapshot: "",
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
   leaveNavigationPending: false,
 
   onLoad(options: { id?: string; capture?: string; scan?: string }): void {
+    this.entryDisposed = false;
+    this.photoQueueBaseline = null;
+    this.photoFormBaseline = null;
     const medicineId = options.id ?? "";
     this.setData({ createOperationKey: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 12)}` });
     this.draftStorageKey = draftStorageKey(medicineId);
@@ -524,12 +580,18 @@ Page({
     }
   },
 
+  onShow(): void {
+    this.loadPhotoDrafts();
+  },
+
   onHide(): void {
     const data = this.data as MedicineEditPageData;
     if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
   },
 
   onUnload(): void {
+    this.entryDisposed = true;
+    this.recognitionToken += 1;
     const data = this.data as MedicineEditPageData;
     if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
     this.setNativeLeaveWarning(false);
@@ -1050,17 +1112,32 @@ Page({
     // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
     // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
     if (this.data.attemptedPayload) return;
+    const active = initialData.photoDrafts.find((item) => item.id === initialData.activePhotoDraftId);
+    if (active?.photos.some((photo) => photo.ownedLocal?.state === "reserved")) {
+      this.setData({ recognitionHint: "照片写入尚未完成，请先删除这份照片草稿再重拍；药品文字仍可手动保存。" });
+      wx.showToast({ title: "请先处理未完成的照片草稿", icon: "none" });
+      return;
+    }
+    if (initialData.activePhotoDraftId && !this.currentPhotoDraftQueue(initialData.activePhotoDraftId)) {
+      this.setData({ recognitionHint: "本机照片草稿已变化，请重新打开页面核对。" });
+      return;
+    }
     const token = ++this.recognitionToken;
     const touchedSnapshot = { ...this.touchedFields };
-    const batchShape = initialData.batches.map((batch) => batch.id ?? "");
+    const batchShape = initialData.batches.map((batch) => batch.id ?? batch.draftKey ?? batch);
     this.setData({ recognizing: true });
+    let photo: PhotoEntryDraft["photos"][number] | undefined;
+    let registered = false;
+    let operationDraftId = initialData.activePhotoDraftId;
+    const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope) &&
+      (!registered || this.currentPhotoDraftQueue(operationDraftId, photo?.path) !== null);
     try {
       if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const eventSource = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.source : sourceOverride;
       const source = eventSource === "album" ? "album" : "camera";
       const selection = await wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: [source], sizeType: ["compressed"] });
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const file = selection.tempFiles[0];
       if (!file) return;
       if (!this.data.activePhotoDraftId && this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
@@ -1076,7 +1153,7 @@ Page({
           fail: reject,
         });
       });
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       let mimeType: "image/jpeg" | "image/png";
       if (imageBase64.startsWith("/9j/")) mimeType = "image/jpeg";
       else if (imageBase64.startsWith("iVBORw0KGgo")) mimeType = "image/png";
@@ -1086,32 +1163,57 @@ Page({
       }
       const purpose = typeof sourceOverride === "object" && sourceOverride.currentTarget?.dataset?.purpose === "expiry" ? "expiry" : "box_front";
       const id = this.data.activePhotoDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      let path = file.tempFilePath;
+      operationDraftId = id;
       const fs = wx.getFileSystemManager();
-      if (typeof fs.writeFile === "function" && wx.env?.USER_DATA_PATH) {
-        path = `${wx.env.USER_DATA_PATH}/${id}-${purpose}-${Date.now()}.${mimeType === "image/png" ? "png" : "jpg"}`;
-        await new Promise<void>((resolve, reject) => fs.writeFile({ filePath: path, data: imageBase64, encoding: "base64", success: () => resolve(), fail: reject }));
+      let sdkVersion = "";
+      try { sdkVersion = wx.getSystemInfoSync().SDKVersion; } catch { /* fail closed below */ }
+      if (typeof wx.base64ToArrayBuffer !== "function") {
+        throw new PhotoFileWriteError("PHOTO_STORAGE_UNAVAILABLE", "当前微信版本不支持安全保存照片草稿，请升级微信或手动录入。");
       }
-      if (!this.entryScopeIsCurrent(originalScope)) return;
-      const entries = [...this.data.photoDrafts];
-      let entry = entries.find((item) => item.id === id);
-      if (!entry) {
-        if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份待核对草稿，请先保存或删除", icon: "none" }); return; }
-        entry = { id, thumbnail: path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
-        entries.push(entry);
-      }
-      entry.photos.push({ path, mimeType, purpose, batchIndex: 0,
-        ...(path !== file.tempFilePath && originalScope
-          ? { ownedLocal: { scopeKey: originalScope, draftId: id, path } } : {}),
+      await writeOwnedPhotoFile({
+        fs, sdkVersion, root: wx.env?.USER_DATA_PATH ?? "", scopeKey: originalScope!, draftId: id,
+        purpose, mimeType, data: wx.base64ToArrayBuffer(imageBase64),
+        isCurrent: operationCurrent,
+        register: (owner) => {
+          if (!operationCurrent()) return false;
+          const entries = initialData.activePhotoDraftId
+            ? this.currentPhotoDraftQueue(id) : this.photoDraftQueueForWrite();
+          if (!entries) return false;
+          let entry = entries.find((item) => item.id === id);
+          if (entry && !initialData.activePhotoDraftId) return false;
+          if (!entry) {
+            if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) return false;
+            entry = { id, thumbnail: owner.path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
+            entries.push(entry);
+          }
+          photo = { path: owner.path, mimeType, purpose, batchIndex: 0, ownedLocal: owner };
+          entry.photos.push(photo);
+          entry.status = "recognizing";
+          this.setData({ photoDrafts: entries, activePhotoDraftId: id, recognitionHint: "正在安全保存本机照片草稿…" });
+          registered = this.persistPhotoDrafts();
+          return registered;
+        },
+        markReady: (owner) => {
+          if (!photo || !operationCurrent()) return false;
+          const entries = this.currentPhotoDraftQueue(id, photo.path);
+          const currentPhoto = entries?.find((item) => item.id === id)?.photos.find((item) => item.path === photo!.path);
+          if (!entries || !currentPhoto) return false;
+          const reserved = currentPhoto.ownedLocal;
+          currentPhoto.ownedLocal = owner;
+          photo = currentPhoto;
+          this.setData({ photoDrafts: entries });
+          if (this.persistPhotoDrafts()) return true;
+          currentPhoto.ownedLocal = reserved;
+          return false;
+        },
       });
-      entry.status = "recognizing";
-      this.setData({ photoDrafts: entries, activePhotoDraftId: id, recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
-      this.persistPhotoDrafts();
+      if (!operationCurrent()) return;
+      this.setData({ recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
       await ensureLoggedIn();
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const result = await api.recognizeMedicine(imageBase64, mimeType);
       // 过期响应（期间又发起过识别/已加载别的药品）直接丢弃。
-      if (token !== this.recognitionToken || !this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const draft = result.draft;
       const current = this.data as MedicineEditPageData;
       const first = current.batches[0];
@@ -1138,7 +1240,7 @@ Page({
       // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
       // 也不能把晚到的识别结果写进被删除/新增后的另一个批次。
       const shapeUnchanged = current.batches.length === batchShape.length &&
-        current.batches.every((batch, index) => (batch.id ?? "") === batchShape[index]);
+        current.batches.every((batch, index) => (batch.id ?? batch.draftKey ?? batch) === batchShape[index]);
       if (first && shapeUnchanged) {
         if (untouched("batches[0].lotNumber") && first.lotNumber.trim() === "" && draft.lotNumber) {
           fields["batches[0].lotNumber"] = draft.lotNumber;
@@ -1150,14 +1252,32 @@ Page({
           fields["batches[0].precisionIndex"] = PRECISION_VALUES.indexOf(draft.expiryPrecision);
         }
       }
+      const latest = this.currentPhotoDraftQueue(id, photo?.path);
+      if (!latest) return;
+      this.setData({ photoDrafts: latest });
       this.setData(fields);
       this.setPhotoDraftStatus("review");
       this.updateDirtyState();
     } catch (error) {
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       if (typeof error === "object" && error !== null && "errMsg" in error &&
         String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
-      this.setPhotoDraftStatus("failed");
+      if (registered) {
+        const latest = this.currentPhotoDraftQueue(operationDraftId, photo?.path);
+        if (!latest) return;
+        this.setData({ photoDrafts: latest });
+        this.setPhotoDraftStatus("failed");
+      } else if (photo) {
+        // Registration did not acknowledge: show a local failure without replaying an old queue.
+        this.setData({ photoDrafts: this.data.photoDrafts.map((item) => item.id === operationDraftId ? { ...item, status: "failed" as const } : item) });
+      }
+      if (error instanceof PhotoFileWriteError) {
+        const incomplete = this.data.photoDrafts.find((entry) => entry.id === this.data.activePhotoDraftId)
+          ?.photos.some((photo) => photo.ownedLocal?.state === "reserved");
+        this.setData({ recognitionHint: error.message + (incomplete ? " 请删除这份未完成的照片草稿后重拍；药品文字仍可手动保存。" : "") });
+        wx.showToast({ title: "照片草稿未完成，请查看页面提示", icon: "none" });
+        return;
+      }
       const code = error instanceof ApiError ? error.code : "";
       if (code === "RECOGNITION_UNAVAILABLE") {
         this.setData({ recognitionHint: "拍照识别暂不可用，请先填写药品名称保存。" });
@@ -1168,7 +1288,7 @@ Page({
         this.setData({ recognitionHint: "未识别图片；可重新拍照，或直接填写药名。" });
       }
     } finally {
-      this.setData({ recognizing: false });
+      if (!this.entryDisposed && token === this.recognitionToken) this.setData({ recognizing: false });
     }
   },
 
@@ -1298,7 +1418,7 @@ Page({
 
   /** An open form keeps its original household; async work must not adopt a later login. */
   entryScopeIsCurrent(scope: string | null): boolean {
-    return scope !== null && scope === scopedStorageKey("medicine-photo-drafts") &&
+    return !this.entryDisposed && scope !== null && scope === scopedStorageKey("medicine-photo-drafts") &&
       (this.photoScopeKey === null || this.photoScopeKey === scope) &&
       (this.draftStorageKey === null || this.draftStorageKey === draftStorageKey(this.data.medicineId));
   },
@@ -1306,6 +1426,7 @@ Page({
   async checkEntrySession(): Promise<void> {
     try {
       await ensureLoggedIn({ allowInteractive: false });
+      if (this.entryDisposed) return;
       this.refreshDraftScope();
       this.loadPhotoDrafts();
     } catch (error) {
@@ -1320,14 +1441,19 @@ Page({
   },
   onCoverChoice(event: { detail: { value: boolean } }): void { this.setData({ usePhotoAsCover: event.detail.value }); },
   loadPhotoDrafts(): void {
+    if (this.entryDisposed) return;
     const key = scopedStorageKey("medicine-photo-drafts");
     if (!key) return;
+    if (this.photoScopeKey === key && (this.data.recognizing || this.data.submitting)) return;
     if (this.photoScopeKey !== key) this.setData({ photoDrafts: [], activePhotoDraftId: "" });
     this.photoScopeKey = key;
     try {
       const drafts = wx.getStorageSync(key) as PhotoEntryDraft[] | undefined;
       if (!Array.isArray(drafts)) return;
-      this.setData({ photoDrafts: drafts });
+      const recovered = drafts.map((draft) => draft.status === "recognizing" &&
+        draft.photos?.some((photo) => photo.ownedLocal?.state === "reserved")
+        ? { ...draft, status: "failed" as const } : draft);
+      this.applyPhotoDraftQueue(recovered);
       void this.cleanupPhotoDrafts();
       this.photoDraftStorageWarningShown = false;
     } catch {
@@ -1337,13 +1463,87 @@ Page({
       }
     }
   },
-  persistPhotoDrafts(): boolean {
-    const key = scopedStorageKey("medicine-photo-drafts");
-    if (!key || key !== this.photoScopeKey) return false;
-    const active = this.data.photoDrafts.find((item) => item.id === this.data.activePhotoDraftId);
-    if (active) active.fields = draftValues(this.data as MedicineEditPageData);
+  photoDraftQueueForWrite(): PhotoEntryDraft[] | null {
+    const key = this.photoScopeKey;
+    if (!key || !this.entryScopeIsCurrent(key)) return null;
     try {
-      wx.setStorageSync(key, this.data.photoDrafts);
+      const stored = wx.getStorageSync(key) as unknown;
+      if (stored === undefined || stored === null || stored === "") return [];
+      if (!Array.isArray(stored) || stored.some((item) => !item || typeof item.id !== "string" ||
+          !Array.isArray(item.photos) || typeof item.fields !== "object" || !item.fields)) return null;
+      // Own the snapshot: do not mutate a platform/test storage cache before setStorageSync acknowledges.
+      return JSON.parse(JSON.stringify(stored)) as PhotoEntryDraft[];
+    } catch { return null; }
+  },
+
+  currentPhotoDraftQueue(id: string, path?: string): PhotoEntryDraft[] | null {
+    const queue = this.photoDraftQueueForWrite();
+    if (!queue) return null;
+    const draft = queue.find((item) => item.id === id);
+    if (!draft || draft.status === "cleanup_pending" || draft.status === "saved") return null;
+    try {
+      // Preserve later edits from another page too, rather than replaying this page's stale fields.
+      if (formFingerprint({ ...this.data, ...draft.fields } as MedicineEditPageData) !== formFingerprint(this.data as MedicineEditPageData)) return null;
+    } catch { return null; }
+    if (path && !draft.photos.some((photo) => photo.path === path && photo.ownedLocal?.path === path &&
+        photo.ownedLocal?.scopeKey === this.photoScopeKey && photo.ownedLocal?.draftId === id)) return null;
+    return queue;
+  },
+
+  /** Refresh queue and visible form together; keep the form's acknowledgement separate. */
+  applyPhotoDraftQueue(drafts: PhotoEntryDraft[]): void {
+    const id = this.data.activePhotoDraftId;
+    const old = this.data.photoDrafts.find((item) => item.id === id);
+    const active = drafts.find((item) => item.id === id && item.status !== "saved" && item.status !== "cleanup_pending");
+    const baseline = this.photoFormBaseline?.id === id ? this.photoFormBaseline.fields : old?.fields;
+    const fields = active && baseline
+      ? rebasePhotoValue(draftValues(this.data as MedicineEditPageData), baseline, active.fields) as MedicineDraftValues
+      : active?.fields;
+    // Keep top-level entry references held by an in-flight save, but never reuse its stale fields.
+    const entries = drafts.map((draft) => {
+      const existing = this.data.photoDrafts.find((item) => item.id === draft.id);
+      return existing ? Object.assign(existing, snapshot(draft)) : snapshot(draft);
+    });
+    this.photoQueueBaseline = snapshot(drafts);
+    this.photoFormBaseline = active ? { id: active.id, fields: snapshot(active.fields) } : null;
+    this.setData({ photoDrafts: entries,
+      ...(fields ? { ...fields, populationChips: buildPopulationChips(fields.populationTags),
+        purposeChips: buildPurposeChips(fields.purposeTags) } : {}),
+      ...(!active ? { activePhotoDraftId: "" } : {}),
+    });
+  },
+  persistPhotoDrafts(): boolean {
+    const latest = this.photoDraftQueueForWrite();
+    if (!latest) return false;
+    try {
+      for (const draft of this.data.photoDrafts) {
+        const local = snapshot(draft);
+        const prior = this.photoQueueBaseline?.find((item) => item.id === draft.id);
+        const baseline = snapshot(prior ?? draft);
+        if (draft.id === this.data.activePhotoDraftId) {
+          local.fields = draftValues(this.data as MedicineEditPageData);
+          baseline.fields = snapshot(this.photoFormBaseline?.id === draft.id ? this.photoFormBaseline.fields : draft.fields);
+        }
+        const index = latest.findIndex((item) => item.id === draft.id);
+        if (index < 0) { if (!prior) latest.push(local); continue; }
+        // Durable deletion/save wins over any obsolete page, including its catch paths.
+        if (latest[index].status === "cleanup_pending" || latest[index].status === "saved") continue;
+        latest[index] = rebasePhotoValue(local, baseline, latest[index]) as PhotoEntryDraft;
+      }
+      if (!this.writePhotoDraftQueue(latest)) return false;
+      this.applyPhotoDraftQueue(latest);
+      return true;
+    } catch {
+      wx.showToast({ title: "照片草稿已在别页变化，当前编辑已保留，请核对后重试", icon: "none" });
+      return false;
+    }
+  },
+  /** Queue-only persistence: passive cleanup must never copy this page's form fields. */
+  writePhotoDraftQueue(drafts: PhotoEntryDraft[]): boolean {
+    const key = this.photoScopeKey;
+    if (!key || !this.entryScopeIsCurrent(key)) return false;
+    try {
+      wx.setStorageSync(key, drafts);
       this.photoDraftStorageWarningShown = false;
       return true;
     } catch {
@@ -1359,23 +1559,33 @@ Page({
     if (this.photoCleanupRunning || !scope || !this.entryScopeIsCurrent(scope)) return;
     this.photoCleanupRunning = true;
     try {
-      // Persist cleanup intent before deleting bytes, so failures can be retried after restart.
-      if (!this.persistPhotoDrafts()) return;
-      for (const draft of [...this.data.photoDrafts]) {
+      // Only durable intents authorize deletion. Explicit delete/save persists them first.
+      // onShow also enters here, so neither register nor rewrite a stale page snapshot.
+      const queue = this.photoDraftQueueForWrite();
+      if (!queue) return;
+      for (const draft of queue) {
         if (draft.status !== "saved" && draft.status !== "cleanup_pending") continue;
-        const current = (): boolean => this.entryScopeIsCurrent(scope) && this.data.photoDrafts.includes(draft);
+        const original = JSON.stringify(draft);
+        const unchanged = (item: PhotoEntryDraft): boolean => item.id === draft.id && JSON.stringify(item) === original;
+        const current = (): boolean => this.entryScopeIsCurrent(scope) &&
+          (this.photoDraftQueueForWrite()?.some(unchanged) ?? false);
         if (!current()) return;
         const removed = await removePhotoDraftFiles(draft, scope, current);
         if (!current()) return;
-        if (removed) {
-          const prior = this.data.photoDrafts;
-          this.setData({ photoDrafts: prior.filter((item) => item !== draft) });
-          if (!this.persistPhotoDrafts()) {
-            this.setData({ photoDrafts: prior });
-            return;
-          }
-        } else {
-          this.persistPhotoDrafts();
+        // Native close/unlink yields. Rebase only this exact, unchanged target onto
+        // the newest durable queue, retaining additions and edits from other pages.
+        const latest = this.photoDraftQueueForWrite();
+        if (!latest) return;
+        const index = latest.findIndex(unchanged);
+        if (index < 0) return;
+        if (removed) latest.splice(index, 1);
+        else latest[index] = draft;
+        if (!this.writePhotoDraftQueue(latest)) return;
+        // A submission owns unacknowledged medicineId/uploadedId and photo objects
+        // across awaits. Do not replace them while cleaning another queue target;
+        // its next explicit persistence will rebase against this durable queue.
+        if (!this.data.submitting || !this.data.activePhotoDraftId) this.applyPhotoDraftQueue(latest);
+        if (!removed) {
           wx.showToast({ title: "部分本机照片待清理，记录已保留", icon: "none" });
         }
       }
@@ -1394,15 +1604,18 @@ Page({
     if (this.data.recognizing || this.data.submitting) return;
     const entry = this.data.photoDrafts.find((item) => item.id === event.currentTarget.dataset.id);
     if (!entry || entry.status === "saved" || entry.status === "cleanup_pending") return;
-    this.persistPhotoDrafts();
+    if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
-    this.setData({ ...entry.fields, activePhotoDraftId: entry.id, recognitionHint: entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
+    const incomplete = entry.photos.some((photo) => photo.ownedLocal?.state === "reserved");
+    this.setData({ ...entry.fields, activePhotoDraftId: entry.id, recognitionHint: incomplete
+      ? "照片写入尚未完成，请删除这份照片草稿后重拍；药品文字仍可手动保存。"
+      : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
     this.updateDirtyState();
   },
   onNewPhotoDraft(): void {
     if (this.data.recognizing || this.data.submitting) return;
     if (this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
-    this.persistPhotoDrafts();
+    if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
     this.setData({ attemptedPayload: null, createOperationKey: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`, name: "", specification: "", manufacturer: "", approvalNumber: "", barcodeValue: "", ingredients: "", purposeCategory: "", populationTags: [], purposeTags: [], leafletPurpose: "", leafletUsage: "", leafletContraindications: "", leafletPrecautions: "", leafletSource: "", verified: false, batches: [emptyBatch()], activePhotoDraftId: "", recognitionHint: "", scannedBarcode: "", candidates: [] });
     this.captureInitialSnapshot();
@@ -1415,12 +1628,13 @@ Page({
     if (!this.entryScopeIsCurrent(originalScope)) return;
     wx.showModal({ title: "删除本机照片草稿", content: "已保存的药品和私有照片不受影响。", success: (result) => {
       if (!result.confirm || !this.entryScopeIsCurrent(originalScope) || this.data.recognizing || this.data.submitting) return;
-      const draft = this.data.photoDrafts.find((item) => item.id === id);
-      if (!draft) return;
+      const latest = this.photoDraftQueueForWrite();
+      const draft = latest?.find((item) => item.id === id);
+      if (!latest || !draft) return;
       draft.status = "cleanup_pending";
-      this.setData({ photoDrafts: this.data.photoDrafts });
-      if (this.data.activePhotoDraftId === id) this.setData({ activePhotoDraftId: "" });
-      if (this.persistPhotoDrafts()) void this.cleanupPhotoDrafts();
+      if (!this.writePhotoDraftQueue(latest)) return;
+      this.applyPhotoDraftQueue(latest);
+      void this.cleanupPhotoDrafts();
     } });
   },
 
@@ -1506,6 +1720,11 @@ Page({
       }
       if (!this.entryScopeIsCurrent(originalScope)) return;
       const activePhoto = data.photoDrafts.find((item) => item.id === data.activePhotoDraftId);
+      if (activePhoto?.photos.some((photo) => photo.ownedLocal?.state === "reserved")) {
+        this.setData({ recognitionHint: "照片写入尚未完成，请删除该照片草稿后重新拍照，或手动保存药品。" });
+        wx.showToast({ title: "照片尚未完整保存", icon: "none" });
+        return;
+      }
       let saved: MedicationSummary;
       if (activePhoto?.medicineId) {
         saved = await api.getMedicine(activePhoto.medicineId);

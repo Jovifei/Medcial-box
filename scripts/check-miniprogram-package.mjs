@@ -8,6 +8,9 @@ export async function checkMiniProgramPackage(root) {
   const [project, app] = await Promise.all([json("project.config.json"), json("app.json")]);
   const sitemap = await json(app.sitemapLocation ?? "sitemap.json");
   const errors = [];
+  if (project.appid === "touristappid" || /^QA-ONLY-/.test(project.projectname ?? "")) {
+    errors.push("QA-only build must never be uploaded or released");
+  }
   if (!Array.isArray(sitemap.rules) || !sitemap.rules.length ||
       !sitemap.rules.some((rule) => rule.action === "disallow" && rule.page === "*")) {
     errors.push("sitemap must explicitly disallow private pages with a nonempty rules array");
@@ -28,6 +31,10 @@ export async function checkMiniProgramPackage(root) {
       if (entry.isDirectory()) { await walk(join(directory, entry.name), `${relative}/`); continue; }
       // DevTools configuration itself is not runtime package content.
       if (["project.config.json", "project.private.config.json"].includes(relative)) continue;
+      if (/QA-DO-NOT-UPLOAD|^qa\//.test(relative)) errors.push(`QA-only fixture file cannot be released: ${relative}`);
+      if (/\.(js|ts|json)$/.test(relative) && (await readFile(join(directory, entry.name), "utf8")).includes("MEDICINE_QA_ONLY")) {
+        errors.push(`QA build mark cannot be released: ${relative}`);
+      }
       const size = (await stat(join(directory, entry.name))).size;
       bytes += size;
       files++;

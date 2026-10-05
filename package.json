@@ -17,6 +17,8 @@
     "test": "npm run test --workspaces --if-present && npm run test:tooling",
     "test:tooling": "node --test scripts/*.test.mjs",
     "test:integration": "npm run build --workspace @home-medicine/api && node scripts/run-integration.mjs",
+    "prepare:mini:qa": "node scripts/prepare-miniprogram-qa.mjs",
+    "test:mini:qa": "node --test scripts/miniprogram-qa.test.mjs",
     "prepare:mini": "node scripts/prepare-miniprogram.mjs",
     "check:staging": "node scripts/check-staging.mjs",
     "setup:staging": "node scripts/init-staging-config.mjs",
