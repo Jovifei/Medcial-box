@@ -121,3 +121,82 @@ test("delayed delete confirmation cannot delete a later household's draft with t
   assert.equal(calls.unlinks.length, 0);
   assert.equal(calls.writes.length, 0);
 });
+
+for (const method of ["onScanCode", "onRetryBarcodeLookup"]) {
+  test(`${method}: login switching household sends no barcode query`, async () => {
+    let queries = 0;
+    const { page } = setup({ ensureLoggedIn: changeOwner,
+      api: { findMedicineCandidates: async () => { queries++; return { candidates: [], warnings: [] }; } },
+      wx: { scanCode: options => options.success({ result: "SYNTHETIC-CODE" }) },
+    });
+    page.data.scannedBarcode = "SYNTHETIC-CODE";
+    await page[method]();
+    assert.equal(queries, 0);
+    assert.equal(page.data.recognizing, false);
+  });
+
+  test(`${method}: late query result cannot replace another household's candidates`, async () => {
+    let scope;
+    const context = setup({ api: { findMedicineCandidates: async () => {
+      changeOwner(scope);
+      return { candidates: [{ name: "Old household candidate" }], warnings: [] };
+    } }, wx: { scanCode: options => options.success({ result: "SYNTHETIC-CODE" }) } });
+    scope = context.scope;
+    context.page.data.scannedBarcode = "SYNTHETIC-CODE";
+    await context.page[method]();
+    assert.equal(context.page.data.candidates.length, 0);
+    assert.equal(context.page.data.name, "Original household medicine");
+  });
+}
+
+test("scan consent returning after identity change never opens the scanner", async () => {
+  let scans = 0;
+  let scope;
+  const context = setup({ wx: {
+    showModal: options => { changeOwner(scope); options.success({ confirm: true }); },
+    scanCode: options => { scans++; options.success({ result: "SYNTHETIC-CODE" }); },
+  } });
+  scope = context.scope;
+  await context.page.onScanCode();
+  assert.equal(scans, 0);
+});
+
+test("medicine load cannot read an old id using the household acquired during login", async () => {
+  let reads = 0;
+  const { page } = setup({ ensureLoggedIn: changeOwner, api: { getMedicine: async () => { reads++; } } });
+  await page.loadMedicine("old-medicine");
+  assert.equal(reads, 0);
+  assert.equal(page.data.name, "Original household medicine");
+});
+
+test("late medicine read cannot overwrite the current household form", async () => {
+  let scope;
+  const context = setup({ api: { getMedicine: async () => {
+    changeOwner(scope);
+    return { name: "Old private medicine", activeIngredients: [], leaflet: { reviewStatus: "unverified" }, batches: [], version: 1 };
+  } } });
+  scope = context.scope;
+  await context.page.loadMedicine("old-medicine");
+  assert.equal(context.page.data.name, "Original household medicine");
+  assert.equal(context.calls.writes.length, 0);
+});
+
+test("cold unowned medicine page can bind after concurrent session setup finishes", async () => {
+  let page;
+  let reads = 0;
+  const context = setup({ ensureLoggedIn: async scope => {
+    scope.writeSessionScope({ userId: "fresh-user", familyId: "fresh-family" });
+    page.refreshDraftScope();
+    page.photoScopeKey = scope.scopedStorageKey("medicine-photo-drafts");
+  }, api: { getMedicine: async () => {
+    reads++;
+    return { name: "Fresh medicine", activeIngredients: [], leaflet: { reviewStatus: "unverified" }, batches: [], version: 1 };
+  } } });
+  page = context.page;
+  context.scope.clearSessionScope();
+  page.draftStorageKey = null;
+  page.photoScopeKey = null;
+  await page.loadMedicine("fresh-medicine");
+  assert.equal(reads, 1);
+  assert.equal(page.data.name, "Fresh medicine");
+});

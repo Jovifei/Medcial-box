@@ -535,9 +535,21 @@ Page({
   },
 
   async loadMedicine(medicineId: string): Promise<void> {
+    let originalScope = scopedStorageKey("medicine-photo-drafts");
+    const originalMedicineId = this.data.medicineId;
+    const initiallyUnowned = originalScope === null && this.draftStorageKey === null && this.photoScopeKey === null;
+    const stillCurrent = (): boolean => this.entryScopeIsCurrent(originalScope) &&
+      this.data.medicineId === originalMedicineId;
     try {
+      // Cold start may bind an empty, as-yet-unowned page after login exactly once.
+      if (originalScope !== null && !stillCurrent()) return;
       await ensureLoggedIn();
+      if (initiallyUnowned) {
+        originalScope = scopedStorageKey("medicine-photo-drafts");
+      }
+      if (!stillCurrent()) return;
       const medicine = await api.getMedicine(medicineId);
+      if (!stillCurrent()) return;
       this.setData({
         name: medicine.name,
         specification: medicine.specification ?? "",
@@ -566,7 +578,7 @@ Page({
       // 冷启动时（storage 尚无身份）才能读到属于当前账号的草稿。
       this.refreshDraftScope();
     } catch (error) {
-      showError(error);
+      if (stillCurrent()) showError(error);
     } finally {
       this.setData({ medicineLoading: false });
     }
@@ -852,7 +864,10 @@ Page({
     if (this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting) return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     this.setData({ recognizing: true, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
     try {
       const shareConsent = await new Promise<boolean>((resolve) => wx.showModal({
@@ -861,11 +876,12 @@ Page({
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       }));
-      if (!shareConsent) return;
+      if (!shareConsent || !this.entryScopeIsCurrent(originalScope)) return;
       const result = await new Promise<{ result: string }>((resolve, reject) => {
         wx.scanCode({ onlyFromCamera: false, scanType: ["barCode"],
           success: (value) => resolve(value), fail: (error) => reject(error) });
       });
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (result.result.trim() === "") {
         this.setData({ recognitionHint: "没有读到条码，请重试或手动录入。" });
         return;
@@ -875,7 +891,9 @@ Page({
         barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
       this.updateDirtyState();
       await ensureLoggedIn();
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const response = await api.findMedicineCandidates(scannedBarcode);
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       this.setData({
         candidates: response.candidates,
         candidate: response.candidates[0] ?? null,
@@ -889,6 +907,7 @@ Page({
         canRetryBarcode: false,
       });
     } catch (error) {
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       if (typeof error === "object" && error !== null && "errMsg" in error &&
         String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
       if (error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE") {
@@ -908,6 +927,8 @@ Page({
     if (this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     this.setData({ recognizing: true });
     const consent = await new Promise<boolean>((resolve) => wx.showModal({
       title: "重新查询商品码",
@@ -915,7 +936,7 @@ Page({
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
-    if (!consent) {
+    if (!consent || !this.entryScopeIsCurrent(originalScope)) {
       this.setData({ recognizing: false });
       return;
     }
@@ -923,7 +944,9 @@ Page({
     this.setData({ canRetryBarcode: false, barcodeLookupStatus: "正在查询候选资料…" });
     try {
       await ensureLoggedIn();
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const response = await api.findMedicineCandidates(code);
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       this.setData({
         candidates: response.candidates,
         candidate: response.candidates[0] ?? null,
@@ -937,6 +960,7 @@ Page({
           : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
       });
     } catch (error) {
+      if (!this.entryScopeIsCurrent(originalScope)) return;
       const message = error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE"
         ? "资料查询服务当前不可用或未配置条码检索；商品码已保留，可稍后重试或手动录入。"
         : "条码已保留，查询失败；可稍后重试或手动录入。";
