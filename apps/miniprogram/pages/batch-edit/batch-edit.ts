@@ -4,6 +4,7 @@ import {
   isStrictNonNegativeInteger,
   isStrictPositiveInteger,
   isValidExpiryValue,
+  expiryValueForPrecision,
   isNonNegativeDecimalQuantity,
   UNIT_VALUES,
   UNIT_LABELS,
@@ -173,7 +174,10 @@ Page({
   },
 
   onPrecisionChange(event: { detail: { value: string | number } }): void {
-    this.setData({ precisionIndex: Number(event.detail.value) });
+    const precisionIndex = Number(event.detail.value);
+    const precision = PRECISION_VALUES[precisionIndex];
+    if (!precision) return;
+    this.setData({ precisionIndex, expiryValue: expiryValueForPrecision(this.data.expiryValue, precision) });
   },
 
   onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
@@ -234,9 +238,11 @@ Page({
 
   onOpeningLimitModeChange(event: { detail: { value: string | number } }): void {
     const index = Number(event.detail.value);
-    const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
+    const openingLimitMode = (["none", "day", "month", "date"] as const)[index];
+    if (!openingLimitMode) return;
+    const changedKind = openingLimitMode !== this.data.openingLimitMode;
     this.setData({ openingLimitMode, openingLimitModeIndex: index,
-      ...(openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
+      ...(changedKind || openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
   },
 
   onToggleOpeningInfo(): void {

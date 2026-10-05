@@ -9,6 +9,7 @@ import {
   parseConfirmedUnitsByUnit,
   unitAllowsDecimals,
   isValidExpiryValue,
+  expiryValueForPrecision,
 } from "../../services/input-validation";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
@@ -854,9 +855,17 @@ Page({
   onOpeningLimitModeChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
     const index = Number(event.detail.value);
-    const mode = (["none", "day", "month", "date"] as const)[index] ?? "none";
+    const mode = (["none", "day", "month", "date"] as const)[index];
+    if (!mode) return;
     const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
-    this.setData({ [`batches[${batchIndex}].openingLimitModeIndex`]: index, [`batches[${batchIndex}].openingLimitMode`]: mode });
+    const batch = (this.data as MedicineEditPageData).batches[batchIndex];
+    if (!batch) return;
+    this.setData({
+      [`batches[${batchIndex}].openingLimitModeIndex`]: index,
+      [`batches[${batchIndex}].openingLimitMode`]: mode,
+      ...(batch.openingLimitMode !== mode || mode === "none"
+        ? { [`batches[${batchIndex}].openingLimitValue`]: "" } : {}),
+    });
     this.updateDirtyState();
   },
 
@@ -1209,11 +1218,19 @@ Page({
   },
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
-    const index = event.currentTarget.dataset.index;
-    if (index === undefined) return;
-    // 精度改变意味着有效期语义由用户重新指定，识别不得再改写该批次日期。
+    const rawIndex = event.currentTarget.dataset.index;
+    if (rawIndex === undefined) return;
+    const index = Number(rawIndex);
+    const precisionIndex = Number(event.detail.value);
+    const precision = PRECISION_VALUES[precisionIndex];
+    const batch = (this.data as MedicineEditPageData).batches[index];
+    if (!batch || !precision) return;
+    // User-selected precision fences late recognition, and never invents a day.
     this.markFieldTouched(`batches[${index}].expiryValue`);
-    this.setData({ [`batches[${index}].precisionIndex`]: Number(event.detail.value) });
+    this.setData({
+      [`batches[${index}].precisionIndex`]: precisionIndex,
+      [`batches[${index}].expiryValue`]: expiryValueForPrecision(batch.expiryValue, precision),
+    });
     this.updateDirtyState();
   },
 
