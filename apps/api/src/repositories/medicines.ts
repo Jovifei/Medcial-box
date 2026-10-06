@@ -17,6 +17,7 @@ export interface MedicineRow {
   created_at?: Date | string;
   name: string;
   specification: string | null;
+  brand?: string | null;
   manufacturer: string | null;
   approval_number: string | null;
   barcode_value: string | null;
@@ -41,7 +42,7 @@ export interface MedicineRow {
 }
 
 const MEDICINE_COLUMNS =
-  "id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, cover_photo_id, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version, created_at";
+  "id, name, specification, brand, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, cover_photo_id, is_archived, low_stock_threshold_quantity, low_stock_threshold_unit, deleted_at, version, created_at";
 
 /** text[] 列经 pg 返回字符串数组；null/异常一律按空数组处理。 */
 function textArray(value: unknown): string[] {
@@ -72,6 +73,7 @@ export function toMedicineSummary(
     ...(row.created_at ? { createdAt: new Date(row.created_at).toISOString() } : {}),
     name: row.name,
     specification: row.specification ?? null,
+    brand: row.brand ?? null,
     manufacturer: row.manufacturer ?? null,
     approvalNumber: row.approval_number ?? null,
     barcodeValue: row.barcode_value ?? null,
@@ -144,8 +146,8 @@ export async function insertMedicine(
   userId: string,
 ): Promise<MedicineRow> {
   const result = await database.query<MedicineRow>(
-    `INSERT INTO medicines (family_id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, low_stock_threshold_quantity, low_stock_threshold_unit, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+    `INSERT INTO medicines (family_id, name, specification, manufacturer, approval_number, barcode_value, active_ingredients, purpose_category, leaflet_purpose_summary, leaflet_package_usage_summary, leaflet_contraindications_summary, leaflet_precautions_summary, leaflet_source, leaflet_review_status, population_tags, purpose_tags, tag_source, low_stock_threshold_quantity, low_stock_threshold_unit, created_by, updated_by, brand)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
      RETURNING ${MEDICINE_COLUMNS}`,
     [
       familyId,
@@ -169,6 +171,7 @@ export async function insertMedicine(
       fields.lowStockThreshold?.unit ?? null,
       userId,
       userId,
+      fields.brand,
     ],
   );
   return result.rows[0];
@@ -196,6 +199,7 @@ export async function updateMedicine(
        population_tags = $16, purpose_tags = $17,
        low_stock_threshold_quantity = CASE WHEN $18 THEN $19 ELSE low_stock_threshold_quantity END,
        low_stock_threshold_unit = CASE WHEN $18 THEN $20 ELSE low_stock_threshold_unit END,
+       brand = CASE WHEN $24 THEN $23 ELSE brand END,
        updated_by = $21, version = version + 1, updated_at = now()
      WHERE id = $1 AND family_id = $2 AND deleted_at IS NULL AND version = $22
      RETURNING ${MEDICINE_COLUMNS}`,
@@ -222,6 +226,8 @@ export async function updateMedicine(
       fields.lowStockThreshold?.unit ?? null,
       userId,
       expectedVersion,
+      fields.brand,
+      fields.brandProvided,
     ],
   );
   return result.rows[0] ?? null;

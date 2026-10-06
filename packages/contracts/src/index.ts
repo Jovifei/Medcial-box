@@ -43,6 +43,11 @@ export type PurposeTag =
   | "pain"
   | "topical"
   | "allergy"
+  | "itch"
+  | "eye"
+  | "oral"
+  | "constipation"
+  | "diarrhea"
   | "other";
 
 /**
@@ -79,6 +84,7 @@ export type ApiErrorCode =
   | "RATE_LIMITED"
   | "RECOGNITION_UNAVAILABLE"
   | "MEDICINE_CATALOG_UNAVAILABLE"
+  | "MEDICINE_CATALOG_NOT_CONFIGURED"
   | "NOTIFICATION_UNAVAILABLE"
   | "BACKUP_ALREADY_IMPORTED"
   | "INTERNAL_ERROR";
@@ -97,6 +103,9 @@ export interface HealthStatus {
 
 /** Photo recognition is a draft only; the user must check it before saving. */
 export interface MedicineRecognitionDraft {
+  brand?: string | null;
+  populationTags?: PopulationTag[];
+  leaflet?: { text: string | null; purposeSummary: string | null; packageUsageSummary: string | null; contraindicationsSummary: string | null; precautionsSummary: string | null };
   name: string | null;
   specification: string | null;
   manufacturer: string | null;
@@ -294,6 +303,7 @@ export interface CreateMedicineInput {
   populationTags?: PopulationTag[];
   purposeTags?: PurposeTag[];
   specification?: string | null;
+  brand?: string | null;
   manufacturer?: string | null;
   approvalNumber?: string | null;
   barcodeValue?: string | null;
@@ -344,6 +354,7 @@ export interface MedicationSummary {
   /** 药盒封面照片 id；null 表示没有照片。 */
   coverPhotoId?: string | null;
   specification: string | null;
+  brand?: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
   barcodeValue?: string | null;
@@ -408,6 +419,7 @@ export interface RestockItemSummary {
 export interface MedicineCandidate {
   name: string;
   specification: string | null;
+  brand?: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
   barcodeValue?: string | null;

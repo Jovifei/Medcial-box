@@ -25,6 +25,7 @@ import 'features/medicine/leaflet_photo_page.dart';
 import 'features/my/trash_audit_pages.dart';
 import 'features/my/release_notes_page.dart';
 import 'features/pending/stocktake_page.dart';
+import 'features/pending/pending_page.dart';
 import 'features/plan/care_permissions_page.dart';
 import 'features/plan/care_profiles_page.dart';
 import 'features/plan/plan_detail_page.dart';
@@ -125,6 +126,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             ),
           ),
         ),
+        _route('/restock', PendingPage(services: services, restockOnly: true)),
         _route(
           '/medicine/new',
           MedicineEntryApiPage(

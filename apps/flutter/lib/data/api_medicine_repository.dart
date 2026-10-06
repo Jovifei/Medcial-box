@@ -150,6 +150,7 @@ class ApiMedicineRepository extends ChangeNotifier {
     final payload = <String, Object?>{
       'name': medicine.name,
       'specification': medicine.specification,
+      'brand': medicine.brand,
       'manufacturer': medicine.manufacturer,
       'approvalNumber': medicine.approvalNumber,
       // B01：条码与标签必须在完整更新中回传，否则会清空小程序录入的字段。

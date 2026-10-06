@@ -6,4 +6,9 @@
 .session-card { background: #f1f7f2; }
 .medicine-name { font-size: 27rpx; font-weight: 700; }
 .stocktake-item { padding-top: 22rpx; }
+.guide-card { background: #eef6f0; border-color: #dcebdd; }
+.guide-step { margin: 14rpx 0; color: #315d46; font-size: 24rpx; line-height: 1.7; }
+.guide-card .hint + .hint { margin-top: 12rpx; }
+.stocktake-item { border-left: 6rpx solid #8eb39a; }
+.outcome-note { margin-top: 14rpx; padding: 12rpx 16rpx; background: #f3f6f2; border-radius: 12rpx; color: #53675b; font-size: 22rpx; line-height: 1.6; }
 .result-warning { margin-top: 10rpx; color: #a45437; font-size: 21rpx; line-height: 1.5; }

@@ -16,16 +16,8 @@
       <input class="input" data-field="lotNumber" bindinput="onFieldInput" value="{{lotNumber}}" placeholder="留空记为“批次号未记录”" />
     </view>
     <view class="field">
-      <view class="field-label">有效期精度</view>
-      <picker range="{{precisionLabels}}" value="{{precisionIndex}}" bindchange="onPrecisionChange">
-        <view class="picker-box">{{precisionLabels[precisionIndex]}}</view>
-      </picker>
-    </view>
-    <view class="field" wx:if="{{precisionIndex !== 2}}">
-      <view class="field-label">有效期原文（保持包装原样）</view>
-      <picker mode="date" fields="{{precisionIndex === 1 ? 'month' : 'day'}}" value="{{expiryValue}}" bindchange="onExpiryDateChange">
-        <view class="picker-box">{{expiryValue || (precisionIndex === 0 ? "点击选择有效日期" : "点击选择有效月份")}}</view>
-      </picker>
+      <view class="field-label">有效期至</view>
+      <medicine-date-field clearable="{{true}}" allow-precision="{{true}}" value="{{expiryValue}}" precision="{{precisionIndex === 2 ? 'unknown' : precisionIndex === 1 ? 'month' : 'day'}}" label="选择包装有效期" bindchange="onExpiryDateChange" />
       <view class="field-hint">仅到月时按“过完该月才过期、当月为本月到期”判断，不伪造日期。</view>
     </view>
     <view class="field">
@@ -63,10 +55,7 @@
     <view wx:if="{{openingExpanded && openedState === 'opened'}}">
       <view class="field">
         <view class="field-label">开封日期（选填）</view>
-        <picker mode="date" fields="day" value="{{openedAt}}" data-field="openedAt" bindchange="onDayDateChange">
-          <view class="picker-box">{{openedAt || "点击选择开封日期"}}</view>
-        </picker>
-        <view wx:if="{{openedAt}}" class="field-hint" data-field="openedAt" bindtap="onClearDate">清除日期</view>
+        <medicine-date-field clearable="{{true}}" value="{{openedAt}}" label="选择日期" data-field="openedAt" bindchange="onFieldInput" />
       </view>
       <view class="field">
         <view class="field-label">开封后期限（有依据时填写）</view>
@@ -80,10 +69,7 @@
       </view>
       <view class="field" wx:if="{{openingLimitMode === 'date'}}">
         <view class="field-label">开封后截止日期</view>
-        <picker mode="date" fields="day" value="{{openingLimitValue}}" data-field="openingLimitValue" bindchange="onDayDateChange">
-          <view class="picker-box">{{openingLimitValue || "点击选择截止日期"}}</view>
-        </picker>
-        <view wx:if="{{openingLimitValue}}" class="field-hint" data-field="openingLimitValue" bindtap="onClearDate">清除日期</view>
+        <medicine-date-field clearable="{{true}}" value="{{openingLimitValue}}" label="选择日期" data-field="openingLimitValue" bindchange="onFieldInput" />
       </view>
       <view class="field" wx:if="{{openingLimitMode !== 'none'}}">
         <view class="field-label">期限依据</view>

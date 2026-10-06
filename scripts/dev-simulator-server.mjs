@@ -12,11 +12,14 @@
 import { buildServer } from "../apps/api/dist/app.js";
 import { FakeWechatGateway } from "../apps/api/dist/auth/wechat.js";
 import { createDatabasePool, createDatabaseAdapter } from "../apps/api/dist/db.js";
+import { fileURLToPath } from "node:url";
 
 // Host-only QA server: use the installed local vision model unless explicitly overridden.
 process.env.MEDICINE_RECOGNITION_PROVIDER ??= "ollama";
 process.env.OLLAMA_BASE_URL ??= "http://127.0.0.1:11434";
-process.env.OLLAMA_MODEL ??= "qwen3.5:0.8b";
+process.env.OLLAMA_MODEL ??= process.argv[3] ?? "qwen3.5:0.8b";
+process.env.MEDICINE_CATALOG_PROVIDER ??= "local";
+process.env.MEDICINE_CATALOG_LOCAL_FILE ??= fileURLToPath(new URL("../.local-data/medicine-catalog/catalog.json", import.meta.url));
 
 const PORT = Number(process.argv[2] ?? 13300);
 const DEV_OPENID = process.env.DEV_OPENID ?? "dev-openid-local";
@@ -44,7 +47,7 @@ const app = await buildServer({
   logger: true,
 });
 
-app.get("/api/v1/health/local-app-trial", async () => ({ mode: "local-app-trial" }));
+app.get("/api/v1/health/local-app-trial", async () => ({ mode: "local-app-trial", serverPid: process.pid }));
 
 await app.listen({ host: "127.0.0.1", port: PORT });
 console.info(`dev-simulator-server listening on http://127.0.0.1:${PORT}（openid=${DEV_OPENID}）`);

@@ -245,7 +245,9 @@ class _StocktakePageState extends State<StocktakePage> {
               children: [
                 const AppCard(
                   color: Color(0xFFE9F1EB),
-                  child: Text('逐个核对实际余量。盘点只保存你的确认，不自动扣减或覆盖尚未确认的批次。'),
+                  child: Text(
+                    '拿出药品，逐批次核对实物并选择结果。\n数量没变化：确认原记录；修改余量：更新实际数量；已用完／已处理：记为 0。\n暂不核对：保留原余量，未知仍是未知，不会自动记为 0。',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 if (lines.isEmpty)
@@ -315,6 +317,17 @@ class _StocktakePageState extends State<StocktakePage> {
             ],
             onChanged: (value) =>
                 setState(() => line.outcome = value ?? 'deferred'),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            line.outcome == 'deferred'
+                ? '本批次暂不核对，原记录不会变化。'
+                : line.outcome == 'unchanged'
+                ? '已核对实物，余量与原记录一致。'
+                : line.outcome == 'adjusted'
+                ? '保存后更新为填写的实际余量。'
+                : '保存后该批次余量记为 0。',
+            style: const TextStyle(color: AppColors.muted),
           ),
           if (line.outcome == 'adjusted') ...[
             const SizedBox(height: 8),

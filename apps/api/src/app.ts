@@ -64,7 +64,7 @@ export async function buildServer(options: BuildServerOptions) {
   await registerInvitationRoutes(app, options.database);
   await registerRecognitionRoutes(app, options.medicineRecognitionProvider ?? createDefaultMedicineRecognitionProvider());
   await registerInventoryRoutes(app, options.database);
-  await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider());
+  await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider(), options.database);
   await registerReminderRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());
   await registerLeafletPhotoRoutes(app, options.database, options.privatePhotoStore ?? new PrivatePhotoStore());
   await registerMedicationPlanRoutes(

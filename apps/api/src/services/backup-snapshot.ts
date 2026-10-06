@@ -95,6 +95,7 @@ export function createFamilyMedicineBackup<T extends MedicationSummary>(
     medicines: medicines.map((medicine) => ({
       name: medicine.name,
       specification: medicine.specification,
+      brand: medicine.brand ?? null,
       manufacturer: medicine.manufacturer,
       approvalNumber: medicine.approvalNumber,
       barcodeValue: medicine.barcodeValue ?? null,

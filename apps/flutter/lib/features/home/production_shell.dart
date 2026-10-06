@@ -45,7 +45,9 @@ class _ProductionShellState extends State<ProductionShell>
   @override
   void didUpdateWidget(covariant ProductionShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialTab != widget.initialTab) { selectedIndex = widget.initialTab.clamp(0, 3).toInt(); }
+    if (oldWidget.initialTab != widget.initialTab) {
+      selectedIndex = widget.initialTab.clamp(0, 3).toInt();
+    }
   }
 
   Future<void> _refreshReminders() async {
@@ -146,9 +148,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       await context.push('/medicine/new');
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂时无法打开录入页，请重试。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('暂时无法打开录入页，请重试。')));
       }
     } finally {
       openingEntry = false;
@@ -159,6 +160,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   final Set<String> selectedPopulations = <String>{};
   final Set<String> selectedPurposes = <String>{};
   static const _purposeLabels = medicinePurposeLabels;
+  String? filterPanel;
 
   @override
   void initState() {
@@ -193,7 +195,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       medicine.leaflet.reviewStatus == 'unverified';
 
   bool _hasUnknownInventory(MedicineRecord medicine) =>
-      medicine.stockStatus == 'unknown' || medicine.expiryState.state == 'unknown';
+      medicine.stockStatus == 'unknown' ||
+      medicine.expiryState.state == 'unknown';
 
   List<MedicineRecord> get _visibleMedicines {
     final result = widget.repository.medicines.where((medicine) {
@@ -285,8 +288,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   int get _lowCount => widget.repository.medicines
       .where((medicine) => ['low', 'exhausted'].contains(medicine.stockStatus))
       .length;
-  int get _missingCount =>
-      widget.repository.medicines.where(_needsInfo).length;
+  int get _missingCount => widget.repository.medicines.where(_needsInfo).length;
 
   Future<void> _refresh() async {
     await _load();
@@ -383,37 +385,55 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
               ),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
+            Row(
               children: [
-                DropdownButton<String>(
-                  value: sortOrder,
-                  onChanged: (value) => setState(() => sortOrder = value!),
-                  items: const [
-                    DropdownMenuItem(value: 'expiry', child: Text('到期优先')),
-                    DropdownMenuItem(value: 'recent', child: Text('最近录入')),
-                    DropdownMenuItem(value: 'name', child: Text('药名排序')),
+                _filterEntry('用途', 'purpose'),
+                _filterEntry('人群', 'population'),
+                _filterEntry('状态', 'status'),
+                Expanded(
+                  child: PopupMenuButton<String>(
+                    tooltip: '排序',
+                    initialValue: sortOrder,
+                    onSelected: (value) => setState(() => sortOrder = value),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'expiry', child: Text('到期优先')),
+                      PopupMenuItem(value: 'recent', child: Text('最近录入')),
+                      PopupMenuItem(value: 'name', child: Text('药名排序')),
+                    ],
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('排序 ▾', textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (filterPanel != null)
+              AppCard(
+                padding: const EdgeInsets.all(12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    if (filterPanel == 'purpose')
+                      ..._purposeLabels.entries.map(
+                        (entry) =>
+                            _tagChip(entry.value, selectedPurposes, entry.key),
+                      ),
+                    if (filterPanel == 'population') ...[
+                      _tagChip('成人', selectedPopulations, 'adult'),
+                      _tagChip('儿童', selectedPopulations, 'child'),
+                    ],
+                    if (filterPanel == 'status') ...[
+                      _filterChip('全部', MedicineFilter.all),
+                      _filterChip('临期/过期', MedicineFilter.expiry),
+                      _filterChip('库存不足', MedicineFilter.lowStock),
+                      _filterChip('待补资料', MedicineFilter.missingInfo),
+                      _filterChip('数量/日期未知', MedicineFilter.unknown),
+                    ],
                   ],
                 ),
-                _filterChip('全部', MedicineFilter.all),
-                _filterChip('临期/过期', MedicineFilter.expiry),
-                _filterChip('库存不足', MedicineFilter.lowStock),
-                _filterChip('待补资料', MedicineFilter.missingInfo),
-                _filterChip('数量/日期未知', MedicineFilter.unknown),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _tagChip('成人', selectedPopulations, 'adult'),
-                _tagChip('儿童', selectedPopulations, 'child'),
-                ..._purposeLabels.entries.map(
-                  (entry) => _tagChip(entry.value, selectedPurposes, entry.key),
-                ),
-              ],
-            ),
+              ),
             const SizedBox(height: 12),
             if (widget.repository.medicines.isEmpty && failure == null)
               _EmptyCabinet(onAdd: _openEntry)
@@ -439,6 +459,18 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
           ],
         ),
       ),
+    ),
+  );
+
+  Widget _filterEntry(String label, String panel) => Expanded(
+    child: TextButton(
+      onPressed: () =>
+          setState(() => filterPanel = filterPanel == panel ? null : panel),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        foregroundColor: filterPanel == panel ? AppColors.leaf : AppColors.ink,
+      ),
+      child: Text('$label ▾'),
     ),
   );
 
@@ -518,7 +550,7 @@ class _StatusBox extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         color: color.withValues(alpha: 0.08),
         child: Column(
           children: [
@@ -526,7 +558,7 @@ class _StatusBox extends StatelessWidget {
               '$count',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 20,
+                fontSize: 18,
                 color: color,
               ),
             ),

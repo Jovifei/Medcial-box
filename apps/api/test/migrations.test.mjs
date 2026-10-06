@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { orderMigrations } from "../dist/db/migrations.js";
+import { orderMigrations, migrationChecksumMatches } from "../dist/db/migrations.js";
+import { createHash } from "node:crypto";
+
+test("migration checksum accepts only equivalent checkout line endings, never SQL changes", () => {
+  const sql = "ALTER TABLE medicines ADD COLUMN brand text;\n-- comment\n";
+  const hash = value => createHash("sha256").update(value).digest("hex");
+  assert.equal(migrationChecksumMatches(sql, hash(sql.replaceAll("\n", "\r\n"))), true);
+  assert.equal(migrationChecksumMatches(sql.replaceAll("\n", "\r\n"), hash(sql)), true);
+  assert.equal(migrationChecksumMatches(sql.replace("brand", "different_column"), hash(sql)), false);
+  assert.equal(migrationChecksumMatches(sql + "SELECT 1;", hash(sql)), false);
+});
 
 test("migrations order by numeric prefix, not dictionary order", () => {
   const ordered = orderMigrations(["10_add_index.sql", "2_add_family.sql", "001_bootstrap.sql"]);

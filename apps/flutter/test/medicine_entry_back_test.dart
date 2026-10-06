@@ -255,7 +255,7 @@ void main() {
           tester
               .widget<IconButton>(
                 find.byWidgetPredicate(
-                  (widget) => widget is IconButton && widget.tooltip == '本机草稿',
+                  (widget) => widget is IconButton && widget.tooltip == '恢复未完成录入',
                 ),
               )
               .onPressed !=

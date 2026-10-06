@@ -40,7 +40,7 @@ export type LeafletReviewStatus = "unverified" | "matched" | "user_confirmed";
 export type NoteVisibility = "private" | "family";
 
 export type PopulationTag = "adult" | "child";
-export type PurposeTag = "fever" | "cough" | "throat" | "nasal" | "gastro" | "pain" | "topical" | "allergy" | "other";
+export type PurposeTag = "fever" | "cough" | "throat" | "nasal" | "gastro" | "pain" | "topical" | "allergy" | "itch" | "eye" | "oral" | "constipation" | "diarrhea" | "other";
 
 export interface MedicationBatchSummary {
   id: string;
@@ -78,6 +78,7 @@ export interface MedicationSummary {
   /** 药盒封面照片 id；null 表示没有照片。 */
   coverPhotoId?: string | null;
   specification: string | null;
+  brand?: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
   barcodeValue?: string | null;
@@ -139,6 +140,7 @@ export interface MedicinePayload {
   idempotencyKey?: string;
   name: string;
   specification?: string | null;
+  brand?: string | null;
   manufacturer?: string | null;
   approvalNumber?: string | null;
   barcodeValue?: string | null;
@@ -164,6 +166,7 @@ export interface MedicinePayload {
 export interface MedicineCandidate {
   name: string;
   specification: string | null;
+  brand?: string | null;
   manufacturer: string | null;
   approvalNumber: string | null;
   barcodeValue?: string | null;
@@ -406,6 +409,10 @@ export interface RestoreJsonBackupResponse { restoredCount: number; backupId: st
 
 export interface MedicineRecognitionResponse {
   draft: {
+    brand?: string | null;
+    purposeTags?: PurposeTag[];
+    populationTags?: PopulationTag[];
+    leaflet?: { text: string | null; purposeSummary: string | null; packageUsageSummary: string | null; contraindicationsSummary: string | null; precautionsSummary: string | null };
     name: string | null;
     specification: string | null;
     manufacturer: string | null;

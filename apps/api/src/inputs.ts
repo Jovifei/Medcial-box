@@ -57,7 +57,7 @@ const STOCKTAKE_OUTCOMES = ["unchanged", "adjusted", "empty", "handled", "deferr
 const RESTOCK_STATUSES: readonly RestockStatus[] = ["needed", "purchased", "dismissed"];
 
 const POPULATION_TAGS = ["adult", "child"] as const;
-const PURPOSE_TAGS = ["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "other"] as const;
+const PURPOSE_TAGS = ["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "itch", "eye", "oral", "constipation", "diarrhea", "other"] as const;
 
 /** 标签数组：去重、去空、白名单校验；空数组表示"未标注"。 */
 function tagList<T extends string>(value: unknown, field: string, allowed: readonly T[]): T[] {
@@ -380,6 +380,8 @@ export interface ValidatedMedicineFields {
   /** 标签来源（备份恢复时保留原值；常规创建默认 manual）。 */
   tagSource: TagSource;
   specification: string | null;
+  brand: string | null;
+  brandProvided: boolean;
   manufacturer: string | null;
   approvalNumber: string | null;
   barcodeValue: string | null;
@@ -449,6 +451,8 @@ function parseMedicine(raw: Record<string, unknown>): ValidatedMedicineFields {
     purposeTags: tagList(raw.purposeTags, "purposeTags", PURPOSE_TAGS),
     tagSource: parseTagSource(raw.tagSource),
     specification: text(raw.specification, "specification"),
+    brand: text(raw.brand, "brand"),
+    brandProvided: Object.prototype.hasOwnProperty.call(raw, "brand"),
     manufacturer: text(raw.manufacturer, "manufacturer"),
     approvalNumber: text(raw.approvalNumber, "approvalNumber"),
     barcodeValue,

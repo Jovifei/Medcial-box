@@ -82,11 +82,10 @@ export function isValidExpiryValue(value: string, precision: ExpiryPrecision): b
   return Number.isInteger(day) && day >= 1 && day <= daysInMonth[month - 1];
 }
 
-/** Changing precision may discard detail, but must never invent a day or repair an invalid date. */
+/** Preserve invalid input for correction; precision changes never invent a day. */
 export function expiryValueForPrecision(value: string, precision: ExpiryPrecision): string {
-  const raw = value.trim();
   if (precision === "unknown") return "";
-  if (precision === "month" && isValidExpiryValue(raw, "day")) return raw.slice(0, 7);
-  if (precision === "day" && isValidExpiryValue(raw, "month")) return "";
-  return raw;
+  if (precision === "month" && isValidExpiryValue(value, "day")) return value.slice(0, 7);
+  if (precision === "day" && isValidExpiryValue(value, "month")) return "";
+  return value;
 }

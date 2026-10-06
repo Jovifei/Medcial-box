@@ -41,6 +41,23 @@ class AuthProfile {
 }
 
 class ApiAuthRepository {
+  Future<List<Map<String, dynamic>>> listDevices() async {
+    final epoch = api.identityEpoch;
+    final result =
+        await api.get('/api/v1/auth/devices') as Map<String, dynamic>;
+    _requireCurrentIdentity(epoch);
+    return (result['devices'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> revokeDevice(String id) async {
+    final epoch = api.identityEpoch;
+    await api.post(
+      '/api/v1/auth/devices/${Uri.encodeComponent(id)}/revoke',
+      body: {},
+    );
+    _requireCurrentIdentity(epoch);
+  }
+
   ApiAuthRepository({
     required this.api,
     required this.secretStore,

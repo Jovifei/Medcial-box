@@ -23,10 +23,12 @@ interface DeviceView extends DeviceSessionSummary { kindLabel: string }
 Page({
   data: {
     familyName: "", roleLabel: "", loading: true, errorMessage: "", appVersion: APP_VERSION,
-    devices: [] as DeviceView[], devicesLoading: true, devicesError: "", revokingDeviceId: "",
+    devices: [] as DeviceView[], devicesLoading: true, devicesError: "", revokingDeviceId: "", deviceExpanded: false,
   },
 
   onShow(): void { void this.refresh(); },
+
+  onToggleDevices(): void { this.setData({ deviceExpanded: !this.data.deviceExpanded }); },
 
   async refresh(): Promise<void> {
     this.setData({ loading: true, devicesLoading: true, errorMessage: "", devicesError: "" });

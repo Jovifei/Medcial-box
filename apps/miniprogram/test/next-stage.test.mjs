@@ -1,3 +1,4 @@
+import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -127,6 +128,15 @@ function homePage() {
   });
   return makePageContext(definition);
 }
+
+test("new purposes display in Chinese and remain searchable filters rather than raw API codes", () => {
+  const page = homePage();
+  page.applyMedicines([medicine({ id: "itching", purposeTags: ["itch"], purposeCategory: "itch止痒" }), medicine({ id: "eye", purposeTags: ["eye"], purposeCategory: null })], "F");
+  assert.equal(page.data.allItems[0].purpose, "止痒");
+  assert.ok(page.data.purposeChips.some(item => item.label === "止痒"));
+  page.onTogglePurpose({ currentTarget: { dataset: { value: "止痒" } } });
+  assert.deepEqual(Array.from(page.data.items, item => item.id), ["itching"]);
+});
 
 test("S5-A：首页卡片存放位置去重，超过两处合并为「等 N 处」", () => {
   const page = homePage();
@@ -406,7 +416,7 @@ test("barcode lookup outage keeps the scanned code and asks again before retry",
   await page.onScanCode();
   assert.equal(page.data.scannedBarcode, "6900000000012");
   assert.equal(page.data.canRetryBarcode, true);
-  assert.match(page.data.barcodeLookupStatus, /服务当前不可用/);
+  assert.match(page.data.barcodeLookupStatus, /资料服务暂不可用/);
   await page.onRetryBarcodeLookup();
   assert.deepEqual(calls, ["6900000000012"]);
   assert.deepEqual(modalTitles, ["查询药品资料候选", "重新查询商品码"]);
@@ -1454,7 +1464,6 @@ test("A05: a failed load keeps the edit target and blocks saving instead of fall
 });
 
 test("A14: a late recognition response never refills fields the user cleared", async () => {
-  const photoStorage = new Map();
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const draft = {
@@ -1487,18 +1496,7 @@ test("A14: a late recognition response never refills fields the user cleared", a
     },
     wx: {
       chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
-      getStorageSync: (key) => photoStorage.get(key),
-      setStorageSync: (key, value) => photoStorage.set(key, JSON.parse(JSON.stringify(value))),
-      env: { USER_DATA_PATH: "/synthetic-owned" },
-      getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 360, SDKVersion: "3.17.3" }),
-      base64ToArrayBuffer: () => new ArrayBuffer(8),
-      getFileSystemManager: () => ({
-        readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }),
-        open: (options) => options.success({ fd: "synthetic-fd" }),
-        write: (options) => options.success({ bytesWritten: options.data.byteLength }),
-        close: (options) => options.success({}),
-        unlink: (options) => options.success({}),
-      }),
+      ...ownedPhotoFixture(),
       showToast() {},
       showModal(options) { options?.success?.({ confirm: true }); },
     },

@@ -204,6 +204,42 @@ class _Fixture {
 
 void main() {
   testWidgets(
+    'saved medicine clears its draft and the next entry starts empty',
+    (tester) async {
+      final f = _Fixture();
+      await f.open(tester);
+      f.state(tester).brandController.text = 'synthetic brand';
+      f.state(tester).leafletControllers['precautionsSummary'].text =
+          'synthetic review';
+      await f.save(tester);
+      expect(find.byType(MedicineEntryApiPage), findsNothing);
+      final creates = f.requests
+          .where(
+            (request) =>
+                request.method == 'POST' &&
+                request.url.path.endsWith('/medicines'),
+          )
+          .toList();
+      expect(creates, hasLength(1));
+      final payload = jsonDecode(creates.single.body) as Map;
+      expect(payload['brand'], 'synthetic brand');
+      expect(
+        (payload['leaflet'] as Map)['precautionsSummary'],
+        'synthetic review',
+      );
+      expect((payload['leaflet'] as Map)['reviewStatus'], 'unverified');
+      expect(await f.store.readDraft(_legacy), isNull);
+      expect(await MedicineDraftQueue(f.store).list(), isEmpty);
+      await tester.tap(find.text('Open entry'));
+      await tester.pumpAndSettle();
+      expect(f.state(tester).nameController.text, '');
+      expect(f.state(tester).brandController.text, '');
+      expect(f.state(tester).leafletControllers['precautionsSummary'].text, '');
+      expect(find.text('新建一份草稿'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'Save cannot dispatch old payload after delayed local draft persistence',
     (tester) async {
       final f = _Fixture();
@@ -468,8 +504,11 @@ void main() {
         f.state(tester).ingredientsVerified = initiallyVerified;
         await f.save(tester);
         // Simulate a previously started recognition callback during consent.
+        // Fill the callback content before binding its confirmation state.
         f.state(tester).ingredientController.text = 'later-result';
         f.state(tester).ingredientsVerified = !initiallyVerified;
+        expect(f.state(tester).ingredientsVerified, !initiallyVerified);
+        expect(f.state(tester).ingredientController.text, 'later-result');
         await tester.tap(find.text('只保存库存'));
         await tester.pumpAndSettle();
         if (initiallyVerified) {

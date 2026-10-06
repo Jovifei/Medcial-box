@@ -192,7 +192,7 @@ export function request<T>(options: RequestOptions): Promise<T> {
     wx.request({
       url: `${API_BASE}${options.path}`,
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
-      data: options.payload,
+      data: options.payload ?? (options.method === "POST" ? {} : undefined),
       header,
       timeout: options.timeoutMs ?? 10000,
       success: (response) => {
@@ -226,11 +226,11 @@ function toPayload(value: object): Record<string, unknown> {
 }
 
 export const api = {
-  recognizeMedicine(imageBase64: string, mimeType: "image/jpeg" | "image/png"): Promise<MedicineRecognitionResponse> {
+  recognizeMedicine(imageBase64: string, mimeType: "image/jpeg" | "image/png", purpose?: "box_front" | "leaflet"): Promise<MedicineRecognitionResponse> {
     return request<MedicineRecognitionResponse>({
       method: "POST",
       path: "/api/v1/recognitions/medicine",
-      payload: { imageBase64, mimeType },
+      payload: { imageBase64, mimeType, ...(purpose ? { purpose } : {}) },
       timeoutMs: 60000,
     });
   },

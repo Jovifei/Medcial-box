@@ -17,7 +17,7 @@ import type {
 } from "../../services/api-types";
 
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
-const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
+const PRECISION_LABELS = ["年、月、日", "仅年、月", "未知"];
 
 interface BatchEditPageData {
   medicineId: string;
@@ -174,10 +174,18 @@ Page({
   },
 
   onPrecisionChange(event: { detail: { value: string | number } }): void {
+    if (String(event.detail.value).trim() === "") return;
     const precisionIndex = Number(event.detail.value);
-    const precision = PRECISION_VALUES[precisionIndex];
-    if (!precision) return;
-    this.setData({ precisionIndex, expiryValue: expiryValueForPrecision(this.data.expiryValue, precision) });
+    if (!Number.isInteger(precisionIndex) || !PRECISION_VALUES[precisionIndex]) return;
+    const value = this.data.expiryValue;
+    this.setData({ precisionIndex, expiryValue: expiryValueForPrecision(value, PRECISION_VALUES[precisionIndex]) });
+  },
+
+  onExpiryDateChange(event: { detail: { value: string; precision: ExpiryPrecision } }): void {
+    if (this.data.submitting || this.data.batchLoading || this.data.loadFailed) return;
+    const precisionIndex = PRECISION_VALUES.indexOf(event.detail.precision);
+    if (precisionIndex < 0) return;
+    this.setData({ expiryValue: expiryValueForPrecision(event.detail.value, PRECISION_VALUES[precisionIndex]), precisionIndex });
   },
 
   onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
@@ -203,22 +211,6 @@ Page({
     });
   },
 
-  onExpiryDateChange(event: { detail: { value: string } }): void {
-    this.setData({ expiryValue: this.data.precisionIndex === 1 ? event.detail.value.slice(0, 7) : event.detail.value });
-  },
-
-  onDayDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
-    const field = event.currentTarget.dataset.field;
-    if (field !== "openedAt" && field !== "openingLimitValue") return;
-    this.setData({ [field]: event.detail.value });
-  },
-
-  onClearDate(event: { currentTarget: { dataset: { field?: string } } }): void {
-    const field = event.currentTarget.dataset.field;
-    if (field !== "openedAt" && field !== "openingLimitValue") return;
-    this.setData({ [field]: "" });
-  },
-
   onUnknownChange(event: { detail: { value: boolean } }): void {
     this.setData({ quantityUnknown: event.detail.value });
   },
@@ -237,12 +229,16 @@ Page({
   },
 
   onOpeningLimitModeChange(event: { detail: { value: string | number } }): void {
+    if (String(event.detail.value).trim() === "") return;
     const index = Number(event.detail.value);
-    const openingLimitMode = (["none", "day", "month", "date"] as const)[index];
-    if (!openingLimitMode) return;
+    if (!Number.isInteger(index) || index < 0 || index > 3) return;
+    const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
     const changedKind = openingLimitMode !== this.data.openingLimitMode;
-    this.setData({ openingLimitMode, openingLimitModeIndex: index,
-      ...(changedKind || openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
+    this.setData({
+      openingLimitMode,
+      openingLimitModeIndex: index,
+      ...(changedKind || openingLimitMode === "none" ? { openingLimitValue: "" } : {}),
+    });
   },
 
   onToggleOpeningInfo(): void {

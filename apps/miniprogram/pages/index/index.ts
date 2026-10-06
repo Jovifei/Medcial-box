@@ -1,6 +1,7 @@
 import { api, ApiError, readToken } from "../../services/api";
 import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
+import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
 import type {
   ExpiryState,
   MedicationSummary,
@@ -73,7 +74,7 @@ function quantitySummary(medicine: MedicationSummary): string {
 
 function purposeText(medicine: MedicationSummary): string {
   if (medicine.purposeCategory !== null && medicine.purposeCategory !== "") {
-    return medicine.purposeCategory;
+    return purposeCategoryLabel(medicine.purposeCategory);
   }
   if (medicine.leaflet.purposeSummary !== null && medicine.leaflet.purposeSummary !== "") {
     return medicine.leaflet.purposeSummary;
@@ -149,20 +150,13 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
   };
 }
 
-const PURPOSE_TAG_LABELS: Record<string, string> = {
-  fever: "发热", cough: "咳嗽", throat: "咽喉", nasal: "鼻部", gastro: "胃肠",
-  pain: "疼痛", topical: "外用", allergy: "过敏", other: "其他",
-};
+const PURPOSE_TAG_LABELS: Record<string, string> = Object.fromEntries(PURPOSE_TAG_OPTIONS.map((item) => [item.kind, item.label]));
 
 /** R17：筛选标签在 TS 里预计算选中态，模板只读取字段，不在 WXML 里调用 indexOf。 */
 const POPULATION_CHIPS: Array<{ value: string; label: string }> = [
   { value: "adult", label: "成人" }, { value: "child", label: "儿童" },
 ];
-const PURPOSE_CHIPS: Array<{ value: string; label: string }> = [
-  { value: "发热", label: "发热" }, { value: "咳嗽", label: "咳嗽" }, { value: "咽喉", label: "咽喉" },
-  { value: "鼻部", label: "鼻部" }, { value: "胃肠", label: "胃肠" }, { value: "疼痛", label: "疼痛" },
-  { value: "外用", label: "外用" }, { value: "过敏", label: "过敏" }, { value: "其他", label: "其他" },
-];
+const PURPOSE_CHIPS = PURPOSE_TAG_OPTIONS.map((item) => ({ value: item.label, label: item.label }));
 interface FilterChip { value: string; label: string; selected: boolean; }
 function chipOptions(base: Array<{ value: string; label: string }>, selected: string[]): FilterChip[] {
   return base.map((chip) => ({ ...chip, selected: selected.includes(chip.value) }));

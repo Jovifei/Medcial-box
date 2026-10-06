@@ -1,0 +1,5 @@
+<picker mode="date" fields="{{pickerPrecision === 'month' ? 'month' : 'day'}}" value="{{value}}" disabled="{{disabled}}" bindchange="onDateChange">
+  <view class="date-box {{disabled ? 'disabled' : ''}}">{{displayValue || label}}<text class="date-arrow">⌄</text></view>
+</picker>
+<view wx:if="{{clearable && value && !disabled}}" class="precision-choice" bindtap="onClear">清除日期</view>
+<view wx:if="{{allowPrecision}}" class="precision-choice" bindtap="onChoosePrecision">{{precisionLabels[precisionIndex]}} · 修改日期格式</view>

@@ -224,6 +224,7 @@
   background: #eef1ee;
 }
 
-.filter-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 6rpx; }
+.filter-toolbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12rpx; margin-bottom: 20rpx; }
+.filter-toolbar .filter-chip { display: flex; align-items: center; justify-content: center; min-height: 76rpx; padding: 8rpx 4rpx; box-sizing: border-box; margin: 0; font-size: 24rpx; }
 .highlighted { box-shadow: 0 0 0 4rpx #63a980; }
 .tag-picker { display: flex; flex-wrap: wrap; gap: 10rpx; }

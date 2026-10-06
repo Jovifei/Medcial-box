@@ -13,6 +13,10 @@ class MedicineRecognitionDraft {
     required this.rawText,
     required this.warnings,
     this.purposeCategory,
+    this.brand,
+    this.manufacturer,
+    this.populationTags = const [],
+    this.leaflet = const {},
     this.purposeTags = const [],
   });
   final String name;
@@ -21,6 +25,10 @@ class MedicineRecognitionDraft {
   final String rawText;
   final List<String> warnings;
   final String? purposeCategory;
+  final String? brand;
+  final String? manufacturer;
+  final List<String> populationTags;
+  final Map<String, String> leaflet;
   final List<String> purposeTags;
 }
 
@@ -98,7 +106,9 @@ abstract class MedicineRecognitionRepository {
 
 class ApiMedicineRecognitionRepository
     implements MedicineRecognitionRepository {
-  ApiMedicineRecognitionRepository(this.api);
+  ApiMedicineRecognitionRepository(this.api, {this.purpose = 'box_front'});
+
+  final String purpose;
 
   final ApiClient api;
 
@@ -126,7 +136,11 @@ class ApiMedicineRecognitionRepository
     }
     final result = await api.post(
       '/api/v1/recognitions/medicine',
-      body: {'imageBase64': base64Encode(bytes), 'mimeType': mimeType},
+      body: {
+        'imageBase64': base64Encode(bytes),
+        'mimeType': mimeType,
+        'purpose': purpose,
+      },
     );
     if (result is! Map<String, dynamic> ||
         result['draft'] is! Map<String, dynamic>) {
@@ -147,7 +161,21 @@ class ApiMedicineRecognitionRepository
           ? (result['warnings'] as List).whereType<String>().toList()
           : const [],
       purposeCategory: field('purposeCategory'),
-      purposeTags: (draft['purposeTags'] as List? ?? []).whereType<String>().toList(),
+      brand: field('brand'),
+      manufacturer: field('manufacturer'),
+      populationTags: (draft['populationTags'] as List? ?? [])
+          .whereType<String>()
+          .toList(),
+      leaflet: draft['leaflet'] is Map
+          ? {
+              for (final entry in (draft['leaflet'] as Map).entries)
+                if (entry.key is String && entry.value is String)
+                  entry.key as String: entry.value as String,
+            }
+          : const {},
+      purposeTags: (draft['purposeTags'] as List? ?? [])
+          .whereType<String>()
+          .toList(),
     );
   }
 }

@@ -1,5 +1,11 @@
 <view class="page">
-  <view class="home-header"><view class="title">库存盘点</view><view class="subtitle">逐批次核对家里实际数量。未知数量和暂不核对会保留为未知，不会当作零。</view></view>
+  <view class="home-header"><view class="title">库存盘点</view><view class="subtitle">拿出家里的药，逐批次核对实际余量，让药箱记录与实物一致。</view></view>
+  <view class="card guide-card">
+    <view class="section-title">怎样盘点？</view>
+    <view class="guide-step">① 看药品与包装　② 数实际余量　③ 选择结果并保存</view>
+    <view class="hint">数量没变化：确认现有记录。修改余量：按实物更新数量。已用完／已处理：将该批次余量记为 0。</view>
+    <view class="hint">暂不核对：跳过本次核对，保留原来的余量；未知数量仍是未知，绝不会自动记为 0。</view>
+  </view>
   <view class="card" wx:if="{{loading}}"><view class="hint">正在读取盘点…</view></view>
   <view class="card error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重新读取</view></view>
   <view class="card" wx:if="{{!loading && !stocktake}}">
@@ -19,8 +25,9 @@
         </picker>
       </view>
       <view class="field" wx:if="{{item.outcome === 'adjusted'}}">
-        <view class="field-label">实际余量</view><input class="input" type="number" data-index="{{index}}" value="{{item.adjustedQuantity}}" bindinput="onQuantityInput" placeholder="不小于 0 的整数" />
+        <view class="field-label">实际余量</view><input class="input" type="digit" data-index="{{index}}" value="{{item.adjustedQuantity}}" bindinput="onQuantityInput" placeholder="{{item.unit === 'ml' ? '可填写小数，如 12.5' : '不小于 0 的整数'}}" />
       </view>
+      <view class="outcome-note">{{item.outcome === 'deferred' ? '本批次暂不核对，原记录不会变化。' : item.outcome === 'unchanged' ? '已核对实物，余量与原记录一致。' : item.outcome === 'adjusted' ? '保存后以填写的实际余量更新记录。' : '保存后该批次余量记为 0。'}}</view>
     </view>
     <view class="btn btn-primary" bindtap="onSubmit">{{submitting ? "保存中…" : "保存并完成盘点"}}</view>
   </view>

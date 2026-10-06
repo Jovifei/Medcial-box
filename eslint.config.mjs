@@ -28,6 +28,7 @@ export default tseslint.config(
       globals: {
         App: "readonly",
         Page: "readonly",
+        Component: "readonly",
         wx: "readonly",
       },
     },

@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { closeOwnedPhotoFile, PhotoFileWriteError, writeOwnedPhotoFile } from "../../services/photo-file-lifecycle";
 import type { OwnedPhotoFile } from "../../services/photo-file-lifecycle";
@@ -22,7 +22,7 @@ import type {
 } from "../../services/api-types";
 
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
-const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
+const PRECISION_LABELS = ["年、月、日", "仅年、月", "未知"];
 const PURPOSE_OPTIONS = ["未分类", "解热镇痛", "感冒咳嗽", "胃肠消化", "过敏", "外用", "其他"];
 
 interface BatchForm {
@@ -60,6 +60,9 @@ interface MedicineEditPageData {
   medicineLoading: boolean;
   submitting: boolean;
   recognizing: boolean;
+  recognitionSeconds: number;
+  recognitionSubject: string;
+  storageExpanded: boolean;
   isDirty: boolean;
   leaveSheetVisible: boolean;
   draftAvailable: boolean;
@@ -78,6 +81,7 @@ interface MedicineEditPageData {
   barcodeLookupStatus: string;
   canRetryBarcode: boolean;
   name: string;
+  brand: string;
   specification: string;
   manufacturer: string;
   approvalNumber: string;
@@ -95,6 +99,7 @@ interface MedicineEditPageData {
   leafletContraindications: string;
   leafletPrecautions: string;
   leafletSource: string;
+  leafletText: string;
   verified: boolean;
   batches: BatchForm[];
   unitLabels: string[];
@@ -112,11 +117,11 @@ interface MedicineEditPageData {
 }
 
 type MedicineDraftValues = Pick<MedicineEditPageData,
-  "createOperationKey" | "attemptedPayload" | "name" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
+  "createOperationKey" | "attemptedPayload" | "name" | "brand" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
   "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" |
   "leafletPurpose" | "leafletUsage" |
   "leafletContraindications" | "leafletPrecautions" | "leafletSource" | "verified" |
-  "batches" | "purposeIndex" | "scannedBarcode">;
+  "batches" | "purposeIndex" | "scannedBarcode" | "leafletText">;
 
 interface StoredMedicineDraft {
   schemaVersion: 1;
@@ -135,7 +140,7 @@ interface PhotoEntryDraft {
   fields: MedicineDraftValues;
   medicineId: string;
   photos: Array<{
-    path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry";
+    path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry" | "leaflet";
     batchIndex: number; uploadedId?: string;
     ownedLocal?: OwnedPhotoFile;
     localFileRemoved?: boolean;
@@ -225,6 +230,7 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
     createOperationKey: data.createOperationKey,
     attemptedPayload: data.attemptedPayload,
     name: data.name,
+    brand: data.brand,
     specification: data.specification,
     manufacturer: data.manufacturer,
     approvalNumber: data.approvalNumber,
@@ -238,6 +244,7 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
     leafletContraindications: data.leafletContraindications,
     leafletPrecautions: data.leafletPrecautions,
     leafletSource: data.leafletSource,
+    leafletText: data.leafletText,
     verified: data.verified,
     batches: data.batches.map((batch) => ({ ...batch })),
     purposeIndex: data.purposeIndex,
@@ -262,8 +269,8 @@ function formFingerprint(data: MedicineEditPageData): string {  const fields = d
   return JSON.stringify({
     ...fields,
     batches: fields.batches.map((batch) => {
-      const { openingExpanded, ...comparable } = batch;
-      void openingExpanded;
+      const comparable: Partial<BatchForm> = { ...batch };
+      delete comparable.openingExpanded;
       return comparable;
     }),
   });
@@ -438,7 +445,7 @@ async function removePhotoDraftFiles(
     const expectedPrefix = `${draft.id}-${photo.purpose}-`;
     if (!owned || owned.scopeKey !== scopeKey || owned.draftId !== draft.id || owned.path !== photo.path ||
         !/^photo-\d+-[a-z0-9]{1,6}$/.test(draft.id) ||
-        !["box_front", "expiry"].includes(photo.purpose) ||
+        !["box_front", "expiry", "leaflet"].includes(photo.purpose) ||
         !relative.startsWith(expectedPrefix) ||
         !new RegExp(`^\\d+\\.${extension}$`).test(relative.slice(expectedPrefix.length))) {
       complete = false;
@@ -472,6 +479,9 @@ Page({
     medicineLoading: false,
     submitting: false,
     recognizing: false,
+    recognitionSeconds: 0,
+    recognitionSubject: "药品",
+    storageExpanded: false,
     isDirty: false,
     leaveSheetVisible: false,
     draftAvailable: false,
@@ -479,7 +489,7 @@ Page({
     statusBarHeight: 20,
     navBarHeight: 64,
     navRightGap: 48,
-    classificationExpanded: false,
+    classificationExpanded: true,
     photoDrafts: [] as PhotoEntryDraft[],
     usePhotoAsCover: false,
     activePhotoDraftId: "",
@@ -489,6 +499,7 @@ Page({
     barcodeLookupStatus: "",
     canRetryBarcode: false,
     name: "",
+    brand: "",
     specification: "",
     manufacturer: "",
     approvalNumber: "",
@@ -504,6 +515,7 @@ Page({
     leafletContraindications: "",
     leafletPrecautions: "",
     leafletSource: "",
+    leafletText: "",
     verified: false,
     batches: [emptyBatch()],
     unitLabels: UNIT_LABELS,
@@ -529,6 +541,7 @@ Page({
   touchedFields: {} as Record<string, number>,
   /** 识别请求代次：只接受最新一次请求的响应，旧响应直接丢弃。 */
   recognitionToken: 0,
+  recognitionTimer: null as ReturnType<typeof setTimeout> | null,
   draftStorageKey: null as string | null,
   photoScopeKey: null as string | null,
   photoDraftStorageWarningShown: false,
@@ -592,6 +605,7 @@ Page({
   onUnload(): void {
     this.entryDisposed = true;
     this.recognitionToken += 1;
+    this.stopRecognitionClock();
     const data = this.data as MedicineEditPageData;
     if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
     this.setNativeLeaveWarning(false);
@@ -615,6 +629,7 @@ Page({
       if (!stillCurrent()) return;
       this.setData({
         name: medicine.name,
+        brand: medicine.brand ?? "",
         specification: medicine.specification ?? "",
         manufacturer: medicine.manufacturer ?? "",
         approvalNumber: medicine.approvalNumber ?? "",
@@ -772,6 +787,8 @@ Page({
     }
     this.setData({
       ...fields,
+      brand: fields.brand ?? "",
+      leafletText: fields.leafletText ?? "",
       batches: fields.batches.map((batch) => {
         const latest = this.data.batches.find((item) => item.id === batch.id && item.id !== null);
         return latest ? { ...batch, version: latest.version } : batch;
@@ -875,6 +892,7 @@ Page({
     if (kind === undefined) return;
     const current = (this.data as MedicineEditPageData).populationTags;
     const next = current.includes(kind) ? current.filter((tag) => tag !== kind) : [...current, kind];
+    this.markFieldTouched("populationTags");
     this.setData({ populationTags: next, populationChips: buildPopulationChips(next) });
     this.updateDirtyState();
   },
@@ -886,6 +904,7 @@ Page({
     if (kind === undefined) return;
     const current = (this.data as MedicineEditPageData).purposeTags;
     const next = current.includes(kind) ? current.filter((tag) => tag !== kind) : [...current, kind];
+    this.markFieldTouched("purposeTags");
     this.setData({ purposeTags: next, purposeChips: buildPurposeChips(next) });
     this.updateDirtyState();
   },
@@ -916,17 +935,19 @@ Page({
 
   onOpeningLimitModeChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
+    if (String(event.detail.value).trim() === "") return;
     const index = Number(event.detail.value);
-    const mode = (["none", "day", "month", "date"] as const)[index];
-    if (!mode) return;
+    if (!Number.isInteger(index) || index < 0 || index > 3) return;
+    const mode = (["none", "day", "month", "date"] as const)[index] ?? "none";
     const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
-    const batch = (this.data as MedicineEditPageData).batches[batchIndex];
-    if (!batch) return;
+    const current = (this.data as MedicineEditPageData).batches[batchIndex];
+    if (!Number.isInteger(batchIndex) || !current) return;
     this.setData({
       [`batches[${batchIndex}].openingLimitModeIndex`]: index,
       [`batches[${batchIndex}].openingLimitMode`]: mode,
-      ...(batch.openingLimitMode !== mode || mode === "none"
-        ? { [`batches[${batchIndex}].openingLimitValue`]: "" } : {}),
+      ...(current.openingLimitMode !== mode || mode === "none"
+        ? { [`batches[${batchIndex}].openingLimitValue`]: "" }
+        : {}),
     });
     this.updateDirtyState();
   },
@@ -939,7 +960,7 @@ Page({
     if (!this.entryScopeIsCurrent(originalScope)) return;
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
     if (!this.entryScopeIsCurrent(originalScope)) return;
-    this.setData({ recognizing: true, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
+    this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
     try {
       const shareConsent = await new Promise<boolean>((resolve) => wx.showModal({
         title: "查询药品资料候选",
@@ -961,6 +982,7 @@ Page({
       this.setData({ scannedBarcode, barcodeValue: scannedBarcode, canRetryBarcode: false,
         barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
       this.updateDirtyState();
+      this.startRecognitionClock("商品资料");
       await ensureLoggedIn();
       if (!this.entryScopeIsCurrent(originalScope)) return;
       const response = await api.findMedicineCandidates(scannedBarcode);
@@ -981,8 +1003,8 @@ Page({
       if (!this.entryScopeIsCurrent(originalScope)) return;
       if (typeof error === "object" && error !== null && "errMsg" in error &&
         String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
-      if (error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE") {
-        this.setData({ barcodeLookupStatus: "资料查询服务当前不可用或未配置条码检索；商品码已保留，可稍后重试或手动录入。",
+      if (error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED")) {
+        this.setData({ barcodeLookupStatus: error.code === "MEDICINE_CATALOG_NOT_CONFIGURED" ? "商品码已扫到；药品资料服务尚未配置，请拍药盒识别或手动核对。" : "商品码已扫到；资料服务暂不可用，可稍后重试。",
           recognitionHint: "当前资料服务无法完成条码查询；商品码仍保留在表单中。", canRetryBarcode: true });
       } else {
         showError(error);
@@ -990,6 +1012,7 @@ Page({
           recognitionHint: "扫码查询失败；商品码已保留。", canRetryBarcode: true });
       }
     } finally {
+      this.stopRecognitionClock();
       this.setData({ recognizing: false });
     }
   },
@@ -1000,7 +1023,7 @@ Page({
     if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
     const originalScope = scopedStorageKey("medicine-photo-drafts");
     if (!this.entryScopeIsCurrent(originalScope)) return;
-    this.setData({ recognizing: true });
+    this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0 });
     const consent = await new Promise<boolean>((resolve) => wx.showModal({
       title: "重新查询商品码",
       content: `商品码 ${data.scannedBarcode} 将再次发送到家庭药箱资料服务查询候选，不上传照片。是否继续？`,
@@ -1016,6 +1039,7 @@ Page({
     try {
       await ensureLoggedIn();
       if (!this.entryScopeIsCurrent(originalScope)) return;
+      this.startRecognitionClock("商品资料");
       const response = await api.findMedicineCandidates(code);
       if (!this.entryScopeIsCurrent(originalScope)) return;
       this.setData({
@@ -1032,12 +1056,15 @@ Page({
       });
     } catch (error) {
       if (!this.entryScopeIsCurrent(originalScope)) return;
-      const message = error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE"
-        ? "资料查询服务当前不可用或未配置条码检索；商品码已保留，可稍后重试或手动录入。"
+      const message = error instanceof ApiError && error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"
+        ? "商品码已扫到；药品资料服务尚未配置，请拍药盒识别或手动核对。"
+        : error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE"
+        ? "商品码已扫到；资料服务暂不可用，可稍后重试。"
         : "条码已保留，查询失败；可稍后重试或手动录入。";
       this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
-      if (!(error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE")) showError(error);
+      if (!(error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"))) showError(error);
     } finally {
+      this.stopRecognitionClock();
       this.setData({ recognizing: false });
     }
   },
@@ -1050,6 +1077,7 @@ Page({
     if (candidate === null) return;
     const fields: Record<string, unknown> = { candidate: null, candidates: [], candidateWarnings: [] };
     if (data.name.trim() === "") fields.name = candidate.name;
+    if (data.brand.trim() === "" && candidate.brand) fields.brand = candidate.brand;
     if (data.specification.trim() === "" && candidate.specification !== null) fields.specification = candidate.specification;
     if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
     if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
@@ -1096,6 +1124,28 @@ Page({
     // 阻止底部弹层内的点击穿透。
   },
 
+  startRecognitionClock(subject: string): void {
+    this.stopRecognitionClock();
+    this.setData({ recognizing: true, recognitionSeconds: 0, recognitionSubject: subject });
+    const tick = (): void => {
+      if (!this.data.recognizing) return;
+      this.setData({ recognitionSeconds: this.data.recognitionSeconds + 1 });
+      this.recognitionTimer = setTimeout(tick, 1000);
+    };
+    this.recognitionTimer = setTimeout(tick, 1000);
+  },
+
+  stopRecognitionClock(): void {
+    if (this.recognitionTimer !== null) clearTimeout(this.recognitionTimer);
+    this.recognitionTimer = null;
+  },
+
+  onPreviewEntryPhoto(event: { currentTarget: { dataset: { id?: string } } }): void {
+    if (!this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) return;
+    const entry = this.data.photoDrafts.find((item) => item.id === event.currentTarget.dataset.id);
+    if (entry) wx.previewImage({ current: entry.thumbnail, urls: entry.photos.map((photo) => photo.path) });
+  },
+
   async onRecognizePhoto(
     sourceOverride?:
       | "camera"
@@ -1140,7 +1190,7 @@ Page({
       if (!operationCurrent()) return;
       const file = selection.tempFiles[0];
       if (!file) return;
-      if (!this.data.activePhotoDraftId && this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
+      if (!this.data.activePhotoDraftId && this.data.photoDrafts.some((item) => item.status !== "saved" && item.status !== "cleanup_pending")) { wx.showToast({ title: "请先保存或恢复已有药品草稿", icon: "none" }); return; }
       if (file.size > 4 * 1024 * 1024) {
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
@@ -1161,7 +1211,9 @@ Page({
         wx.showToast({ title: "请选择 JPEG 或 PNG 照片", icon: "none" });
         return;
       }
-      const purpose = typeof sourceOverride === "object" && sourceOverride.currentTarget?.dataset?.purpose === "expiry" ? "expiry" : "box_front";
+      const requestedPurpose = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.purpose : "";
+      const purpose = requestedPurpose === "leaflet" ? "leaflet" : requestedPurpose === "expiry" ? "expiry" : "box_front";
+      this.startRecognitionClock(purpose === "leaflet" ? "说明书" : "药品包装");
       const id = this.data.activePhotoDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       operationDraftId = id;
       const fs = wx.getFileSystemManager();
@@ -1171,7 +1223,7 @@ Page({
         throw new PhotoFileWriteError("PHOTO_STORAGE_UNAVAILABLE", "当前微信版本不支持安全保存照片草稿，请升级微信或手动录入。");
       }
       await writeOwnedPhotoFile({
-        fs, sdkVersion, root: wx.env?.USER_DATA_PATH ?? "", scopeKey: originalScope!, draftId: id,
+        fs, sdkVersion, root: wx.env?.USER_DATA_PATH ?? "", scopeKey: this.photoScopeKey ?? originalScope!, draftId: id,
         purpose, mimeType, data: wx.base64ToArrayBuffer(imageBase64),
         isCurrent: operationCurrent,
         register: (owner) => {
@@ -1211,7 +1263,7 @@ Page({
       this.setData({ recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
       await ensureLoggedIn();
       if (!operationCurrent()) return;
-      const result = await api.recognizeMedicine(imageBase64, mimeType);
+      const result = await api.recognizeMedicine(imageBase64, mimeType, purpose === "leaflet" ? "leaflet" : "box_front");
       // 过期响应（期间又发起过识别/已加载别的药品）直接丢弃。
       if (!operationCurrent()) return;
       const draft = result.draft;
@@ -1225,14 +1277,33 @@ Page({
           ? `识别完成，请逐项核对。${result.warnings.join("；")}`
           : "识别完成，请对照包装核对后保存。有效期在另一面时可再拍一次。",
       };
-      for (const key of ["name", "specification", "manufacturer", "approvalNumber", "purposeCategory"] as const) {
-        if (untouched(key) && current[key].trim() === "" && draft[key] !== null && draft[key] !== "") {
+      for (const key of ["name", "brand", "specification", "manufacturer", "approvalNumber", "purposeCategory"] as const) {
+        if (untouched(key) && current[key].trim() === "" && typeof draft[key] === "string" && draft[key] !== "") {
           fields[key] = draft[key];
           if (key === "purposeCategory") {
             const optionIndex = PURPOSE_OPTIONS.indexOf(draft[key]);
             if (optionIndex >= 0) fields.purposeIndex = optionIndex;
           }
         }
+      }
+      if (untouched("purposeTags") && current.purposeTags.length === 0 && draft.purposeTags?.length) {
+        fields.purposeTags = draft.purposeTags;
+        fields.purposeChips = buildPurposeChips(draft.purposeTags);
+      }
+      if (untouched("populationTags") && current.populationTags.length === 0 && draft.populationTags?.length) {
+        fields.populationTags = draft.populationTags;
+        fields.populationChips = buildPopulationChips(draft.populationTags);
+      }
+      if (purpose === "leaflet" && draft.leaflet) {
+        fields.leafletText = draft.leaflet.text ?? "";
+        const mapping = { leafletPurpose: "purposeSummary", leafletUsage: "packageUsageSummary", leafletContraindications: "contraindicationsSummary", leafletPrecautions: "precautionsSummary" } as const;
+        for (const field of Object.keys(mapping) as Array<keyof typeof mapping>) {
+          const value = draft.leaflet[mapping[field]];
+          if (untouched(field) && current[field].trim() === "" && value) fields[field] = value;
+        }
+        if (untouched("leafletSource") && !current.leafletSource.trim()) fields.leafletSource = "包装内说明书照片（待核对）";
+        fields.optionalExpanded = true;
+        fields.verified = false;
       }
       if (draft.specification || draft.manufacturer || draft.approvalNumber) {
         fields.optionalExpanded = true;
@@ -1288,7 +1359,10 @@ Page({
         this.setData({ recognitionHint: "未识别图片；可重新拍照，或直接填写药名。" });
       }
     } finally {
-      if (!this.entryDisposed && token === this.recognitionToken) this.setData({ recognizing: false });
+      if (!this.entryDisposed && token === this.recognitionToken) {
+        this.stopRecognitionClock();
+        this.setData({ recognizing: false });
+      }
     }
   },
 
@@ -1305,52 +1379,30 @@ Page({
     this.updateDirtyState();
   },
 
-  onExpiryDateChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string } }): void {
+  onExpiryDateChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string; precision?: ExpiryPrecision } }): void {
     if (this.data.attemptedPayload) return;
     const index = Number(event.currentTarget.dataset.index);
-    const precision = this.data.batches[index]?.precisionIndex;
-    this.setData({ [`batches[${index}].expiryValue`]: precision === 1 ? event.detail.value.slice(0, 7) : event.detail.value });
+    if (!Number.isInteger(index) || !this.data.batches[index]) return;
+    const precision = event.detail.precision ? PRECISION_VALUES.indexOf(event.detail.precision) : this.data.batches[index]?.precisionIndex;
+    if (precision === undefined || precision < 0) return;
+    this.setData({ [`batches[${index}].expiryValue`]: expiryValueForPrecision(event.detail.value, PRECISION_VALUES[precision]),
+      ...(event.detail.precision ? { [`batches[${index}].precisionIndex`]: precision } : {}) });
     this.markFieldTouched(`batches[${index}].expiryValue`);
     this.updateDirtyState();
   },
 
-  onBatchDateChange(event: {
-    currentTarget: { dataset: { index?: string; field?: string } };
-    detail: { value: string };
-  }): void {
-    if (this.data.attemptedPayload) return;
-    const index = event.currentTarget.dataset.index;
-    const field = event.currentTarget.dataset.field;
-    if (index === undefined || (field !== "openedAt" && field !== "openingLimitValue")) return;
-    this.markFieldTouched(`batches[${index}].${field}`);
-    this.setData({ [`batches[${index}].${field}`]: event.detail.value });
-    this.updateDirtyState();
-  },
-
-  onClearBatchDate(event: { currentTarget: { dataset: { index?: string; field?: string } } }): void {
-    if (this.data.attemptedPayload) return;
-    const index = event.currentTarget.dataset.index;
-    const field = event.currentTarget.dataset.field;
-    if (index === undefined || (field !== "openedAt" && field !== "openingLimitValue")) return;
-    this.markFieldTouched(`batches[${index}].${field}`);
-    this.setData({ [`batches[${index}].${field}`]: "" });
-    this.updateDirtyState();
-  },
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
     if (this.data.attemptedPayload) return;
-    const rawIndex = event.currentTarget.dataset.index;
-    if (rawIndex === undefined) return;
-    const index = Number(rawIndex);
+    const index = event.currentTarget.dataset.index;
+    if (index === undefined || !Number.isInteger(Number(index)) || !this.data.batches[Number(index)]) return;
+    if (String(event.detail.value).trim() === "") return;
     const precisionIndex = Number(event.detail.value);
-    const precision = PRECISION_VALUES[precisionIndex];
-    const batch = (this.data as MedicineEditPageData).batches[index];
-    if (!batch || !precision) return;
-    // User-selected precision fences late recognition, and never invents a day.
+    if (!Number.isInteger(precisionIndex) || !PRECISION_VALUES[precisionIndex]) return;
+    // 精度改变意味着有效期语义由用户重新指定，识别不得再改写该批次日期。
     this.markFieldTouched(`batches[${index}].expiryValue`);
-    this.setData({
-      [`batches[${index}].precisionIndex`]: precisionIndex,
-      [`batches[${index}].expiryValue`]: expiryValueForPrecision(batch.expiryValue, precision),
-    });
+    const value = this.data.batches[Number(index)]?.expiryValue ?? "";
+    this.setData({ [`batches[${index}].precisionIndex`]: precisionIndex,
+      [`batches[${index}].expiryValue`]: expiryValueForPrecision(value, PRECISION_VALUES[precisionIndex]) });
     this.updateDirtyState();
   },
 
@@ -1418,18 +1470,33 @@ Page({
 
   /** An open form keeps its original household; async work must not adopt a later login. */
   entryScopeIsCurrent(scope: string | null): boolean {
-    return !this.entryDisposed && scope !== null && scope === scopedStorageKey("medicine-photo-drafts") &&
-      (this.photoScopeKey === null || this.photoScopeKey === scope) &&
+    const familyScope = scopedStorageKey("medicine-photo-drafts");
+    const photoScope = this.data.medicineId
+      ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : familyScope;
+    return !this.entryDisposed && scope !== null && (scope === familyScope || scope === photoScope) &&
+      (this.photoScopeKey === null || this.photoScopeKey === photoScope) &&
       (this.draftStorageKey === null || this.draftStorageKey === draftStorageKey(this.data.medicineId));
   },
 
   async checkEntrySession(): Promise<void> {
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    const originalMedicineId = this.data.medicineId;
     try {
       await ensureLoggedIn({ allowInteractive: false });
       if (this.entryDisposed) return;
       this.refreshDraftScope();
       this.loadPhotoDrafts();
     } catch (error) {
+      if (this.entryDisposed || this.data.medicineId !== originalMedicineId) return;
+      if (error instanceof ApiError && error.invalidatedSession !== undefined &&
+          !isCurrentSession(error.invalidatedSession)) return;
+      const currentScope = scopedStorageKey("medicine-photo-drafts");
+      // Only this request's verified 401 cleanup may clear scope and still redirect.
+      const ownInvalidation = currentScope === null && error instanceof ApiError &&
+        error.invalidatedSession !== undefined && isCurrentSession(error.invalidatedSession);
+      if (error instanceof ApiError && error.code === "STALE_SESSION") return;
+      if (!ownInvalidation && (currentScope !== originalScope ||
+          (originalScope !== null && !this.entryScopeIsCurrent(originalScope)))) return;
       if (error instanceof ApiError &&
           (error.statusCode === 401 || error.code === "UNAUTHENTICATED" ||
            error.code === "UNAUTHORIZED" || error.code === "SESSION_EXPIRED")) {
@@ -1442,7 +1509,7 @@ Page({
   onCoverChoice(event: { detail: { value: boolean } }): void { this.setData({ usePhotoAsCover: event.detail.value }); },
   loadPhotoDrafts(): void {
     if (this.entryDisposed) return;
-    const key = scopedStorageKey("medicine-photo-drafts");
+    const key = this.data.medicineId ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : scopedStorageKey("medicine-photo-drafts");
     if (!key) return;
     if (this.photoScopeKey === key && (this.data.recognizing || this.data.submitting)) return;
     if (this.photoScopeKey !== key) this.setData({ photoDrafts: [], activePhotoDraftId: "" });
@@ -1607,19 +1674,14 @@ Page({
     if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
     const incomplete = entry.photos.some((photo) => photo.ownedLocal?.state === "reserved");
-    this.setData({ ...entry.fields, activePhotoDraftId: entry.id, recognitionHint: incomplete
+    this.setData({ ...entry.fields, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
       ? "照片写入尚未完成，请删除这份照片草稿后重拍；药品文字仍可手动保存。"
       : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
     this.updateDirtyState();
   },
   onNewPhotoDraft(): void {
     if (this.data.recognizing || this.data.submitting) return;
-    if (this.data.photoDrafts.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) { wx.showToast({ title: "最多10份草稿，请先保存或删除", icon: "none" }); return; }
-    if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
-    this.recognitionToken += 1;
-    this.setData({ attemptedPayload: null, createOperationKey: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`, name: "", specification: "", manufacturer: "", approvalNumber: "", barcodeValue: "", ingredients: "", purposeCategory: "", populationTags: [], purposeTags: [], leafletPurpose: "", leafletUsage: "", leafletContraindications: "", leafletPrecautions: "", leafletSource: "", verified: false, batches: [emptyBatch()], activePhotoDraftId: "", recognitionHint: "", scannedBarcode: "", candidates: [] });
-    this.captureInitialSnapshot();
-    void this.onRecognizePhoto("camera");
+    wx.showToast({ title: "请先保存当前药品，再添加下一种", icon: "none" });
   },
   onDeletePhotoDraft(event: { currentTarget: { dataset: { id?: string } } }): void {
     const id = event.currentTarget.dataset.id;
@@ -1641,6 +1703,8 @@ Page({
   onToggleClassification(): void {
     this.setData({ classificationExpanded: !this.data.classificationExpanded });
   },
+
+  onToggleStorage(): void { this.setData({ storageExpanded: !this.data.storageExpanded }); },
 
   async onSubmit(): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
@@ -1675,6 +1739,7 @@ Page({
     }
     const payload: MedicinePayload = {
       name,
+      brand: data.brand.trim() || null,
       ...(!data.isEdit ? { idempotencyKey: this.data.createOperationKey } : {}),
       specification: data.specification.trim() === "" ? null : data.specification.trim(),
       manufacturer: data.manufacturer.trim() === "" ? null : data.manufacturer.trim(),

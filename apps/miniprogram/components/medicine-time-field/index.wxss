@@ -1,0 +1,1 @@
+.time-box{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 24rpx;border:1rpx solid #dce5df;border-radius:16rpx;background:#fff;color:#25382d;font-size:30rpx}.disabled{opacity:.55}

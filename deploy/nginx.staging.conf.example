@@ -11,8 +11,9 @@ server {
     ssl_certificate /etc/letsencrypt/live/medbox-test.example.invalid/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/medbox-test.example.invalid/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    # JSON/base64 photo endpoints accept up to 8 MiB raw images (12 MiB request body).
-    # Keep the proxy ceiling aligned with the API route limits so HTTPS does not reject valid uploads first.
+    # The largest authenticated photo route accepts an 8 MiB decoded image in
+    # base64 JSON (Fastify bodyLimit 12 MiB). Keep the reverse-proxy envelope
+    # aligned so valid mobile uploads are not rejected with 413 before the API.
     client_max_body_size 12m;
 
     location /api/ {
@@ -24,7 +25,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_connect_timeout 5s;
-        # Local/Ollama recognition can legitimately take up to ~55s; clients allow 60–70s.
+        # Local vision recognition may legitimately run for up to 55 seconds;
+        # clients allow 70 seconds. Keep Nginx above provider processing and
+        # normal network jitter so it does not manufacture an early 504.
         proxy_read_timeout 75s;
         add_header X-Content-Type-Options nosniff always;
     }

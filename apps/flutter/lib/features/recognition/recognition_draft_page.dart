@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -33,6 +34,8 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
   MedicineRecognitionDraft? draft;
   Object? failure;
   bool loading = true;
+  Timer? recognitionTimer;
+  int recognitionSeconds = 0;
 
   @override
   void initState() {
@@ -42,6 +45,7 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
 
   @override
   void dispose() {
+    recognitionTimer?.cancel();
     nameController.dispose();
     specificationController.dispose();
     expiryController.dispose();
@@ -54,6 +58,11 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
       loading = true;
       failure = null;
     });
+    recognitionTimer?.cancel();
+    recognitionSeconds = 0;
+    recognitionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => recognitionSeconds++);
+    });
     try {
       final result = await widget.recognitionRepository.recognize(widget.image);
       if (!mounted) return;
@@ -61,8 +70,10 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
       nameController.text = result.name;
       specificationController.text = result.specification;
       expiryController.text = result.expiry;
+      recognitionTimer?.cancel();
       setState(() => loading = false);
     } catch (error) {
+      recognitionTimer?.cancel();
       if (!mounted) return;
       setState(() {
         failure = error;
@@ -108,139 +119,166 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('识别结果 · 人工核对')),
-      body: AppPage(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        child: ListView(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Image.file(
-                File(widget.image.path),
-                height: 220,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (loading)
-              const AppCard(
-                child: Row(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(width: 14),
-                    Text('正在识别图片文字…'),
-                  ],
-                ),
-              )
-            else if (failure != null)
-              AppCard(
-                color: const Color(0xFFFFF3EF),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '识别失败，但不会影响手动录入。',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$failure',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 14),
-                    SoftButton(label: '重新识别', onPressed: _recognize),
-                  ],
-                ),
-              )
-            else ...[
-              if (draft!.warnings.isNotEmpty)
-                AppCard(
-                  color: const Color(0xFFFFF8E9),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '请核对以下提示',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      ...draft!.warnings.map(
-                        (warning) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            '• $warning',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ),
-                    ],
+      body: Stack(
+        children: [
+          AppPage(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: ListView(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.file(
+                    File(widget.image.path),
+                    height: 220,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
                   ),
                 ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: '药品名称（必填）'),
+                const SizedBox(height: 16),
+                if (loading)
+                  const AppCard(
+                    child: Row(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(width: 14),
+                        Text('正在识别图片文字…'),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: specificationController,
-                      decoration: const InputDecoration(
-                        labelText: '产品规格（可选，如 20g）',
-                      ),
+                  )
+                else if (failure != null)
+                  AppCard(
+                    color: const Color(0xFFFFF3EF),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '识别失败，但不会影响手动录入。',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$failure',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 14),
+                        SoftButton(label: '重新识别', onPressed: _recognize),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: unit,
-                      hint: const Text('请选择包装单位'),
-                      decoration: const InputDecoration(labelText: '库存单位'),
-                      items: kQuantityUnitValues
-                          .where((value) => value != 'ml')
-                          .map(
-                            (value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(unitLabel(value)),
+                  )
+                else ...[
+                  if (draft!.warnings.isNotEmpty)
+                    AppCard(
+                      color: const Color(0xFFFFF8E9),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '请核对以下提示',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          ...draft!.warnings.map(
+                            (warning) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                '• $warning',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                             ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) => setState(() => unit = value),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: quantityController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '剩余数量（可选）',
-                        hintText: '未知可留空',
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    MedicineDateField(
-                      key: const ValueKey('recognition-expiry-field'),
-                      valueKey: const ValueKey('recognition-expiry-value'),
-                      controller: expiryController,
-                      label: '有效期（可选）',
-                      onChanged: () => setState(() {}),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: '药品名称（必填）',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: specificationController,
+                          decoration: const InputDecoration(
+                            labelText: '产品规格（可选，如 20g）',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: unit,
+                          hint: const Text('请选择包装单位'),
+                          decoration: const InputDecoration(labelText: '库存单位'),
+                          items: kQuantityUnitValues
+                              .where((value) => value != 'ml')
+                              .map(
+                                (value) => DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(unitLabel(value)),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) => setState(() => unit = value),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: quantityController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '剩余数量（可选）',
+                            hintText: '未知可留空',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        MedicineDateField(
+                          key: const ValueKey('recognition-expiry-field'),
+                          valueKey: const ValueKey('recognition-expiry-value'),
+                          controller: expiryController,
+                          label: '有效期（可选）',
+                          onChanged: () => setState(() {}),
+                        ),
+                        const SizedBox(height: 18),
+                        PrimaryButton(
+                          label: '核对后保存',
+                          icon: Icons.check_rounded,
+                          onPressed: _save,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 18),
-                    PrimaryButton(
-                      label: '核对后保存',
-                      icon: Icons.check_rounded,
-                      onPressed: _save,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '识别结果只是草稿，不会自动推断数量、剂量或适合谁服用。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (loading)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black38,
+                child: Center(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text('正在识别药品… 已等待 $recognitionSeconds 秒'),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                '识别结果只是草稿，不会自动推断数量、剂量或适合谁服用。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

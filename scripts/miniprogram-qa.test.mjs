@@ -43,8 +43,9 @@ function harness({ project, mutateNative, mockOverride } = {}) {
     const module = { exports: {} }; cache.set(filename, module);
     if (filename.endsWith('.json')) { module.exports = JSON.parse(readFileSync(filename, 'utf8')); return module.exports; }
     let source;
-    if (filename.endsWith('/qa/fixture-runtime.js')) source = runtimeText;
-    else if (filename.endsWith('/qa/synthetic-mock.js')) source = mockText;
+    const normalizedFilename = filename.replaceAll('\\', '/');
+    if (normalizedFilename.endsWith('/qa/fixture-runtime.js')) source = runtimeText;
+    else if (normalizedFilename.endsWith('/qa/synthetic-mock.js')) source = mockText;
     else { source = readFileSync(filename, 'utf8'); if (filename.endsWith('app-product.js')) productLoads++; }
     const require = id => {
       if (mockOverride && id === './synthetic-mock') return mockOverride;

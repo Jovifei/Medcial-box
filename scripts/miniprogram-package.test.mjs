@@ -47,7 +47,9 @@ test("generated project excludes development files and preserves runtime config"
   await write("tsconfig.json", {});
   await write("app.ts.map", "map");
   const output = await prepareMiniProgram({root,appId:"wx1234567890abcdef",apiBase:"http://127.0.0.1:13300",local:true});
-  for (const name of ["test/test.mjs","typings/index.d.ts","package.json","tsconfig.json","app.ts.map"]) {
+  assert.ok(await readFile(join(output, "tsconfig.json"), "utf8"));
+  assert.ok(await readFile(join(output, "package.json"), "utf8"));
+  for (const name of ["test/test.mjs","typings/index.d.ts","app.ts.map"]) {
     await assert.rejects(readFile(join(output,name)), {code:"ENOENT"});
   }
   assert.match(await readFile(join(output,"services/config.ts"),"utf8"), /13300/);

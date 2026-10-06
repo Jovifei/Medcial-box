@@ -45,6 +45,7 @@ void main() {
           expect(request.headers['authorization'], 'Bearer test-token');
           final payload = jsonDecode(request.body) as Map<String, dynamic>;
           expect(payload['mimeType'], png ? 'image/png' : 'image/jpeg');
+          expect(payload['purpose'], 'box_front');
           expect(base64Decode(payload['imageBase64'] as String), bytes);
           return http.Response.bytes(
             utf8.encode(
@@ -54,6 +55,10 @@ void main() {
                   'specification': '20g',
                   'expiryValue': '2028-03',
                   'purposeCategory': '外用',
+                  'brand': '包装品牌',
+                  'manufacturer': '包装厂家',
+                  'populationTags': ['adult'],
+                  'leaflet': {'precautionsSummary': '对照说明书核对'},
                 },
                 'warnings': ['请核对包装'],
                 'requiresConfirmation': true,
@@ -69,11 +74,46 @@ void main() {
         expect(draft.specification, '20g');
         expect(draft.expiry, '2028-03');
         expect(draft.purposeCategory, '外用');
+        expect(draft.brand, '包装品牌');
+        expect(draft.manufacturer, '包装厂家');
+        expect(draft.populationTags, ['adult']);
+        expect(draft.leaflet['precautionsSummary'], '对照说明书核对');
         expect(draft.purposeTags, isEmpty);
         expect(draft.warnings, ['请核对包装']);
       },
     );
   }
+
+  test(
+    'leaflet image is explicitly requested and does not invent packaging',
+    () async {
+      final client = ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => 'test-token',
+        client: MockClient((request) async {
+          expect((jsonDecode(request.body) as Map)['purpose'], 'leaflet');
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'draft': {
+                  'leaflet': {'packageUsageSummary': '按说明书'},
+                  'name': null,
+                },
+              }),
+            ),
+            200,
+          );
+        }),
+      );
+      final draft = await ApiMedicineRecognitionRepository(
+        client,
+        purpose: 'leaflet',
+      ).recognize(XFile.fromData(photo()));
+      expect(draft.name, '');
+      expect(draft.expiry, '待补充');
+      expect(draft.leaflet['packageUsageSummary'], '按说明书');
+    },
+  );
 
   test('rejects invalid and oversized images before sending', () async {
     var calls = 0;
@@ -118,4 +158,3 @@ void main() {
     );
   });
 }
-

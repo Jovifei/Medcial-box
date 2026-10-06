@@ -89,16 +89,28 @@ class _Fixture {
     );
     await tester.tap(find.text('Open entry'));
     await tester.pumpAndSettle();
+    if (state(tester).attemptedPayload != null) return;
     if (state(tester).nameController.text.isEmpty) {
       await tester.enterText(find.byType(TextField).first, 'Synthetic');
       await tester.pump(const Duration(milliseconds: 250));
     }
     await expand(tester);
+    await tester.scrollUntilVisible(
+      find.text(_verificationLabel),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
   }
 
   Future<void> expand(WidgetTester tester) async {
     if (!state(tester).moreExpanded) {
-      await tester.ensureVisible(find.text('更多资料（选填）'));
+      await tester.scrollUntilVisible(
+        find.text('更多资料（选填）'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('更多资料（选填）'));
       await tester.pumpAndSettle();
     }
@@ -109,12 +121,14 @@ class _Fixture {
       (w) => w is TextField && w.decoration?.labelText == _ingredientLabel,
     );
     await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
     await tester.enterText(field, value);
     await tester.pump(const Duration(milliseconds: 250));
   }
 
   Future<void> verify(WidgetTester tester) async {
     await tester.ensureVisible(find.text(_verificationLabel));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(_verificationLabel));
     await tester.pump(const Duration(milliseconds: 250));
     expect(checked(tester), isTrue);
@@ -127,7 +141,12 @@ class _Fixture {
       .value!;
 
   Future<void> search(WidgetTester tester) async {
-    await tester.ensureVisible(find.text('联网查询候选资料'));
+    await tester.scrollUntilVisible(
+      find.text('联网查询候选资料'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('联网查询候选资料'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('同意并查询'));
@@ -172,11 +191,22 @@ class _Fixture {
   }
 
   Future<void> switchDraft(WidgetTester tester, String name) async {
-    await tester.tap(find.byTooltip('本机草稿'));
+    if (name == '新建一份草稿') {
+      await MedicineDraftQueue(store)
+          .save('replacement', {'id': 'replacement', 'name': 'New Synthetic'});
+      name = 'New Synthetic';
+    }
+    await tester.tap(find.byTooltip('恢复未完成录入'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(name));
     await tester.pumpAndSettle();
     await expand(tester);
+    await tester.scrollUntilVisible(
+      find.text(_verificationLabel),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
   }
 }
 
@@ -273,6 +303,7 @@ void main() {
         await f.open(tester);
         await f.edit(tester, content);
         await tester.ensureVisible(find.text(_verificationLabel));
+        await tester.pumpAndSettle();
         await tester.tap(find.text(_verificationLabel));
         await tester.pump();
         expect(f.checked(tester), isFalse);
@@ -485,7 +516,7 @@ void main() {
         }),
       );
       await f.open(tester);
-      expect(f.checked(tester), isFalse);
+      expect(f.state(tester).ingredientsVerified, isFalse);
       // A request may already have committed. Reusing its key with new contents
       // would change the user's original intent rather than resolve its result.
       expect(await f.save(tester, retry: true), frozen);

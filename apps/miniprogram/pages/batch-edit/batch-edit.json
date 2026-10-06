@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "批次详情 / 编辑",
-  "usingComponents": {}
+  "usingComponents": {
+    "medicine-date-field": "../../components/medicine-date-field/index"
+  }
 }

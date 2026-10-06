@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, validateSourceApi, parseToolResult, runtimeFlagsExpression, extractRuntimeFlags, validSitemap, fullVerificationStatus } from './test-jf-wechat-runtime.mjs';
+import { parseArgs, validateSourceApi, parseToolResult, runtimeFlagsExpression, extractRuntimeFlags, validSitemap, fullVerificationStatus, validateFixtureName, assertFixtureReadback } from './test-jf-wechat-runtime.mjs';
 test('requires three explicit absolute paths', () => {
   assert.throws(() => parseArgs([]));
   assert.throws(() => parseArgs(['--project', 'relative']));
@@ -36,4 +36,15 @@ test('runtime probe is constrained to non-sensitive flags', () => {
   const probe = runtimeFlagsExpression();
   assert.ok(!/token|userinfo|storage|request/i.test(probe));
   assert.match(probe, /errorMessage/);
+});
+test('fixture name is an explicit synthetic prefix with safe characters', () => {
+  assert.equal(validateFixtureName('JF-UI-TEST-20261004-01'), 'JF-UI-TEST-20261004-01');
+  for (const name of ['existing-drug', 'JF-UI-TEST-', 'JF-UI-TEST-foo&bar']) assert.throws(() => validateFixtureName(name));
+});
+test('readback requires unique medicine, exact batch fields and increased version', () => {
+  const medicine = { id: 'synthetic', name: 'JF-UI-TEST-1', version: 2, batches: [{ quantity: 5, unit: 'box', expiry: { value: '2027-12-31', precision: 'day' } }] };
+  assert.deepEqual(assertFixtureReadback({ medicines: [medicine] }, medicine.name, 5, '2027-12-31', 1), { id: 'synthetic', version: 2 });
+  assert.throws(() => assertFixtureReadback({ medicines: [medicine, medicine] }, medicine.name, 5, '2027-12-31'));
+  assert.throws(() => assertFixtureReadback({ medicines: [medicine] }, medicine.name, 6, '2027-12-31'));
+  assert.throws(() => assertFixtureReadback({ medicines: [medicine] }, medicine.name, 5, '2027-12-31', 2));
 });

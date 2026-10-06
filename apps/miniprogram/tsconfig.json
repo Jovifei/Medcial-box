@@ -3,9 +3,19 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
-    "types": ["wechat-miniprogram"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "wechat-miniprogram"
+    ],
     "noEmit": true
   },
-  "include": ["app.ts", "pages/**/*.ts", "services/**/*.ts", "typings/**/*.d.ts"]
+  "include": [
+    "app.ts",
+    "pages/**/*.ts",
+    "services/**/*.ts",
+    "typings/**/*.d.ts",
+    "components/**/*.ts"
+  ]
 }

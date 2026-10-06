@@ -60,7 +60,7 @@ interface WritePhotoOptions {
   root: string;
   scopeKey: string;
   draftId: string;
-  purpose: "box_front" | "expiry";
+  purpose: "box_front" | "expiry" | "leaflet";
   mimeType: "image/jpeg" | "image/png";
   data: ArrayBuffer;
   isCurrent: () => boolean;
@@ -77,7 +77,7 @@ export async function writeOwnedPhotoFile(options: WritePhotoOptions): Promise<O
   }
   const root = options.root.replace(/\/+$/, "");
   if (!root || root.includes("\0") || !scopeKey || !/^photo-\d+-[a-z0-9]{1,6}$/.test(draftId) ||
-      !["box_front", "expiry"].includes(purpose) || !["image/jpeg", "image/png"].includes(mimeType) ||
+      !["box_front", "expiry", "leaflet"].includes(purpose) || !["image/jpeg", "image/png"].includes(mimeType) ||
       !Number.isSafeInteger(data.byteLength) || data.byteLength <= 0 || data.byteLength > 4 * 1024 * 1024) {
     throw new PhotoFileWriteError("PHOTO_STORAGE_INPUT", "照片草稿参数无效，请重新选择照片。");
   }

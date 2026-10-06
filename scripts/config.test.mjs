@@ -80,12 +80,17 @@ test("staging reverse proxy stays aligned with photo and recognition request lim
     "proxy timeout must not cut off the 60–70 second client recognition window");
 });
 
-test("Android release source never falls back to the debug keystore", async () => {
+test("Android release defaults unsigned; installed certificate is restricted to explicit loopback trial", async () => {
   const gradle = await readFile(
     join(import.meta.dirname, "..", "apps", "flutter", "android", "app", "build.gradle.kts"),
     "utf8",
   );
-  assert.doesNotMatch(gradle, /signingConfig\s*=\s*signingConfigs\.getByName\(["']debug["']\)/);
+  assert.match(gradle, /medboxLocalTrialSigning/);
+  assert.match(gradle, /if \(localTrialSigning\) \{\s*signingConfig = signingConfigs.getByName\("debug"\)\s*\}/);
+  assert.equal((gradle.match(/signingConfig\s*=/g) ?? []).length, 1);
+  assert.match(gradle, /trialDefines.contains\("LOCAL_APP_TRIAL=true"\)/);
+  assert.match(gradle, /origin\?\.scheme == "http"/);
+  assert.match(gradle, /origin.host in setOf\("127.0.0.1", "localhost"\)/);
 });
 
 test("CI validates audit branches and enforces the mini-program package budget", async () => {

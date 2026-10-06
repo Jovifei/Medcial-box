@@ -69,7 +69,6 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
   # main.dart registers this license; the large font stays a host-test fixture.
   assets:
     - assets/fonts/NotoSansSC-OFL.txt

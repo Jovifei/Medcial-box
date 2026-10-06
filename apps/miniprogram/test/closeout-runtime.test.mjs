@@ -1,3 +1,4 @@
+import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {loadPage, makePageContext, makeSessionScopeModule} from './runtime.mjs';
@@ -15,7 +16,7 @@ test('stocktake sends decimal ml with the current version, rejects fractional ta
 });
 test('plan cancel offers keep discard continue; durable drafts restore only their owner',async()=>{
  const storage=new Map();const scope=makeSessionScopeModule({userId:'a',familyId:'f'});let backs=0;
- const options={modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,captureSessionIdentity:()=>({token:'test',generation:1}),isCurrentSession:()=>true,staleSessionError:()=>new ApiError('stale'),api:{listCareProfiles:async()=>({careProfiles:[{id:'p',displayName:'me',canManage:true}]})}}},wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),navigateBack:()=>backs++}};
+ const options={modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,captureSessionIdentity:()=>({token:'test',generation:1}),isCurrentSession:()=>true,staleSessionError:()=>new ApiError('stale'),api:{listCareProfiles:async()=>({careProfiles:[{id:'p',displayName:'me',canManage:true}]})}}},wx:{env:{USER_DATA_PATH:'/synthetic-owned-fixture'},getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),navigateBack:()=>backs++}};
  const page=makePageContext(loadPage('pages/plan-create/plan-create.ts',options).definition);page.onLoad({});
  page.onFormInput({currentTarget:{dataset:{field:'medicineName'}},detail:{value:'draft'}});page.onCancel();assert.equal(backs,0);assert.equal(page.data.leaveSheetVisible,true);
  page.onLeaveChoice({currentTarget:{dataset:{choice:'continue'}}});assert.equal(backs,0);
@@ -36,12 +37,12 @@ test('private photo payload binds purpose and exact saved batch, preferences hav
 test('photo upload failure preserves association and retry does not create another medicine',async()=>{
  let creates=0;let uploads=0;const storage=new Map();
  const saved={id:'m',batches:[{id:'saved-batch'}]};
- const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'../../services/api':{ApiError,api:{createMedicine:async()=>{creates++;return saved},getMedicine:async()=>saved,uploadLeafletPhoto:async(id,b64,mime,source,association)=>{uploads++;assert.equal(id,'m');assert.equal(association.batchId,'saved-batch');if(uploads===1)throw new Error('offline');return {photo:{id:'p'}}}}}},wx:{getStorageSync:key=>storage.has(key)?JSON.parse(storage.get(key)):undefined,setStorageSync:(key,value)=>storage.set(key,JSON.stringify(value)),env:{USER_DATA_PATH:'/owned'},getFileSystemManager:()=>({readFile:options=>options.success({data:'/9j/a'})})}});
- const page=makePageContext(definition);page.loadPhotoDrafts();page.data.name='name';page.data.photoDrafts=[{id:'d',thumbnail:'/local.jpg',status:'review',fields:{},medicineId:'',photos:[{path:'/local.jpg',mimeType:'image/jpeg',purpose:'expiry',batchIndex:0}]}];page.data.activePhotoDraftId='d';
+ const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'../../services/api':{ApiError,api:{createMedicine:async()=>{creates++;return saved},getMedicine:async()=>saved,uploadLeafletPhoto:async(id,b64,mime,source,association)=>{uploads++;assert.equal(id,'m');assert.equal(association.batchId,'saved-batch');if(uploads===1)throw new Error('offline');return {photo:{id:'p'}}}}}},wx:{...ownedPhotoFixture(),getStorageSync:key=>storage.has(key)?JSON.parse(storage.get(key)):undefined,setStorageSync:(key,value)=>storage.set(key,JSON.stringify(value)),env:{USER_DATA_PATH:'/owned'},getFileSystemManager:()=>({readFile:options=>options.success({data:'/9j/a'})})}});
+ const page=makePageContext(definition);page.onLoad({});page.data.name='name';page.data.photoDrafts=[{id:'d',thumbnail:'/local.jpg',status:'review',fields:{},medicineId:'',photos:[{path:'/local.jpg',mimeType:'image/jpeg',purpose:'expiry',batchIndex:0}]}];page.data.activePhotoDraftId='d';
  await page.onSubmit();assert.equal(creates,1);assert.equal(page.data.photoDrafts[0].status,'photo_pending');assert.equal(page.data.photoDrafts[0].medicineId,'m');assert.equal(JSON.parse(storage.get(page.photoScopeKey))[0].status,'photo_pending');
  await page.onSubmit();assert.equal(creates,1);assert.equal(uploads,2);assert.equal(page.data.photoDrafts.length,0);assert.equal(page.data.activePhotoDraftId,'');assert.deepEqual(JSON.parse(storage.get(page.photoScopeKey)),[]);
 });
-test('ten pending photo drafts block adding, switching drafts restores stable id and typed fields',()=>{
+test('legacy pending photo drafts block parallel adding and allow explicit recovery',()=>{
  const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{modules:{...auth,'../../services/api':{ApiError,api:{}}}});const page=makePageContext(definition);
  const fields={name:'typed medicine',batches:page.data.batches,populationTags:[],purposeTags:[],specification:'',manufacturer:'',approvalNumber:'',barcodeValue:'',ingredients:'',purposeCategory:'',leafletPurpose:'',leafletUsage:'',leafletContraindications:'',leafletPrecautions:'',leafletSource:'',verified:false,scannedBarcode:'',purposeIndex:0};
  page.data.photoDrafts=Array.from({length:10},(_,i)=>({id:'d'+i,status:'review',fields:{...fields,name:'typed'+i},photos:[]}));
@@ -66,7 +67,7 @@ test('export formats reuse one authorized snapshot and changed options request a
 
 test('uncertain create freezes attempted payload and form mutations until original retry resolves',async()=>{
  const payloads=[];const scope=makeSessionScopeModule({userId:'a',familyId:'f'});const storage=new Map();
- const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,api:{createMedicine:async p=>{payloads.push(JSON.parse(JSON.stringify(p)));if(payloads.length===1)throw new Error('timeout');return {id:'m',batches:[]}}}}},wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v)}});
+ const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{setTimeoutFn:()=>{},modules:{...auth,'session-scope':scope,'../../services/api':{ApiError,api:{createMedicine:async p=>{payloads.push(JSON.parse(JSON.stringify(p)));if(payloads.length===1)throw new Error('timeout');return {id:'m',batches:[]}}}}},wx:{env:{USER_DATA_PATH:'/synthetic-owned-fixture'},getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v)}});
  const page=makePageContext(definition);page.data.name='original';await page.onSubmit();
  page.onFieldInput({currentTarget:{dataset:{field:'name'}},detail:{value:'changed'}});assert.equal(page.data.name,'original');
  assert.equal(page.data.attemptedPayload.name,'original');await page.onSubmit();assert.deepEqual(payloads[0],payloads[1]);
