@@ -241,8 +241,8 @@ void main() {
       (tester) async {
         final f = _Fixture()..duplicate = atDialog;
         await f.open(tester);
-        f.state(tester).ingredientsVerified = true;
         f.state(tester).ingredientController.text = 'synthetic-compound';
+        f.state(tester).ingredientsVerified = true;
         final gate = atDialog ? null : f.listGate = Completer<void>();
         await f.save(tester);
         expect(f.requests, hasLength(1));
@@ -464,12 +464,12 @@ void main() {
         final f = _Fixture()..duplicate = true;
         await f.open(tester);
         f.state(tester).expiryImage = _Photo();
-        f.state(tester).ingredientsVerified = initiallyVerified;
         f.state(tester).ingredientController.text = 'synthetic-compound';
+        f.state(tester).ingredientsVerified = initiallyVerified;
         await f.save(tester);
         // Simulate a previously started recognition callback during consent.
-        f.state(tester).ingredientsVerified = !initiallyVerified;
         f.state(tester).ingredientController.text = 'later-result';
+        f.state(tester).ingredientsVerified = !initiallyVerified;
         await tester.tap(find.text('只保存库存'));
         await tester.pumpAndSettle();
         if (initiallyVerified) {

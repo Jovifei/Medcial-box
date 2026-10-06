@@ -82,7 +82,41 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Timer? autoSave;
   int recognitionRequest = 0;
   bool moreExpanded = false;
-  bool ingredientsVerified = false;
+  String? _verifiedIngredientContent;
+  int _ingredientRevision = 0;
+  int _catalogRequest = 0;
+
+  List<String> get _ingredientValues => ingredientController.text
+      .split(RegExp(r'[,，、;；]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+
+  // Only normalize separators and surrounding whitespace, exactly as Save does.
+  // Never infer that different ingredient names or doses are equivalent.
+  String get _ingredientContent => jsonEncode(_ingredientValues);
+  String _lastIngredientContent = '[]';
+
+  bool get ingredientsVerified =>
+      _verifiedIngredientContent != null &&
+      _verifiedIngredientContent == _ingredientContent;
+
+  set ingredientsVerified(bool value) {
+    _verifiedIngredientContent = value && _ingredientValues.isNotEmpty
+        ? _ingredientContent
+        : null;
+  }
+
+  void _ingredientsChanged() {
+    final content = _ingredientContent;
+    if (content == _lastIngredientContent) return;
+    _lastIngredientContent = content;
+    _ingredientRevision++;
+    if (_verifiedIngredientContent != null) {
+      setState(() => _verifiedIngredientContent = null);
+    }
+  }
+
   bool recognizing = false;
   bool searchingCatalog = false;
   bool saving = false;
@@ -103,6 +137,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   void initState() {
     super.initState();
     entryIdentity = _identitySnapshot();
+    ingredientController.addListener(_ingredientsChanged);
     unawaited(_restoreDraft());
   }
 
@@ -162,6 +197,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   void _applyDraft(Map<String, dynamic> json) {
+    // A response belongs to the selected draft instance, even when IDs match.
+    _catalogRequest++;
+    searchingCatalog = false;
     nameController.text = json['name'] as String? ?? '';
     specificationController.text = json['specification'] as String? ?? '';
     quantityController.text = json['quantity'] as String? ?? '';
@@ -185,7 +223,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           medicinePurposeLabels.containsKey,
         ),
       );
-    ingredientsVerified = json['ingredientsVerified'] == true;
+    // Legacy booleans cannot prove which content was confirmed. Keep the draft,
+    // but require reconfirmation unless its stored content binding matches.
+    _verifiedIngredientContent =
+        json['ingredientsVerified'] == true &&
+            _ingredientValues.isNotEmpty &&
+            json['verifiedIngredientContent'] == _ingredientContent
+        ? _ingredientContent
+        : null;
     afterOpenValueController.text = json['afterOpenValue'] as String? ?? '';
     afterOpenDateController.text = json['afterOpenDate'] as String? ?? '';
     unit = json['unit'] as String? ?? 'box';
@@ -227,6 +272,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     'populationTags': populationTags.toList(),
     'purposeTags': purposeTags.toList(),
     'ingredientsVerified': ingredientsVerified,
+    'verifiedIngredientContent': ingredientsVerified
+        ? _verifiedIngredientContent
+        : null,
     'afterOpenValue': afterOpenValueController.text,
     'afterOpenDate': afterOpenDateController.text,
     'unit': unit,
@@ -284,31 +332,36 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     final selected = await showAppSheet<Map<String, dynamic>>(
       context,
       title: '本机待核对草稿（${drafts.length}/10）',
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        children: [
-          ...drafts.map(
-            (draft) => ListTile(
-              title: Text(draft['name'] as String? ?? '未命名药品'),
-              subtitle: Text(
-                draft['savedMedicineId'] != null ? '药已保存 · 照片待补' : '待核对 · 未入库',
-              ),
-              onTap: () => Navigator.pop(context, draft),
-              trailing: IconButton(
-                tooltip: '删除草稿',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () async {
-                  await draftQueue.remove(draft['id'] as String);
-                  if (context.mounted) Navigator.pop(context);
-                },
+      builder: (context) => Material(
+        type: MaterialType.transparency,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ...drafts.map(
+              (draft) => ListTile(
+                title: Text(draft['name'] as String? ?? '未命名药品'),
+                subtitle: Text(
+                  draft['savedMedicineId'] != null
+                      ? '药已保存 · 照片待补'
+                      : '待核对 · 未入库',
+                ),
+                onTap: () => Navigator.pop(context, draft),
+                trailing: IconButton(
+                  tooltip: '删除草稿',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () async {
+                    await draftQueue.remove(draft['id'] as String);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, <String, dynamic>{}),
-            child: const Text('新建一份草稿'),
-          ),
-        ],
+            TextButton(
+              onPressed: () => Navigator.pop(context, <String, dynamic>{}),
+              child: const Text('新建一份草稿'),
+            ),
+          ],
+        ),
       ),
     );
     if (selected == null ||
@@ -470,6 +523,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     locationController.dispose();
     manufacturerController.dispose();
     approvalController.dispose();
+    ingredientController.removeListener(_ingredientsChanged);
     ingredientController.dispose();
     purposeController.dispose();
     afterOpenValueController.dispose();
@@ -636,6 +690,27 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _searchCatalog({String? barcode}) async {
+    if (!_isDraftIdentityCurrent || saving || attemptedPayload != null) return;
+    final request = ++_catalogRequest;
+    final originalDraft = draftId;
+    final ingredientRevision = _ingredientRevision;
+    final workflow = widget.workflow;
+    final workflowEpoch = workflow.api.identityEpoch;
+    final workflowGeneration = workflow.api.identityState?.generation;
+    final route = ModalRoute.of(context);
+    bool isCurrentSearch() =>
+        mounted &&
+        request == _catalogRequest &&
+        originalDraft == draftId &&
+        ingredientRevision == _ingredientRevision &&
+        _isDraftIdentityCurrent &&
+        identical(workflow, widget.workflow) &&
+        workflowEpoch == workflow.api.identityEpoch &&
+        workflowGeneration == workflow.api.identityState?.generation &&
+        route?.isCurrent == true &&
+        !handlingBack &&
+        !saving &&
+        attemptedPayload == null;
     final query = nameController.text.trim();
     if (barcode == null && query.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -663,10 +738,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ],
       ),
     );
-    if (consent != true || !mounted) return;
+    if (consent != true || !mounted || !isCurrentSearch()) return;
     setState(() => searchingCatalog = true);
     try {
-      final result = await widget.workflow.searchMedicineCandidates(
+      final result = await workflow.searchMedicineCandidates(
         name: barcode == null ? query : null,
         manufacturer: manufacturerController.text.trim().isEmpty
             ? null
@@ -680,7 +755,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             : specificationController.text.trim(),
         consentToShare: true,
       );
-      if (!mounted) return;
+      if (!mounted || !isCurrentSearch()) return;
       final candidates = (result['candidates'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .toList(growable: false);
@@ -723,17 +798,20 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           ],
         ),
       );
-      if (selected == null || !mounted) return;
+      if (selected == null || !mounted || !isCurrentSearch()) return;
       _applyCandidate(selected);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已补入候选资料。请核对后保存；来源状态仍为未核验。')),
       );
     } catch (error) {
-      if (!mounted) return;
-      setState(() => searchingCatalog = false);
+      if (!mounted || !isCurrentSearch()) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${friendlyApiError(error)} 仍可继续手动录入。')),
       );
+    } finally {
+      if (mounted && request == _catalogRequest) {
+        setState(() => searchingCatalog = false);
+      }
     }
   }
 
@@ -852,11 +930,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (limit != null) batch['afterOpeningLimit'] = limit;
     }
 
-    final ingredients = ingredientController.text
-        .split(RegExp(r'[,，、;；]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final ingredients = _ingredientValues;
     final verifiedIngredients = ingredientsVerified;
     final candidatePayload = <String, Object?>{
       'idempotencyKey': 'draft-$id',
