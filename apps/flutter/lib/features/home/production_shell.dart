@@ -546,28 +546,34 @@ class _StatusBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        color: color.withValues(alpha: 0.08),
-        child: Column(
-          children: [
-            Text(
-              '$count',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                color: color,
+    child: Semantics(
+      button: true,
+      label: '$label，$count 项',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          color: color.withValues(alpha: 0.08),
+          child: Column(
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: color,
+                ),
               ),
-            ),
-            const SizedBox(height: 3),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(label, style: TextStyle(fontSize: 11, color: color)),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, height: 1.2, color: color),
+              ),
+            ],
+          ),
         ),
       ),
     ),
