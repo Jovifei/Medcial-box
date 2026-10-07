@@ -15,6 +15,7 @@ const reviewedSourceTrees = new Set([
   'abdef7419cb4abf00c54112456897ae05ebcbaba',
   '7a37461f3b3e3245151a91f3e02e8151d6c849e0',
   '664ac37a336930d277ffcdb99baea9e0d5e17ef2',
+  '8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
