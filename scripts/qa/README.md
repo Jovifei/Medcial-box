@@ -33,10 +33,13 @@ Inspect these sibling files before opening the generated project:
 - `project/QA-DO-NOT-UPLOAD.json`: build mark and scope restrictions
 
 Repeated generation with the same source and run ID produces identical project hashes
-and normalized-path diff bytes. The generator accepts only explicitly reviewed mini-program Git trees: baseline
-`3ed0f8e6e410daf7fce1277d0e363caa52be3214`, frozen owned-photo writer tree
-`abdef7419cb4abf00c54112456897ae05ebcbaba`, and the 2026-10-07 integrated tree
-`7a37461f3b3e3245151a91f3e02e8151d6c849e0`, plus the release-label-only successor\n`664ac37a336930d277ffcdb99baea9e0d5e17ef2`, and the pending-label-only successor\n`8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5`. A different commit with the identical reviewed
+and normalized-path diff bytes. The generator accepts only explicitly reviewed mini-program Git trees:
+baseline `3ed0f8e6e410daf7fce1277d0e363caa52be3214`, frozen owned-photo writer tree
+`abdef7419cb4abf00c54112456897ae05ebcbaba`, the 2026-10-07 integrated tree
+`7a37461f3b3e3245151a91f3e02e8151d6c849e0`, release-label successor
+`664ac37a336930d277ffcdb99baea9e0d5e17ef2`, pending-label successor
+`8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5`, and current source-project non-upload tree
+`bc5bc86d76e9f2be34ce2b793d6e2294337a5e8a`. A different commit with the identical reviewed
 mini-program tree is allowed; a changed tree requires fresh review. This is trusted frozen-
 source instrumentation, **not a general malicious-JavaScript sandbox**. Reflection/constructor
 escape expressions are also explicitly rejected during inventory. There is no native fallback.
