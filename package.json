@@ -30,7 +30,8 @@
     "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs",
     "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source",
     "check:release-hardening": "node scripts/release-candidate-hardening.mjs",
-    "check:upgrade-matrix": "node scripts/upgrade-persistence-matrix.mjs"
+    "check:upgrade-matrix": "node scripts/upgrade-persistence-matrix.mjs",
+    "check:lifecycle-audit": "node scripts/lifecycle-delivery-audit.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
