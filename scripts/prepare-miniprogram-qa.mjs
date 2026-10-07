@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, lstat, readdir } from 'node:fs/promises';
-import { dirname, extname, join, relative, resolve } from 'node:path';
+import { dirname, extname, join, relative, resolve, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
@@ -10,7 +10,32 @@ const workspace = fileURLToPath(new URL('..', import.meta.url));
 export const DEFAULT_SOURCE_SHA = '9de6d99137262e21142025a941094b7764209228';
 // Trusted frozen-source instrumentation, NOT an arbitrary/malicious JavaScript sandbox.
 // Accept only the independently reviewed baseline tree or the exact frozen writer-patch tree.
-const reviewedSourceTrees = new Set(['3ed0f8e6e410daf7fce1277d0e363caa52be3214', 'abdef7419cb4abf00c54112456897ae05ebcbaba']);
+const reviewedSourceTrees = new Set([
+  '3ed0f8e6e410daf7fce1277d0e363caa52be3214',
+  'abdef7419cb4abf00c54112456897ae05ebcbaba',
+  '7a37461f3b3e3245151a91f3e02e8151d6c849e0',
+]);
+const reviewedComponents = new Map([
+  ['medicine-date-field', 'components/medicine-date-field/index'],
+  ['medicine-time-field', 'components/medicine-time-field/index'],
+]);
+const reviewedComponentSources = new Set([...reviewedComponents.values()].map(value => value + '.ts'));
+
+export function assertReviewedComponents(filename, usingComponents) {
+  if (usingComponents === undefined) return;
+  if (usingComponents === null || typeof usingComponents !== 'object' || Array.isArray(usingComponents)) {
+    throw new Error(filename + ': usingComponents must be an object');
+  }
+  for (const [tag, target] of Object.entries(usingComponents)) {
+    const expected = reviewedComponents.get(tag);
+    const resolved = typeof target === 'string'
+      ? posix.normalize(posix.join(posix.dirname(filename), target))
+      : '';
+    if (!expected || resolved !== expected || target.includes('://')) {
+      throw new Error(filename + ': unreviewed component ' + tag);
+    }
+  }
+}
 // This list is deliberately reviewed rather than inferred from source. A new capability
 // requires an explicit adapter change and new tests. The owned-photo integration adapter
 // explicitly covers base64ToArrayBuffer plus ArrayBuffer open/write/close semantics.
@@ -34,6 +59,7 @@ export function inventorySource(source, filename) {
   // The writer receives its manager via destructured options and lease.fs. Those
   // paths require explicit provenance, not inference from wx.getFileSystemManager.
   const reviewedFsHelper = filename === 'services/photo-file-lifecycle.ts';
+  const reviewedComponentSource = reviewedComponentSources.has(filename);
   if (reviewedFsHelper && sha256(source) !== REVIEWED_PHOTO_LIFECYCLE_SHA256) throw new Error(filename + ': unreviewed filesystem helper fingerprint');
   const tree = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true);
   const wxAliases = new Set(['wx']);
@@ -58,7 +84,10 @@ export function inventorySource(source, filename) {
     if (count === wxAliases.size + fsAliases.size) break;
   }
   for (const node of nodes) {
-    if (ts.isIdentifier(node) && ['globalThis', 'global', 'window', 'self', 'eval', 'Function', 'require', 'Component', 'Behavior', 'Worker', 'requirePlugin', 'importScripts', 'fetch', 'WebSocket', 'XMLHttpRequest', 'navigator', 'Reflect'].includes(node.text)) throw new Error(filename + ': forbidden ambient escape ' + node.text);
+    if (ts.isIdentifier(node) && ['globalThis', 'global', 'window', 'self', 'eval', 'Function', 'require', 'Component', 'Behavior', 'Worker', 'requirePlugin', 'importScripts', 'fetch', 'WebSocket', 'XMLHttpRequest', 'navigator', 'Reflect'].includes(node.text) &&
+        !(node.text === 'Component' && reviewedComponentSource)) {
+      throw new Error(filename + ': forbidden ambient escape ' + node.text);
+    }
     if (ts.isElementAccessExpression(node) && (isWx(node.expression) || isFs(node.expression))) throw new Error(filename + ': dynamic wx/filesystem access needs review');
     if ((ts.isPropertyAccessExpression(node) && ['constructor', '__proto__', 'getPrototypeOf', 'setPrototypeOf', 'getOwnPropertyDescriptor', 'getOwnPropertyDescriptors', 'defineProperty', 'defineProperties'].includes(node.name.text)) ||
         (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) && ['constructor', '__proto__'].includes(node.argumentExpression.text))) throw new Error(filename + ': reflection/constructor access needs review');
@@ -112,11 +141,11 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
       const compiled = ts.transpileModule(source, { fileName: name,
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
       // No hoisted ES import: this lexical facade is evaluated before every product dependency require.
-      generated.set(target, `// MEDICINE_QA_ONLY\nconst { wx, App, Page, setTimeout } = require(${JSON.stringify(guardPath.startsWith('.') ? guardPath : './' + guardPath)}).bindings();\n` + compiled);
+      generated.set(target, `// MEDICINE_QA_ONLY\nconst { wx, App, Page, Component, setTimeout } = require(${JSON.stringify(guardPath.startsWith('.') ? guardPath : './' + guardPath)}).bindings();\n` + compiled);
     } else if (name.endsWith('.wxml')) {
       let text = bytes.toString();
       const tags = [...text.matchAll(/<([a-z][a-z0-9-]*)\b/g)].map(match => match[1]);
-      if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'switch', 'text', 'textarea', 'view'].includes(tag))) throw new Error('Unreviewed view tag: ' + name);
+      if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'switch', 'text', 'textarea', 'view', ...reviewedComponents.keys()].includes(tag))) throw new Error('Unreviewed view tag: ' + name);
       text = text.replace(/open-type=["']share["']/g, 'disabled="true"');
       if (/<(?:web-view|camera|video|audio|live-player|live-pusher|map|ad|wxs|import|include)\b|open-type\s*=|https?:|wss?:/i.test(text)) throw new Error('Unreviewed view-layer capability: ' + name);
       text = text.replace(/(<image\b[^>]*\bsrc=)(["'])(.*?)\2/g, '$1"/qa/synthetic.png"');
@@ -132,7 +161,11 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
   if (app.plugins || app.subpackages || app.subPackages || app.workers || app.extAppid) throw new Error('Unreviewed app execution entry');
   for (const [name, bytes] of originals) if (name.endsWith('.json') && name !== 'project.config.json') {
     const value = JSON.parse(bytes);
-    if (value.plugins || value.usingComponents && Object.keys(value.usingComponents).length) throw new Error('Unreviewed component dependency: ' + name);
+    if (value.plugins) throw new Error('Unreviewed plugin dependency: ' + name);
+    if (value.component === true && !reviewedComponentSources.has(name.replace(/\.json$/, '.ts'))) {
+      throw new Error('Unreviewed component declaration: ' + name);
+    }
+    assertReviewedComponents(name, value.usingComponents);
   }
   project.appid = 'touristappid';
   project.projectname = 'QA-ONLY-SYNTHETIC-' + runId;
@@ -150,12 +183,12 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
   generated.set('project.config.json', JSON.stringify(project, null, 2) + '\n');
   generated.set('app.json', JSON.stringify(app, null, 2) + '\n');
   generated.set('app.wxss', generated.get('app.wxss').toString() + '\n.qa-only-banner{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#9b001c;color:white;font-size:22rpx;font-weight:bold;padding:10rpx;text-align:center;pointer-events:none;}\n');
-  generated.set('services/config.js', '// MEDICINE_QA_ONLY\nconst { wx, App, Page, setTimeout } = require("../qa/fixture-runtime").bindings();\nexports.API_BASE = "http://127.0.0.1:43187";\n');
+  generated.set('services/config.js', '// MEDICINE_QA_ONLY\nconst { wx, App, Page, Component, setTimeout } = require("../qa/fixture-runtime").bindings();\nexports.API_BASE = "http://127.0.0.1:43187";\n');
   generated.set('qa/config.json', JSON.stringify(config, null, 2) + '\n');
   for (const name of ['fixture-runtime', 'synthetic-mock']) generated.set('qa/' + name + '.js', await readFile(join(workspace, 'scripts/qa', name + '.cjs')));
   const mock = await import('./qa/synthetic-mock.cjs');
   generated.set('qa/synthetic.png', Buffer.from(mock.default.PNG, 'base64'));
-  generated.set('app.js', '// MEDICINE_QA_ONLY. Deliberately CommonJS: NO product/dependency import before install.\nconst qa = require("./qa/fixture-runtime");\nqa.install(wx, require("./qa/config.json"), App, Page);\nrequire("./app-product");\n');
+  generated.set('app.js', '// MEDICINE_QA_ONLY. Deliberately CommonJS: NO product/dependency import before install.\nconst qa = require("./qa/fixture-runtime");\nqa.install(wx, require("./qa/config.json"), App, Page, Component);\nrequire("./app-product");\n');
   generated.set('QA-DO-NOT-UPLOAD.json', JSON.stringify({ ...config, warning: 'Memory-only. Reload/reentry is NOT persistent-storage or cross-WeChat-restart evidence.' }, null, 2) + '\n');
   // Validate emitted dependency graph, including transpiler output, before writing anything.
   for (const [name, bytes] of generated) if (name.endsWith('.js') && !name.startsWith('qa/')) {
