@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -80,25 +81,29 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
   }
 
   GoRouter _createRouter(AppServices services) {
-    final demo = services.demoMedicineRepository;
     final routes = <RouteBase>[
       _route('/', BootGatePage(services: services)),
-      // The old synthetic walkthrough stays available only under /demo/*.
-      _route('/demo/welcome', const WelcomePage()),
-      _route('/demo/family-choice', const FamilyChoicePage()),
-      _route('/demo/home', HomePage(repository: demo)),
-      GoRoute(
-        path: '/demo/medicine/:id',
-        pageBuilder: (context, state) => _transitionPage(
-          state,
-          MedicineDetailPage(
-            repository: demo,
-            medicineId: state.pathParameters['id']!,
+    ];
+    if (kDebugMode) {
+      final demo = services.demoMedicineRepository;
+      routes.addAll([
+        // Synthetic walkthrough is a development aid and is not routable in Release.
+        _route('/demo/welcome', const WelcomePage()),
+        _route('/demo/family-choice', const FamilyChoicePage()),
+        _route('/demo/home', HomePage(repository: demo)),
+        GoRoute(
+          path: '/demo/medicine/:id',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            MedicineDetailPage(
+              repository: demo,
+              medicineId: state.pathParameters['id']!,
+            ),
           ),
         ),
-      ),
-      _route('/demo/export', ExportPage(repository: demo)),
-    ];
+        _route('/demo/export', ExportPage(repository: demo)),
+      ]);
+    }
     if (services.isConfigured) {
       routes.addAll([
         _route(
@@ -241,7 +246,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         services.familyInvalidated,
       ]),
       redirect: (context, state) {
-        if (state.matchedLocation.startsWith('/demo')) return null;
+        if (kDebugMode && state.matchedLocation.startsWith('/demo')) return null;
         if (services.sessionInvalidated.value) {
           return state.matchedLocation == '/connect' ? null : '/connect';
         }
