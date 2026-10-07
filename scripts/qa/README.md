@@ -36,7 +36,7 @@ Repeated generation with the same source and run ID produces identical project h
 and normalized-path diff bytes. The generator accepts only explicitly reviewed mini-program Git trees: baseline
 `3ed0f8e6e410daf7fce1277d0e363caa52be3214`, frozen owned-photo writer tree
 `abdef7419cb4abf00c54112456897ae05ebcbaba`, and the 2026-10-07 integrated tree
-`7a37461f3b3e3245151a91f3e02e8151d6c849e0`. A different commit with the identical reviewed
+`7a37461f3b3e3245151a91f3e02e8151d6c849e0`, plus the release-label-only successor\n`664ac37a336930d277ffcdb99baea9e0d5e17ef2`. A different commit with the identical reviewed
 mini-program tree is allowed; a changed tree requires fresh review. This is trusted frozen-
 source instrumentation, **not a general malicious-JavaScript sandbox**. Reflection/constructor
 escape expressions are also explicitly rejected during inventory. There is no native fallback.
