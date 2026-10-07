@@ -28,7 +28,8 @@
     "dev:local-trials": "node scripts/start-local-trials.mjs",
     "check:miniprogram:package": "node scripts/check-miniprogram-package.mjs",
     "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs",
-    "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source"
+    "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source",
+    "check:release-hardening": "node scripts/release-candidate-hardening.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
