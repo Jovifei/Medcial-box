@@ -483,21 +483,37 @@ for (const failed of [false, true]) {
 }
 
 
-test('revision5 generated ordinary input retains a newer page capture ownership receipt', { skip: !integrationSha }, async () => {
+test('revision5 ordinary input retains a newer durable photo ownership receipt', { skip: !integrationSha }, async () => {
   const { h, page } = await integratedPage();
   await page.onRecognizePhoto('camera');
   const firstId = page.data.activePhotoDraftId;
-  const newer = makePageContext(h.page); newer.onLoad({}); await tick();
-  await newer.onRecognizePhoto('camera');
-  const newId = newer.data.activePhotoDraftId;
-  const path = newer.data.photoDrafts.find(item => item.id === newId).photos[0].path;
-  page.onFieldInput({ currentTarget: { dataset: { field: 'manufacturer' } }, detail: { value: 'Current manufacturer' } });
   const runtime = h.load(join(integrated.projectRoot, 'qa/fixture-runtime.js'));
   const scope = h.load(join(integrated.projectRoot, 'services/session-scope.js'));
-  const queue = runtime.bindings().wx.getStorageSync(scope.scopedStorageKey('medicine-photo-drafts'));
-  assert.equal(queue.length, 2);
-  assert.equal(queue.find(item => item.id === firstId).fields.manufacturer, 'Current manufacturer');
-  assert.equal(queue.find(item => item.id === newId).photos[0].ownedLocal.path, path);
-  assert.equal(h.app.qa.summary().syntheticFiles.includes(path), true);
+  const wx = runtime.bindings().wx;
+  const key = scope.scopedStorageKey('medicine-photo-drafts');
+
+  // A second page can no longer start another unfinished medicine draft. Model only
+  // the durable concurrency fact this regression protects: a newer photo receipt
+  // appears in storage after this page's form baseline was captured.
+  const selection = await wx.chooseMedia({});
+  const newerPath = selection.tempFiles[0].tempFilePath;
+  const durable = wx.getStorageSync(key);
+  const target = durable.find(item => item.id === firstId);
+  target.photos.push({
+    path: newerPath,
+    mimeType: 'image/png',
+    purpose: 'box_front',
+    batchIndex: 0,
+    ownedLocal: { path: newerPath, scopeKey: key, draftId: firstId, state: 'ready' },
+  });
+  wx.setStorageSync(key, durable);
+
+  page.onFieldInput({ currentTarget: { dataset: { field: 'manufacturer' } }, detail: { value: 'Current manufacturer' } });
+  const queue = wx.getStorageSync(key);
+  const merged = queue.find(item => item.id === firstId);
+  assert.equal(queue.length, 1);
+  assert.equal(merged.fields.manufacturer, 'Current manufacturer');
+  assert.equal(merged.photos.some(photo => photo.ownedLocal?.path === newerPath), true);
+  assert.equal(h.app.qa.summary().syntheticFiles.includes(newerPath), true);
   assertNoOriginals(h);
 });
