@@ -74,7 +74,7 @@ test("staging setup preserves optional deployment settings and removes duplicate
   });
   assert.match(merged, /# keep this comment/);
   assert.match(merged, /MEDICINE_RECOGNITION_PROVIDER=ollama/);
-  assert.match(merged, /WECHAT_REMINDER_FIELD_MAP=\{\"thing1\":\"value1\"\}/);
+  assert.ok(merged.includes('WECHAT_REMINDER_FIELD_MAP={"thing1":"value1"}'));
   assert.equal((merged.match(/^POSTGRES_PASSWORD=/gm) ?? []).length, 1);
   assert.match(merged, /^POSTGRES_PASSWORD=new-password$/m);
   assert.match(merged, /^WECHAT_APP_SECRET=new-secret$/m);
