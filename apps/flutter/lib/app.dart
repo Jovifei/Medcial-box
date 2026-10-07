@@ -330,7 +330,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
           locale: _appLocale,
           supportedLocales: const [_appLocale],
           localizationsDelegates: _appLocalizationsDelegates,
-          home: Scaffold(body: Center(child: Text('初始化失败：${snapshot.error}'))),
+          home: const Scaffold(
+            body: Center(child: Text('应用初始化失败，请重启后重试；若持续出现，请联系维护者。')),
+          ),
         );
       }
       if (!snapshot.hasData) {
