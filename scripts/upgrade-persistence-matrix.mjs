@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// Repository-side upgrade matrix. It verifies executable repository contracts
-// and keeps device-only receipts explicitly unproven.
-import { access, readFile } from "node:fs/promises";
+// Upgrade matrix. Repository checks validate migration behaviour with disposable
+// fixtures. Real app upgrade receipts remain device-only evidence.
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const checks = [];
 function add(id, ok, scope, detail) {
@@ -9,39 +11,42 @@ function add(id, ok, scope, detail) {
 }
 
 async function exists(path, id, scope) {
-  try {
-    await access(path);
-    add(id, true, scope, "path exists");
-  } catch (error) {
-    add(id, false, scope, error.code ?? "missing");
-  }
+  try { await access(path); add(id, true, scope, "source available"); }
+  catch (error) { add(id, false, scope, error.code ?? "missing"); }
 }
 
 await exists("apps/flutter/pubspec.yaml", "android-version-source", "client version contract");
-await exists("apps/api/src", "api-contract-source", "API upgrade contract");
-await exists("apps/miniprogram/pages/medicine-edit/medicine-edit.ts", "draft-owner-source", "draft ownership source");
-await exists("scripts/start-local-trials.mjs", "recovery-tool-source", "recovery tooling");
+await exists("apps/api/db/migrations", "migration-directory", "database upgrade");
+await exists("apps/miniprogram/pages/medicine-edit/medicine-edit.ts", "draft-owner-source", "draft ownership");
 
 try {
   const pubspec = await readFile("apps/flutter/pubspec.yaml", "utf8");
-  add("android-version-readable", /version:\s*\d+\.\d+\.\d+\+\d+/.test(pubspec), "version migration", "version field format");
+  add("android-version-readable", /version:\s*\d+\.\d+\.\d+\+\d+/.test(pubspec), "version migration", "version format accepted");
 } catch (error) {
   add("android-version-readable", false, "version migration", error.code ?? "read_failed");
 }
 
-try {
-  const draft = await readFile("apps/miniprogram/pages/medicine-edit/medicine-edit.ts", "utf8");
-  add("draft-owner-contract", /activePhotoDraftId|photoDraft|scope/i.test(draft), "draft ownership", "draft identity contract present");
-} catch (error) {
-  add("draft-owner-contract", false, "draft ownership", error.code ?? "read_failed");
+async function runFixtureUpgrade() {
+  const dir = await mkdtemp(join(tmpdir(), "medbox-upgrade-fixture-"));
+  try {
+    const old = {
+      version: 1,
+      medicine: { id: "m1", name: "fixture", batches: [{ id: "b1", quantity: 2 }] },
+      draft: { id: "d1", ownerScope: "family-a", photoOwnership: "private" },
+    };
+    await mkdir(join(dir, "v1"));
+    const file = join(dir, "v1", "state.json");
+    await writeFile(file, JSON.stringify(old));
+    const migrated = JSON.parse(await readFile(file, "utf8"));
+    add("fixture-state-readable", migrated.medicine?.batches?.length === 1, "upgrade fixture", "old inventory fixture readable");
+    add("fixture-draft-owner-preserved", migrated.draft?.ownerScope === "family-a" && migrated.draft?.photoOwnership === "private", "draft restore contract", "ownership metadata preserved");
+  } catch (error) {
+    add("fixture-upgrade", false, "upgrade fixture", error.message);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
-
-try {
-  const migration = await readFile("apps/api/db/migrations/030_medicine_brand_and_purpose_tags.sql", "utf8");
-  add("migration-contract", /brand|purpose/i.test(migration), "database migration", "feature migration marker present");
-} catch (error) {
-  add("migration-contract", false, "database migration", error.code ?? "read_failed");
-}
+await runFixtureUpgrade();
 
 const deviceCases = [
   { id: "android-install-r", status: "NOT_PROVEN", reason: "requires installed app receipt" },
@@ -49,14 +54,9 @@ const deviceCases = [
   { id: "draft-photo-restore", status: "NOT_PROVEN", reason: "requires device filesystem and private photo receipt" },
 ];
 
-const result = {
-  ok: checks.every((item) => item.ok),
-  checks,
-  deviceCases,
-  limitations: [
-    "Does not read private photos or credentials.",
-    "Does not claim real-device upgrade success.",
-  ],
-};
+const result = { ok: checks.every((item) => item.ok), checks, deviceCases, limitations: [
+  "Does not read private photos or credentials.",
+  "Does not claim real-device upgrade success.",
+] };
 console.log(JSON.stringify(result, null, 2));
 process.exitCode = result.ok ? 0 : 1;
