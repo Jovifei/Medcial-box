@@ -14,7 +14,7 @@
 
 ## 准备
 
-在本机运行 `npm run setup:staging`。它会自动生成独立数据库密码、从小程序项目读取 AppID，并写入被 Git 忽略的 `deploy/.env.staging`。Jovi 只需在文件中填写 `WECHAT_APP_SECRET`；部署 Compose 会使用其余服务器默认值。Secret 只保留在本地私有配置和受限的服务器配置中，不要放进聊天、Git、小程序包或备份报告。
+在本机运行 `npm run setup:staging`。它会自动生成独立数据库密码、从小程序项目读取 AppID，并写入被 Git 忽略的 `deploy/.env.staging`。要让**核心登录/家庭/库存链路**启动，至少还需在私有文件中填写 `WECHAT_APP_SECRET`。照片识别不是默认“已配置”：使用 DashScope 时需注入 `DASHSCOPE_API_KEY`，使用宿主 Ollama 时需显式改 `MEDICINE_RECOGNITION_PROVIDER=ollama` 并验证容器可达；微信主动提醒也必须配置已获批模板 ID / field map 后再启用 scheduler。未配置这些可选能力时应保留手工录入/待处理降级，并在验收报告中记为 NOT_CONFIGURED，而不是把 API health 通过记成识别/提醒 PASS。Secret 只保留在本地私有配置和受限的服务器配置中，不要放进聊天、Git、小程序包或备份报告。
 
 在目标服务器把配置保存为 `deploy/.env.staging` 并设为仅管理员可读（`chmod 600`）。
 
