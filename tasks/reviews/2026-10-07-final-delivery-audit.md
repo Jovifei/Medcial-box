@@ -241,6 +241,29 @@ Manifest 同时声明 `SCHEDULE_EXACT_ALARM` 与 `USE_EXACT_ALARM`，但代码�
 - 保留 `SCHEDULE_EXACT_ALARM`；
 - 用户拒绝精确闹钟权限时仍使用 `inexactAllowWhileIdle`，提醒功能不被整体阻断。
 
+#### P1-17 小程序基础库使用 trial —— 已修复
+
+源码 `project.config.json` 原来使用 `libVersion: "trial"`，会跟随最新基础库，而正式候选没有必要承担灰度/最新能力变化风险。
+
+修复：
+- 源码基础库改为 `latest`（最新非灰度基础库）；
+- release package gate 显式拒绝 `trial`；
+- 新增回归用例，避免后续把体验/试用基础库重新带入正式候选。
+
+正式发布仍应在微信开发者工具中记录最终实际基础库版本和编译结果；代码门禁不替代平台编译。
+
+#### P1-18 main 分支无保护 / required checks —— 尚未自动修改，发布前必须收口
+
+审核时 GitHub `main` 显示 branch protection 未启用，required status checks 为空。当前候选比 main 领先大量提交，如果最终通过直接 push/merge，可以绕过 CI。
+
+处理建议：
+- 合并必须走 PR；
+- 合并前要求当前候选 exact HEAD 的 CI 全绿；
+- 合并后要求 main exact commit 再跑 CI；
+- 仓库管理员应启用 main branch protection / ruleset，至少要求 CI verify、flutter、backup-docker 成功并禁止直接绕过。
+
+本轮连接器只有 branch-protection 读取能力，没有安全写入仓库管理策略，因此没有伪称已开启。
+
 ---
 
 ## 3. UI / 交互审核
