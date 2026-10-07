@@ -28,6 +28,12 @@ export async function checkMiniProgramPackage(root, { mode = "release" } = {}) {
     errors.push("QA-only build must never be uploaded or released");
   }
   if (mode === "release") {
+    if (!/^wx[0-9a-f]{16}$/i.test(project.appid ?? "")) {
+      errors.push("release package must use an approved mini-program AppID");
+    }
+    if (project.setting?.urlCheck !== true) {
+      errors.push("release package must keep WeChat domain validation enabled");
+    }
     if (project.libVersion === "trial") {
       errors.push("release package must not use the trial mini-program base library");
     }
