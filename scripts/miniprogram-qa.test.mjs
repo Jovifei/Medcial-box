@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, symlink, lstat } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { prepareQa, inventorySource, assertReviewedInventory, DEFAULT_SOURCE_SHA } from './prepare-miniprogram-qa.mjs';
+import { prepareQa, inventorySource, assertReviewedInventory, assertReviewedComponents, DEFAULT_SOURCE_SHA } from './prepare-miniprogram-qa.mjs';
 import { checkMiniProgramPackage } from './check-miniprogram-package.mjs';
 import { makePageContext } from '../apps/miniprogram/test/runtime.mjs';
 
@@ -32,10 +32,16 @@ function harness({ project, mutateNative, mockOverride } = {}) {
   mutateNative?.(native);
   let app;
   let page;
+  let component;
   let productLoads = 0;
   const cache = new Map();
-  const sandbox = vm.createContext({ wx: native, App: value => { app = value; }, Page: value => { page = value; },
-    console, setTimeout, clearTimeout, getApp: () => app });
+  const sandbox = vm.createContext({
+    wx: native,
+    App: value => { app = value; },
+    Page: value => { page = value; },
+    Component: value => { component = value; },
+    console, setTimeout, clearTimeout, getApp: () => app,
+  });
   function load(filename) {
     filename = resolve(filename);
     if (!/\.(js|cjs|json)$/.test(filename)) filename += '.js';
@@ -58,8 +64,14 @@ function harness({ project, mutateNative, mockOverride } = {}) {
   const runtime = project ? null : load(standalone);
   const config = { buildMark: 'MEDICINE_QA_ONLY', appId: 'touristappid', runId: 'self-test', sourceSha: DEFAULT_SOURCE_SHA,
     pages: ['pages/login/login', 'pages/index/index', 'pages/medicine-edit/medicine-edit'], wxInventory: [], fsInventory: [] };
-  return { native, counts, uiCalls, load, cache, config, runtime, get app() { return app; }, get page() { return page; }, get productLoads() { return productLoads; },
-    install() { return runtime.install(native, config, sandbox.App, sandbox.Page); } };
+  return {
+    native, counts, uiCalls, load, cache, config, runtime,
+    get app() { return app; },
+    get page() { return page; },
+    get component() { return component; },
+    get productLoads() { return productLoads; },
+    install() { return runtime.install(native, config, sandbox.App, sandbox.Page, sandbox.Component); },
+  };
 }
 const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const callback = invoke => new Promise((resolve, reject) => invoke({ success: resolve, fail: reject }));
@@ -137,6 +149,47 @@ test('AST inventory includes cast aliases and rejects dynamic/ambient escape', (
   assert.throws(() => inventorySource('globalThis.wx.request({})', 'x.ts'), /ambient escape/);
   assert.throws(() => assertReviewedInventory(inventorySource('wx.arrayBufferToBase64(new ArrayBuffer(1))', 'new.ts'), 'new.ts'), /unreviewed wx API/);
   assert.throws(() => assertReviewedInventory(inventorySource('wx.getFileSystemManager().stat({})', 'new.ts'), 'new.ts'), /unreviewed filesystem API/);
+});
+
+test('reviewed components are exact local dependencies and Component stays file-scoped', () => {
+  assert.doesNotThrow(() => assertReviewedComponents(
+    'pages/medicine-edit/medicine-edit.json',
+    { 'medicine-date-field': '../../components/medicine-date-field/index' },
+  ));
+  assert.doesNotThrow(() => assertReviewedComponents(
+    'pages/plan-create/plan-create.json',
+    {
+      'medicine-date-field': '../../components/medicine-date-field/index',
+      'medicine-time-field': '../../components/medicine-time-field/index',
+    },
+  ));
+  assert.throws(() => assertReviewedComponents(
+    'pages/medicine-edit/medicine-edit.json',
+    { 'medicine-date-field': 'plugin://evil/date' },
+  ), /unreviewed component/);
+  assert.throws(() => assertReviewedComponents(
+    'pages/medicine-edit/medicine-edit.json',
+    { 'future-widget': '../../components/future-widget/index' },
+  ), /unreviewed component/);
+  assert.doesNotThrow(() => inventorySource(
+    'Component({ methods: { ok() {} } });',
+    'components/medicine-time-field/index.ts',
+  ));
+  assert.throws(() => inventorySource('Component({});', 'pages/index/index.ts'), /ambient escape/);
+});
+
+test('QA Component methods and observers remain behind the fatal gate', () => {
+  const h = harness();
+  h.install();
+  h.runtime.bindings().Component({
+    methods: { ping() { return 'ok'; } },
+    observers: { value() { return 'seen'; } },
+  });
+  assert.equal(h.component.methods.ping(), 'ok');
+  assert.equal(h.component.observers.value(), 'seen');
+  assert.throws(() => h.runtime.bindings().wx.futureUnsafeApi(), /QA STOPPED/);
+  assert.throws(() => h.component.methods.ping(), /QA STOPPED/);
+  assertNoOriginals(h);
 });
 
 let generated;
