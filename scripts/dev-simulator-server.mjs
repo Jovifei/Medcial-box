@@ -47,7 +47,11 @@ const app = await buildServer({
   logger: true,
 });
 
-app.get("/api/v1/health/local-app-trial", async () => ({ mode: "local-app-trial", serverPid: process.pid }));
+app.get(
+  "/api/v1/health/local-app-trial",
+  { config: { localTrialMarker: true } },
+  async () => ({ mode: "local-app-trial", serverPid: process.pid }),
+);
 
 await app.listen({ host: "127.0.0.1", port: PORT });
 console.info(`dev-simulator-server listening on http://127.0.0.1:${PORT}（openid=${DEV_OPENID}）`);
