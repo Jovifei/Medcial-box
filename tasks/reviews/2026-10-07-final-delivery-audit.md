@@ -6,7 +6,7 @@
 - 最终复核分支：`audit/final-delivery-2026-10-07-review`
 - 上游整合线：`audit/final-delivery-2026-10-04`
 - 产品范围：微信原生小程序 + Android Flutter + Fastify API + PostgreSQL + 私有照片/识别 + 用药计划/提醒 + 导出/备份
-- 当前结论：**代码候选接近可合并，但正式生产交付仍为 PARTIAL。**
+- 当前结论：**代码候选已通过最终自动化门禁，可进入 main 合并评审；正式生产交付仍为 PARTIAL。**
 
 本轮不是只做静态“看代码”，而是按最终产品交付标准复核：数据口径、交互、异常恢复、身份边界、文件生命周期、部署参数、发布版本、签名、反向代理、CI/测试与真实平台验收边界。
 
@@ -14,9 +14,9 @@
 
 | 层级 | 结论 |
 |---|---|
-| 代码逻辑 / 自动化候选 | **CONDITIONAL PASS**：本轮已修复多项明确缺陷；最终精确 HEAD 必须 CI 全绿后才能合并 |
+| 代码逻辑 / 自动化候选 | **PASS FOR MERGE REVIEW**：精确代码候选 `21303bfe` 的 GitHub Actions run `37581999346` 三个 job 全部 SUCCESS |
 | Android 技术构建 | **PASS 作为构建门禁**；默认 Release 不含正式分发签名 |
-| 微信小程序代码/QA | **接近 PASS**；QA 保持 exact-tree / exact-capability fail-closed，最终 HEAD 需重新跑完 |
+| 微信小程序代码/QA | **PASS（自动化范围）**；QA 保持 exact-tree / exact-capability fail-closed，源码卫生、测试、构建均通过；真实微信平台仍独立验收 |
 | 正式发布 | **BLOCKED**：正式签名、真实 HTTPS、微信真实身份/模板、两设备、真实相机/提醒/分享、目标库恢复均未完成 |
 
 ---
@@ -53,7 +53,7 @@
   - API 为 HTTP `127.0.0.1/localhost`；
 - 正式分发仍需独立正式 keystore、签名保护和发布流水线。
 
-#### P0-03 最新整合候选 CI 曾失败 —— 已定位并修复门禁本身，最终 HEAD 待确认
+#### P0-03 最新整合候选 CI 曾失败 —— 已定位、修复并由精确候选 CI 验证
 
 上游整合提交 `43803e3` 的 GitHub CI 失败并非业务单测大面积回归，而是安全 QA 沙盒主动 fail-closed：
 
@@ -418,8 +418,8 @@ Android pending 离线推导与服务端 pending 目前仍有两份实现，虽�
 
 ### 正式发布前硬 Gate
 
-1. 最终 exact HEAD GitHub CI 全绿；
-2. main 合并后再跑一次 exact commit CI；
+1. ✅ 精确候选 `21303bfe` GitHub CI 已全绿；合入 main 后仍需对 main 精确提交再跑一次；
+2. main 合并后对 exact main commit 再跑 CI，并确认没有合并冲突/额外变更；
 3. 目标 PostgreSQL 从当前版本应用到 migration 030；
 4. HTTPS 域名 + Nginx + API health + 大照片上传实测；
 5. Android：
@@ -501,7 +501,15 @@ Android pending 离线推导与服务端 pending 目前仍有两份实现，虽�
 - Android 首页大字体状态卡；
 - 未使用旧期限摘要死代码。
 
-报告生成时最终 HEAD CI 仍在运行；**CI 结果必须在本报告定稿前更新，不得用旧提交的 PASS 代替最终 HEAD。**
+### 最终自动化结果
+
+- 精确候选：`21303bfe358205036da4215d0872e8f3d8c182dc`
+- GitHub Actions：run `37581999346`，**SUCCESS**
+- `verify`：SUCCESS（npm ci / lint / typecheck / 全量 test / build / `check:miniprogram:source`）
+- `backup-docker`：SUCCESS（隔离 staging 备份与恢复演练）
+- `flutter`：SUCCESS（pub get / analyze / test / Debug APK / optimized unsigned Release APK）
+
+该结果证明的是代码候选与仓库自动化门禁通过，不替代正式签名、真实微信、真实设备、HTTPS、目标库迁移与生产恢复验收。
 
 ### 集成注意
 
