@@ -17,14 +17,18 @@
     "test": "npm run test --workspaces --if-present && npm run test:tooling",
     "test:tooling": "node --test scripts/*.test.mjs",
     "test:integration": "npm run build --workspace @home-medicine/api && node scripts/run-integration.mjs",
+    "prepare:mini:qa": "node scripts/prepare-miniprogram-qa.mjs",
+    "test:mini:qa": "node --test scripts/miniprogram-qa.test.mjs",
     "prepare:mini": "node scripts/prepare-miniprogram.mjs",
     "check:staging": "node scripts/check-staging.mjs",
     "setup:staging": "node scripts/init-staging-config.mjs",
     "check:miniprogram": "node scripts/check-miniprogram-compile.mjs",
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace @home-medicine/api",
+    "dev:local-trials": "node scripts/start-local-trials.mjs",
     "check:miniprogram:package": "node scripts/check-miniprogram-package.mjs",
-    "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs"
+    "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs",
+    "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

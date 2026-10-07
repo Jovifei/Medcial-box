@@ -34,12 +34,12 @@
     <view class="field">
       <view class="field-label">每日时间点（1-6 个）</view>
       <view class="time-add-row">
-        <input class="input time-input" value="{{timeInput}}" data-field="timeInput" bindinput="onFormInput" placeholder="HH:MM" />
+        <medicine-time-field value="{{timeInput}}" data-field="timeInput" disabled="{{creating || pendingCreation || contextInvalidated}}" bindchange="onFormDateChange" />
         <view class="action-btn primary" bindtap="onAddTimeSlot">添加</view>
       </view>
       <view class="slot-list" wx:if="{{timeSlots.length > 0}}">
         <view class="slot-chip" wx:for="{{timeSlots}}" wx:key="*this">
-          {{item}}
+          <medicine-time-field value="{{item}}" data-time="{{item}}" disabled="{{creating || pendingCreation || contextInvalidated}}" bindchange="onTimeSlotChange" />
           <text class="slot-remove" data-time="{{item}}" bindtap="onRemoveTimeSlot">×</text>
         </view>
       </view>
@@ -57,15 +57,11 @@
     </view>
     <view class="field">
       <view class="field-label">起始日期</view>
-      <picker mode="date" value="{{startDate}}" data-field="startDate" bindchange="onFormDateChange">
-        <view class="picker-box">{{startDate}}</view>
-      </picker>
+      <medicine-date-field value="{{startDate}}" data-field="startDate" label="选择开始日期" disabled="{{creating || pendingCreation || contextInvalidated}}" bindchange="onFormDateChange" />
     </view>
     <view class="field">
       <view class="field-label">结束日期（选填）</view>
-      <picker mode="date" value="{{endDate}}" data-field="endDate" bindchange="onFormDateChange">
-        <view class="picker-box">{{endDate === '' ? '长期' : endDate}}</view>
-      </picker>
+      <medicine-date-field value="{{endDate}}" data-field="endDate" label="长期（可选择结束日期）" disabled="{{creating || pendingCreation || contextInvalidated}}" bindchange="onFormDateChange" />
     </view>
 
     <view class="btn btn-primary {{creating ? 'disabled' : ''}}" bindtap="onSubmitPlan">{{creating ? "保存中…" : "保存计划"}}</view>

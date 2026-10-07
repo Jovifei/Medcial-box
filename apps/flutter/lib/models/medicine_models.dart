@@ -357,6 +357,7 @@ class MedicineRecord {
     required this.id,
     required this.name,
     this.specification,
+    this.brand,
     this.manufacturer,
     this.approvalNumber,
     this.barcodeValue,
@@ -382,6 +383,7 @@ class MedicineRecord {
   final String id;
   final String name;
   final String? specification;
+  final String? brand;
   final String? manufacturer;
   final String? approvalNumber;
   final String? barcodeValue;
@@ -409,16 +411,6 @@ class MedicineRecord {
 
   String get specificationDisplay => specification ?? '规格待补充';
 
-  String get openingOrExpirySummary {
-    final dates =
-        batches
-            .map((batch) => batch.managementExpiryDate ?? batch.expiryValue)
-            .whereType<String>()
-            .toList()
-          ..sort();
-    return dates.isEmpty ? '有效期待补充' : dates.first;
-  }
-
   factory MedicineRecord.fromJson(Map<String, dynamic> json) {
     final stock = json['stockStatus'] is Map<String, dynamic>
         ? json['stockStatus']! as Map<String, dynamic>
@@ -428,6 +420,7 @@ class MedicineRecord {
       name: _stringOr(json['name']),
       createdAt: json['createdAt'] as String?,
       specification: json['specification'] as String?,
+      brand: json['brand'] as String?,
       manufacturer: json['manufacturer'] as String?,
       approvalNumber: json['approvalNumber'] as String?,
       barcodeValue: json['barcodeValue'] is String
@@ -474,6 +467,7 @@ class MedicineRecord {
         name: _stringOr(json['name']),
         createdAt: json['createdAt'] as String?,
         specification: json['specification'] as String?,
+        brand: json['brand'] as String?,
         manufacturer: json['manufacturer'] as String?,
         approvalNumber: json['approvalNumber'] as String?,
         barcodeValue: json['barcodeValue'] as String?,
@@ -512,6 +506,7 @@ class MedicineRecord {
     'createdAt': createdAt,
     'coverPhotoId': coverPhotoId,
     'specification': specification,
+    'brand': brand,
     'manufacturer': manufacturer,
     'approvalNumber': approvalNumber,
     'barcodeValue': barcodeValue,
@@ -534,6 +529,7 @@ class MedicineRecord {
   MedicineRecord copyWith({
     String? name,
     String? specification,
+    String? brand,
     String? manufacturer,
     String? approvalNumber,
     String? barcodeValue,
@@ -558,6 +554,7 @@ class MedicineRecord {
     coverPhotoId: coverPhotoId,
     name: name ?? this.name,
     specification: specification ?? this.specification,
+    brand: brand ?? this.brand,
     manufacturer: manufacturer ?? this.manufacturer,
     approvalNumber: approvalNumber ?? this.approvalNumber,
     barcodeValue: barcodeValue ?? this.barcodeValue,
@@ -718,6 +715,7 @@ String quantityInputError(String unit, {String prefix = '数量'}) =>
 String? encodeMedicinePayload(MedicineRecord medicine) => jsonEncode({
   'name': medicine.name,
   'specification': medicine.specification,
+  'brand': medicine.brand,
   'manufacturer': medicine.manufacturer,
   'approvalNumber': medicine.approvalNumber,
   'barcodeValue': medicine.barcodeValue,

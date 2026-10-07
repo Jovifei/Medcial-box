@@ -1,0 +1,1 @@
+<picker mode="time" value="{{value || '09:00'}}" disabled="{{disabled}}" bindchange="onTimeChange"><view class="time-box {{disabled ? 'disabled' : ''}}">{{value || label}}<text>⌄</text></view></picker>

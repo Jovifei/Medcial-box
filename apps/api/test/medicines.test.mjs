@@ -29,22 +29,24 @@ test("listing medicines groups batches and derives expiry states", async () => {
         rows: [
           medicineRow({ id: "m-1" }),
           medicineRow({ id: "m-2", name: "阿莫西林胶囊" }),
+          medicineRow({ id: "m-3", name: "已处理旧药" }),
         ],
-        rowCount: 2,
+        rowCount: 3,
       },
     );
     pool.always(/FROM medicine_batches WHERE family_id/, {
       rows: [
         batchRow({ id: "b-1", medicine_id: "m-1", expiry_value: "2099-12-31", expiry_precision: "day" }),
         batchRow({ id: "b-2", medicine_id: "m-2", expiry_value: "1999-01", expiry_precision: "month", quantity: null }),
+        batchRow({ id: "b-3", medicine_id: "m-3", expiry_value: "1999-01", expiry_precision: "month", disposition_status: "handled" }),
       ],
-      rowCount: 2,
+      rowCount: 3,
     });
 
     const response = await app.inject({ method: "GET", url: "/api/v1/medicines", ...authHeader() });
     assert.equal(response.statusCode, 200);
     const body = response.json();
-    assert.equal(body.medicines.length, 2);
+    assert.equal(body.medicines.length, 3);
     assert.equal(body.medicines[0].batches.length, 1);
     assert.equal(body.medicines[0].expiryState.state, "ok");
     assert.equal(body.medicines[0].batches[0].expiryState.state, "ok");
@@ -52,6 +54,10 @@ test("listing medicines groups batches and derives expiry states", async () => {
     assert.equal(body.medicines[1].batches[0].quantity, null);
     assert.equal(body.medicines[1].batches[0].expiryState.state, "expired");
     assert.equal(body.medicines[1].expiryState.state, "expired");
+    // 已处理批次保留自身历史状态，但不能继续让药品卡片显示“已过期”。
+    assert.equal(body.medicines[2].batches[0].expiryState.state, "expired");
+    assert.equal(body.medicines[2].batches[0].dispositionStatus, "handled");
+    assert.equal(body.medicines[2].expiryState.state, "unknown");
   } finally {
     await app.close();
   }

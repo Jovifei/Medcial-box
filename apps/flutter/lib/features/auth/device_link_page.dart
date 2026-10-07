@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -120,20 +121,17 @@ class _BootGatePageState extends State<BootGatePage> {
                           missingApiConfigurationMessage,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 14),
-                    SelectableText(
-                      'flutter run --dart-define=API_BASE_URL=https://你的药箱域名',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Android 模拟器访问本机服务时通常使用 10.0.2.2；真机请使用本机局域网地址或 HTTPS 域名。',
+                      '正式使用需要可达的 HTTPS 服务；本机开发参数仅在开发文档中维护。',
                     ),
-                    const SizedBox(height: 14),
-                    SoftButton(
-                      label: '查看演示界面',
-                      onPressed: () => context.go('/demo/welcome'),
-                    ),
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 14),
+                      SoftButton(
+                        label: '查看演示界面',
+                        onPressed: () => context.go('/demo/welcome'),
+                      ),
+                    ],
                   ],
                 ),
               ),

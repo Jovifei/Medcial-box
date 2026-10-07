@@ -168,10 +168,19 @@ export async function registerReminderRoutes(
           dueDate: null, action: "stocktake",
         });
       }
-      if (medicine.leaflet.reviewStatus === "unverified") {
+      const medicineInfoMissing =
+        medicine.specification === null ||
+        medicine.manufacturer === null ||
+        medicine.activeIngredients.length === 0 ||
+        medicine.leaflet.reviewStatus === "unverified";
+      if (medicineInfoMissing) {
         items.push({
           id: `leaflet:${medicine.id}`, type: "leaflet_missing", medicineId: medicine.id, batchId: null,
-          medicineName: medicine.name, message: "说明书资料尚未核对。", dueDate: null, action: "review_leaflet",
+          medicineName: medicine.name,
+          message: medicine.leaflet.reviewStatus === "unverified"
+            ? "说明书资料尚未核对。"
+            : "规格、厂家或成分资料待补充。",
+          dueDate: null, action: "review_leaflet",
         });
       }
     }

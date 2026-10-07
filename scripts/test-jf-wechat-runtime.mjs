@@ -12,11 +12,23 @@ import { pathToFileURL } from 'node:url';
 export function parseArgs(args) {
   const result = {};
   for (let i = 0; i < args.length; i += 2) {
-    if (!['--project', '--wechatide-path', '--evidence-dir'].includes(args[i]) || !args[i + 1]) throw new Error('Explicit project, tool and evidence paths required');
+    if (!['--project', '--wechatide-path', '--evidence-dir', '--fixture-name'].includes(args[i]) || !args[i + 1]) throw new Error('Explicit project, tool and evidence paths required');
     result[args[i].slice(2)] = args[i + 1];
   }
   for (const key of ['project', 'wechatide-path', 'evidence-dir']) if (!result[key] || !path.isAbsolute(result[key])) throw new Error('Paths must be absolute');
+  if (result['fixture-name']) validateFixtureName(result['fixture-name']);
   return result;
+}
+export function validateFixtureName(name) {
+  if (!/^JF-UI-TEST-[A-Za-z0-9-]{1,60}$/.test(name)) throw new Error('Only uniquely named JF-UI-TEST fixtures accepted');
+  return name;
+}
+export function assertFixtureReadback(list, name, quantity, date, previousVersion = 0) {
+  const matches = list.medicines?.filter(item => item.name === name);
+  if (matches?.length !== 1) throw new Error('Fixture must resolve to exactly one medicine');
+  const medicine = matches[0]; const batch = medicine.batches?.[0];
+  if (medicine.batches.length !== 1 || batch.quantity !== quantity || batch.unit !== 'box' || batch.expiry?.value !== date || batch.expiry?.precision !== 'day' || medicine.version <= previousVersion) throw new Error('Fixture persistence assertion failed');
+  return { id: medicine.id, version: medicine.version };
 }
 export function validateSourceApi(source) {
   const match = source.match(/export const API_BASE\s*=\s*["']([^"']+)["']/);
@@ -83,8 +95,65 @@ export async function run(options) {
     return extractRuntimeFlags(result);
   };
   const navigate = (route, action) => invoke('automation_navigate', ['--action', action, '--url', `/${route}`]);
+  const fixtureName = options['fixture-name'];
+  const checkedDraftCount = async () => {
+    let value = await invoke('automation_evaluate', ['--fn-source', "function(){var p=getCurrentPages();var c=p[p.length-1];return {safeFamily:!!c&&c.route==='pages/index/index'&&c.data.familyName==='JF小药箱小程序试用家庭',draftCount:wx.getStorageInfoSync().keys.filter(function(k){return k.indexOf('medicine-edit-draft')!==-1}).length};}"]);
+    for (let depth = 0; depth < 5 && value?.draftCount === undefined; depth++) { value = value?.result ?? value?.value ?? value?.data; if (typeof value === 'string') value = JSON.parse(value); }
+    if (value?.draftCount !== 0 || value.safeFamily !== true) throw new Error('Existing medicine drafts or unsafe UI family; fixture write blocked');
+  };
+  const fixtureFlow = async () => {
+    validateFixtureName(fixtureName);
+    const request = async (route, token, payload) => {
+      const response = await fetch(`${api}/api/v1/${route}`, { method: payload ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, ...(payload ? { body: JSON.stringify(payload) } : {}), signal: globalThis.AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error('Local fixture readback API failed');
+      return response.json();
+    };
+    const session = await request('auth/wechat', null, { code: 'JF-UI-TEST-readback' });
+    const token = session.token;
+    if (typeof token !== 'string' || (await request('auth/me', token)).family?.name !== 'JF小药箱小程序试用家庭') throw new Error('Exact synthetic family guard failed');
+    const initial = await request('medicines', token);
+    if (initial.medicines.some(item => item.name === fixtureName)) throw new Error('Fixture name already exists; use a fresh unique name');
+    await checkedDraftCount();
+    await mkdir(options['evidence-dir'], { recursive: true });
+    const setDate = async date => {
+      for (const [method, detail] of [['onBatchPrecisionChange', { value: 0 }], ['onExpiryDateChange', { value: date }]]) {
+        const file = path.join(options['evidence-dir'], `${method}-fixture.json`);
+        await writeFile(file, JSON.stringify([{ currentTarget: { dataset: { index: '0' } }, detail }]));
+        await invoke('automation_page_action', ['--action', 'callMethod', '--method', method, '--args-file', file]);
+      }
+    };
+    const input = (field, value) => invoke('automation_element_action', ['--action', 'input', '--selector', `input[data-field="${field}"]`, '--value', value, '--wait-for-selector', `input[data-field="${field}"]`]);
+    const saveAndRead = async (quantity, date, previousVersion = 0) => {
+      await invoke('automation_element_action', ['--action', 'tap', '--selector', '.save-action']);
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try { return assertFixtureReadback(await request('medicines', token), fixtureName, quantity, date, previousVersion); } catch { /* bounded persistence poll; raw records never retained */ }
+      }
+      throw new Error('Fixture persistence assertion timed out');
+    };
+    await navigate('pages/medicine-edit/medicine-edit', 'navigateTo');
+    await input('name', fixtureName); await input('quantity', '5'); await setDate('2027-12-31');
+    const created = await saveAndRead(5, '2027-12-31');
+    record('medicine-minimal-create', 'PASS', 'Synthetic UI input + real save tap + API persistence; date controller event, not native picker gesture');
+    await navigate('pages/index/index', 'switchTab');
+    await new Promise(resolve => setTimeout(resolve, 750));
+    await checkedDraftCount();
+    await navigate('pages/medicine-edit/medicine-edit', 'navigateTo');
+    let fresh = await invoke('automation_evaluate', ['--fn-source', "function(){var p=getCurrentPages();var d=p[p.length-1].data;return {fresh:d.name===''&&d.activePhotoDraftId===''&&!d.draftAvailable&&d.batches[0].expiryValue===''};}"]);
+    for (let depth = 0; depth < 5 && fresh?.fresh === undefined; depth++) { fresh = fresh?.result ?? fresh?.value ?? fresh?.data; if (typeof fresh === 'string') fresh = JSON.parse(fresh); }
+    if (fresh?.fresh !== true) throw new Error('Second medicine inherited previous form or draft');
+    record('medicine-next-entry-empty', 'PASS', 'After UI save, next add has empty name/date and no active photo or form draft');
+    await navigate('pages/index/index', 'switchTab');
+    await navigate(`pages/medicine-edit/medicine-edit?id=${encodeURIComponent(created.id)}`, 'navigateTo');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await input('quantity', '6'); await setDate('2028-02-29');
+    await saveAndRead(6, '2028-02-29', created.version);
+    record('medicine-edit-persistence', 'PASS', 'Same synthetic medicine edited through UI and reread; version increased; record retained');
+    await navigate('pages/index/index', 'switchTab');
+  };
   try {
-    await invoke('automation_wx_api', ['--action', 'restore', '--method', 'login']);
+    // Use a fresh native runtime: restoring an API that was never mocked can
+    // remove wx.login in this DevTools RC. This runner never installs mocks.
     let state = await flags();
     if (state.route === 'pages/index/index' && state.loaded && !state.error) {
       record('existing-session-restoration', 'PASS', 'Already authenticated home observed; existing credentials preserved');
@@ -98,14 +167,16 @@ export async function run(options) {
     record('home-load', state.loaded ? 'PASS' : 'FAIL', 'Home inventory data shape and error flag');
     await invoke('automation_element_action', ['--action', 'tap', '--selector', '.filter-chip[data-panel="purpose"]']);
     record('purpose-filter-open', (await flags()).filter === 'purpose' ? 'PASS' : 'FAIL', 'Purpose panel opens; filtering results pending synthetic fixture');
+    if (fixtureName) await fixtureFlow();
     for (const tab of app.tabBar.list) {
       if ((await flags()).route !== tab.pagePath) await navigate(tab.pagePath, 'switchTab');
       const state = await flags();
       record(`tab:${tab.pagePath}`, state.route === tab.pagePath && !state.error ? 'PASS' : 'FAIL', 'Navigation + page error flag only; not business workflow acceptance');
     }
+    if ((await flags()).route !== 'pages/index/index') await navigate('pages/index/index', 'switchTab');
   } catch (error) { record('runtime-flow', 'BLOCKED', error.message); }
   for (const page of app.pages) record(`registered-page:${page}`, 'NOT_RUN', 'Direct navigation may need identifiers or alter drafts; requires safe fixture and meaningful assertion');
-  for (const item of ['medicine-minimal-create', 'batch-edit-persistence', 'restock', 'stocktake', 'filter-results', 'plan-create-retry', 'export-content', 'backup-restore', 'family-permissions', 'mine-settings', 'camera-ocr', 'offline-errors', 'remote-debug-device', 'preview-upload', 'ide-quality']) record(item, 'NOT_RUN', 'Requires isolated synthetic fixture/human or provider gate; never inferred from compilation');
+  for (const item of ['medicine-minimal-create', 'medicine-edit-persistence', 'batch-edit-persistence', 'restock', 'stocktake', 'filter-results', 'plan-create-retry', 'export-content', 'backup-restore', 'family-permissions', 'mine-settings', 'camera-ocr', 'offline-errors', 'remote-debug-device', 'preview-upload', 'ide-quality']) if (!rows.some(row => row.id === item)) record(item, 'NOT_RUN', 'Requires isolated synthetic fixture/human or provider gate; never inferred from compilation');
   await mkdir(options['evidence-dir'], { recursive: true });
   await writeFile(path.join(options['evidence-dir'], 'runtime-matrix.json'), JSON.stringify({ testedAt: new Date().toISOString(), fullVerification: fullVerificationStatus(rows), rows }, null, 2));
   console.log(JSON.stringify({ fullVerification: fullVerificationStatus(rows), rows }));

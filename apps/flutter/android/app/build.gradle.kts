@@ -1,7 +1,23 @@
+import java.net.URI
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Only an explicitly enabled loopback trial may keep the installed certificate.
+val localTrialSigning = providers.gradleProperty("medboxLocalTrialSigning").orNull == "true"
+val trialDefines = (findProperty("dart-defines") as? String).orEmpty().split(",")
+    .mapNotNull { runCatching { String(Base64.getDecoder().decode(it)) }.getOrNull() }
+if (localTrialSigning) {
+    val endpoint = trialDefines.firstOrNull { it.startsWith("API_BASE_URL=") }?.substringAfter("=")
+    val origin = runCatching { URI(endpoint.orEmpty()) }.getOrNull()
+    check(trialDefines.contains("LOCAL_APP_TRIAL=true") && origin?.scheme == "http" &&
+        origin.host in setOf("127.0.0.1", "localhost")) {
+        "Trial signing requires LOCAL_APP_TRIAL=true and an HTTP loopback API."
+    }
 }
 
 android {
@@ -16,7 +32,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Stable ID used by existing JF小药箱 installs; changing it requires an explicit migration/signing plan.
         applicationId = "com.joviluma.home_medicine_flutter"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -32,9 +48,12 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Deliberately do not fall back to the debug keystore.
+            // CI may compile an unsigned optimized APK; distribution signing must be
+            // supplied by the release environment after the final applicationId is fixed.
+            if (localTrialSigning) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }

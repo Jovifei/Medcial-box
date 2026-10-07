@@ -12,14 +12,15 @@ E:\AI_Tools\Other\Flutter\bin\flutter.bat pub get
 E:\AI_Tools\Other\Flutter\bin\flutter.bat analyze
 E:\AI_Tools\Other\Flutter\bin\flutter.bat test
 E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=https://<测试 API 域名>
+# 仅技术优化门禁：仓库不含正式分发签名，默认 release 产物不可直接分发。
 E:\AI_Tools\Other\Flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https://<可达的 HTTPS API 地址>
 ```
 
-APK 输出到 `build\app\outputs\flutter-apk\app-<variant>.apk`。实体机连接本地合成 API 时，可在 Debug 变体使用 `API_BASE_URL=http://127.0.0.1:13300` 并先运行 `adb reverse tcp:13300 tcp:13300`；Android cleartext 只在 Debug manifest 中开放。Release 必须传入可达的 HTTPS API 地址。`API_BASE_URL` 是构建时配置；不要把微信 AppSecret、资料服务密钥或模型密钥放入 `--dart-define`。
+APK 输出到 `build\app\outputs\flutter-apk\app-<variant>.apk`。实体机连接本地合成 API 时，可在 Debug 变体使用 `API_BASE_URL=http://127.0.0.1:13300` 并先运行 `adb reverse tcp:13300 tcp:13300`；Android cleartext 只在 Debug manifest 中开放。普通 Release 必须传入可达的 HTTPS API 地址，但仓库默认不提供分发签名，因此“release 构建通过”只代表优化/打包门禁通过，不代表可安装发布。`API_BASE_URL` 是构建时配置；不要把微信 AppSecret、资料服务密钥或模型密钥放入 `--dart-define`。
 
 ## 功能范围
 
-- 药箱、待处理、我的三个入口；家庭共享库存、批次开封期限、阈值、补货、盘点、回收站和变更记录来自服务端 API。
+- 药箱、用药计划、待处理、我的四个主入口；家庭共享库存、批次开封期限、阈值、补货、盘点、回收站和变更记录来自服务端 API。
 - 相机／相册识别和条码扫描均生成可编辑草稿；联网药品候选查询要用户明确同意，结果仍须人工核对。识别和查询失败保留手工录入。
 - Markdown、CSV、中文 PDF 和 JSON 备份共用当前家庭数据；个人剂量默认排除。
 - 登录凭据保存在 Android 安全存储，库存缓存和录入草稿保存在本地；断网时显示缓存时间，不自动重放写请求。
@@ -35,7 +36,9 @@ Widget/API 契约测试和 Debug APK 构建不代表真实微信账号、实体�
 使用已启动的本机开发服务器并设置ADB转发，可构建：
 
 ```powershell
+$env:ORG_GRADLE_PROJECT_medboxLocalTrialSigning = "true"
 flutter build apk --release --dart-define=API_BASE_URL=http://127.0.0.1:13300 --dart-define=LOCAL_APP_TRIAL=true
+Remove-Item Env:ORG_GRADLE_PROJECT_medboxLocalTrialSigning
 ```
 
-此开关只允许loopback与明确声明试用能力的开发服务器。普通构建保持小程序连接流程。当前手机测试结果与源点见docs/operations/07-RPT-最新代码与App独立试用.md。
+只有同时显式设置 Gradle 本机试用签名开关、`LOCAL_APP_TRIAL=true` 且 API 为 HTTP loopback 时，Release 才允许使用现有调试证书以便保留本机试用数据升级。这个包不是正式分发包；普通 Release 不回退调试签名。普通构建保持小程序连接流程。当前手机测试结果与源点见docs/operations/07-RPT-最新代码与App独立试用.md。

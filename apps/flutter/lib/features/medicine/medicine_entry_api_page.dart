@@ -40,6 +40,16 @@ class MedicineEntryApiPage extends StatefulWidget {
 
 class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   final nameController = TextEditingController();
+  final brandController = TextEditingController();
+  final leafletControllers = {
+    for (final key in [
+      'purposeSummary',
+      'packageUsageSummary',
+      'precautionsSummary',
+      'contraindicationsSummary',
+    ])
+      key: TextEditingController(),
+  };
   final specificationController = TextEditingController();
   final quantityController = TextEditingController();
   final expiryController = TextEditingController();
@@ -62,7 +72,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   String? scannedCode;
   XFile? image;
   bool openingExpanded = false;
-  bool categoryExpanded = false;
+  bool categoryExpanded = true;
+  bool locationExpanded = false;
+  Timer? recognitionTimer;
+  int recognitionSeconds = 0;
   final populationTags = <String>{};
   final purposeTags = <String>{};
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
@@ -82,7 +95,41 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Timer? autoSave;
   int recognitionRequest = 0;
   bool moreExpanded = false;
-  bool ingredientsVerified = false;
+  String? _verifiedIngredientContent;
+  int _ingredientRevision = 0;
+  int _catalogRequest = 0;
+
+  List<String> get _ingredientValues => ingredientController.text
+      .split(RegExp(r'[,，、;；]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+
+  // Only normalize separators and surrounding whitespace, exactly as Save does.
+  // Never infer that different ingredient names or doses are equivalent.
+  String get _ingredientContent => jsonEncode(_ingredientValues);
+  String _lastIngredientContent = '[]';
+
+  bool get ingredientsVerified =>
+      _verifiedIngredientContent != null &&
+      _verifiedIngredientContent == _ingredientContent;
+
+  set ingredientsVerified(bool value) {
+    _verifiedIngredientContent = value && _ingredientValues.isNotEmpty
+        ? _ingredientContent
+        : null;
+  }
+
+  void _ingredientsChanged() {
+    final content = _ingredientContent;
+    if (content == _lastIngredientContent) return;
+    _lastIngredientContent = content;
+    _ingredientRevision++;
+    if (_verifiedIngredientContent != null) {
+      setState(() => _verifiedIngredientContent = null);
+    }
+  }
+
   bool recognizing = false;
   bool searchingCatalog = false;
   bool saving = false;
@@ -103,6 +150,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   void initState() {
     super.initState();
     entryIdentity = _identitySnapshot();
+    ingredientController.addListener(_ingredientsChanged);
     unawaited(_restoreDraft());
   }
 
@@ -135,10 +183,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   Future<void> _restoreDraft() async {
     try {
-      final queue = await draftQueue.list();
       if (!mounted || !_isDraftIdentityCurrent) return;
       final legacy = await widget.localStore.readDraft(_draftKey);
-      final raw = legacy ?? (queue.isEmpty ? null : jsonEncode(queue.last));
+      final raw = legacy;
       if (raw == null ||
           raw.isEmpty ||
           !mounted ||
@@ -162,7 +209,17 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   void _applyDraft(Map<String, dynamic> json) {
+    // A response belongs to the selected draft instance, even when IDs match.
+    _catalogRequest++;
+    searchingCatalog = false;
     nameController.text = json['name'] as String? ?? '';
+    brandController.text = json['brand'] as String? ?? '';
+    final leaflet = json['leaflet'];
+    if (leaflet is Map) {
+      for (final entry in leafletControllers.entries) {
+        entry.value.text = leaflet[entry.key] as String? ?? '';
+      }
+    }
     specificationController.text = json['specification'] as String? ?? '';
     quantityController.text = json['quantity'] as String? ?? '';
     expiryController.text = json['expiry'] as String? ?? '';
@@ -185,7 +242,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           medicinePurposeLabels.containsKey,
         ),
       );
-    ingredientsVerified = json['ingredientsVerified'] == true;
+    // Legacy booleans cannot prove which content was confirmed. Keep the draft,
+    // but require reconfirmation unless its stored content binding matches.
+    _verifiedIngredientContent =
+        json['ingredientsVerified'] == true &&
+            _ingredientValues.isNotEmpty &&
+            json['verifiedIngredientContent'] == _ingredientContent
+        ? _ingredientContent
+        : null;
     afterOpenValueController.text = json['afterOpenValue'] as String? ?? '';
     afterOpenDateController.text = json['afterOpenDate'] as String? ?? '';
     unit = json['unit'] as String? ?? 'box';
@@ -216,6 +280,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   Map<String, dynamic> _draftFields() => {
     'name': nameController.text,
+    'brand': brandController.text,
+    'leaflet': {
+      for (final entry in leafletControllers.entries)
+        entry.key: entry.value.text,
+    },
     'specification': specificationController.text,
     'quantity': quantityController.text,
     'expiry': expiryController.text,
@@ -227,6 +296,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     'populationTags': populationTags.toList(),
     'purposeTags': purposeTags.toList(),
     'ingredientsVerified': ingredientsVerified,
+    'verifiedIngredientContent': ingredientsVerified
+        ? _verifiedIngredientContent
+        : null,
     'afterOpenValue': afterOpenValueController.text,
     'afterOpenDate': afterOpenDateController.text,
     'unit': unit,
@@ -283,32 +355,33 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     }
     final selected = await showAppSheet<Map<String, dynamic>>(
       context,
-      title: '本机待核对草稿（${drafts.length}/10）',
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        children: [
-          ...drafts.map(
-            (draft) => ListTile(
-              title: Text(draft['name'] as String? ?? '未命名药品'),
-              subtitle: Text(
-                draft['savedMedicineId'] != null ? '药已保存 · 照片待补' : '待核对 · 未入库',
-              ),
-              onTap: () => Navigator.pop(context, draft),
-              trailing: IconButton(
-                tooltip: '删除草稿',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () async {
-                  await draftQueue.remove(draft['id'] as String);
-                  if (context.mounted) Navigator.pop(context);
-                },
+      title: '恢复未完成的药品录入',
+      builder: (context) => Material(
+        type: MaterialType.transparency,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ...drafts.map(
+              (draft) => ListTile(
+                title: Text(draft['name'] as String? ?? '未命名药品'),
+                subtitle: Text(
+                  draft['savedMedicineId'] != null
+                      ? '药已保存 · 照片待补'
+                      : '待核对 · 未入库',
+                ),
+                onTap: () => Navigator.pop(context, draft),
+                trailing: IconButton(
+                  tooltip: '删除草稿',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () async {
+                    await draftQueue.remove(draft['id'] as String);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, <String, dynamic>{}),
-            child: const Text('新建一份草稿'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     if (selected == null ||
@@ -319,14 +392,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       return;
     }
     recognitionRequest++;
-    if (selected.isEmpty) {
-      if (drafts.length >= 10) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('最多10份，请先保存或删除草稿。')));
-        return;
-      }
-      draftId = DateTime.now().microsecondsSinceEpoch.toString();
-    }
     setState(() {
       _applyDraft(selected);
       dirty = false;
@@ -463,6 +528,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   void dispose() {
     autoSave?.cancel();
     recognitionRequest++;
+    recognitionTimer?.cancel();
+    brandController.dispose();
+    for (final controller in leafletControllers.values) {
+      controller.dispose();
+    }
     nameController.dispose();
     specificationController.dispose();
     quantityController.dispose();
@@ -470,6 +540,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     locationController.dispose();
     manufacturerController.dispose();
     approvalController.dispose();
+    ingredientController.removeListener(_ingredientsChanged);
     ingredientController.dispose();
     purposeController.dispose();
     afterOpenValueController.dispose();
@@ -480,6 +551,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Future<void> _chooseImage({
     _ImageAction? action,
     bool expiryPhoto = false,
+    bool leafletPhoto = false,
   }) async {
     action ??= await showAppSheet<_ImageAction>(
       context,
@@ -526,13 +598,15 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               originalBytes[1] == 80
           ? 'png'
           : 'jpg';
-      final durable = await File(selected.path).copy(
-        '${directory.path}/$draftId-${expiryPhoto ? 'expiry' : 'front'}.$extension',
-      );
+      final durable = leafletPhoto
+          ? File(selected.path)
+          : await File(selected.path).copy(
+              '${directory.path}/$draftId-${expiryPhoto ? 'expiry' : 'front'}.$extension',
+            );
       if (!mounted || request != recognitionRequest) return;
       if (expiryPhoto) {
         expiryImage = XFile(durable.path);
-      } else {
+      } else if (!leafletPhoto) {
         image = XFile(durable.path);
       }
       _markDirty();
@@ -552,14 +626,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         final useServer = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('使用 AI 识别药盒？'),
+            title: Text(leafletPhoto ? '识别说明书文字？' : '使用 AI 识别药盒？'),
             content: const Text(
               '照片将发送到当前家庭药箱服务，由其配置的识别模型生成药名和分类草稿，不会在识别接口保存照片。请核对后再保存。',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('仅本机识别'),
+                child: Text(leafletPhoto ? '取消' : '仅本机识别'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -573,12 +647,45 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             !_isDraftIdentityCurrent) {
           return;
         }
+        if (leafletPhoto && useServer != true) {
+          setState(() => recognizing = false);
+          return;
+        }
+        recognitionTimer?.cancel();
+        setState(() => recognitionSeconds = 0);
+        recognitionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) setState(() => recognitionSeconds++);
+        });
         final draft =
             await (useServer == true
-                    ? ApiMedicineRecognitionRepository(widget.repository.api)
+                    ? ApiMedicineRecognitionRepository(
+                        widget.repository.api,
+                        purpose: leafletPhoto ? 'leaflet' : 'box_front',
+                      )
                     : recognition)
                 .recognize(selected);
-        if (!mounted || request != recognitionRequest || !_isDraftIdentityCurrent) return;
+        if (!mounted ||
+            request != recognitionRequest ||
+            !_isDraftIdentityCurrent) {
+          return;
+        }
+        recognitionTimer?.cancel();
+        if (brandController.text.trim().isEmpty) {
+          brandController.text = draft.brand ?? '';
+        }
+        if (manufacturerController.text.trim().isEmpty) {
+          manufacturerController.text = draft.manufacturer ?? '';
+        }
+        if (populationTags.isEmpty) {
+          populationTags.addAll(
+            draft.populationTags.where(medicinePopulationLabels.containsKey),
+          );
+        }
+        for (final entry in leafletControllers.entries) {
+          if (entry.value.text.trim().isEmpty) {
+            entry.value.text = draft.leaflet[entry.key] ?? '';
+          }
+        }
         if (!touchedName && nameController.text.trim().isEmpty) {
           nameController.text = draft.name;
         }
@@ -606,6 +713,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         });
         await _saveDraft(legacy: false);
       } catch (error) {
+        recognitionTimer?.cancel();
         if (!mounted || request != recognitionRequest) return;
         setState(() {
           recognizing = false;
@@ -636,6 +744,27 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _searchCatalog({String? barcode}) async {
+    if (!_isDraftIdentityCurrent || saving || attemptedPayload != null) return;
+    final request = ++_catalogRequest;
+    final originalDraft = draftId;
+    final ingredientRevision = _ingredientRevision;
+    final workflow = widget.workflow;
+    final workflowEpoch = workflow.api.identityEpoch;
+    final workflowGeneration = workflow.api.identityState?.generation;
+    final route = ModalRoute.of(context);
+    bool isCurrentSearch() =>
+        mounted &&
+        request == _catalogRequest &&
+        originalDraft == draftId &&
+        ingredientRevision == _ingredientRevision &&
+        _isDraftIdentityCurrent &&
+        identical(workflow, widget.workflow) &&
+        workflowEpoch == workflow.api.identityEpoch &&
+        workflowGeneration == workflow.api.identityState?.generation &&
+        route?.isCurrent == true &&
+        !handlingBack &&
+        !saving &&
+        attemptedPayload == null;
     final query = nameController.text.trim();
     if (barcode == null && query.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -663,10 +792,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ],
       ),
     );
-    if (consent != true || !mounted) return;
+    if (consent != true || !mounted || !isCurrentSearch()) return;
     setState(() => searchingCatalog = true);
     try {
-      final result = await widget.workflow.searchMedicineCandidates(
+      final result = await workflow.searchMedicineCandidates(
         name: barcode == null ? query : null,
         manufacturer: manufacturerController.text.trim().isEmpty
             ? null
@@ -680,7 +809,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             : specificationController.text.trim(),
         consentToShare: true,
       );
-      if (!mounted) return;
+      if (!mounted || !isCurrentSearch()) return;
       final candidates = (result['candidates'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .toList(growable: false);
@@ -723,17 +852,20 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           ],
         ),
       );
-      if (selected == null || !mounted) return;
+      if (selected == null || !mounted || !isCurrentSearch()) return;
       _applyCandidate(selected);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已补入候选资料。请核对后保存；来源状态仍为未核验。')),
       );
     } catch (error) {
-      if (!mounted) return;
-      setState(() => searchingCatalog = false);
+      if (!mounted || !isCurrentSearch()) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${friendlyApiError(error)} 仍可继续手动录入。')),
       );
+    } finally {
+      if (mounted && request == _catalogRequest) {
+        setState(() => searchingCatalog = false);
+      }
     }
   }
 
@@ -747,6 +879,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     }
 
     fill(nameController, candidate['name']);
+    fill(brandController, candidate['brand']);
     fill(specificationController, candidate['specification']);
     fill(manufacturerController, candidate['manufacturer']);
     fill(approvalController, candidate['approvalNumber']);
@@ -852,16 +985,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (limit != null) batch['afterOpeningLimit'] = limit;
     }
 
-    final ingredients = ingredientController.text
-        .split(RegExp(r'[,，、;；]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final ingredients = _ingredientValues;
     final verifiedIngredients = ingredientsVerified;
     final candidatePayload = <String, Object?>{
       'idempotencyKey': 'draft-$id',
       'name': name,
       'barcodeValue': _nullableText(scannedCode ?? ''),
+      'brand': _nullableText(brandController.text),
       'specification': _nullableText(specificationController.text),
       'manufacturer': _nullableText(manufacturerController.text),
       'approvalNumber': _nullableText(approvalController.text),
@@ -871,7 +1001,16 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       'purposeTags': purposeTags.toList(),
       'tagSource': 'user',
       'leaflet': {
-        'reviewStatus': verifiedIngredients ? 'user_confirmed' : 'unverified',
+        for (final entry in leafletControllers.entries)
+          entry.key: _nullableText(entry.value.text),
+        'reviewStatus':
+            leafletControllers.values.any(
+              (controller) => controller.text.trim().isNotEmpty,
+            )
+            ? 'unverified'
+            : verifiedIngredients
+            ? 'user_confirmed'
+            : 'unverified',
       },
       'batches': [batch],
     };
@@ -1188,7 +1327,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         title: const Text('添加药品'),
         actions: [
           IconButton(
-            tooltip: '本机草稿',
+            tooltip: '恢复未完成录入',
             onPressed: saving || handlingBack ? null : _chooseDraft,
             icon: const Icon(Icons.layers_outlined),
           ),
@@ -1211,413 +1350,518 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           ),
         ),
       ),
-      body: AbsorbPointer(
-        absorbing: attemptedPayload != null || saving,
-        child: AppPage(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
-          child: ListView(
-            children: [
-              if (attemptedPayload != null)
-                const AppCard(
-                  child: Text('原提交待确认，已锁定内容避免重复入库。请重试原提交；成功后在详情页修改。'),
-                ),
-              if (restoringDraft)
-                const LinearProgressIndicator(semanticsLabel: '正在恢复本地草稿'),
-              if (restoredDraft)
-                const AppCard(
-                  color: Color(0xFFE8F1EA),
-                  child: Text('已恢复本机草稿，核对后逐份保存。'),
-                ),
-              AppCard(
-                color: const Color(0xFFE8F1EA),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '拍药盒，或直接填写药名',
-                      style: Theme.of(context).textTheme.titleLarge,
+      body: Stack(
+        children: [
+          AbsorbPointer(
+            absorbing: attemptedPayload != null || saving || recognizing,
+            child: AppPage(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
+              child: ListView(
+                children: [
+                  if (attemptedPayload != null)
+                    const AppCard(
+                      child: Text('原提交待确认，已锁定内容避免重复入库。请重试原提交；成功后在详情页修改。'),
                     ),
-                    const SizedBox(height: 6),
-                    const Text('可选择 AI 或本机中文识别；照片发送前会询问，识别结果和用途标签须核对后保存。'),
-                    const SizedBox(height: 14),
-                    PrimaryButton(
-                      label: recognizing ? '正在识别…' : '拍药盒',
-                      icon: Icons.camera_alt_rounded,
-                      onPressed: recognizing
-                          ? null
-                          : () => _chooseImage(action: _ImageAction.camera),
+                  if (restoringDraft)
+                    const LinearProgressIndicator(semanticsLabel: '正在恢复本地草稿'),
+                  if (restoredDraft)
+                    const AppCard(
+                      color: Color(0xFFE8F1EA),
+                      child: Text('已恢复这份未完成录入，核对后保存再添加下一种。'),
                     ),
-                    const SizedBox(height: 8),
-                    SoftButton(
-                      label: '扫码读取药盒编码',
-                      icon: Icons.qr_code_scanner_rounded,
-                      onPressed: saving ? null : _scanCode,
-                    ),
-                    TextButton.icon(
-                      onPressed: recognizing
-                          ? null
-                          : () => _chooseImage(action: _ImageAction.gallery),
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('从相册选择'),
-                    ),
-                    if (nameController.text.trim().isNotEmpty ||
-                        scannedCode != null) ...[
-                      const SizedBox(height: 8),
-                      SoftButton(
-                        label: searchingCatalog ? '正在查询候选资料…' : '联网查询候选资料',
-                        icon: Icons.manage_search_rounded,
-                        onPressed: searchingCatalog
-                            ? null
-                            : () => _searchCatalog(),
-                      ),
-                    ],
-                    if (image != null) ...[
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.file(
-                          File(image!.path),
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                  AppCard(
+                    color: const Color(0xFFE8F1EA),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '拍药盒，或直接填写药名',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
-                      ),
-                    ],
-                    if (scannedCode != null) ...[
-                      const SizedBox(height: 10),
-                      SelectableText('药盒编码：$scannedCode'),
-                      const Text('商品码和追溯码可能用途不同；读取编码不代表已查到药品资料。'),
-                    ],
-                    if (recognizing) ...[
-                      const SizedBox(height: 12),
-                      const LinearProgressIndicator(),
-                      const SizedBox(height: 6),
-                      const Text('正在识别药盒文字…'),
-                    ],
-                    if (recognitionFailure != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          '识别失败，可继续手动保存：${friendlyApiError(recognitionFailure!)}',
+                        const SizedBox(height: 6),
+                        const Text('可选择 AI 或本机中文识别；照片发送前会询问，识别结果和用途标签须核对后保存。'),
+                        const SizedBox(height: 14),
+                        PrimaryButton(
+                          label: recognizing ? '正在识别…' : '拍药盒',
+                          icon: Icons.camera_alt_rounded,
+                          onPressed: recognizing
+                              ? null
+                              : () => _chooseImage(action: _ImageAction.camera),
                         ),
-                      ),
-                    if (recognitionWarnings.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(recognitionWarnings.join('\n')),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '药品名称（唯一必填）',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: nameController,
-                      onChanged: (_) {
-                        touchedName = true;
-                        _markDirty();
-                      },
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: '例如：布洛芬缓释胶囊',
-                        errorText:
-                            touchedName && nameController.text.trim().isEmpty
-                            ? '请填写药品名称'
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '库存与有效期（选填）',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    _quantityUnitFields(
-                      quantityLabels: const ['剩余数量', '未知可留空'],
-                      unitLabels: kQuantityUnitValues.map(unitLabel),
-                      quantityField: TextField(
-                        controller: quantityController,
-                        onChanged: (_) => _markDirty(),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        const SizedBox(height: 8),
+                        SoftButton(
+                          label: '扫码读取药盒编码',
+                          icon: Icons.qr_code_scanner_rounded,
+                          onPressed: saving ? null : _scanCode,
                         ),
-                        decoration: const InputDecoration(
-                          labelText: '剩余数量',
-                          hintText: '未知可留空',
+                        TextButton.icon(
+                          onPressed: recognizing
+                              ? null
+                              : () =>
+                                    _chooseImage(action: _ImageAction.gallery),
+                          icon: const Icon(Icons.photo_library_outlined),
+                          label: const Text('从相册选择'),
                         ),
-                      ),
-                      unitField: DropdownButtonFormField<String>(
-                        key: ValueKey(unit),
-                        initialValue: unit,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: '单位'),
-                        // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
-                        // 避免 initialValue 找不到 item 触发断言。
-                        items: kQuantityUnitValues
-                            .map(
-                              (value) => DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(unitLabel(value)),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setState(() => unit = value ?? 'box');
-                          _markDirty();
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    MedicineDateField(
-                      key: const ValueKey('api-expiry-date-field'),
-                      controller: expiryController,
-                      label: '包装有效期',
-                      precision: expiryPrecision == 'month' ? 'month' : 'day',
-                      onChanged: () {
-                        setState(() {
-                          touchedExpiry = true;
-                          if (expiryPrecision == 'unknown') {
-                            expiryPrecision = 'day';
-                          }
-                        });
-                        _markDirty();
-                      },
-                    ),
-                    TextButton.icon(
-                      onPressed: saving
-                          ? null
-                          : () => _chooseImage(
-                              action: _ImageAction.camera,
-                              expiryPhoto: true,
-                            ),
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: Text(
-                        expiryImage == null ? '补拍有效期照片' : '已保留有效期照片（可补拍）',
-                      ),
-                    ),
-                    if (expiryController.text.isNotEmpty)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: PopupMenuButton<String>(
-                          tooltip: '选择有效期精度',
-                          onSelected: _setExpiryPrecision,
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'day', child: Text('精确到日')),
-                            PopupMenuItem(value: 'month', child: Text('精确到月')),
-                          ],
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              '按包装印刷精度保存：${expiryPrecision == 'month' ? '年月' : '年月日'}　修改',
-                              style: Theme.of(context).textTheme.bodySmall,
+                        if (nameController.text.trim().isNotEmpty ||
+                            scannedCode != null) ...[
+                          const SizedBox(height: 8),
+                          SoftButton(
+                            label: searchingCatalog ? '正在查询候选资料…' : '联网查询候选资料',
+                            icon: Icons.manage_search_rounded,
+                            onPressed: searchingCatalog
+                                ? null
+                                : () => _searchCatalog(),
+                          ),
+                        ],
+                        if (image != null) ...[
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.file(
+                              File(image!.path),
+                              height: 150,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
                             ),
                           ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _optionalSection(
-                      title: '开封信息（选填）',
-                      expanded: openingExpanded,
-                      onTap: () {
-                        setState(() => openingExpanded = !openingExpanded);
-                        _markDirty();
-                      },
+                        ],
+                        if (scannedCode != null) ...[
+                          const SizedBox(height: 10),
+                          SelectableText('药盒编码：$scannedCode'),
+                          const Text('商品码和追溯码可能用途不同；读取编码不代表已查到药品资料。'),
+                        ],
+                        if (recognizing) ...[
+                          const SizedBox(height: 12),
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 6),
+                          const Text('正在识别药盒文字…'),
+                        ],
+                        if (recognitionFailure != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              '识别失败，可继续手动保存：${friendlyApiError(recognitionFailure!)}',
+                            ),
+                          ),
+                        if (recognitionWarnings.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(recognitionWarnings.join('\n')),
+                          ),
+                      ],
                     ),
-                    if (openingExpanded) ...[
-                      const SizedBox(height: 12),
-                      _openingSegments(
-                        labels: const {
-                          'unknown': '未记录',
-                          'unopened': '未开封',
-                          'opened': '已开封',
-                        },
-                        selected: openedState,
-                        onSelectionChanged: (value) {
-                          setState(() => openedState = value.first);
-                          _markDirty();
-                        },
-                      ),
-                      if (openedState == 'opened') ...[
-                        const SizedBox(height: 12),
-                        SoftButton(
-                          label: openedAt == null ? '选择开封日期' : '开封日期：$openedAt',
-                          icon: Icons.event_outlined,
-                          onPressed: _pickOpenedDate,
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '药品名称（唯一必填）',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 10),
-                        const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
+                        TextField(
+                          controller: nameController,
+                          onChanged: (_) {
+                            touchedName = true;
+                            _markDirty();
+                          },
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: '例如：布洛芬缓释胶囊',
+                            errorText:
+                                touchedName &&
+                                    nameController.text.trim().isEmpty
+                                ? '请填写药品名称'
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: brandController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(
+                            labelText: '品牌（按包装核对）',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: specificationController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(
+                            labelText: '包装规格',
+                            helperText: '如每盒20粒；服药间隔不属于包装数量',
+                            helperMaxLines: 3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: manufacturerController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(labelText: '厂家'),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '库存与有效期（选填）',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 8),
-                        _openingSegments(
-                          labels: const {'duration': '经过时长', 'date': '截止日期'},
-                          selected: afterOpenKind,
-                          onSelectionChanged: (value) {
-                            setState(() => afterOpenKind = value.first);
+                        _quantityUnitFields(
+                          quantityLabels: const ['剩余数量', '未知可留空'],
+                          unitLabels: kQuantityUnitValues.map(unitLabel),
+                          quantityField: TextField(
+                            controller: quantityController,
+                            onChanged: (_) => _markDirty(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: '剩余数量',
+                              hintText: '未知可留空',
+                            ),
+                          ),
+                          unitField: DropdownButtonFormField<String>(
+                            key: ValueKey(unit),
+                            initialValue: unit,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: '单位'),
+                            // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
+                            // 避免 initialValue 找不到 item 触发断言。
+                            items: kQuantityUnitValues
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(unitLabel(value)),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: (value) {
+                              setState(() => unit = value ?? 'box');
+                              _markDirty();
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        MedicineDateField(
+                          key: const ValueKey('api-expiry-date-field'),
+                          controller: expiryController,
+                          label: '包装有效期',
+                          precision: expiryPrecision == 'day' ? 'day' : 'month',
+                          onChanged: () {
+                            setState(() {
+                              touchedExpiry = true;
+                              if (expiryPrecision == 'unknown') {
+                                expiryPrecision = 'month';
+                              }
+                            });
                             _markDirty();
                           },
                         ),
-                        const SizedBox(height: 10),
-                        if (afterOpenKind == 'duration')
-                          _quantityUnitFields(
-                            quantityLabels: const ['开封后期限', '例如 30'],
-                            unitLabels: const ['选择', '天', '月'],
-                            quantityField: TextField(
-                              controller: afterOpenValueController,
-                              onChanged: (_) => _markDirty(),
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: '开封后期限',
-                                hintText: '例如 30',
-                              ),
-                            ),
-                            unitField: DropdownButtonFormField<String>(
-                              key: ValueKey(afterOpenUnit),
-                              initialValue: afterOpenUnit,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: '单位',
-                              ),
-                              hint: const Text('选择'),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'day',
-                                  child: Text('天'),
+                        TextButton.icon(
+                          onPressed: saving
+                              ? null
+                              : () => _chooseImage(
+                                  action: _ImageAction.camera,
+                                  expiryPhoto: true,
                                 ),
-                                DropdownMenuItem(
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: Text(
+                            expiryImage == null ? '补拍有效期照片' : '已保留有效期照片（可补拍）',
+                          ),
+                        ),
+                        if (expiryController.text.isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: PopupMenuButton<String>(
+                              tooltip: '选择有效期精度',
+                              onSelected: _setExpiryPrecision,
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'day',
+                                  child: Text('精确到日'),
+                                ),
+                                PopupMenuItem(
                                   value: 'month',
-                                  child: Text('月'),
+                                  child: Text('精确到月'),
                                 ),
                               ],
-                              onChanged: (value) {
-                                setState(() => afterOpenUnit = value);
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '按包装印刷精度保存：${expiryPrecision == 'month' ? '年月' : '年月日'}　修改',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _optionalSection(
+                          title: '开封信息（选填）',
+                          expanded: openingExpanded,
+                          onTap: () {
+                            setState(() => openingExpanded = !openingExpanded);
+                            _markDirty();
+                          },
+                        ),
+                        if (openingExpanded) ...[
+                          const SizedBox(height: 12),
+                          _openingSegments(
+                            labels: const {
+                              'unknown': '未记录',
+                              'unopened': '未开封',
+                              'opened': '已开封',
+                            },
+                            selected: openedState,
+                            onSelectionChanged: (value) {
+                              setState(() => openedState = value.first);
+                              _markDirty();
+                            },
+                          ),
+                          if (openedState == 'opened') ...[
+                            const SizedBox(height: 12),
+                            SoftButton(
+                              label: openedAt == null
+                                  ? '选择开封日期'
+                                  : '开封日期：$openedAt',
+                              icon: Icons.event_outlined,
+                              onPressed: _pickOpenedDate,
+                            ),
+                            const SizedBox(height: 10),
+                            const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
+                            const SizedBox(height: 8),
+                            _openingSegments(
+                              labels: const {
+                                'duration': '经过时长',
+                                'date': '截止日期',
+                              },
+                              selected: afterOpenKind,
+                              onSelectionChanged: (value) {
+                                setState(() => afterOpenKind = value.first);
                                 _markDirty();
                               },
                             ),
-                          )
-                        else
-                          MedicineDateField(
-                            controller: afterOpenDateController,
-                            label: '开封后截止日期',
+                            const SizedBox(height: 10),
+                            if (afterOpenKind == 'duration')
+                              _quantityUnitFields(
+                                quantityLabels: const ['开封后期限', '例如 30'],
+                                unitLabels: const ['选择', '天', '月'],
+                                quantityField: TextField(
+                                  controller: afterOpenValueController,
+                                  onChanged: (_) => _markDirty(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: '开封后期限',
+                                    hintText: '例如 30',
+                                  ),
+                                ),
+                                unitField: DropdownButtonFormField<String>(
+                                  key: ValueKey(afterOpenUnit),
+                                  initialValue: afterOpenUnit,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: '单位',
+                                  ),
+                                  hint: const Text('选择'),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'day',
+                                      child: Text('天'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'month',
+                                      child: Text('月'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() => afterOpenUnit = value);
+                                    _markDirty();
+                                  },
+                                ),
+                              )
+                            else
+                              MedicineDateField(
+                                controller: afterOpenDateController,
+                                label: '开封后截止日期',
+                                onChanged: () {
+                                  setState(() {});
+                                  _markDirty();
+                                },
+                              ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _optionalSection(
+                          title: '用途与人群（请核对）',
+                          expanded: categoryExpanded,
+                          onTap: () => setState(
+                            () => categoryExpanded = !categoryExpanded,
+                          ),
+                        ),
+                        if (categoryExpanded) ...[
+                          MedicineTagFields(
+                            populations: populationTags,
+                            purposes: purposeTags,
                             onChanged: () {
                               setState(() {});
                               _markDirty();
                             },
                           ),
+                          TextField(
+                            controller: purposeController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '用途分类 / 标签',
+                              hintText: '保留你填写的分类文案',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _optionalSection(
+                          title: '存放位置（选填）',
+                          expanded: locationExpanded,
+                          onTap: () => setState(
+                            () => locationExpanded = !locationExpanded,
+                          ),
+                        ),
+                        if (locationExpanded) ...[
+                          TextField(
+                            controller: locationController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '存放位置（选填）',
+                              hintText: '例如：厨房抽屉',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _optionalSection(
+                          title: '更多资料（选填）',
+                          expanded: moreExpanded,
+                          onTap: () {
+                            setState(() => moreExpanded = !moreExpanded);
+                            _markDirty();
+                          },
+                        ),
+                        if (moreExpanded) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: approvalController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '批准文号',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: ingredientController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '成分（多个请用逗号分开）',
+                            ),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: ingredientsVerified,
+                            onChanged: (value) {
+                              setState(
+                                () => ingredientsVerified = value == true,
+                              );
+                              _markDirty();
+                            },
+                            title: const Text('已对照包装核对有效成分'),
+                            subtitle: const Text('未核对的成分不会触发家庭内重复成分提示。'),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                       ],
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _optionalSection(
-                      title: '分类与位置（选填）',
-                      expanded: categoryExpanded,
-                      onTap: () =>
-                          setState(() => categoryExpanded = !categoryExpanded),
                     ),
-                    if (categoryExpanded) ...[
-                      MedicineTagFields(
-                        populations: populationTags,
-                        purposes: purposeTags,
-                        onChanged: () {
-                          setState(() {});
-                          _markDirty();
-                        },
-                      ),
-                      TextField(
-                        controller: purposeController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(
-                          labelText: '用途分类 / 标签',
-                          hintText: '保留你填写的分类文案',
+                  ),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '说明书（选填，识别后请核对）',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                      ),
-                      TextField(
-                        controller: locationController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(
-                          labelText: '存放位置（选填）',
-                          hintText: '例如：厨房抽屉',
+                        TextButton.icon(
+                          onPressed: recognizing
+                              ? null
+                              : () => _chooseImage(
+                                  action: _ImageAction.camera,
+                                  leafletPhoto: true,
+                                ),
+                          icon: const Icon(Icons.document_scanner_outlined),
+                          label: const Text('拍说明书识别文字'),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    _optionalSection(
-                      title: '更多资料（选填）',
-                      expanded: moreExpanded,
-                      onTap: () {
-                        setState(() => moreExpanded = !moreExpanded);
-                        _markDirty();
-                      },
+                        for (final entry in leafletControllers.entries)
+                          TextField(
+                            controller: entry.value,
+                            maxLines: null,
+                            onChanged: (_) => _markDirty(),
+                            decoration: InputDecoration(
+                              labelText: const {
+                                'purposeSummary': '功能与用途',
+                                'packageUsageSummary': '用法用量',
+                                'precautionsSummary': '注意事项',
+                                'contraindicationsSummary': '禁忌',
+                              }[entry.key],
+                            ),
+                          ),
+                        const Text('识别内容仅作草稿，保存后仍标记未核对。'),
+                      ],
                     ),
-                    if (moreExpanded) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: specificationController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(labelText: '规格'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: manufacturerController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(labelText: '厂家'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: approvalController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(labelText: '批准文号'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: ingredientController,
-                        onChanged: (_) => _markDirty(),
-                        decoration: const InputDecoration(
-                          labelText: '成分（多个请用逗号分开）',
-                        ),
-                      ),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: ingredientsVerified,
-                        onChanged: (value) {
-                          setState(() => ingredientsVerified = value == true);
-                          _markDirty();
-                        },
-                        title: const Text('已对照包装核对有效成分'),
-                        subtitle: const Text('未核对的成分不会触发家庭内重复成分提示。'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '数量和日期不确定时可以先留空。任何识别字段都需要人工核对后才会保存。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                '数量和日期不确定时可以先留空。任何识别字段都需要人工核对后才会保存。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
-        ),
+          if (recognizing)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black38,
+                child: Center(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            '正在识别药品… 已等待 $recognitionSeconds 秒',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Text('完成后请核对包装信息'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     ),
   );

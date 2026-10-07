@@ -9,6 +9,13 @@ function numericPrefix(name: string): number {
   return match ? Number.parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
 }
 
+/** Windows checkouts may convert only line endings; SQL edits must still fail. */
+export function migrationChecksumMatches(sql: string, expected: string): boolean {
+  const lf = sql.replace(/\r\n/g, "\n");
+  return [sql, lf, lf.replace(/\n/g, "\r\n")].some((value) =>
+    createHash("sha256").update(value).digest("hex") === expected);
+}
+
 /**
  * Order by numeric filename prefix so 2_x runs before 10_x; ties fall back to
  * lexicographic order. Files without a numeric prefix sort last.
@@ -30,7 +37,7 @@ export async function applyMigrations(pool: Pool, directory?: string): Promise<s
 
   for (const name of names) {
     const sql = await readFile(resolve(migrationDirectory, name), "utf8");
-    const checksum = createHash("sha256").update(sql).digest("hex");
+    const checksum = createHash("sha256").update(sql.replace(/\r\n/g, "\n")).digest("hex");
     const client = await pool.connect();
 
     try {
@@ -50,7 +57,7 @@ export async function applyMigrations(pool: Pool, directory?: string): Promise<s
       );
 
       if (existing.rowCount !== 0) {
-        if (existing.rows[0]?.checksum !== checksum) {
+        if (!migrationChecksumMatches(sql, existing.rows[0]?.checksum ?? "")) {
           throw new Error(`Applied migration checksum changed: ${name}`);
         }
         await client.query("COMMIT");

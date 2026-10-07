@@ -69,3 +69,18 @@ test("catalog provider failure becomes a safe unavailable response", async () =>
     await app.close();
   }
 });
+
+test("unconfigured catalog is distinct and never makes an external request", async () => {
+  const { JisuMedicineCatalogProvider } = await import("../dist/services/medicine-catalog.js");
+  let externalCalls = 0;
+  const provider = new JisuMedicineCatalogProvider("", async () => { externalCalls += 1; throw new Error("must not call"); });
+  const app = await createCatalogApp(provider);
+  try {
+    const response = await app.inject({ method: "POST", url: "/api/v1/medicine-catalog/candidates",
+      payload: { barcode: "6900000000012", consentToShare: true } });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.json().error.code, "MEDICINE_CATALOG_NOT_CONFIGURED");
+    assert.equal(response.body.includes("API_KEY"), false);
+    assert.equal(externalCalls, 0);
+  } finally { await app.close(); }
+});

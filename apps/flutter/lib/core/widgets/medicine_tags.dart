@@ -10,6 +10,11 @@ const medicinePurposeLabels = {
   'pain': '疼痛',
   'topical': '外用',
   'allergy': '过敏',
+  'itch': '止痒',
+  'eye': '眼部',
+  'oral': '口腔',
+  'constipation': '便秘',
+  'diarrhea': '腹泻',
   'other': '其他',
 };
 

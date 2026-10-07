@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "计划详情",
-  "usingComponents": {}
+  "usingComponents": {
+    "medicine-date-field": "../../components/medicine-date-field/index",
+    "medicine-time-field": "../../components/medicine-time-field/index"
+  }
 }

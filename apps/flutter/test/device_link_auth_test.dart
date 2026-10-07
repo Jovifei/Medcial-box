@@ -102,10 +102,9 @@ void main() {
     },
   );
 
-  test('missing API base reports actionable configuration help', () {
-    expect(
-      missingApiConfigurationMessage,
-      contains('--dart-define=API_BASE_URL=https://'),
-    );
+  test('missing API base reports actionable user-safe configuration help', () {
+    expect(missingApiConfigurationMessage, contains('正式发布包'));
+    expect(missingApiConfigurationMessage, isNot(contains('--dart-define')));
+    expect(missingApiConfigurationMessage, isNot(contains('127.0.0.1')));
   });
 }

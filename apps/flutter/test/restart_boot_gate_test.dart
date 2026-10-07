@@ -92,6 +92,7 @@ class _Fixture {
   bool offline = false;
   bool familyMissing = false;
   bool notificationVisible = true;
+  List<Map<String, Object?>>? medicines;
 
   Map<String, Object?> get family => {
     'id': 'family-a',
@@ -184,6 +185,16 @@ class _Fixture {
       }, 404);
     }
     switch (request.url.path) {
+      case '/api/v1/auth/devices':
+        return _json({
+          'devices': [
+            {'id': 'current', 'clientKind': 'android', 'isCurrent': true},
+            {'id': 'other', 'clientKind': 'android', 'isCurrent': false},
+            {'id': 'wechat', 'clientKind': 'miniprogram', 'isCurrent': false},
+          ],
+        });
+      case '/api/v1/auth/devices/other/revoke':
+        return _json({});
       case '/api/v1/auth/logout':
         return _json({});
       case '/api/v1/auth/me':
@@ -195,13 +206,15 @@ class _Fixture {
         return _json({'family': family});
       case '/api/v1/medicines':
         return _json({
-          'medicines': [
-            {
-              'id': 'server-medicine',
-              'name': 'Synthetic online medicine',
-              'batches': [],
-            },
-          ],
+          'medicines':
+              medicines ??
+              [
+                {
+                  'id': 'server-medicine',
+                  'name': 'Synthetic online medicine',
+                  'batches': [],
+                },
+              ],
         });
       case '/api/v1/medication-plans/schedule':
         return _json({
@@ -319,6 +332,185 @@ void main() {
         .setMockMethodCallHandler(_channel, null);
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets(
+    'My page keeps two-column actions and collapses reminder controls until requested',
+    (tester) async {
+      final f = _Fixture();
+      await f.accepted();
+      await f.cache();
+      await _mount(tester, f);
+      GoRouter.of(tester.element(find.byType(ProductionShell)))
+          .go('/home?tab=my');
+      await _pump(tester);
+      expect(find.text('照护对象'), findsOneWidget);
+      expect(find.text('提醒设置'), findsOneWidget);
+      final care = tester.getTopLeft(find.text('提醒设置'));
+      final nickname = tester.getTopLeft(find.text('补货清单'));
+      expect(care.dy, nickname.dy);
+      expect(care.dx, lessThan(nickname.dx));
+      expect(find.text('开启本地通知'), findsNothing);
+      await tester.ensureVisible(
+        find.widgetWithText(ExpansionTile, 'Android 本地提醒'),
+      );
+      await tester.tap(find.widgetWithText(ExpansionTile, 'Android 本地提醒'));
+      await _pump(tester);
+      expect(find.text('开启本地通知'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'home exposes compact filter entries and opens only the selected panel',
+    (tester) async {
+      final f = _Fixture();
+      await f.accepted();
+      await f.cache();
+      await _mount(tester, f);
+      expect(find.text('用途 ▾'), findsOneWidget);
+      expect(find.text('人群 ▾'), findsOneWidget);
+      expect(find.text('状态 ▾'), findsOneWidget);
+      expect(find.text('排序 ▾'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, '儿童'), findsNothing);
+      await tester.tap(find.text('人群 ▾'));
+      await _pump(tester);
+      expect(find.widgetWithText(FilterChip, '儿童'), findsOneWidget);
+      await tester.tap(find.text('状态 ▾'));
+      await _pump(tester);
+      expect(find.widgetWithText(FilterChip, '儿童'), findsNothing);
+      expect(find.widgetWithText(FilterChip, '临期/过期'), findsOneWidget);
+      await tester.tap(find.text('状态 ▾'));
+      await _pump(tester);
+      expect(find.widgetWithText(FilterChip, '临期/过期'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'home status counters match filters and unknown stock stays separate',
+    (tester) async {
+      final f = _Fixture();
+      Map<String, Object?> medicine(
+        String id,
+        String stock, {
+        bool missing = false,
+        bool unknownExpiry = false,
+      }) => {
+        'id': id,
+        'name': id,
+        'specification': '20粒/盒',
+        'manufacturer': '合成厂家',
+        'activeIngredients': missing ? [] : ['合成成分'],
+        'leaflet': {'reviewStatus': 'verified'},
+        'stockStatus': {'state': stock},
+        'expiryState': {'state': unknownExpiry ? 'unknown' : 'normal'},
+        'batches': [],
+      };
+      f.medicines = [
+        medicine('低库存', 'low'),
+        medicine('用完', 'exhausted'),
+        medicine('数量未知', 'unknown'),
+        medicine('日期未知', 'normal', unknownExpiry: true),
+        medicine('缺成分', 'normal', missing: true),
+        medicine('资料完整', 'normal'),
+      ];
+      await f.accepted();
+      await _mount(tester, f);
+      final low = find.text('库存不足').first;
+      final missing = find.text('待补资料').first;
+      final lowBox = find.ancestor(
+        of: low,
+        matching: find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_StatusBox',
+        ),
+      );
+      final missingBox = find.ancestor(
+        of: missing,
+        matching: find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_StatusBox',
+        ),
+      );
+      expect(
+        find.descendant(of: lowBox, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: missingBox, matching: find.text('1')),
+        findsOneWidget,
+      );
+      await tester.tap(low);
+      await _pump(tester);
+      expect(find.text('低库存'), findsOneWidget);
+      expect(find.text('用完'), findsOneWidget);
+      expect(find.text('数量未知'), findsNothing);
+      await tester.tap(missing);
+      await _pump(tester);
+      expect(find.text('缺成分'), findsOneWidget);
+      expect(find.text('资料完整'), findsNothing);
+      expect(find.text('低库存'), findsNothing);
+      expect(find.widgetWithText(FilterChip, '数量/日期未知'), findsNothing);
+      await tester.tap(find.text('状态 ▾'));
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(FilterChip, '数量/日期未知'));
+      await _pump(tester);
+      expect(find.text('数量未知'), findsOneWidget);
+      expect(find.text('日期未知'), findsOneWidget);
+      expect(find.text('低库存'), findsNothing);
+      expect(find.text('缺成分'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'devices require other Android confirmation and restock loads only its shared data',
+    (tester) async {
+      final f = _Fixture();
+      await f.accepted();
+      await f.cache();
+      await _mount(tester, f);
+      GoRouter.of(tester.element(find.byType(ProductionShell)))
+          .go('/home?tab=my');
+      await _pump(tester);
+      expect(
+        f.requests.where((r) => r.url.path == '/api/v1/auth/devices'),
+        isEmpty,
+      );
+      await tester.ensureVisible(find.text('已登录设备'));
+      await tester.tap(find.text('已登录设备'));
+      await _pump(tester);
+      expect(find.text('Android App · 当前设备'), findsOneWidget);
+      expect(find.text('撤销授权'), findsOneWidget);
+      await tester.ensureVisible(find.text('撤销授权'));
+      await tester.tap(find.text('撤销授权'));
+      await _pump(tester);
+      await tester.tap(find.text('取消'));
+      await _pump(tester);
+      expect(f.requests.where((r) => r.url.path.endsWith('/revoke')), isEmpty);
+      await tester.tap(find.text('撤销授权'));
+      await _pump(tester);
+      await tester.tap(find.text('撤销'));
+      await _pump(tester);
+      final revoke = f.requests.singleWhere(
+        (r) => r.url.path.endsWith('/revoke'),
+      );
+      expect(revoke.method, 'POST');
+      expect(jsonDecode(revoke.body), <String, dynamic>{});
+      final offset = f.requests.length;
+      GoRouter.of(tester.element(find.byType(MyPage))).push('/restock');
+      await _pump(tester);
+      expect(f.requests.skip(offset).map((r) => r.url.path).toList(), [
+        '/api/v1/families/restock',
+      ]);
+      expect(find.text('家庭盘点'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
 
   for (final delayed in [false, true]) {
     testWidgets(

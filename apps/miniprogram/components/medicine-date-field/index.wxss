@@ -1,0 +1,4 @@
+.date-box { display:flex; align-items:center; justify-content:space-between; padding:22rpx 24rpx; border:1rpx solid #dce5df; border-radius:16rpx; background:#fff; color:#25382d; font-size:30rpx; }
+.date-arrow { margin-left:16rpx; color:#758278; }
+.disabled { opacity:.55; }
+.precision-choice{padding:12rpx 8rpx;color:#537461;font-size:24rpx}

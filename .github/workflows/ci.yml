@@ -2,8 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main, "codex/**", "audit/**"]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   verify:
@@ -26,8 +29,11 @@ jobs:
       TEST_DATABASE_URL: postgres://medbox_ci:ephemeral_ci_only@127.0.0.1:5432/medbox_ci
       REQUIRE_POSTGRES_TESTS: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Frozen historical QA source must be available to deterministic tests.
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -36,6 +42,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run check:miniprogram:source
 
   backup-docker:
     # Disposable synthetic resources only; no deployment environment or secrets.
@@ -44,10 +51,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Exercise isolated staging backup and restore
@@ -59,7 +66,9 @@ jobs:
       run:
         working-directory: apps/flutter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -68,6 +77,6 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
-      # Technical shrinker gate: existing debug signing, no API or publication.
-      - name: Build optimized release APK
+      # Technical optimizer gate only. Source control intentionally has no distribution signing key.
+      - name: Build optimized unsigned release APK
         run: flutter build apk --release

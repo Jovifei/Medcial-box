@@ -1,5 +1,5 @@
 // Host-engine layout regression tests using production widgets and synthetic data.
-// The bundled Chinese font is loaded as sans for deterministic host rendering;
+// A repository-only Chinese font fixture is loaded for deterministic rendering;
 // this does not validate native font substitution or an actual software keyboard.
 import 'dart:convert';
 import 'dart:io';
@@ -19,6 +19,8 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/models/medicine_models.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'support/chinese_font_fixture.dart';
 
 const captureKey = ValueKey('audit-capture');
 const output = String.fromEnvironment('ENTRY_LAYOUT_OUTPUT');
@@ -244,7 +246,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     final loader = FontLoader('sans')
-      ..addFont(rootBundle.load('assets/fonts/MedBoxSansSC-Regular.ttf'));
+      ..addFont(loadChineseFontFixture());
     await loader.load();
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
@@ -258,6 +260,49 @@ void main() {
       const JsonEncoder.withIndent('  ').convert(observed),
     );
   });
+
+  for (final width in [320.0, 640.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('brand and specification are separated at $width / $scale', (
+        tester,
+      ) async {
+        await openEntry(
+          tester,
+          MemoryInventoryLocalStore(),
+          width: width,
+          scale: scale,
+        );
+        final brand = fieldWithLabel('品牌（按包装核对）');
+        final specification = find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.labelText?.startsWith('包装规格') == true,
+        );
+        await showField(tester, brand);
+        await tester.enterText(brand, '中美天津史克制药有限公司包装品牌核对测试');
+        await showField(tester, specification);
+        await tester.enterText(specification, '0.3g×20粒/盒');
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(specification).top - tester.getRect(brand).bottom,
+          greaterThanOrEqualTo(12),
+          reason: 'adjacent outlined fields need label clearance',
+        );
+        expectFullLabel(
+          tester,
+          find.text(
+            tester.widget<TextField>(specification).decoration!.labelText!,
+          ),
+          scale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        await capture(
+          tester,
+          'brand-specification-${width.toInt()}-${(scale * 100).toInt()}',
+        );
+      });
+    }
+  }
 
   for (final width in [320.0, 360.0, 430.0]) {
     for (final scale in [1.0, 2.0]) {
@@ -340,10 +385,17 @@ void main() {
         await capture(tester, 'duration-$variant');
         await selectSegment(tester, openingKind, '截止日期');
         expectSegments(tester, openingKind, 'date', scale);
-        await showField(tester, find.byWidgetPredicate((w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期'));
+        await showField(
+          tester,
+          find.byWidgetPredicate(
+            (w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期',
+          ),
+        );
         expectFullLabel(tester, find.text('开封后截止日期'), allowWrap: true);
         await capture(tester, 'date-$variant');
-        final deadline = find.byWidgetPredicate((w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期');
+        final deadline = find.byWidgetPredicate(
+          (w) => w is InputDecorator && w.decoration.labelText == '开封后截止日期',
+        );
         await tester.tap(deadline);
         await tester.pumpAndSettle();
         expect(find.text('选择有效期'), findsOneWidget);
@@ -405,7 +457,7 @@ void main() {
           expect(tester.getRect(save).bottom, lessThanOrEqualTo(500));
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pumpAndSettle();
-          final quantity = fieldWithLabel('剩余数量');
+          final quantity = fieldWithLabel('品牌（按包装核对）');
           final editable = tester.widget<EditableText>(
             find.descendant(of: quantity, matching: find.byType(EditableText)),
           );
@@ -427,6 +479,7 @@ void main() {
           expect(find.text('选择有效期'), findsOneWidget);
           await tester.tap(find.text('确定'));
           await tester.pumpAndSettle();
+          await showField(tester, expiry);
           expect(
             tester.getRect(expiry).bottom,
             lessThan(tester.getRect(save).top),

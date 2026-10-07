@@ -1,3 +1,4 @@
+import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -128,6 +129,15 @@ function homePage() {
   return makePageContext(definition);
 }
 
+test("new purposes display in Chinese and remain searchable filters rather than raw API codes", () => {
+  const page = homePage();
+  page.applyMedicines([medicine({ id: "itching", purposeTags: ["itch"], purposeCategory: "itch止痒" }), medicine({ id: "eye", purposeTags: ["eye"], purposeCategory: null })], "F");
+  assert.equal(page.data.allItems[0].purpose, "止痒");
+  assert.ok(page.data.purposeChips.some(item => item.label === "止痒"));
+  page.onTogglePurpose({ currentTarget: { dataset: { value: "止痒" } } });
+  assert.deepEqual(Array.from(page.data.items, item => item.id), ["itching"]);
+});
+
 test("S5-A：首页卡片存放位置去重，超过两处合并为「等 N 处」", () => {
   const page = homePage();
   page.applyMedicines([medicine({ batches: [batch({ storageLocation: "客厅药箱" })] })], "F");
@@ -158,8 +168,11 @@ test("S5-A：开封/归档状态显式化到首页卡片（此前静默）", () 
     batch({ id: "b1", openedState: "opened" }),
     batch({ id: "b2", openedState: "opened" }),
   ] })], "F");
+  assert.equal(page.data.items.length, 0, "默认药箱不混入已归档药品");
+  page.onSelectFilter({ currentTarget: { dataset: { kind: "archived" } } });
   assert.equal(page.data.items[0].isArchived, true);
   assert.equal(page.data.items[0].openedText, "已开封 · 2 批");
+  page.onClearFilters();
   page.applyMedicines([medicine({ batches: [batch({ openedState: "opened" })] })], "F");
   assert.equal(page.data.items[0].openedText, "已开封");
   assert.equal(page.data.items[0].isArchived, false);
@@ -403,7 +416,7 @@ test("barcode lookup outage keeps the scanned code and asks again before retry",
   await page.onScanCode();
   assert.equal(page.data.scannedBarcode, "6900000000012");
   assert.equal(page.data.canRetryBarcode, true);
-  assert.match(page.data.barcodeLookupStatus, /服务当前不可用/);
+  assert.match(page.data.barcodeLookupStatus, /资料服务暂不可用/);
   await page.onRetryBarcodeLookup();
   assert.deepEqual(calls, ["6900000000012"]);
   assert.deepEqual(modalTitles, ["查询药品资料候选", "重新查询商品码"]);
@@ -919,6 +932,21 @@ test("mini API uses POST for catalog lookup and app device approval", async () =
   assert.deepEqual(requests, [
     ["POST", "https://medicine.test/api/v1/medicine-catalog/candidates", { barcode: "6900000000012", consentToShare: true }],
     ["POST", "https://medicine.test/api/v1/auth/device-links/approve", { code: "ABC123" }],
+  ]);
+});
+
+test("mini API keeps trash delete and archive as distinct medicine lifecycle actions", async () => {
+  const service = loadApi();
+  await service.api.deleteMedicine("medicine / 1");
+  await service.api.archiveMedicine("medicine / 1");
+  const requests = service.requests.map(({ method, url, data }) => [
+    method,
+    url,
+    data === undefined ? null : JSON.parse(JSON.stringify(data)),
+  ]);
+  assert.deepEqual(requests, [
+    ["POST", "https://medicine.test/api/v1/medicines/medicine%20%2F%201/trash", {}],
+    ["DELETE", "https://medicine.test/api/v1/medicines/medicine%20%2F%201", null],
   ]);
 });
 
@@ -1468,7 +1496,7 @@ test("A14: a late recognition response never refills fields the user cleared", a
     },
     wx: {
       chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
-      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      ...ownedPhotoFixture(),
       showToast() {},
       showModal(options) { options?.success?.({ confirm: true }); },
     },
@@ -1487,6 +1515,7 @@ test("A14: a late recognition response never refills fields the user cleared", a
 });
 
 test("A14: a late recognition response does not write into a batch the user removed", async () => {
+  const photoStorage = new Map();
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const draft = {
@@ -1515,7 +1544,18 @@ test("A14: a late recognition response does not write into a batch the user remo
     },
     wx: {
       chooseMedia: async () => ({ tempFiles: [{ tempFilePath: "/tmp/box.jpg", size: 2048 }] }),
-      getFileSystemManager: () => ({ readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }) }),
+      getStorageSync: (key) => photoStorage.get(key),
+      setStorageSync: (key, value) => photoStorage.set(key, JSON.parse(JSON.stringify(value))),
+      env: { USER_DATA_PATH: "/synthetic-owned" },
+      getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 360, SDKVersion: "3.17.3" }),
+      base64ToArrayBuffer: () => new ArrayBuffer(8),
+      getFileSystemManager: () => ({
+        readFile: (options) => options.success({ data: "/9j/AAAAAAAA" }),
+        open: (options) => options.success({ fd: "synthetic-fd" }),
+        write: (options) => options.success({ bytesWritten: options.data.byteLength }),
+        close: (options) => options.success({}),
+        unlink: (options) => options.success({}),
+      }),
       showToast() {},
       showModal(options) { options?.success?.({ confirm: true }); },
     },

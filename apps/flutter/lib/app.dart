@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +26,7 @@ import 'features/medicine/leaflet_photo_page.dart';
 import 'features/my/trash_audit_pages.dart';
 import 'features/my/release_notes_page.dart';
 import 'features/pending/stocktake_page.dart';
+import 'features/pending/pending_page.dart';
 import 'features/plan/care_permissions_page.dart';
 import 'features/plan/care_profiles_page.dart';
 import 'features/plan/plan_detail_page.dart';
@@ -79,25 +81,29 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
   }
 
   GoRouter _createRouter(AppServices services) {
-    final demo = services.demoMedicineRepository;
     final routes = <RouteBase>[
       _route('/', BootGatePage(services: services)),
-      // The old synthetic walkthrough stays available only under /demo/*.
-      _route('/demo/welcome', const WelcomePage()),
-      _route('/demo/family-choice', const FamilyChoicePage()),
-      _route('/demo/home', HomePage(repository: demo)),
-      GoRoute(
-        path: '/demo/medicine/:id',
-        pageBuilder: (context, state) => _transitionPage(
-          state,
-          MedicineDetailPage(
-            repository: demo,
-            medicineId: state.pathParameters['id']!,
+    ];
+    if (kDebugMode) {
+      final demo = services.demoMedicineRepository;
+      routes.addAll([
+        // Synthetic walkthrough is a development aid and is not routable in Release.
+        _route('/demo/welcome', const WelcomePage()),
+        _route('/demo/family-choice', const FamilyChoicePage()),
+        _route('/demo/home', HomePage(repository: demo)),
+        GoRoute(
+          path: '/demo/medicine/:id',
+          pageBuilder: (context, state) => _transitionPage(
+            state,
+            MedicineDetailPage(
+              repository: demo,
+              medicineId: state.pathParameters['id']!,
+            ),
           ),
         ),
-      ),
-      _route('/demo/export', ExportPage(repository: demo)),
-    ];
+        _route('/demo/export', ExportPage(repository: demo)),
+      ]);
+    }
     if (services.isConfigured) {
       routes.addAll([
         _route(
@@ -125,6 +131,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             ),
           ),
         ),
+        _route('/restock', PendingPage(services: services, restockOnly: true)),
         _route(
           '/medicine/new',
           MedicineEntryApiPage(
@@ -239,7 +246,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         services.familyInvalidated,
       ]),
       redirect: (context, state) {
-        if (state.matchedLocation.startsWith('/demo')) return null;
+        if (kDebugMode && state.matchedLocation.startsWith('/demo')) return null;
         if (services.sessionInvalidated.value) {
           return state.matchedLocation == '/connect' ? null : '/connect';
         }
@@ -328,7 +335,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
           locale: _appLocale,
           supportedLocales: const [_appLocale],
           localizationsDelegates: _appLocalizationsDelegates,
-          home: Scaffold(body: Center(child: Text('初始化失败：${snapshot.error}'))),
+          home: const Scaffold(
+            body: Center(child: Text('应用初始化失败，请重启后重试；若持续出现，请联系维护者。')),
+          ),
         );
       }
       if (!snapshot.hasData) {

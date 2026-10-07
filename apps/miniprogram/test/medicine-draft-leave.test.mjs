@@ -1,3 +1,5 @@
+import { setImmediate } from 'node:timers';
+import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadPage, makePageContext, makeSessionScopeModule } from "./runtime.mjs";
@@ -6,7 +8,7 @@ const OWNER = { userId: "owner-a", familyId: "family-a" };
 const DRAFT_KEY = "medicine-edit-draft:owner-a:family-a:new";
 const choose = (page, choice) => page.onLeaveChoice({ currentTarget: { dataset: { choice } } });
 
-function fixture({ initialScope = OWNER, wxOverrides = {} } = {}) {
+function fixture({ initialScope = OWNER, wxOverrides = {}, api = {} } = {}) {
   const scope = makeSessionScopeModule(initialScope);
   const storage = new Map();
   const writes = [];
@@ -18,9 +20,10 @@ function fixture({ initialScope = OWNER, wxOverrides = {} } = {}) {
     modules: {
       "session-scope": scope,
       "../../services/auth": { ensureLoggedIn: async () => {} },
-      "../../services/api": { api: {}, ApiError: class ApiError extends Error {} },
+      "../../services/api": { api, ApiError: class ApiError extends Error {} },
     },
     wx: {
+      ...ownedPhotoFixture(),
       getStorageSync: key => structuredClone(storage.get(key)),
       setStorageSync(key, value) {
         if (key.startsWith("medicine-edit-draft:")) {
@@ -188,4 +191,85 @@ test("failed keep retains dirty state so hide/unload can retry local persistence
   f.page.onUnload();
   assert.equal(f.storage.get(DRAFT_KEY).fields.name, "Unsaved medicine");
   assert.deepEqual(f.navigations, []);
+});
+
+const PHOTO_KEY = "medicine-photo-drafts:owner-a:family-a:new";
+function photoDraft(page, id = "current") {
+  return { id, thumbnail: "/photo.jpg", status: "review", fields: {}, medicineId: "", photos: [] };
+}
+
+test("a fresh entry hides completed photo drafts but keeps older unfinished work", async () => {
+  const f = fixture();
+  f.storage.set(PHOTO_KEY, [
+    { ...photoDraft(f.page, "done"), status: "saved" },
+    photoDraft(f.page, "unfinished"),
+  ]);
+  f.page.loadPhotoDrafts();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.page.data.photoDrafts.map(item => item.id), ["unfinished"]);
+  assert.equal(f.storage.get(PHOTO_KEY).length, 1, "completed metadata is removed; unfinished work stays recoverable");
+});
+
+test("next medicine cannot reset an unsaved current form or start a parallel photo draft", () => {
+  const f = fixture();
+  const before = structuredClone(f.page.data);
+  f.page.onNewPhotoDraft();
+  assert.equal(JSON.stringify(f.page.data), JSON.stringify(before));
+  assert.match(f.toasts.at(-1), /先保存当前药品/);
+});
+
+test("successful save removes only the current photo draft and cannot recreate form draft on leave", async () => {
+  const f = fixture({ api: { createMedicine: async () => ({ id: "saved", batches: [] }) },
+    wxOverrides: { switchTab() {} } });
+  await f.page.checkEntrySession();
+  f.page.setData({ photoDrafts: [photoDraft(f.page), photoDraft(f.page, "older")], activePhotoDraftId: "current" });
+  await f.page.onSubmit();
+  assert.equal(f.storage.has(DRAFT_KEY), false);
+  assert.deepEqual(f.storage.get(PHOTO_KEY).map(item => item.id), ["older"]);
+  assert.equal(f.page.data.activePhotoDraftId, "");
+  f.page.onHide(); f.page.onUnload();
+  assert.equal(f.storage.has(DRAFT_KEY), false);
+});
+
+test("failed medicine save preserves current form and photo retry identity", async () => {
+  const f = fixture({ api: { createMedicine: async () => { throw new Error("lost response"); } } });
+  await f.page.checkEntrySession();
+  f.page.setData({ photoDrafts: [photoDraft(f.page)], activePhotoDraftId: "current" });
+  await f.page.onSubmit();
+  assert.equal(f.storage.get(DRAFT_KEY).fields.name, "Unsaved medicine");
+  assert.equal(f.storage.get(PHOTO_KEY)[0].id, "current");
+  assert.equal(f.page.data.isDirty, true);
+});
+
+test("failed photo upload retains the saved medicine id and retries without creating another medicine", async () => {
+  let creates = 0;
+  let uploads = 0;
+  const saved = { id: "saved", batches: [{ id: "batch" }] };
+  const f = fixture({ api: {
+    createMedicine: async () => { creates++; return saved; },
+    getMedicine: async () => saved,
+    uploadLeafletPhoto: async () => { uploads++; if (uploads === 1) throw new Error("upload failed"); return { photo: { id: "photo" } }; },
+  }, wxOverrides: { getFileSystemManager: () => ({ readFile: options => options.success({ data: "/9j/data" }) }), switchTab() {} } });
+  const current = photoDraft(f.page);
+  current.photos = [{ path: "/photo.jpg", mimeType: "image/jpeg", purpose: "box_front", batchIndex: 0 }];
+  await f.page.checkEntrySession();
+  f.page.setData({ photoDrafts: [current], activePhotoDraftId: "current", usePhotoAsCover: false });
+  await f.page.onSubmit();
+  assert.equal(f.storage.get(PHOTO_KEY)[0].status, "photo_pending");
+  assert.equal(f.storage.get(PHOTO_KEY)[0].medicineId, "saved");
+  assert.equal(f.storage.has(DRAFT_KEY), true);
+  await f.page.onSubmit();
+  assert.equal(creates, 1);
+  assert.equal(uploads, 2);
+  assert.equal(f.storage.get(PHOTO_KEY).length, 0);
+  assert.equal(f.storage.has(DRAFT_KEY), false);
+});
+
+test("editing an existing medicine cannot show another new-medicine photo draft", () => {
+  const f = fixture();
+  f.storage.set(PHOTO_KEY, [photoDraft(f.page, "new-work")]);
+  f.page.setData({ medicineId: "existing", isEdit: true });
+  f.page.loadPhotoDrafts();
+  assert.equal(f.page.data.photoDrafts.length, 0);
+  assert.equal(f.storage.get(PHOTO_KEY)[0].id, "new-work");
 });

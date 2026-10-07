@@ -46,9 +46,7 @@
         <view class="split-error" wx:if="{{openingSplitError}}">{{openingSplitError}}</view>
         <view class="field split-field">
           <view class="field-label">开封日期</view>
-          <picker mode="date" value="{{openingSplitDate}}" disabled="{{openingSplitBusy}}" bindchange="onSplitDateChange">
-            <view class="picker-box">{{openingSplitDate || "选择开封日期"}}</view>
-          </picker>
+          <medicine-date-field value="{{openingSplitDate}}" disabled="{{openingSplitBusy}}" label="选择开封日期" bindchange="onSplitDateChange" />
         </view>
         <view class="field split-field">
           <view class="field-label">开封后期限（选填，按说明书或包装填写）</view>
@@ -62,7 +60,7 @@
         </view>
         <view class="field split-field" wx:if="{{openingSplitMode === 'date'}}">
           <view class="field-label">开封后截止日期</view>
-          <input class="input" value="{{openingSplitValue}}" disabled="{{openingSplitBusy}}" bindinput="onSplitLimitValueInput" placeholder="YYYY-MM-DD" />
+          <medicine-date-field value="{{openingSplitValue}}" disabled="{{openingSplitBusy}}" bindchange="onSplitLimitValueInput" />
         </view>
         <view class="field split-field" wx:if="{{openingSplitMode !== 'none'}}">
           <view class="field-label">期限依据（选填）</view>

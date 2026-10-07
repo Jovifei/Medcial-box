@@ -8,7 +8,7 @@ import 'session_identity_state.dart';
 const apiBaseUrlFromBuild = String.fromEnvironment('API_BASE_URL');
 const localAppTrialFromBuild = bool.fromEnvironment('LOCAL_APP_TRIAL');
 const missingApiConfigurationMessage =
-    '尚未配置服务地址。请在运行或构建时添加 --dart-define=API_BASE_URL=https://你的药箱域名';
+    '当前安装包未配置可用的药箱服务。请安装正式发布包，或联系维护者检查服务配置。';
 
 class DeviceLink {
   const DeviceLink({
@@ -41,6 +41,23 @@ class AuthProfile {
 }
 
 class ApiAuthRepository {
+  Future<List<Map<String, dynamic>>> listDevices() async {
+    final epoch = api.identityEpoch;
+    final result =
+        await api.get('/api/v1/auth/devices') as Map<String, dynamic>;
+    _requireCurrentIdentity(epoch);
+    return (result['devices'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> revokeDevice(String id) async {
+    final epoch = api.identityEpoch;
+    await api.post(
+      '/api/v1/auth/devices/${Uri.encodeComponent(id)}/revoke',
+      body: {},
+    );
+    _requireCurrentIdentity(epoch);
+  }
+
   ApiAuthRepository({
     required this.api,
     required this.secretStore,

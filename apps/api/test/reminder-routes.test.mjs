@@ -65,6 +65,34 @@ test("one-time consent grants are recorded only for accepted configured template
   }
 });
 
+test("pending medicine info includes missing specification, manufacturer or ingredients", async () => {
+  const { app, pool } = await createReminderApp();
+  pool.always(/FROM medicines WHERE family_id/, {
+    rows: [medicineRow({
+      specification: null,
+      manufacturer: null,
+      active_ingredients: [],
+      leaflet_review_status: "user_confirmed",
+    })],
+    rowCount: 1,
+  });
+  pool.always(/FROM medicine_batches WHERE family_id/, { rows: [], rowCount: 0 });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/notifications/pending",
+      headers: { authorization: "Bearer test" },
+    });
+    assert.equal(response.statusCode, 200);
+    const item = response.json().items.find((entry) => entry.type === "leaflet_missing");
+    assert.ok(item);
+    assert.equal(item.action, "review_leaflet");
+    assert.match(item.message, /规格、厂家或成分/);
+  } finally {
+    await app.close();
+  }
+});
+
 test("handled batches are removed from the pending expiry list", async () => {
   const { app, pool } = await createReminderApp();
   pool.always(/FROM medicines WHERE family_id/, {

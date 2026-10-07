@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '0.2.0-s0s1r1';
+const String appVersion = '1.0.3';
 
 class ReleaseNote {
   const ReleaseNote({
@@ -18,6 +18,15 @@ class ReleaseNote {
 }
 
 const List<ReleaseNote> releaseNotes = [
+  ReleaseNote(
+    version: '1.0.3',
+    date: '2026-10-07',
+    items: [
+      '统一药品录入与日期交互，保留照片草稿和失败恢复。',
+      '统一药箱筛选、已处理库存与待补资料口径。',
+      '收紧发布、网络与本机试用边界，完善最终交付门禁。',
+    ],
+  ),
   ReleaseNote(
     version: '0.2.0-s0s1r1',
     date: '2026-10-01',

@@ -6,19 +6,42 @@
 export interface RateLimiterOptions {
   windowMs: number;
   maxRequests: number;
+  /** Bound unique active client buckets to avoid memory growth under IP churn. */
+  maximumBuckets?: number;
 }
 
 export function createRateLimiter(options: RateLimiterOptions): (key: string) => boolean {
+  const maximumBuckets = options.maximumBuckets ?? 4096;
+  if (!Number.isInteger(maximumBuckets) || maximumBuckets < 1) {
+    throw new RangeError("maximumBuckets must be a positive integer");
+  }
+
   const buckets = new Map<string, { startedAt: number; count: number }>();
+
+  const pruneExpired = (now: number): void => {
+    for (const [key, bucket] of buckets) {
+      if (now - bucket.startedAt >= options.windowMs) buckets.delete(key);
+    }
+  };
+
   return (key: string): boolean => {
     const now = Date.now();
     const current = buckets.get(key);
-    if (current === undefined || now - current.startedAt >= options.windowMs) {
-      buckets.set(key, { startedAt: now, count: 1 });
-      return true;
+    if (current !== undefined && now - current.startedAt < options.windowMs) {
+      current.count += 1;
+      return current.count <= options.maxRequests;
     }
-    current.count += 1;
-    return current.count <= options.maxRequests;
+    if (current !== undefined) buckets.delete(key);
+
+    // A rotating set of unique/spoofed addresses must not grow this process
+    // without bound. Prune first; if all remaining buckets are active, fail
+    // closed for a new identity rather than evicting an active limiter.
+    if (buckets.size >= maximumBuckets) {
+      pruneExpired(now);
+      if (buckets.size >= maximumBuckets) return false;
+    }
+    buckets.set(key, { startedAt: now, count: 1 });
+    return true;
   };
 }
 

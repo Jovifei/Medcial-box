@@ -81,3 +81,11 @@ export function isValidExpiryValue(value: string, precision: ExpiryPrecision): b
   const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   return Number.isInteger(day) && day >= 1 && day <= daysInMonth[month - 1];
 }
+
+/** Preserve invalid input for correction; precision changes never invent a day. */
+export function expiryValueForPrecision(value: string, precision: ExpiryPrecision): string {
+  if (precision === "unknown") return "";
+  if (precision === "month" && isValidExpiryValue(value, "day")) return value.slice(0, 7);
+  if (precision === "day" && isValidExpiryValue(value, "month")) return "";
+  return value;
+}

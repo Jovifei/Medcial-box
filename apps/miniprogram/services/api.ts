@@ -172,9 +172,15 @@ export function networkFailureError(error?: { errMsg?: string }): ApiError {
   else if (/timeout|timed out/i.test(detail)) reason = "连接超时";
   else {
     const code = detail.match(/ERR_[A-Z_]+/);
-    if (code !== null) reason = code[0];
+    if (code !== null && ["ERR_NAME_NOT_RESOLVED", "ERR_ADDRESS_INVALID",
+      "ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_INTERNET_DISCONNECTED"].includes(code[0])) {
+      reason = code[0];
+    }
   }
-  return new ApiError("NETWORK_ERROR", `药箱服务${reason}（${API_BASE}）。电脑模拟器与手机网络配置不同，请核对当前测试地址和USB转发。`, 0);
+  // Raw platform errors may include URLs, query tokens or private payloads.
+  // Keep only a bounded diagnostic category; user copy stays nontechnical.
+  console.warn(`[medbox] network failure: ${reason}`);
+  return new ApiError("NETWORK_ERROR", "无法连接药箱服务，请检查网络后重试。", 0);
 }
 
 export function request<T>(options: RequestOptions): Promise<T> {
@@ -186,7 +192,7 @@ export function request<T>(options: RequestOptions): Promise<T> {
     wx.request({
       url: `${API_BASE}${options.path}`,
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
-      data: options.payload,
+      data: options.payload ?? (options.method === "POST" ? {} : undefined),
       header,
       timeout: options.timeoutMs ?? 10000,
       success: (response) => {
@@ -220,11 +226,11 @@ function toPayload(value: object): Record<string, unknown> {
 }
 
 export const api = {
-  recognizeMedicine(imageBase64: string, mimeType: "image/jpeg" | "image/png"): Promise<MedicineRecognitionResponse> {
+  recognizeMedicine(imageBase64: string, mimeType: "image/jpeg" | "image/png", purpose?: "box_front" | "leaflet"): Promise<MedicineRecognitionResponse> {
     return request<MedicineRecognitionResponse>({
       method: "POST",
       path: "/api/v1/recognitions/medicine",
-      payload: { imageBase64, mimeType },
+      payload: { imageBase64, mimeType, ...(purpose ? { purpose } : {}) },
       timeoutMs: 60000,
     });
   },
@@ -401,13 +407,20 @@ export const api = {
     });
   },
 
-  /** 删除药品：软删除进入回收站，30 天内可恢复。 */
+  /** 删除药品：进入回收站，30 天内可恢复；与“归档”是两条不同生命周期。 */
   deleteMedicine(medicineId: string): Promise<null> {
-    return request({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
+    return request({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/trash`,
+      payload: {},
+    });
   },
 
   archiveMedicine(medicineId: string): Promise<null> {
-    return request<null>({ method: "DELETE", path: `/api/v1/medicines/${medicineId}` });
+    return request<null>({
+      method: "DELETE",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}`,
+    });
   },
 
   createBatch(medicineId: string, payload: BatchPayload): Promise<MedicationSummary["batches"][number]> {

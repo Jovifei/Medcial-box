@@ -1,3 +1,4 @@
+import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import {
@@ -182,10 +183,7 @@ function toNoteView(note: DosageNoteSummary): NoteView {
   };
 }
 
-const PURPOSE_TAG_LABELS: Record<string, string> = {
-  fever: "发热", cough: "咳嗽", throat: "咽喉", nasal: "鼻部", gastro: "胃肠",
-  pain: "疼痛", topical: "外用", allergy: "过敏", other: "其他",
-};
+const PURPOSE_TAG_LABELS: Record<string, string> = Object.fromEntries(PURPOSE_TAG_OPTIONS.map((item) => [item.kind, item.label]));
 
 /** 详情页标签行：蓝=成人、绿=儿童、紫=用途；不作为适龄或适应症判断。 */
 function buildDisplayTags(medicine: MedicationSummary): Array<{ kind: string; label: string }> {
@@ -310,12 +308,13 @@ Page({
 
   applyData(medicine: MedicationSummary, notes: DosageNoteSummary[]): void {
     const metaParts: string[] = [];
+    if (medicine.brand) metaParts.push(`品牌：${medicine.brand}`);
     if (medicine.manufacturer !== null) metaParts.push(`厂家：${medicine.manufacturer}`);
     if (medicine.approvalNumber !== null) metaParts.push(`批准文号：${medicine.approvalNumber}`);
     if (medicine.activeIngredients.length > 0) {
       metaParts.push(`成分：${medicine.activeIngredients.join("、")}`);
     }
-    if (medicine.purposeCategory !== null) metaParts.push(`用途分类：${medicine.purposeCategory}`);
+    if (medicine.purposeCategory !== null) metaParts.push(`用途分类：${purposeCategoryLabel(medicine.purposeCategory)}`);
     const leaflet = leafletDescription(medicine);
     const threshold = medicine.lowStockThreshold ?? null;
     const stockLabel: Record<string, string> = {

@@ -63,6 +63,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
       const injected = Object.hasOwn(modules, id) ? modules[id] : undefined;
       return injected === undefined ? real : { ...real, ...injected };
     }
+    if (id.endsWith("photo-file-lifecycle")) return loadService("services/photo-file-lifecycle.ts", { wx: pageWx });
     if (id.endsWith("medicine-tags")) return loadService("services/medicine-tags.ts", { wx: pageWx });
     if (Object.hasOwn(modules, id)) return modules[id];
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();

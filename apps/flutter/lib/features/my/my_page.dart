@@ -19,6 +19,15 @@ class MyPage extends StatefulWidget {
 
 class _MyPageState extends State<MyPage> {
   Future<FamilyRecord>? familyFuture;
+  final familyController = ExpansibleController();
+  final reminderController = ExpansibleController();
+  final familyKey = GlobalKey();
+  final reminderKey = GlobalKey();
+  List<Map<String, dynamic>> devices = [];
+  String? devicesError;
+  bool devicesLoading = false;
+  String? revokingDeviceId;
+
   bool reminderEnabled = false;
   bool loadingWechat = false;
   bool savingReminder = false;
@@ -32,6 +41,92 @@ class _MyPageState extends State<MyPage> {
     familyFuture = widget.services.families!.getCurrentFamily();
     _restoreReminderState();
     _loadWechatTemplates();
+  }
+
+  void _expandSection(ExpansibleController controller, GlobalKey key) {
+    controller.expand();
+    if (key.currentContext != null) {
+      Scrollable.ensureVisible(key.currentContext!);
+    }
+  }
+
+  Future<void> _loadDevices() async {
+    final epoch = widget.services.api!.identityEpoch;
+    setState(() {
+      devicesLoading = true;
+      devicesError = null;
+    });
+    try {
+      final result = await widget.services.auth!.listDevices();
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        setState(() => devices = result);
+      }
+    } catch (error) {
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        setState(() {
+          devices = [];
+          devicesError = friendlyApiError(error);
+        });
+      }
+    } finally {
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        setState(() => devicesLoading = false);
+      }
+    }
+  }
+
+  Future<void> _revokeDevice(Map<String, dynamic> device) async {
+    if (revokingDeviceId != null ||
+        device['isCurrent'] == true ||
+        device['clientKind'] != 'android') {
+      return;
+    }
+    final epoch = widget.services.api!.identityEpoch;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('撤销 Android App 授权？'),
+        content: const Text('该设备需要重新连接，才能访问家庭数据。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('撤销'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true ||
+        !mounted ||
+        epoch != widget.services.api!.identityEpoch) {
+      return;
+    }
+    if (revokingDeviceId != null) return;
+    setState(() => revokingDeviceId = device['id'] as String);
+    try {
+      await widget.services.auth!.revokeDevice(device['id'] as String);
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        await _loadDevices();
+      }
+    } catch (error) {
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        _showError(error);
+      }
+    } finally {
+      if (mounted && epoch == widget.services.api!.identityEpoch) {
+        setState(() => revokingDeviceId = null);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    familyController.dispose();
+    reminderController.dispose();
+    super.dispose();
   }
 
   Future<void> _restoreReminderState() async {
@@ -268,19 +363,30 @@ class _MyPageState extends State<MyPage> {
                   else if (snapshot.connectionState != ConnectionState.done)
                     const LinearProgressIndicator()
                   else
-                    ...family!.members.map(
-                      (member) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          member.role == 'owner'
-                              ? Icons.admin_panel_settings_outlined
-                              : Icons.person_outline,
-                        ),
-                        title: Text(
-                          '${member.role == 'owner' ? '管理员' : '成员'}：${member.displayName}${member.isSelf ? '（我）' : ''}',
-                        ),
-                        subtitle: Text('加入时间：${_formatDate(member.joinedAt)}'),
-                      ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      key: familyKey,
+                      controller: familyController,
+                      title: const Text('我的家庭'),
+                      subtitle: Text('${family!.members.length} 位家庭成员'),
+                      children: family.members
+                          .map(
+                            (member) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                member.role == 'owner'
+                                    ? Icons.admin_panel_settings_outlined
+                                    : Icons.person_outline,
+                              ),
+                              title: Text(
+                                '${member.role == 'owner' ? '管理员' : '成员'}：${member.displayName}${member.isSelf ? '（我）' : ''}',
+                              ),
+                              subtitle: Text(
+                                '加入时间：${_formatDate(member.joinedAt)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                   if (family?.role == 'owner') ...[
                     const SizedBox(height: 6),
@@ -293,39 +399,44 @@ class _MyPageState extends State<MyPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '我的显示名',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => _editNickname(null),
-                        child: const Text('编辑'),
-                      ),
-                    ],
-                  ),
-                  const Text('设置家人容易识别的称呼，仅用于家庭成员列表。'),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => _editNickname(null),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('修改显示名'),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 16),
+            Text('常用入口', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            _EntryGrid(
+              children: [
+                _EntryTile(
+                  title: '我的家庭',
+                  hint: '成员与角色',
+                  icon: Icons.home_outlined,
+                  onTap: () => _expandSection(familyController, familyKey),
+                ),
+                _EntryTile(
+                  title: '照护对象',
+                  hint: '本人、孩子与老人',
+                  icon: Icons.people_outline,
+                  onTap: () => context.push('/care-profiles'),
+                ),
+                _EntryTile(
+                  title: '提醒设置',
+                  hint: '本地通知与时间',
+                  icon: Icons.notifications_outlined,
+                  onTap: () => _expandSection(reminderController, reminderKey),
+                ),
+                _EntryTile(
+                  title: '补货清单',
+                  hint: '需要补充的库存',
+                  icon: Icons.shopping_bag_outlined,
+                  onTap: () => context.push('/restock'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                key: reminderKey,
+                controller: reminderController,
+                title: const Text('Android 本地提醒'),
                 children: [
                   Text(
                     'Android 本地提醒',
@@ -358,8 +469,9 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(height: 12),
             AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('微信订阅提醒'),
                 children: [
                   Text(
                     '微信订阅提醒',
@@ -382,28 +494,83 @@ class _MyPageState extends State<MyPage> {
               ),
             ),
             const SizedBox(height: 12),
+            Text('数据管理', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            _EntryGrid(
+              children: [
+                _EntryTile(
+                  title: '导出清单',
+                  hint: 'Markdown / CSV / PDF',
+                  icon: Icons.ios_share_rounded,
+                  onTap: () => context.push('/export'),
+                ),
+                _EntryTile(
+                  title: '备份与恢复',
+                  hint: 'JSON 保存与恢复',
+                  icon: Icons.backup_outlined,
+                  onTap: () => context.push('/export?section=backup'),
+                ),
+                _EntryTile(
+                  title: '最近删除',
+                  hint: '恢复药品与批次',
+                  icon: Icons.delete_outline_rounded,
+                  onTap: () => context.push('/trash'),
+                ),
+                _EntryTile(
+                  title: '变更记录',
+                  hint: '查看家庭修改',
+                  icon: Icons.history_rounded,
+                  onTap: () => context.push('/audit'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            AppCard(
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('已登录设备'),
+                onExpansionChanged: (expanded) {
+                  if (expanded) _loadDevices();
+                },
+                children: [
+                  if (devicesLoading) const LinearProgressIndicator(),
+                  if (devicesError != null) Text(devicesError!),
+                  ...devices.map(
+                    (device) => ListTile(
+                      title: Text(
+                        '${device['clientKind'] == 'android' ? 'Android App' : '微信小程序'}${device['isCurrent'] == true ? ' · 当前设备' : ''}',
+                      ),
+                      subtitle: Text(
+                        device['isCurrent'] == true
+                            ? '当前会话请通过退出登录撤销。'
+                            : device['clientKind'] == 'android'
+                            ? '可撤销此设备的授权'
+                            : '微信会话请在对应设备退出。',
+                      ),
+                      trailing:
+                          device['clientKind'] == 'android' &&
+                              device['isCurrent'] != true
+                          ? TextButton(
+                              onPressed: () => _revokeDevice(device),
+                              child: const Text('撤销授权'),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('其他设置', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
             AppCard(
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.ios_share_rounded),
-                    title: const Text('导出 Markdown / CSV / PDF'),
-                    onTap: () => context.push('/export'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.backup_outlined),
-                    title: const Text('JSON 备份与恢复'),
-                    onTap: () => context.push('/export?section=backup'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.delete_outline_rounded),
-                    title: const Text('回收站'),
-                    onTap: () => context.push('/trash'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.history_rounded),
-                    title: const Text('家庭变更记录'),
-                    onTap: () => context.push('/audit'),
+                    leading: const Icon(Icons.person_outline),
+                    title: const Text('账号设置'),
+                    subtitle: const Text('修改显示名'),
+                    onTap: () => _editNickname(null),
                   ),
                   ListTile(
                     leading: const Icon(Icons.system_update_alt_rounded),
@@ -491,3 +658,60 @@ class _NicknameFormState extends State<_NicknameForm> {
 
 String _formatDate(String value) =>
     value.length >= 10 ? value.substring(0, 10) : value;
+
+class _EntryGrid extends StatelessWidget {
+  const _EntryGrid({required this.children});
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = (constraints.maxWidth - 12) / 2;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: children
+            .map((child) => SizedBox(width: width, child: child))
+            .toList(),
+      );
+    },
+  );
+}
+
+class _EntryTile extends StatelessWidget {
+  const _EntryTile({
+    required this.title,
+    required this.hint,
+    required this.icon,
+    required this.onTap,
+  });
+  final String title;
+  final String hint;
+  final IconData icon;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppColors.leaf),
+            const SizedBox(height: 12),
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              hint,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}

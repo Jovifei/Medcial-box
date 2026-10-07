@@ -8,6 +8,27 @@ import { createApp, login } from "./helpers/app.mjs";
 
 const ANY_TOKEN = "b".repeat(64);
 
+test("only the explicitly registered GET local trial marker is public", async () => {
+  const app = await createApp(createFakePool(), createTestGateway({}));
+  app.get("/api/v1/health/local-app-trial", { config: { localTrialMarker: true } }, async () => ({ mode: "local-app-trial" }));
+  app.post("/api/v1/health/local-app-trial", { config: { localTrialMarker: true } }, async () => ({}));
+  app.get("/api/v1/health/private", { config: { localTrialMarker: true } }, async () => ({}));
+
+  const unmarked = await createApp(createFakePool(), createTestGateway({}));
+  unmarked.get("/api/v1/health/local-app-trial", async () => ({}));
+
+  try {
+    assert.equal((await app.inject({ method: "GET", url: "/api/v1/health/local-app-trial" })).statusCode, 200);
+    assert.equal((await app.inject({ method: "POST", url: "/api/v1/health/local-app-trial", payload: {} })).statusCode, 401);
+    assert.equal((await app.inject({ method: "GET", url: "/api/v1/health/private" })).statusCode, 401);
+    assert.equal((await unmarked.inject({ method: "GET", url: "/api/v1/health/local-app-trial" })).statusCode, 401);
+  } finally {
+    await app.close();
+    await unmarked.close();
+  }
+});
+
+
 test("login creates a session for a new wechat user and stores only the token hash", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({ "js-code-new": "openid-new-1" });
@@ -147,6 +168,23 @@ test("wechat login is rate limited per client address", async () => {
     });
     assert.equal(limited.statusCode, 429);
     assert.equal(limited.json().error.code, "RATE_LIMITED");
+  } finally {
+    await app.close();
+  }
+});
+
+test("only declared health endpoints bypass authentication", async () => {
+  const app = await createApp(createFakePool(), createTestGateway({}));
+  try {
+    const live = await app.inject({ method: "GET", url: "/api/v1/health/live" });
+    assert.equal(live.statusCode, 200);
+
+    const unknownHealthPath = await app.inject({
+      method: "GET",
+      url: "/api/v1/health/private",
+    });
+    assert.equal(unknownHealthPath.statusCode, 401);
+    assert.equal(unknownHealthPath.json().error.code, "UNAUTHORIZED");
   } finally {
     await app.close();
   }

@@ -4,6 +4,7 @@ import {
   isStrictNonNegativeInteger,
   isStrictPositiveInteger,
   isValidExpiryValue,
+  expiryValueForPrecision,
   isNonNegativeDecimalQuantity,
   UNIT_VALUES,
   UNIT_LABELS,
@@ -16,7 +17,7 @@ import type {
 } from "../../services/api-types";
 
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
-const PRECISION_LABELS = ["按日（YYYY-MM-DD）", "仅到月（YYYY-MM）", "未知"];
+const PRECISION_LABELS = ["年、月、日", "仅年、月", "未知"];
 
 interface BatchEditPageData {
   medicineId: string;
@@ -173,7 +174,18 @@ Page({
   },
 
   onPrecisionChange(event: { detail: { value: string | number } }): void {
-    this.setData({ precisionIndex: Number(event.detail.value) });
+    if (String(event.detail.value).trim() === "") return;
+    const precisionIndex = Number(event.detail.value);
+    if (!Number.isInteger(precisionIndex) || !PRECISION_VALUES[precisionIndex]) return;
+    const value = this.data.expiryValue;
+    this.setData({ precisionIndex, expiryValue: expiryValueForPrecision(value, PRECISION_VALUES[precisionIndex]) });
+  },
+
+  onExpiryDateChange(event: { detail: { value: string; precision: ExpiryPrecision } }): void {
+    if (this.data.submitting || this.data.batchLoading || this.data.loadFailed) return;
+    const precisionIndex = PRECISION_VALUES.indexOf(event.detail.precision);
+    if (precisionIndex < 0) return;
+    this.setData({ expiryValue: expiryValueForPrecision(event.detail.value, PRECISION_VALUES[precisionIndex]), precisionIndex });
   },
 
   onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
@@ -183,7 +195,7 @@ Page({
     const currentUnit = UNIT_VALUES[this.data.unitIndex];
     if (nextUnit === currentUnit) return;
     // 单位切换守卫：数字不换算，由用户确认后生效，避免 2 片悄悄变成 2 盒。
-    const hasValue = this.data.quantity !== "" || this.data.confirmedUnits !== "" || this.data.quantityUnknown;
+    const hasValue = this.data.quantity.trim() !== "" || this.data.confirmedUnits.trim() !== "";
     if (!hasValue) {
       this.setData({ unitIndex: nextIndex });
       return;
@@ -217,10 +229,16 @@ Page({
   },
 
   onOpeningLimitModeChange(event: { detail: { value: string | number } }): void {
+    if (String(event.detail.value).trim() === "") return;
     const index = Number(event.detail.value);
+    if (!Number.isInteger(index) || index < 0 || index > 3) return;
     const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
-    this.setData({ openingLimitMode, openingLimitModeIndex: index,
-      ...(openingLimitMode === "none" ? { openingLimitValue: "" } : {}) });
+    const changedKind = openingLimitMode !== this.data.openingLimitMode;
+    this.setData({
+      openingLimitMode,
+      openingLimitModeIndex: index,
+      ...(changedKind || openingLimitMode === "none" ? { openingLimitValue: "" } : {}),
+    });
   },
 
   onToggleOpeningInfo(): void {

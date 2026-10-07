@@ -1,3 +1,4 @@
+import { LocalMedicineCatalogProvider } from "./local-medicine-catalog.js";
 import type {
   LeafletInput,
   MedicineCandidate,
@@ -14,10 +15,15 @@ export interface MedicineCatalogQuery {
 }
 
 export interface MedicineCatalogProvider {
+  readonly kind?: "local" | "external";
   search(query: MedicineCatalogQuery): Promise<MedicineCandidatesResponse>;
 }
 
-export class MedicineCatalogUnavailableError extends Error {}
+export class MedicineCatalogUnavailableError extends Error {
+  constructor(message: string, readonly reason: "not_configured" | "unavailable" = "unavailable") {
+    super(message);
+  }
+}
 
 interface JisuSearchItem {
   medicine_id?: string | number;
@@ -116,7 +122,7 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
       throw new Error("请先确认允许发送药品标识到资料查询服务");
     }
     if (this.apiKey.trim() === "") {
-      throw new MedicineCatalogUnavailableError("JISU_MEDICINE_API_KEY is not configured");
+      throw new MedicineCatalogUnavailableError("medicine catalog is not configured", "not_configured");
     }
     const identifiers = [query.name, query.manufacturer, query.approvalNumber, query.barcode]
       .map((value) => value?.trim() ?? "")
@@ -178,5 +184,6 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
 }
 
 export function createDefaultMedicineCatalogProvider(): MedicineCatalogProvider {
+  if (process.env.MEDICINE_CATALOG_PROVIDER === "local") return new LocalMedicineCatalogProvider(process.env.MEDICINE_CATALOG_LOCAL_FILE ?? "");
   return new JisuMedicineCatalogProvider(process.env.JISU_MEDICINE_API_KEY ?? "");
 }

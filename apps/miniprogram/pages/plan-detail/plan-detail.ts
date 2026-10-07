@@ -171,6 +171,7 @@ Page({
   },
 
   onEditInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
+    if (this.data.saving || this.data.working) return;
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
@@ -178,13 +179,25 @@ Page({
   },
 
   onEditDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
+    if (this.data.saving || this.data.working) return;
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
     this.updateDirtyState();
   },
 
+  onTimeSlotChange(event: { currentTarget: { dataset: { time?: string } }; detail: { value: string } }): void {
+    if (this.data.saving || this.data.working) return;
+    const previous = event.currentTarget.dataset.time;
+    const value = event.detail.value;
+    if (!previous || !this.data.timeSlots.includes(previous) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return;
+    if (value !== previous && this.data.timeSlots.includes(value)) { wx.showToast({ title: "该时间点已添加", icon: "none" }); return; }
+    this.setData({ timeSlots: this.data.timeSlots.map((time: string) => time === previous ? value : time).sort() });
+    this.updateDirtyState();
+  },
+
   onAddTimeSlot(): void {
+    if (this.data.saving || this.data.working) return;
     const data = this.data as PlanDetailPageData;
     const raw = data.timeInput.trim();
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) {
@@ -204,6 +217,7 @@ Page({
   },
 
   onRemoveTimeSlot(event: { currentTarget: { dataset: { time?: string } } }): void {
+    if (this.data.saving || this.data.working) return;
     const time = event.currentTarget.dataset.time;
     if (!time) return;
     this.setData({ timeSlots: (this.data as PlanDetailPageData).timeSlots.filter((item) => item !== time) });

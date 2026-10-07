@@ -1,9 +1,10 @@
 .page { padding-bottom: 60rpx; }
-.mine-family { padding-top: 30rpx; }
+.mine-family { padding: 34rpx 30rpx; background: #e9f3ec; border-color: #d8e8dc; border-radius: 28rpx; }
 .family-caption { color: #7c867e; font-size: 22rpx; }
 .family-name { margin-top: 8rpx; font-size: 36rpx; font-weight: 700; }
 .section-label { margin: 28rpx 8rpx 12rpx; color: #758278; font-size: 23rpx; font-weight: 650; }
-.menu-card { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-bottom: 12rpx; padding: 24rpx; border: 1rpx solid #e8ece8; border-radius: 18rpx; background: #fff; }
+.menu-card { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 24rpx; border-bottom: 1rpx solid #edf0ec; background: #fff; }
+.menu-card:last-child { border-bottom: 0; }
 .menu-title { font-size: 27rpx; font-weight: 650; }
 .menu-hint { margin-top: 6rpx; color: #7c867e; font-size: 21rpx; line-height: 1.5; }
 .menu-arrow { color: #87938a; font-size: 40rpx; }
@@ -16,3 +17,12 @@
 .revoke-button { flex: 0 0 170rpx; min-height: 70rpx; margin-top: 0; padding: 12rpx; font-size: 22rpx; }
 .retry-link { color: #3f7d5c; }
 .safety-note { margin: 28rpx 8rpx; color: #7c867e; font-size: 21rpx; line-height: 1.6; }
+
+
+
+.entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; }
+.entry-card { padding: 24rpx; border: 1rpx solid #e1e9e2; border-radius: 22rpx; background: #fff; }
+.entry-mark { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; margin-bottom: 16rpx; border-radius: 18rpx; background: #edf5ef; color: #3f795b; font-size: 27rpx; font-weight: 700; }
+.entry-card .menu-hint { font-size: 22rpx; }
+.settings-group { overflow: hidden; border: 1rpx solid #e1e9e2; border-radius: 22rpx; background: #fff; }
+.devices-card { padding: 0 24rpx; background: #f7faf7; }

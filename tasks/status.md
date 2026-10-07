@@ -1,3 +1,33 @@
+# 当前执行补充 · 2026-10-05 原生能力与安全写入
+
+当前原分支 `audit/final-delivery-2026-10-04`。截至基线 `9de6d991`，照片清理归属、条码/编辑加载原家庭保护、日期精度与期限模式修复均已独立审查并提交；精确CI全绿：mini265、API389（严格PG无跳过）、tooling59、Flutter689/analyze、Debug/unsigned Release、隔离Docker恢复。
+
+本轮新增产品照片独占创建→reserved登记→按字节写入→close→ready。独立复审逐步补出被动回页、删除确认、普通输入和批次差量的并发覆盖反例；当前第六版使用独立确认基线及最新队列/逐字段差量合并，保留晚到照片归属回执与未落盘编辑；清理不替换进行中上传对象，新批次采用稳定本地身份。当前本地mini326/API238（13 PG套件明确跳过）/tooling94（含内存QA35，零跳过）及lint/typecheck/build/源包预算通过；精确第六版另有独立326/326全mini及45/45针对性复验通过；发布后的精确CI与官方IDE产品验收仍待核实。详见[安全照片写入证据与边界](reports/closeout/24-owned-photo-write-lifecycle.md)。
+
+本机官方IDE在9de6d991已验证批次日期/期限转换和单独原生文件探针，但家庭切换异步矩阵因副本共享同账号/AppID存储而安全停止，不能称已通过。后续使用内存隔离合成夹具；不改真实存储、账号、照片或健康数据。正式签名、平台审批/模板、真实双设备与发布仍保持未验收。
+
+---
+
+# 当前执行补充 · 2026-10-04 最新安全续作
+
+当前原分支 `audit/final-delivery-2026-10-04`，已发布 `4b5b641` 门禁/安全诊断、`5b9ace6` 字体宿主fixture与许可证、`91dd6c1` 录入原家庭异步保护。本轮继续修复照片精确归属及清理失败恢复，状态仍 **PARTIAL**。
+
+最新云端小程序250、API238（13可选PG套件跳过）、工具59及lint/typecheck/build/源包预算PASS。第一批CI验出旧字体资源回归后已修复，后续精确CI和Android构建仍跟踪，不以局部通过代表整项目交付。
+
+详情：[照片清理归属与恢复](reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
+
+---
+
+# 当前执行补充 · 2026-10-04 最新审计分支
+
+状态 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。最新实施基线 `audit/final-delivery-2026-10-04 / 0c19a16`；main 已包含旧 prototype，但最新审计工作尚未进入 main。此前下方状态均按其源码日期保留，不能直接当作当前版本。
+
+本轮修复审计分支未触发 CI、小程序语法错误、诊断原始信息泄漏风险，并回补另一审计分支的限流/health/打包门禁。云端小程序232、API237（13 PG套件跳过）、工具58与lint/typecheck/build通过；新增限流聚焦3/3通过。精确CI、Flutter/Android/PG/Docker及真实设备/平台验收仍须分别确认。
+
+详情及剩余交付：[最新审计与门禁修复](reports/closeout/18-latest-audit-gates.md)。下一步检查照片草稿安全清理与日期状态边界；没有正式发布。
+
+---
+
 # 当前状态 · 2026-10-03 云端补充收尾
 
 - 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `f5e17e5`，既有分支 `codex/flutter-ui-prototype`

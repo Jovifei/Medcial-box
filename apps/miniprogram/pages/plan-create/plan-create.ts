@@ -281,6 +281,7 @@ Page({
   },
 
   onFormInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
+    if (this.data.creating || this.data.pendingCreation || this.data.contextInvalidated) return;
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value, ...(field === "medicineName" ? { medicineId: "" } : {}) });
@@ -288,6 +289,7 @@ Page({
   },
 
   onFormDateChange(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
+    if (this.data.creating || this.data.pendingCreation || this.data.contextInvalidated) return;
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ [field]: event.detail.value });
@@ -313,7 +315,18 @@ Page({
     this.updateDirtyState();
   },
 
+  onTimeSlotChange(event: { currentTarget: { dataset: { time?: string } }; detail: { value: string } }): void {
+    if (this.data.creating || this.data.pendingCreation || this.data.contextInvalidated) return;
+    const previous = event.currentTarget.dataset.time;
+    const value = event.detail.value;
+    if (!previous || !this.data.timeSlots.includes(previous) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return;
+    if (value !== previous && this.data.timeSlots.includes(value)) { wx.showToast({ title: "该时间点已添加", icon: "none" }); return; }
+    this.setData({ timeSlots: this.data.timeSlots.map((time: string) => time === previous ? value : time).sort() });
+    this.updateDirtyState();
+  },
+
   onAddTimeSlot(): void {
+    if (this.data.creating || this.data.pendingCreation || this.data.contextInvalidated) return;
     const data = this.data as PlanCreatePageData;
     const raw = data.timeInput.trim();
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) {
@@ -333,6 +346,7 @@ Page({
   },
 
   onRemoveTimeSlot(event: { currentTarget: { dataset: { time?: string } } }): void {
+    if (this.data.creating || this.data.pendingCreation || this.data.contextInvalidated) return;
     const time = event.currentTarget.dataset.time;
     if (!time) return;
     this.setData({ timeSlots: (this.data as PlanCreatePageData).timeSlots.filter((item) => item !== time) });

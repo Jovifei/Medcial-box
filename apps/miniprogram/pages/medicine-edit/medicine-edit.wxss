@@ -210,14 +210,21 @@
 
 /* B02：人群/用途标签多选 chips */
 .tag-picker {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12rpx;
 }
 
+.population-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .tag-chip {
-  padding: 8rpx 24rpx;
-  border-radius: 999rpx;
+  min-height: 76rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 8rpx;
+  border-radius: 12rpx;
   border: 2rpx solid #cfd9d4;
   background: #f4f7f5;
   color: #496356;
@@ -233,9 +240,9 @@
 }
 
 .tag-chip-purpose.selected {
-  border-color: #6b4fa3;
-  background: #efe8fb;
-  color: #4c3480;
+  border-color: #2f7d5d;
+  background: #e3f1ea;
+  color: #1d5c40;
 }
 
 .save-bar { position: fixed; z-index: 85; left: 0; right: 0; bottom: 0; padding: 14rpx 28rpx calc(14rpx + env(safe-area-inset-bottom)); background: #f5f7f4; border-top: 1rpx solid #dce6dc; }
@@ -246,3 +253,10 @@
 
 .photo-draft-row { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0; font-size: 24rpx; }
 .draft-thumb { width: 90rpx; height: 90rpx; flex-shrink: 0; border-radius: 12rpx; }
+.recognition-mask { position: fixed; z-index: 120; inset: 0; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: rgba(22, 42, 31, .45); }
+.recognition-dialog { width: 100%; max-width: 580rpx; padding: 40rpx 32rpx; box-sizing: border-box; border-radius: 28rpx; background: #fff; text-align: center; box-shadow: 0 16rpx 64rpx rgba(22, 42, 31, .16); }
+.recognition-pulse { color: #3f7d5c; font-size: 76rpx; animation: recognition-pulse 1.4s ease-in-out infinite; }
+.recognition-dialog-title { margin: 16rpx 0; font-size: 34rpx; font-weight: 700; }
+.recognition-dialog-time { margin-bottom: 18rpx; color: #3f7d5c; font-size: 28rpx; }
+@keyframes recognition-pulse { 50% { opacity: .4; } }
+.leaflet-text { display: block; max-height: 520rpx; overflow-y: auto; white-space: pre-wrap; padding: 18rpx; background: #f5f8f5; border-radius: 12rpx; line-height: 1.7; font-size: 25rpx; }

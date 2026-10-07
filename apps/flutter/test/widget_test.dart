@@ -236,7 +236,13 @@ void main() {
     final localStore = MemoryInventoryLocalStore();
     await _openProductionEntry(tester, localStore);
     await tester.enterText(find.byType(TextField).first, '草稿测试药');
-    await tester.enterText(find.byType(TextField).at(1), '4');
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == '剩余数量',
+      ),
+      '4',
+    );
     await tester.pump();
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
@@ -248,13 +254,21 @@ void main() {
 
     await tester.tap(find.text('打开真实录入页'));
     await tester.pumpAndSettle();
-    expect(find.text('已恢复本机草稿，核对后逐份保存。'), findsOneWidget);
+    expect(find.text('已恢复这份未完成录入，核对后保存再添加下一种。'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,
       '草稿测试药',
     );
     expect(
-      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      tester
+          .widget<TextField>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is TextField && widget.decoration?.labelText == '剩余数量',
+            ),
+          )
+          .controller!
+          .text,
       '4',
     );
   });
@@ -375,7 +389,9 @@ void main() {
         240,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.textContaining('更多资料'));
+      await tester.ensureVisible(find.text('更多资料（选填）'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('更多资料（选填）'));
       await tester.pumpAndSettle();
       final ingredientsField = find.byWidgetPredicate(
         (widget) =>
@@ -446,24 +462,42 @@ void main() {
     },
   );
 
-  testWidgets('uncertain create locks draft and retries identical request', (tester) async {
+  testWidgets('uncertain create locks draft and retries identical request', (
+    tester,
+  ) async {
     final payloads = <String>[];
     final store = MemoryInventoryLocalStore();
-    await _openProductionEntry(tester, store, client: MockClient((request) async {
-      if (request.method == 'POST' && request.url.path == '/api/v1/medicines') {
-        payloads.add(request.body);
-        if (payloads.length == 1) return http.Response('{}', 503);
-        return http.Response(jsonEncode({'id':'saved','name':'synthetic medicine','batches':[],'version':1}),201);
-      }
-      return http.Response(jsonEncode({'medicines':[]}),200);
-    }));
+    await _openProductionEntry(
+      tester,
+      store,
+      client: MockClient((request) async {
+        if (request.method == 'POST' &&
+            request.url.path == '/api/v1/medicines') {
+          payloads.add(request.body);
+          if (payloads.length == 1) return http.Response('{}', 503);
+          return http.Response(
+            jsonEncode({
+              'id': 'saved',
+              'name': 'synthetic medicine',
+              'batches': [],
+              'version': 1,
+            }),
+            201,
+          );
+        }
+        return http.Response(jsonEncode({'medicines': []}), 200);
+      }),
+    );
     await tester.enterText(find.byType(TextField).first, '待确认药');
     await tester.tap(find.text('核对后保存'));
     await tester.pumpAndSettle();
     expect(find.text('重试原提交'), findsOneWidget);
     final queue = await store.readDraft('medicine-entry-queue.v1');
     expect(jsonDecode(queue!) as List, hasLength(1));
-    expect((jsonDecode(queue) as List).single['attemptedPayload']['name'], '待确认药');
+    expect(
+      (jsonDecode(queue) as List).single['attemptedPayload']['name'],
+      '待确认药',
+    );
     await tester.tap(find.text('重试原提交'));
     await tester.pumpAndSettle();
     expect(payloads, hasLength(2));

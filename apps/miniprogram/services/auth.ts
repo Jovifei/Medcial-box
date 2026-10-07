@@ -52,6 +52,7 @@ export function loginWithWechat(): Promise<LoginResult> {
 export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {}): Promise<string> {
   const identity = captureSessionIdentity();
   const existing = identity.token;
+  let ownInvalidatedSession: SessionIdentity | undefined;
   if (existing !== "") {
     try {
       // auth/me 同时用于固化本机身份命名空间（草稿按 userId+familyId 隔离）。
@@ -68,10 +69,11 @@ export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {
       if (error.invalidatedSession === undefined || !isCurrentSession(error.invalidatedSession)) {
         throw staleSessionError();
       }
+      ownInvalidatedSession = error.invalidatedSession;
     }
   }
   if (options.allowInteractive === false) {
-    throw new ApiError("UNAUTHENTICATED", "请先登录", 401);
+    throw new ApiError("UNAUTHENTICATED", "请先登录", 401, ownInvalidatedSession);
   }
   const result = await loginWithWechat();
   return result.token;

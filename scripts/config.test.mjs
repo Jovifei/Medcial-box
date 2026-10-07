@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareMiniProgram, validateClientConfig } from "./prepare-miniprogram.mjs";
 import { validateStagingEnvironment } from "./check-staging.mjs";
+import { mergeManagedStagingEnv } from "./init-staging-config.mjs";
 
 test("client config accepts only a public HTTPS origin without embedded credentials", () => {
   const id = "wx1234567890abcdef";
@@ -55,6 +56,30 @@ test("generated mini-program bundle keeps source intact and excludes private set
   }
 });
 
+test("staging setup preserves optional deployment settings and removes duplicate managed keys", () => {
+  const existing = [
+    "# keep this comment",
+    "POSTGRES_PASSWORD=old",
+    "WECHAT_APP_ID=wx1234567890abcdef",
+    "WECHAT_APP_SECRET=old-secret",
+    "MEDICINE_RECOGNITION_PROVIDER=ollama",
+    "WECHAT_REMINDER_FIELD_MAP={\"thing1\":\"value1\"}",
+    "POSTGRES_PASSWORD=duplicate",
+    "",
+  ].join("\n");
+  const merged = mergeManagedStagingEnv(existing, {
+    POSTGRES_PASSWORD: "new-password",
+    WECHAT_APP_ID: "wx1234567890abcdef",
+    WECHAT_APP_SECRET: "new-secret",
+  });
+  assert.match(merged, /# keep this comment/);
+  assert.match(merged, /MEDICINE_RECOGNITION_PROVIDER=ollama/);
+  assert.ok(merged.includes('WECHAT_REMINDER_FIELD_MAP={"thing1":"value1"}'));
+  assert.equal((merged.match(/^POSTGRES_PASSWORD=/gm) ?? []).length, 1);
+  assert.match(merged, /^POSTGRES_PASSWORD=new-password$/m);
+  assert.match(merged, /^WECHAT_APP_SECRET=new-secret$/m);
+});
+
 test("staging rejects placeholders/default credentials without echoing secret values", () => {
   const env = {
     POSTGRES_PASSWORD: "synthetic-test-password-123",
@@ -66,4 +91,37 @@ test("staging rejects placeholders/default credentials without echoing secret va
     { POSTGRES_PASSWORD: "local-dev-only" }, { WECHAT_APP_ID: "touristappid" },
     { WECHAT_APP_SECRET: "" }, { STAGING_API_PORT: "80" },
   ]) assert.throws(() => validateStagingEnvironment({ ...env, ...overrides }));
+});
+
+
+test("staging reverse proxy stays aligned with photo and recognition request limits", async () => {
+  const nginx = await readFile(
+    join(import.meta.dirname, "..", "deploy", "nginx.staging.conf.example"),
+    "utf8",
+  );
+  assert.match(nginx, /client_max_body_size\s+12m;/,
+    "8 MiB raw photos expand in base64; HTTPS proxy must allow the API's 12 MiB request body");
+  assert.match(nginx, /proxy_read_timeout\s+75s;/,
+    "proxy timeout must not cut off the 60–70 second client recognition window");
+});
+
+test("Android release defaults unsigned; installed certificate is restricted to explicit loopback trial", async () => {
+  const gradle = await readFile(
+    join(import.meta.dirname, "..", "apps", "flutter", "android", "app", "build.gradle.kts"),
+    "utf8",
+  );
+  assert.match(gradle, /medboxLocalTrialSigning/);
+  assert.match(gradle, /if \(localTrialSigning\) \{\s*signingConfig = signingConfigs.getByName\("debug"\)\s*\}/);
+  assert.equal((gradle.match(/signingConfig\s*=/g) ?? []).length, 1);
+  assert.match(gradle, /trialDefines.contains\("LOCAL_APP_TRIAL=true"\)/);
+  assert.match(gradle, /origin\?\.scheme == "http"/);
+  assert.match(gradle, /origin.host in setOf\("127.0.0.1", "localhost"\)/);
+});
+
+test("CI validates audit branches and enforces the mini-program package budget", async () => {
+  const workflow = await readFile(
+    join(import.meta.dirname, "..", ".github", "workflows", "ci.yml"), "utf8",
+  );
+  assert.match(workflow, /branches:\s*\[main,\s*"codex\/\*\*",\s*"audit\/\*\*"\]/);
+  assert.match(workflow, /- run: npm run check:miniprogram:source/);
 });

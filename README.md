@@ -4,14 +4,13 @@
 
 ## 当前状态
 
-当前源码基线为 `codex/flutter-ui-prototype` / `736d762`（2026-10-03），状态仍为 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。代码已经覆盖微信原生小程序、Android Flutter、Fastify API 与 PostgreSQL；远端提交的 GitHub CI 已通过。代码与自动化通过不等于真实账号、手机、消息送达或生产上线验收。
+截至 2026-10-07，最新最终审核候选位于 `audit/final-delivery-2026-10-07-review`，状态为 **FINAL_AUDIT / PARTIAL**。该候选整合微信原生小程序、Android Flutter、Fastify API、PostgreSQL、照片/识别、用药计划、提醒、导出/备份和本机药品资料能力；尚未合入 `main`，也未部署为正式环境。
 
-- 计划创建已加入幂等回执和两端显式重试（迁移 `028_medication_plan_create_receipts.sql`）。本地新增“支”单位使用迁移 `029_tube_quantity_unit.sql`；正式部署先应用待用迁移（包括 `028`、`029`），再部署 API，最后更新客户端。
-- 当前仍需补齐 Android 计划表单的星期选择、药箱药品关联、普通表单草稿，以及跨进程导出文件清理和异常退出后的身份恢复。
-- 真实微信账号、双账号双手机、真实通知与文件分享、HTTPS 部署、签名发布及数据库/图片恢复仍待验收。
-- 2026-10-03 本机小程序编译与导入记录：[本地验证报告](docs/operations/02-RPT-本地微信小程序导入与编译验证.md)。导入和编译通过；本次 API 主机端口没有正常应答，完整页面/API 联调未通过。
-- 2026-10-04 Android 本机复核：[识药、库存单位、日期与 Release 报告](docs/operations/04-RPT-Android识药单位日期与Release验证.md)。Release R8 构建已通过；Debug 使用本机合成 API 联调。正式 HTTPS 域名仍未解析，真实微信/生产登录和相机识别质量保持 `NOT_RUN`。
-- 逐项证据与剩余门槛见[收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。
+- 数据库增量迁移已延伸到 `030_medicine_brand_and_purpose_tags.sql`；部署顺序仍是迁移 → API → 客户端。
+- Android 候选版本已推进到 `1.0.3+6`；仓库默认 Release **不提供正式分发签名**。本机 loopback 试用只有在显式签名开关 + `LOCAL_APP_TRIAL=true` 下才允许沿用调试证书。
+- 小程序和 Android 已对齐四个主入口、药品/批次、日期、归档/低库存/未知状态、照片草稿、用药计划与待处理语义；QA 沙盒对本地组件和照片文件能力保持显式白名单，新增能力默认 fail-closed。
+- 代码/CI 通过不等于生产交付完成。真实 HTTPS、正式 Android 签名、真实微信 OAuth、模板与消息送达、两账号两设备、真实相机/扫码/OCR、系统分享及目标环境数据库+私有照片恢复仍需独立验收。
+- 当前审核结论与阻断项见 `tasks/reviews/2026-10-07-final-delivery-audit.md`（本分支生成）。
 
 ## 模块
 
@@ -24,10 +23,10 @@
 
 ## 本地开发
 
-要求 Node.js 22 或更新版。安装依赖时将 npm 缓存放在项目专属下载目录：
+要求 Node.js 22 或更新版：
 
 ~~~powershell
-npm ci --cache E:\Claude_allow\Download\medcial_box\npm-cache
+npm ci
 npm run lint
 npm run typecheck
 npm test
@@ -39,7 +38,7 @@ npm run build
 ~~~powershell
 $miniAppId = (Get-Content apps/miniprogram/project.config.json -Raw | ConvertFrom-Json).appid
 $miniProject = node scripts/prepare-miniprogram.mjs --appid $miniAppId --api-base http://127.0.0.1:13301 --local
-& "E:\AI_Tools\Other\WeChatDevTools\cli.bat" open --project $miniProject
+& "<微信开发者工具 CLI 路径>" open --project $miniProject
 npm run check:miniprogram
 npm test --workspace @home-medicine/miniprogram
 ~~~
@@ -58,15 +57,7 @@ npm run prepare:mini -- --appid <实际AppID> --api-base http://127.0.0.1:13301 
 
 ## 当前候选阶段
 
-本轮在 `codex/flutter-ui-prototype` 分支交付双端共享库存、开封后期限、库存阈值与盘点、补货、待处理、设备连接、条码候选、提醒、导出与恢复。分阶段事项和真实环境阻塞见 [`tasks/todo.md`](tasks/todo.md) 与 [`tasks/status.md`](tasks/status.md)。
-
-计划创建幂等、Flutter指定星期/库存绑定/持久及离线草稿、身份重启恢复和精确登记导出原件恢复已补齐；单页录入的大字布局、草稿返回/并发和原始保存意图边界也已修复。最新CI完整Flutter自动化671项、小程序230项通过；Windows本机656项通过、15项因符号链接权限能力不足明确跳过；逐提交CI、实际引擎截图及剩余验收边界见 [当前收尾矩阵](tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)。源码已有公开AppID，但真实身份、可用微信模板和两台手机验收未完成；不宣称真实登录、消息送达或家庭试用通过，本轮未部署ECS。原始 MVP 阶段计划仍在 [`tasks/plans/2026-09-24-mvp-roadmap.md`](tasks/plans/2026-09-24-mvp-roadmap.md)。
-
-2026-09-27的手机试用准备历史证据见 [`tasks/reports/2026-09-27-phone-trial-readiness.md`](tasks/reports/2026-09-27-phone-trial-readiness.md)。独立 HTTPS 测试部署和备份恢复步骤见 [`docs/operations/staging-deployment.md`](docs/operations/staging-deployment.md)。本地可用 `npm run test:integration`（需 `TEST_DATABASE_URL`）、`npm run check:staging` 和 `npm run prepare:mini` 检查相应配置。
-
-拍照识别的固定技术路线、模型切换、故障排查和验收边界见 [`docs/architecture/recognition-provider-decision-2026-09-27.md`](docs/architecture/recognition-provider-decision-2026-09-27.md)。
-
-Flutter Android 客户端的运行和验收边界见 [`apps/flutter/README.md`](apps/flutter/README.md)。字体、资料接口和开源项目来源登记在 [`docs/references/`](docs/references/)。
+当前候选只用于最终审核与修复，不代表已发布。版本、签名、API origin、微信平台配置和目标数据库迁移必须在发布前按最终审核报告逐项核对。历史报告保留对应提交的证据，但不得把旧测试计数、旧安装包或旧真机截图直接当作当前候选验收结果。
 
 ## 数据和安全边界
 

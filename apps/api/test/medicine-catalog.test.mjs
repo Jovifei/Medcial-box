@@ -23,7 +23,7 @@ test("catalog lookup requires an explicit user consent signal and never calls pr
   );
   await assert.rejects(
     provider.search({ name: "测试药", consentToShare: true }),
-    MedicineCatalogUnavailableError,
+    (error) => error instanceof MedicineCatalogUnavailableError && error.reason === "not_configured",
   );
   assert.equal(calls, 0);
 });
@@ -84,6 +84,6 @@ test("catalog provider errors become a safe unavailable result", async () => {
   const provider = new JisuMedicineCatalogProvider("test-key", async () => jsonResponse({ status: 104, msg: "quota" }));
   await assert.rejects(
     provider.search({ barcode: "6900000000012", consentToShare: true }),
-    MedicineCatalogUnavailableError,
+    (error) => error instanceof MedicineCatalogUnavailableError && error.reason === "unavailable",
   );
 });
