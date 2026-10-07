@@ -32,13 +32,16 @@ curl --fail --silent http://127.0.0.1:3301/api/v1/health/ready
 
 ## 生成开发者工具项目与验收
 
-在开发机执行以下命令，使用获批 AppID 和公网 HTTPS API origin。生成目录位于被 Git 忽略的 `.local-data/mini-staging-<UUID>`；源项目的 `touristappid` 与源码配置不会被覆盖。命令行上的 AppID 和域名是公开客户端配置，AppSecret 绝不传给此命令。
+在开发机执行以下命令，使用获批 AppID 和公网 HTTPS API origin。生成目录位于被 Git 忽略的 `.local-data/mini-staging-<UUID>`；源码工程本身标记为“源码-禁止上传”，其本机 API 配置不会被覆盖。命令行上的 AppID 和域名是公开客户端配置，AppSecret 绝不传给此命令。
 
 ```powershell
-npm run prepare:mini -- --appid wx0000000000000000 --api-base https://<测试域名>
+$miniProject = node scripts/prepare-miniprogram.mjs --appid wx0000000000000000 --api-base https://<测试域名>
+npm run check:miniprogram:package -- $miniProject
 ```
 
-将示例 AppID 换成真实值，在微信开发者工具中打开命令输出的目录，确认项目配置启用域名校验。先验证编译和登录，再用两个真实微信账号及两台手机依次完成：创建家庭、邀请与接受、共同查看和修改、并发版本冲突提示、按批次录入不同有效期、数量未知和零、导出预览、复制、`.md` 分享、默认不含个人剂量及勾选后仅含获授权备注。保存脱敏结果与设备/构建版本；模拟网关、单元测试或开发者工具预览不算真机 PASS。
+第二条是正式包门禁：只有生成副本、公开 HTTPS API origin、非 QA / 非本机试用 / 非源码工程且包体规则通过时才返回 PASS。不要直接上传 `apps/miniprogram` 源码目录；CI 对源码只运行 `check:miniprogram:source` 做卫生与包体预算检查。
+
+将示例 AppID 换成真实值，在微信开发者工具中打开 `$miniProject`，确认项目配置启用域名校验。先验证编译和登录，再用两个真实微信账号及两台手机依次完成：创建家庭、邀请与接受、共同查看和修改、并发版本冲突提示、按批次录入不同有效期、数量未知和零、导出预览、复制、`.md` 分享、默认不含个人剂量及勾选后仅含获授权备注。保存脱敏结果与设备/构建版本；模拟网关、单元测试或开发者工具预览不算真机 PASS。
 
 ## 备份与恢复演练
 
