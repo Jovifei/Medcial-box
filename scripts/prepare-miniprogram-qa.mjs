@@ -54,7 +54,7 @@ export function assertReviewedInventory(apis, name) {
   for (const entry of apis.wx) if (!reviewedWx.has(entry)) throw new Error(name + ': unreviewed wx API ' + entry);
   for (const entry of apis.fs) if (!reviewedFs.has(entry)) throw new Error(name + ': unreviewed filesystem API ' + entry);
 }
-export const REVIEWED_PHOTO_LIFECYCLE_SHA256 = '85d8b0142ca6f7e05a6770b4837259071ebaf0b072facde3b33984971adad9e2';
+export const REVIEWED_PHOTO_LIFECYCLE_SHA256 = '8ff79310b1474d1ac459f08ca6b5d0118c4e61fb786339a8e8d8a0c198bbb3ab';
 export function inventorySource(source, filename) {
   // The writer receives its manager via destructured options and lease.fs. Those
   // paths require explicit provenance, not inference from wx.getFileSystemManager.
