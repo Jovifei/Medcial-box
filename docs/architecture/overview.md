@@ -1,6 +1,6 @@
 # 技术架构与运行边界
 
-源码基线：`main` / `7a62351`，2026-10-04。该分支具备双端家庭药箱、用药计划、确认历史、提醒和导出能力，项目整体仍为 **IMPLEMENTATION_AND_VERIFICATION / PARTIAL**。本文描述当前代码关系；逐项测试与真实环境状态以 [收尾矩阵](../../tasks/reports/closeout/2026-10-03-current-closeout-matrix.md) 和[本机小程序验证记录](../operations/02-RPT-本地微信小程序导入与编译验证.md)为准。
+审核基线：`audit/final-delivery-2026-10-07-review`，2026-10-07。该候选具备双端家庭药箱、用药计划、确认历史、提醒、识别、资料候选、导出与备份能力，项目整体仍为 **FINAL_AUDIT / PARTIAL**：代码候选正在做最终门禁，真实平台与正式部署未完成。逐项结论以 [最终交付审核](../../tasks/reviews/2026-10-07-final-delivery-audit.md) 为主，历史报告仅作为对应旧提交的证据。
 
 ## 系统组成
 
@@ -57,7 +57,7 @@ flowchart TB
 
 ## 数据库迁移与门禁
 
-迁移编号当前延伸到 `029`。其中 `027_inventory_reminder_send_boundary.sql` 为库存提醒记录增加发送开始/取消边界；`028_medication_plan_create_receipts.sql` 保存计划创建回执；`029_tube_quantity_unit.sql` 为批次、补货、低库存阈值及已确认的盒装换算加入“支”。迁移为增量文件，已经应用的 SQL 不应回改；生产部署顺序为数据库迁移、API、客户端。
+迁移编号当前延伸到 `030`。其中 `027_inventory_reminder_send_boundary.sql` 为库存提醒记录增加发送开始/取消边界；`028_medication_plan_create_receipts.sql` 保存计划创建回执；`029_tube_quantity_unit.sql` 加入“支”单位；`030_medicine_brand_and_purpose_tags.sql` 增加品牌字段并扩展用途标签约束。迁移为增量文件，已经应用的 SQL 不应回改；生产部署顺序为数据库迁移、API、客户端。
 
 本地微信小程序门禁：
 
@@ -72,9 +72,10 @@ npm run check:miniprogram
 
 ## 尚未由代码测试替代的验收
 
-项目仍为 `PARTIAL`。至少以下项目保持独立：
+项目仍为 `PARTIAL`。当前代码已补齐 Android 计划表单星期/库存绑定/持久草稿、精确导出文件登记恢复和双端录入可靠性；下面这些仍必须在真实目标环境独立验收：
 
-- Android 计划表单的星期选择、库存药品绑定和普通持久草稿尚未包含在 `736d762`。
-- 导出文件的跨进程残留回收以及身份删除失败后的重启恢复仍是单独的实现/验证项。
-- 真实微信 OAuth、两账号两设备家庭共享、相机/扫码效果、Markdown 系统分享与提醒送达需要真实平台和设备。
-- 独立 HTTPS 部署、迁移 `028`/`029` 的目标库执行、数据库和图片成对备份恢复、正式签名发布仍为待验收项。
+- 正式 Android applicationId/版本/签名链和可升级安装包；仓库默认 Release 只作为 unsigned 优化构建门禁。
+- 真实微信 OAuth、AppSecret、订阅模板、两账号两设备家庭共享、消息送达与点击回流。
+- 真实相机/相册/扫码/OCR/说明书识别质量，以及 Android 原生后台/锁屏/系统重启提醒。
+- 独立 HTTPS 域名与反向代理、迁移至 `030` 的目标 PostgreSQL、真实数据库 + 私有照片成对备份与恢复。
+- 系统级文件分享、真实大字/输入法/系统 Back、当前精确候选的微信开发者工具和实体机视觉验收。
