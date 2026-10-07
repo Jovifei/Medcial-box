@@ -42,7 +42,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm run check:miniprogram:package
+      - run: npm run check:miniprogram:source
 
   backup-docker:
     # Disposable synthetic resources only; no deployment environment or secrets.
