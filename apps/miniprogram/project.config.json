@@ -1,7 +1,7 @@
 {
-  "description": "JF小药箱微信小程序",
+  "description": "JF小药箱源码工程；正式上传必须使用 scripts/prepare-miniprogram.mjs 生成的 HTTPS 副本",
   "appid": "wx1f6dd99d28aab8e5",
-  "projectname": "jf-medicine-box",
+  "projectname": "JF小药箱-源码-禁止上传",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
   "libVersion": "trial",
