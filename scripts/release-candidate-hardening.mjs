@@ -2,9 +2,10 @@
 // Delivery-stage audit helper. This does not replace real devices/platforms.
 // It validates repository-side invariants before handing a candidate to local QA.
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 async function readJson(path) {
   return JSON.parse(await readFile(resolve(root, path), "utf8"));
