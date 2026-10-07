@@ -411,16 +411,6 @@ class MedicineRecord {
 
   String get specificationDisplay => specification ?? '规格待补充';
 
-  String get openingOrExpirySummary {
-    final dates =
-        batches
-            .map((batch) => batch.managementExpiryDate ?? batch.expiryValue)
-            .whereType<String>()
-            .toList()
-          ..sort();
-    return dates.isEmpty ? '有效期待补充' : dates.first;
-  }
-
   factory MedicineRecord.fromJson(Map<String, dynamic> json) {
     final stock = json['stockStatus'] is Map<String, dynamic>
         ? json['stockStatus']! as Map<String, dynamic>
