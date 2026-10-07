@@ -29,7 +29,8 @@
     "check:miniprogram:package": "node scripts/check-miniprogram-package.mjs",
     "test:miniprogram:runtime": "node scripts/test-jf-wechat-runtime.mjs",
     "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source",
-    "check:release-hardening": "node scripts/release-candidate-hardening.mjs"
+    "check:release-hardening": "node scripts/release-candidate-hardening.mjs",
+    "check:upgrade-matrix": "node scripts/upgrade-persistence-matrix.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
