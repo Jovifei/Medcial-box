@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareMiniProgram, validateClientConfig } from "./prepare-miniprogram.mjs";
 import { validateStagingEnvironment } from "./check-staging.mjs";
+import { mergeManagedStagingEnv } from "./init-staging-config.mjs";
 
 test("client config accepts only a public HTTPS origin without embedded credentials", () => {
   const id = "wx1234567890abcdef";
@@ -53,6 +54,30 @@ test("generated mini-program bundle keeps source intact and excludes private set
     // root was created by this test with mkdtemp, never supplied by a user.
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("staging setup preserves optional deployment settings and removes duplicate managed keys", () => {
+  const existing = [
+    "# keep this comment",
+    "POSTGRES_PASSWORD=old",
+    "WECHAT_APP_ID=wx1234567890abcdef",
+    "WECHAT_APP_SECRET=old-secret",
+    "MEDICINE_RECOGNITION_PROVIDER=ollama",
+    "WECHAT_REMINDER_FIELD_MAP={\"thing1\":\"value1\"}",
+    "POSTGRES_PASSWORD=duplicate",
+    "",
+  ].join("\n");
+  const merged = mergeManagedStagingEnv(existing, {
+    POSTGRES_PASSWORD: "new-password",
+    WECHAT_APP_ID: "wx1234567890abcdef",
+    WECHAT_APP_SECRET: "new-secret",
+  });
+  assert.match(merged, /# keep this comment/);
+  assert.match(merged, /MEDICINE_RECOGNITION_PROVIDER=ollama/);
+  assert.match(merged, /WECHAT_REMINDER_FIELD_MAP=\{\"thing1\":\"value1\"\}/);
+  assert.equal((merged.match(/^POSTGRES_PASSWORD=/gm) ?? []).length, 1);
+  assert.match(merged, /^POSTGRES_PASSWORD=new-password$/m);
+  assert.match(merged, /^WECHAT_APP_SECRET=new-secret$/m);
 });
 
 test("staging rejects placeholders/default credentials without echoing secret values", () => {
