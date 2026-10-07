@@ -205,9 +205,9 @@ class _PendingPageState extends State<PendingPage> {
                 items: _unknownInventory(widget.services.medicines!.medicines),
               ),
               _IssueSection(
-                title: '待补说明书',
+                title: '待补资料',
                 color: AppColors.leaf,
-                items: _missingLeaflet(widget.services.medicines!.medicines),
+                items: _missingInfo(widget.services.medicines!.medicines),
               ),
               AppCard(
                 color: const Color(0xFFE9F1EB),
@@ -336,14 +336,19 @@ List<_Issue> _unknownInventory(List<MedicineRecord> medicines) {
   return issues;
 }
 
-List<_Issue> _missingLeaflet(List<MedicineRecord> medicines) => [
+List<_Issue> _missingInfo(List<MedicineRecord> medicines) => [
   for (final medicine in medicines)
-    if (medicine.leaflet.reviewStatus == 'unverified')
+    if (medicine.specification == null ||
+        medicine.manufacturer == null ||
+        medicine.activeIngredients.isEmpty ||
+        medicine.leaflet.reviewStatus == 'unverified')
       _Issue(
         medicineId: medicine.id,
         batchId: '',
         title: medicine.name,
-        detail: '说明书资料尚未核对',
+        detail: medicine.leaflet.reviewStatus == 'unverified'
+            ? '说明书资料尚未核对'
+            : '规格、厂家或成分资料待补充',
       ),
 ];
 
