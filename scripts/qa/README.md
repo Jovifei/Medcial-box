@@ -33,9 +33,10 @@ Inspect these sibling files before opening the generated project:
 - `project/QA-DO-NOT-UPLOAD.json`: build mark and scope restrictions
 
 Repeated generation with the same source and run ID produces identical project hashes
-and normalized-path diff bytes. The generator accepts only two reviewed mini-program Git trees: baseline
-`3ed0f8e6e410daf7fce1277d0e363caa52be3214` and frozen owned-photo writer tree
-`abdef7419cb4abf00c54112456897ae05ebcbaba`. A different commit with the identical reviewed
+and normalized-path diff bytes. The generator accepts only explicitly reviewed mini-program Git trees: baseline
+`3ed0f8e6e410daf7fce1277d0e363caa52be3214`, frozen owned-photo writer tree
+`abdef7419cb4abf00c54112456897ae05ebcbaba`, and the 2026-10-07 integrated tree
+`7a37461f3b3e3245151a91f3e02e8151d6c849e0`. A different commit with the identical reviewed
 mini-program tree is allowed; a changed tree requires fresh review. This is trusted frozen-
 source instrumentation, **not a general malicious-JavaScript sandbox**. Reflection/constructor
 escape expressions are also explicitly rejected during inventory. There is no native fallback.
@@ -44,9 +45,15 @@ The follow-on adapter covers pure `base64ToArrayBuffer` and memory open/write/cl
 frozen writer source tree `abdef7419cb4abf00c54112456897ae05ebcbaba`.
 Its helper receives a manager via options/lease properties, so the generator also requires
 `services/photo-file-lifecycle.ts` SHA-256
-`85d8b0142ca6f7e05a6770b4837259071ebaf0b072facde3b33984971adad9e2` and explicitly inventories
-those reviewed fs paths. Any helper source change, including options.fs/lease.fs injections,
-is rejected before product output is written.
+`8ff79310b1474d1ac459f08ca6b5d0118c4e61fb786339a8e8d8a0c198bbb3ab` and explicitly inventories
+those reviewed fs paths. The integrated helper only extends the owned-photo purpose whitelist to
+`leaflet`; its filesystem call inventory remains unchanged. Any other helper source change,
+including options.fs/lease.fs injections, is rejected before product output is written.
+
+The QA transform also permits exactly two reviewed local components: `medicine-date-field` and
+`medicine-time-field`, at their exact repository-relative paths. Unknown component tags, plugin
+URLs, arbitrary `usingComponents`, or `Component(...)` calls outside those component source files
+remain fail-closed.
 
 ## Isolation and bootstrap
 
