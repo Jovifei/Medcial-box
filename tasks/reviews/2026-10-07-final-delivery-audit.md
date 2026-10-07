@@ -229,7 +229,7 @@ Android 原来把“日期缺失”也算进待补资料。
 - 源码工程名改为 `JF小药箱-源码-禁止上传`；
 - 包门禁拆成 `source` 与默认 `release` 两种模式；
 - CI 对仓库源码只运行 `check:miniprogram:source`；
-- release gate 强制：生成副本、非 QA、非本机试用、非源码工程、公开无凭据 HTTPS origin；
+- release gate 强制：生成副本、approved AppID、`urlCheck=true`、非 QA、非本机试用、非源码工程、公开无凭据 HTTPS origin、非 `libVersion=trial`；
 - staging runbook 明确“生成 HTTPS 副本 → 对生成目录跑 release gate → 再打开 DevTools”，禁止直接上传源码目录。
 
 #### P1-16 Android 多余精确闹钟豁免权限 —— 已修复
@@ -414,12 +414,15 @@ Android pending 离线推导与服务端 pending 目前仍有两份实现，虽�
 - README / architecture 不再引用旧 736d762 / migration 029 作为当前状态；
 - Android 四入口、当前候选版本与迁移 030 已同步文档。
 - 小程序源码工程与正式 HTTPS 生成包已由不同门禁区分，源码目录明确禁止直接上传；
-- Android Release 移除未使用的 `USE_EXACT_ALARM`，合成 `/demo/*` 只保留 Debug。
+- Android Release 移除未使用的 `USE_EXACT_ALARM`，合成 `/demo/*` 只保留 Debug；
+- 小程序基础库从 `trial` 收口到 `latest`，release gate 同时要求 approved AppID、域名校验和公开 HTTPS；
+- GitHub Actions 从 checkout/setup-node v4 升级到 Node 24 系列 v7，消除 Node 20 弃用风险。
 
 ### 正式发布前硬 Gate
 
-1. ✅ 精确候选 `21303bfe` GitHub CI 已全绿；合入 main 后仍需对 main 精确提交再跑一次；
-2. main 合并后对 exact main commit 再跑 CI，并确认没有合并冲突/额外变更；
+1. 先要求**当前 PR 最终 head** 的 `verify` / `backup-docker` / `flutter` 全绿；`21303bfe` 仅是本轮较早的已知全绿基线，不能替代之后新增发布门禁与 CI action 升级的 exact-head 结果；
+2. 通过 PR 合并，禁止直接 push 绕过 CI；仓库管理员应为 `main` 启用 branch protection / ruleset 和 required checks；
+3. main 合并后对 exact main commit 再跑 CI，并确认没有合并冲突/额外变更；
 3. 目标 PostgreSQL 从当前版本应用到 migration 030；
 4. HTTPS 域名 + Nginx + API health + 大照片上传实测；
 5. Android：
@@ -497,19 +500,20 @@ Android pending 离线推导与服务端 pending 目前仍有两份实现，虽�
 - Android 待处理事项与 API / 小程序资料口径；
 - Release demo 路由隔离；
 - Android 精确闹钟权限最小化；
-- 小程序 source/release 包门禁；
+- 小程序 source/release 包门禁（AppID / urlCheck / HTTPS / 非 trial 基础库）；
 - Android 首页大字体状态卡；
-- 未使用旧期限摘要死代码。
+- 未使用旧期限摘要死代码；
+- GitHub Actions Node 24/v7 运行时升级；
+- main 未保护的发布治理风险登记。
 
-### 最终自动化结果
+### 自动化结果与 exact-head 规则
 
-- 精确候选：`21303bfe358205036da4215d0872e8f3d8c182dc`
-- GitHub Actions：run `37581999346`，**SUCCESS**
-- `verify`：SUCCESS（npm ci / lint / typecheck / 全量 test / build / `check:miniprogram:source`）
-- `backup-docker`：SUCCESS（隔离 staging 备份与恢复演练）
-- `flutter`：SUCCESS（pub get / analyze / test / Debug APK / optimized unsigned Release APK）
+- 已知完整全绿基线：`21303bfe358205036da4215d0872e8f3d8c182dc`
+- GitHub Actions run `37581999346`：`verify` / `backup-docker` / `flutter` **全部 SUCCESS**
+- 该 run 已覆盖 npm ci / lint / typecheck / 全量 test / build / source package gate、隔离 staging 备份恢复、Flutter analyze/test、Debug APK 与 optimized unsigned Release APK。
+- 在 `21303bfe` 之后又继续收紧了小程序 release gate、基础库、部署文档和 GitHub Actions runtime，因此**合并时必须查看 PR 当前 head 的 checks，三 job 未全绿则不放行**。本报告不使用旧 SHA 的 PASS 冒充最终 head PASS。
 
-该结果证明的是代码候选与仓库自动化门禁通过，不替代正式签名、真实微信、真实设备、HTTPS、目标库迁移与生产恢复验收。
+自动化通过只证明代码候选与仓库门禁，不替代正式签名、真实微信、真实设备、HTTPS、目标库迁移与生产恢复验收。
 
 ### 集成注意
 
