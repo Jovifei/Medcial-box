@@ -200,9 +200,14 @@ class _PendingPageState extends State<PendingPage> {
             ),
             if (!widget.restockOnly) ...[
               _IssueSection(
+                title: '数量 / 日期待核对',
+                color: AppColors.amber,
+                items: _unknownInventory(widget.services.medicines!.medicines),
+              ),
+              _IssueSection(
                 title: '待补充资料',
                 color: AppColors.leaf,
-                items: _missing(widget.services.medicines!.medicines),
+                items: _missingInfo(widget.services.medicines!.medicines),
               ),
               AppCard(
                 color: const Color(0xFFE9F1EB),
@@ -297,7 +302,7 @@ List<_Issue> _low(List<MedicineRecord> medicines) => [
       ),
 ];
 
-List<_Issue> _missing(List<MedicineRecord> medicines) {
+List<_Issue> _unknownInventory(List<MedicineRecord> medicines) {
   final issues = <_Issue>[];
   for (final medicine in medicines) {
     final activeBatches = medicine.batches.where(
@@ -311,25 +316,41 @@ List<_Issue> _missing(List<MedicineRecord> medicines) {
           batch.openedState == 'opened' &&
           (batch.openedAt == null || batch.openedExpiryDate == null),
     );
-    if (hasUnknownPackageExpiry ||
-        hasUnknownOpeningExpiry ||
-        medicine.leaflet.reviewStatus == 'unverified') {
+    if (medicine.stockStatus == 'unknown' ||
+        hasUnknownPackageExpiry ||
+        hasUnknownOpeningExpiry) {
       issues.add(
         _Issue(
           medicineId: medicine.id,
           batchId: '',
           title: medicine.name,
-          detail: hasUnknownPackageExpiry
+          detail: medicine.stockStatus == 'unknown'
+              ? '库存数量待核对'
+              : hasUnknownPackageExpiry
               ? '有效期待补充'
-              : hasUnknownOpeningExpiry
-              ? '开封期限待补充'
-              : '药品资料待核对',
+              : '开封期限待补充',
         ),
       );
     }
   }
   return issues;
 }
+
+List<_Issue> _missingInfo(List<MedicineRecord> medicines) => [
+  for (final medicine in medicines)
+    if (medicine.specification == null ||
+        medicine.manufacturer == null ||
+        medicine.activeIngredients.isEmpty ||
+        medicine.leaflet.reviewStatus == 'unverified')
+      _Issue(
+        medicineId: medicine.id,
+        batchId: '',
+        title: medicine.name,
+        detail: medicine.leaflet.reviewStatus == 'unverified'
+            ? '说明书资料待核对'
+            : '规格、厂家或成分资料待补充',
+      ),
+];
 
 class _IssueSection extends StatelessWidget {
   const _IssueSection({
