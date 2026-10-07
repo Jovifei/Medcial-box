@@ -123,5 +123,5 @@ test("CI validates audit branches and enforces the mini-program package budget",
     join(import.meta.dirname, "..", ".github", "workflows", "ci.yml"), "utf8",
   );
   assert.match(workflow, /branches:\s*\[main,\s*"codex\/\*\*",\s*"audit\/\*\*"\]/);
-  assert.match(workflow, /- run: npm run check:miniprogram:package/);
+  assert.match(workflow, /- run: npm run check:miniprogram:source/);
 });
