@@ -12,7 +12,7 @@ async function fixture(t) {
   const mini = join(root, "apps", "miniprogram");
   await mkdir(join(mini, "services"), { recursive: true });
   const write = (name, value) => writeFile(join(mini, name), typeof value === "object" && !Buffer.isBuffer(value) ? JSON.stringify(value) : value);
-  await write("project.config.json", { appid:"wx1234567890abcdef", projectname:"JF小药箱-测试环境",
+  await write("project.config.json", { appid:"wx1234567890abcdef", projectname:"JF小药箱-测试环境", libVersion:"latest",
     setting: { minified: true, uploadWithSourceMap: false }, packOptions: { ignore: [{type:"folder",value:"test"},{type:"folder",value:"typings"}] } });
   await write("app.json", { sitemapLocation: "sitemap.json", lazyCodeLoading: "requiredComponents" });
   await write("sitemap.json", { rules: [{ action: "disallow", page: "*" }] });
@@ -60,6 +60,15 @@ test("generated project excludes development files and preserves runtime config"
   const staging = await prepareMiniProgram({root,appId:"wx1234567890abcdef",apiBase:"https://medbox.example.invalid"});
   assert.equal((await checkMiniProgramPackage(staging)).ok, true, "generated HTTPS package is release-safe");
 });
+test("trial mini-program base library fails the release gate", async (t) => {
+  const {mini,write} = await fixture(t);
+  await write("project.config.json", {appid:"wx1234567890abcdef",projectname:"JF小药箱-测试环境",libVersion:"trial",
+    setting:{minified:true,uploadWithSourceMap:false},packOptions:{ignore:[]}});
+  const release = await checkMiniProgramPackage(mini);
+  assert.equal(release.ok, false);
+  assert.ok(release.errors.some(e=>e.includes("trial mini-program base library")));
+});
+
 test("source project marker and loopback API fail the default release gate", async (t) => {
   const {mini,write} = await fixture(t);
   await write("project.config.json", {appid:"wx1234567890abcdef",projectname:"JF小药箱-源码-禁止上传",
