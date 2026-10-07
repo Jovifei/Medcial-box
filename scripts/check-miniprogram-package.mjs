@@ -28,6 +28,9 @@ export async function checkMiniProgramPackage(root, { mode = "release" } = {}) {
     errors.push("QA-only build must never be uploaded or released");
   }
   if (mode === "release") {
+    if (project.libVersion === "trial") {
+      errors.push("release package must not use the trial mini-program base library");
+    }
     if (/源码.*禁止上传/.test(project.projectname ?? "")) {
       errors.push("source project is not a release artifact; generate an isolated HTTPS package first");
     }
