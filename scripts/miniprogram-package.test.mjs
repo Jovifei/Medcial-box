@@ -12,9 +12,11 @@ async function fixture(t) {
   const mini = join(root, "apps", "miniprogram");
   await mkdir(join(mini, "services"), { recursive: true });
   const write = (name, value) => writeFile(join(mini, name), typeof value === "object" && !Buffer.isBuffer(value) ? JSON.stringify(value) : value);
-  await write("project.config.json", { setting: { minified: true, uploadWithSourceMap: false }, packOptions: { ignore: [{type:"folder",value:"test"},{type:"folder",value:"typings"}] } });
+  await write("project.config.json", { appid:"wx1234567890abcdef", projectname:"JF小药箱-测试环境",
+    setting: { minified: true, uploadWithSourceMap: false }, packOptions: { ignore: [{type:"folder",value:"test"},{type:"folder",value:"typings"}] } });
   await write("app.json", { sitemapLocation: "sitemap.json", lazyCodeLoading: "requiredComponents" });
   await write("sitemap.json", { rules: [{ action: "disallow", page: "*" }] });
+  await write("services/config.ts", 'export const API_BASE = "https://medbox.example.invalid";');
   return { root, mini, write };
 }
 
@@ -26,7 +28,7 @@ test("original empty sitemap and disabled optimizations fail", async (t) => {
   const {mini,write} = await fixture(t);
   await write("sitemap.json", {rules:[]});
   await write("app.json", {});
-  await write("project.config.json", {setting:{minified:false,uploadWithSourceMap:true}});
+  await write("project.config.json", {appid:"wx1234567890abcdef",projectname:"JF小药箱-测试环境",setting:{minified:false,uploadWithSourceMap:true}});
   assert.equal((await checkMiniProgramPackage(mini)).errors.length, 4);
 });
 test("oversized image and actual package files fail budgets", async (t) => {
@@ -53,8 +55,23 @@ test("generated project excludes development files and preserves runtime config"
     await assert.rejects(readFile(join(output,name)), {code:"ENOENT"});
   }
   assert.match(await readFile(join(output,"services/config.ts"),"utf8"), /13300/);
-  assert.equal((await checkMiniProgramPackage(output)).ok,true);
+  assert.equal((await checkMiniProgramPackage(output)).ok, false, "local-trial package is not release-safe");
+  assert.equal((await checkMiniProgramPackage(output, { mode: "source" })).ok, true);
+  const staging = await prepareMiniProgram({root,appId:"wx1234567890abcdef",apiBase:"https://medbox.example.invalid"});
+  assert.equal((await checkMiniProgramPackage(staging)).ok, true, "generated HTTPS package is release-safe");
 });
+test("source project marker and loopback API fail the default release gate", async (t) => {
+  const {mini,write} = await fixture(t);
+  await write("project.config.json", {appid:"wx1234567890abcdef",projectname:"JF小药箱-源码-禁止上传",
+    setting:{minified:true,uploadWithSourceMap:false},packOptions:{ignore:[]}});
+  await write("services/config.ts", 'export const API_BASE = "http://127.0.0.1:13307";');
+  const release = await checkMiniProgramPackage(mini);
+  assert.equal(release.ok, false);
+  assert.ok(release.errors.some(e=>e.includes("source project")));
+  assert.ok(release.errors.some(e=>e.includes("HTTPS")));
+  assert.equal((await checkMiniProgramPackage(mini,{mode:"source"})).ok, true);
+});
+
 test("unexcluded test files are rejected", async (t) => {
   const {mini,write} = await fixture(t);
   await write("project.config.json", {setting:{minified:true,uploadWithSourceMap:false}});
