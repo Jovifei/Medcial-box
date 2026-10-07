@@ -13,7 +13,7 @@
     <view class="hint">库存、开封日期或说明书资料有变化后会在这里显示。</view>
   </view>
   <view wx:for="{{items}}" wx:key="id" class="card pending-card">
-    <view class="pending-type">{{item.type === 'expired' ? '已过期' : item.type === 'expiry_due' ? '临期' : item.type === 'low_stock' ? '库存不足' : item.type === 'stocktake_due' ? '需要盘点' : item.type === 'leaflet_missing' ? '待补说明书' : '待核对'}}</view>
+    <view class="pending-type">{{item.type === 'expired' ? '已过期' : item.type === 'expiry_due' ? '临期' : item.type === 'low_stock' ? '库存不足' : item.type === 'stocktake_due' ? '需要盘点' : item.type === 'leaflet_missing' ? '待补资料' : '待核对'}}</view>
     <view class="pending-name">{{item.medicineName}}</view>
     <view class="pending-label">{{item.message}}</view>
     <view class="pending-date" wx:if="{{item.dueDate}}">需核对：{{item.dueDate}}</view>
