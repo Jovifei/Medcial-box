@@ -14,6 +14,9 @@ import {
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
 
 declare module "fastify" {
+  interface FastifyContextConfig {
+    localTrialMarker?: boolean;
+  }
   interface FastifyRequest {
     auth: AuthContext | null;
   }
@@ -92,7 +95,11 @@ export async function authenticateRequest(
 ): Promise<void> {
   if (request.auth !== null) return;
   const path = request.url.split("?")[0] ?? request.url;
-  if (isPublicPath(path)) return;
+  if (isPublicPath(path) || (
+    request.method === "GET" &&
+    path === "/api/v1/health/local-app-trial" &&
+    request.routeOptions.config.localTrialMarker === true
+  )) return;
 
   const token = parseBearerToken(request.headers.authorization);
   if (token === null) {
