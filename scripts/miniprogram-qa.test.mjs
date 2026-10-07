@@ -207,7 +207,7 @@ test('generated source remains pinned and inspectable; release gate refuses QA f
   assert.deepEqual(manifest.fsInventory, ['readFile', 'unlink', 'writeFile']);
   assert.ok((await readFile(generated.diff, 'utf8')).includes('MEDICINE_QA_ONLY'));
   const result = await checkMiniProgramPackage(generated.projectRoot); assert.equal(result.ok, false); assert.ok(result.errors.some(x => x.includes('QA-only')));
-  assert.equal((await checkMiniProgramPackage(join(root, 'apps/miniprogram'))).ok, true);
+  assert.equal((await checkMiniProgramPackage(join(root, 'apps/miniprogram'), { mode: 'source' })).ok, true);
   for (const page of manifest.pages) {
     const code = await readFile(join(generated.projectRoot, page + '.js'), 'utf8');
     assert.match(code.split('\n')[1], /\.bindings\(\)/);
