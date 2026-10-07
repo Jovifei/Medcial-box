@@ -29,8 +29,9 @@ function encodeBase64(bytes) {
   }
   return text;
 }
-function install(native, config, nativeApp, nativePage) {
+function install(native, config, nativeApp, nativePage, nativeComponent) {
   if (installed) throw new Error('QA bootstrap already installed');
+  if (typeof nativeApp !== 'function' || typeof nativePage !== 'function' || typeof nativeComponent !== 'function') throw new Error('QA requires App/Page/Component registration hooks');
   if (config.buildMark !== 'MEDICINE_QA_ONLY' || config.appId !== 'touristappid' || !/^[a-z0-9-]{1,48}$/.test(config.runId)) throw new Error('QA build-mark gate failed');
   // These two read-only platform probes are the ONLY native calls before installation.
   // An unsupported tourist identity is a blocker, never a reason to substitute production AppID.
@@ -218,6 +219,15 @@ function install(native, config, nativeApp, nativePage) {
     for (const [key, value] of Object.entries(result)) if (typeof value === 'function') result[key] = function (...args) { alive(); return value.apply(this, args); };
     return result;
   }
+  function wrapComponentDefinition(definition) {
+    const result = wrapDefinition(definition);
+    for (const section of ['methods', 'observers', 'lifetimes', 'pageLifetimes']) {
+      if (result[section] && typeof result[section] === 'object' && !Array.isArray(result[section])) {
+        result[section] = wrapDefinition(result[section]);
+      }
+    }
+    return result;
+  }
   const bindings = Object.freeze({ wx: facade,
     App(definition) { alive(); return nativeApp({ ...wrapDefinition(definition), qa: controls }); },
     Page(definition) {
@@ -228,6 +238,10 @@ function install(native, config, nativeApp, nativePage) {
       const show = wrapped.onShow;
       wrapped.onShow = function (...args) { alive(); nativeUi.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] }); return show?.apply(this, args); };
       return nativePage(wrapped);
+    },
+    Component(definition) {
+      alive();
+      return nativeComponent(wrapComponentDefinition(definition));
     },
     setTimeout(callback, delay) { alive(); return setTimeout(() => { alive(); callback(); }, delay); },
   });
