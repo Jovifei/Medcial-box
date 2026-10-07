@@ -1,16 +1,48 @@
-// Conservative source-package budget; DevTools upload remains the final package check.
+// Conservative mini-program package gate. Source mode checks repository hygiene;
+// release mode additionally requires a generated HTTPS client project.
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export async function checkMiniProgramPackage(root) {
+function releaseApiError(configText) {
+  const match = /export\s+const\s+API_BASE\s*=\s*(["'])(.*?)\1\s*;?/.exec(configText);
+  if (!match) return "release package must contain one static API_BASE origin";
+  let url;
+  try { url = new URL(match[2]); } catch { return "release API_BASE must be a valid URL"; }
+  const loopback = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(url.hostname);
+  if (url.protocol !== "https:" || loopback || url.username || url.password ||
+      url.search || url.hash || url.pathname !== "/") {
+    return "release API_BASE must be a credential-free public HTTPS origin";
+  }
+  return null;
+}
+
+export async function checkMiniProgramPackage(root, { mode = "release" } = {}) {
+  if (!["release", "source"].includes(mode)) throw new Error("mode must be release or source");
   const json = async (name) => JSON.parse(await readFile(join(root, name), "utf8"));
   const [project, app] = await Promise.all([json("project.config.json"), json("app.json")]);
   const sitemap = await json(app.sitemapLocation ?? "sitemap.json");
   const errors = [];
+
   if (project.appid === "touristappid" || /^QA-ONLY-/.test(project.projectname ?? "")) {
     errors.push("QA-only build must never be uploaded or released");
   }
+  if (mode === "release") {
+    if (/源码.*禁止上传/.test(project.projectname ?? "")) {
+      errors.push("source project is not a release artifact; generate an isolated HTTPS package first");
+    }
+    if (/本机试用/.test(project.projectname ?? "")) {
+      errors.push("local-trial project must never be uploaded or released");
+    }
+    try {
+      const configText = await readFile(join(root, "services", "config.ts"), "utf8");
+      const apiError = releaseApiError(configText);
+      if (apiError) errors.push(apiError);
+    } catch {
+      errors.push("release package is missing services/config.ts");
+    }
+  }
+
   if (!Array.isArray(sitemap.rules) || !sitemap.rules.length ||
       !sitemap.rules.some((rule) => rule.action === "disallow" && rule.page === "*")) {
     errors.push("sitemap must explicitly disallow private pages with a nonempty rules array");
@@ -29,7 +61,6 @@ export async function checkMiniProgramPackage(root) {
       if (ignored(relative)) continue;
       if (entry.isSymbolicLink()) { errors.push(`symlink cannot be packaged: ${relative}`); continue; }
       if (entry.isDirectory()) { await walk(join(directory, entry.name), `${relative}/`); continue; }
-      // DevTools configuration itself is not runtime package content.
       if (["project.config.json", "project.private.config.json"].includes(relative)) continue;
       if (/QA-DO-NOT-UPLOAD|^qa\//.test(relative)) errors.push(`QA-only fixture file cannot be released: ${relative}`);
       if (/\.(js|ts|json)$/.test(relative) && (await readFile(join(directory, entry.name), "utf8")).includes("MEDICINE_QA_ONLY")) {
@@ -48,11 +79,14 @@ export async function checkMiniProgramPackage(root) {
   }
   await walk(root);
   if (bytes > 1.5 * 1024 * 1024) errors.push(`main package exceeds 1.5 MiB source budget: ${bytes} bytes`);
-  return { ok: errors.length === 0, bytes, files, errors };
+  return { ok: errors.length === 0, mode, bytes, files, errors };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = await checkMiniProgramPackage(resolve(process.argv[2] ?? "apps/miniprogram"));
+  const args = process.argv.slice(2);
+  const mode = args.includes("--source") ? "source" : "release";
+  const path = args.find((arg) => !arg.startsWith("--")) ?? "apps/miniprogram";
+  const result = await checkMiniProgramPackage(resolve(path), { mode });
   console.info(JSON.stringify(result, null, 2));
   process.exitCode = result.ok ? 0 : 1;
 }
