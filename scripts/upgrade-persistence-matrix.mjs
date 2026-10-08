@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Upgrade matrix. Repository checks validate migration behaviour with disposable
-// fixtures. Real app upgrade receipts remain device-only evidence.
+// Source inventory only: these checks do not execute migration or recovery.
+// Real app upgrade receipts remain device-only evidence.
 import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
