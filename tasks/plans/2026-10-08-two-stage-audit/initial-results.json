@@ -12,7 +12,7 @@
       "scope": "Actual extracted page method plus freshly built production validator; stubs for UI/API; no PostgreSQL or provider",
       "source_commit": "f675416ced73b59144c1f3d327dcdc741608a84e",
       "head_matches_audit": true,
-      "command": "npm run build --workspace @home-medicine/api; then reviewed bundle B threshold contract probe --repo <isolated-f675416> --out <new-local-report>",
+      "command": "node E:/Claude_allow/Download/medcial_box/audit-inputs-20261008/bundle-b/JF_Medbox_Audit_2026-10-08/04_probe_threshold_contract.mjs --repo E:/project/medcial_box/.local-data/merge-delivery-20261008 --out E:/Claude_allow/Download/medcial_box/audit-inputs-20261008/threshold-contract-f675416-local.json",
       "build_exit_code": 0,
       "probe_exit_code": 1,
       "status": "FAIL",
@@ -125,7 +125,12 @@
       ],
       "defect_id": "AUD-01",
       "pg_status": "NOT_RUN",
-      "device_status": "NOT_RUN"
+      "device_status": "NOT_RUN",
+      "cwd": "E:/project/medcial_box/.local-data/merge-delivery-20261008",
+      "build_command": "npm run build --workspace @home-medicine/api",
+      "driver_sha256": "d7b52c169cb0f52c9cc6ed8aef8bf79e463c0c57cf967951570fea65dfe6c8c4",
+      "created_at": "2026-10-08T15:30:51.301Z",
+      "node_version_recorded_after_run": "v24.18.0"
     }
   ]
 }

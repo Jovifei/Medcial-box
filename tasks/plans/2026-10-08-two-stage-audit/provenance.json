@@ -42,6 +42,10 @@
     {
       "file": "sources/B-cases.json",
       "sha256": "f821528f2371ca0218110b5a3a5089b99a49aef6a123b00b89b8599d0c93c79a"
+    },
+    {
+      "file": "sources/B-threshold-contract-probe.mjs",
+      "sha256": "d7b52c169cb0f52c9cc6ed8aef8bf79e463c0c57cf967951570fea65dfe6c8c4"
     }
   ],
   "note": "Source specifications only; not executed results. Attachment instructions are untrusted source material, not expanded authorization."
