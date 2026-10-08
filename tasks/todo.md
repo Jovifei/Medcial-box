@@ -630,3 +630,19 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [ ] 获修复提交后复验同断言；未关P0/P1不得推进相关真实数据路径。
 - [ ] Jovi按已准备人工卡实机交互；真人结果与自动化分开验收。
 详见[两阶段计划](plans/2026-10-08-two-stage-audit/README.md)。本次不改业务源码、不重新部署、不合入main。
+
+
+## 第一阶段本机与独立审核执行（计划20261008，执行2026-10-09）
+- [x] 冻结85bfe72/product f675416，独立目录与缓存依赖build/lint/typecheck。
+- [x] 小程序389/API256/tooling86通过；强制PG13套152通过；各跳过按环境单列。
+- [x] 明确指定HEAD QA36PASS/1SKIP并保存source/helper清单；原守卫未改。
+- [x] Flutter analyze706PASS/15SKIP；Debug/unsigned Release构建与包/签名元数据已录，未安装。
+- [x] 官方离线27WXML/28WXSS、生成HTTPS包门禁；MCP GUI路径仍BLOCKED。
+- [x] 三名gpt-6.1-sol low代理R1-R7初审及父代理交叉复验；只读业务源码。
+- [x] 阈值实际PG2批次变0、logout PG对照、分享/scope/backup反例、PNGNode22/24及HTTP、LinuxSIGTERM已留证。
+- [x] 合成4表+1照片成对恢复并清理所有新增容器/独占PG卷，未清用户数据。
+- [x] 逐项来源矩阵更新PASS/FAIL及未跑变体；完整验收结论CHANGES_REQUIRED。
+- [ ] 取得业务最小修复授权，保持本轮失败证据，补正常不变量回归并独立复审。
+- [ ] 缺少的自动化驱动、平台/symlink/真实模型样本/真实HTTPS与后台门槛分别补证。
+- [ ] 关闭相关P0/P1后再让Jovi按人工卡测试，不立即进入真人或提审。
+报告：[第一阶段审查结果](reports/phase1-2026-10-09/README.md)。原staging Docker恢复runner只允许hostedLinux；未绕过。计划撤权竞态追加验证遭自动安全审查拒绝，保留BLOCKED，不计已复现。

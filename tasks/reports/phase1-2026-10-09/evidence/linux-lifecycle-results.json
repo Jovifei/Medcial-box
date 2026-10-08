@@ -1,0 +1,12 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "node_image": "sha256:86de8ae5eca2ef6bd8fc99fbc83b99def3c543e0af0596e6de3063faa3044dff",
+  "container_id": "492e2deaaf0a7c2517d65179e892c2dc9cfb3b4c9f1186bac7995094677ae59d",
+  "scope": "actual production server entry in Linux, own empty PG database; no configured providers/messages, no active-send drain proof",
+  "container_created": "2026-10-08T16:16:53.026069323Z",
+  "ready_result": "200\n{\"status\":\"ok\",\"database\":\"connected\"}",
+  "status": "BLOCKED",
+  "error": "Command '['docker', 'wait', '492e2deaaf0a7c2517d65179e892c2dc9cfb3b4c9f1186bac7995094677ae59d']' timed out after 15 seconds",
+  "owned_runtime_removed": true,
+  "finished_at": "2026-10-08T16:17:39.189238+00:00"
+}

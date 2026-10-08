@@ -1,0 +1,24 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "generated_project": "E:\\Claude_allow\\Download\\medcial_box\\phase1-20261008\\checkout\\.local-data\\mini-staging-dbb2b584-877a-4e54-8997-e5846a897e55",
+  "scope": "official offline WXML/WXSS compilers only; no simulator/JS/nativeSDK/identity test",
+  "runs": [
+    {
+      "extension": "wxml",
+      "files": 27,
+      "exit_code": 0,
+      "compiler_sha256": "2ec832ea823c5f53e264230960637290a8cc7694773016b4c232a439193c9179",
+      "stdout_bytes": 275815,
+      "stderr_bytes": 0
+    },
+    {
+      "extension": "wxss",
+      "files": 28,
+      "exit_code": 0,
+      "compiler_sha256": "23914ded6433a178c184e4e0fcdb077b499502b4e5a784a1f44f3db55699ce31",
+      "stdout_bytes": 2625,
+      "stderr_bytes": 0
+    }
+  ],
+  "finished_at": "2026-10-08T16:13:53.358622+00:00"
+}

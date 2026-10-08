@@ -16,7 +16,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-01"
       },
       "phase2": {
         "required": false,
@@ -41,7 +42,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-02"
       },
       "phase2": {
         "required": false,
@@ -66,7 +68,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-03"
       },
       "phase2": {
         "required": false,
@@ -91,7 +94,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-04"
       },
       "phase2": {
         "required": false,
@@ -116,7 +120,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-05"
       },
       "phase2": {
         "required": false,
@@ -141,7 +146,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BASE-06"
       },
       "phase2": {
         "required": false,
@@ -164,9 +170,13 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "现有Node回归与build/lint/typecheck，PG根跳过随后严格套件执行",
+        "status": "PASS",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/results.json",
+          "../../reports/phase1-2026-10-09/evidence/regression-summary.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-01"
       },
       "phase2": {
         "required": false,
@@ -174,8 +184,15 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
+      "overall_status": "PASS",
+      "variants": [
+        {
+          "id": "existing-node-regression",
+          "status": "PASS",
+          "scope": "既有测试，不覆盖新增审计缺陷",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/regression-summary.json"
+        }
+      ],
       "defect_ids": [],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
@@ -189,9 +206,13 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "13个强制PG套件152 PASS，独有schema与容器清理",
+        "status": "PASS",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/regression-summary.json",
+          "../../reports/phase1-2026-10-09/evidence/cleanup-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-02"
       },
       "phase2": {
         "required": false,
@@ -199,8 +220,14 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
+      "overall_status": "PASS",
+      "variants": [
+        {
+          "id": "strict-pg13",
+          "status": "PASS",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/regression-summary.json"
+        }
+      ],
       "defect_ids": [],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
@@ -214,9 +241,12 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "精确HEAD生成及36项QA通过，1项host symlink能力跳过；必测补验不能冒充PASS",
+        "status": "BLOCKED",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/exact-head-qa-summary.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-03"
       },
       "phase2": {
         "required": false,
@@ -225,9 +255,21 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
+      "variants": [
+        {
+          "id": "qa-exact-head",
+          "status": "PASS",
+          "scope": "sourceSha85bfe72/miniTree17dbc与已执行36项",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/exact-head-qa-summary.json"
+        },
+        {
+          "id": "qa-dangling-symlink",
+          "status": "SKIPPED",
+          "scope": "Windows不允许创建符号链接，需适合平台补验"
+        }
+      ],
       "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "note": "不削弱任何旧批准树/helper/unknown component/FS/path负例；整体剩余非PASS。"
     },
     {
       "id": "A:BUILD-04",
@@ -239,9 +281,12 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "精确HEAD生成及36项QA通过，1项host symlink能力跳过；必测补验不能冒充PASS",
+        "status": "BLOCKED",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/exact-head-qa-summary.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-04"
       },
       "phase2": {
         "required": false,
@@ -250,9 +295,21 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
+      "variants": [
+        {
+          "id": "qa-exact-head",
+          "status": "PASS",
+          "scope": "sourceSha85bfe72/miniTree17dbc与已执行36项",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/exact-head-qa-summary.json"
+        },
+        {
+          "id": "qa-dangling-symlink",
+          "status": "SKIPPED",
+          "scope": "Windows不允许创建符号链接，需适合平台补验"
+        }
+      ],
       "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "note": "不削弱任何旧批准树/helper/unknown component/FS/path负例；整体剩余非PASS。"
     },
     {
       "id": "A:BUILD-05",
@@ -264,9 +321,13 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "Flutter analyze706PASS，15symlink SKIP；debug/release技术构建PASS，未安装/签名发布",
+        "status": "BLOCKED",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/results.json",
+          "../../reports/phase1-2026-10-09/evidence/android-artifacts.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-05"
       },
       "phase2": {
         "required": false,
@@ -275,9 +336,15 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
+      "variants": [
+        {
+          "id": "flutter-symlink-15",
+          "status": "SKIPPED",
+          "scope": "errno1314需适合平台补验"
+        }
+      ],
       "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "note": "必测符号链接未执行，不称完整安全验收PASS。"
     },
     {
       "id": "A:BUILD-06",
@@ -289,9 +356,12 @@
       "source_mode": "IDE",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "官方wcc27/wcsc28通过；MCP GUI window missing且原check:miniprogram脚本固定源码release gate，未完成原流程",
+        "status": "BLOCKED",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/official-compile-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-06"
       },
       "phase2": {
         "required": false,
@@ -300,7 +370,14 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
+      "variants": [
+        {
+          "id": "offline-official-compilers",
+          "status": "PASS",
+          "scope": "WXML/WXSS编译，不是SDK/GUI/真机",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/official-compile-results.json"
+        }
+      ],
       "defect_ids": [],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
@@ -314,9 +391,13 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "source及生成HTTPS候选正门禁通过，现有package negative测试在full regression通过",
+        "status": "PASS",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/results.json",
+          "../../reports/phase1-2026-10-09/evidence/regression-summary.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-07"
       },
       "phase2": {
         "required": false,
@@ -324,10 +405,10 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
+      "overall_status": "PASS",
       "variants": [],
       "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "note": "格式/静态门禁，不证明HTTPS服务、平台审核、SDK或真人使用。"
     },
     {
       "id": "A:BUILD-08",
@@ -339,9 +420,12 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "原runner只允许GitHub-hosted Linux；没有伪造CI绕过。独立合成实际PG+照片恢复部分目标PASS",
+        "status": "BLOCKED",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/paired-restore-v2-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BUILD-08"
       },
       "phase2": {
         "required": false,
@@ -350,7 +434,14 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
+      "variants": [
+        {
+          "id": "independent-synthetic-paired-restore",
+          "status": "PASS",
+          "scope": "4表+1合成照片，非原CI脚本/生产恢复",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/paired-restore-v2-results.json"
+        }
+      ],
       "defect_ids": [],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
@@ -366,7 +457,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-01"
       },
       "phase2": {
         "required": false,
@@ -391,7 +483,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-02"
       },
       "phase2": {
         "required": false,
@@ -416,7 +509,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-03"
       },
       "phase2": {
         "required": false,
@@ -441,7 +535,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-04"
       },
       "phase2": {
         "required": false,
@@ -466,7 +561,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-05"
       },
       "phase2": {
         "required": false,
@@ -489,9 +585,12 @@
       "source_mode": "PROCESS_LINUX",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "init=true实际Linux入口SIGTERM退出143，pool.end未调用；活跃任务未跑",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/linux-lifecycle-init-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-06"
       },
       "phase2": {
         "required": false,
@@ -499,10 +598,19 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-12",
+          "status": "FAIL",
+          "scope": "init=true实际Linux入口SIGTERM退出143，pool.end未调用；活跃任务未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/linux-lifecycle-init-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-12"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "A:OPS-07",
@@ -516,7 +624,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-07"
       },
       "phase2": {
         "required": false,
@@ -541,7 +650,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-08"
       },
       "phase2": {
         "required": false,
@@ -566,7 +676,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-09"
       },
       "phase2": {
         "required": false,
@@ -591,7 +702,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:OPS-10"
       },
       "phase2": {
         "required": false,
@@ -616,7 +728,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-01"
       },
       "phase2": {
         "required": true,
@@ -641,7 +754,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-02"
       },
       "phase2": {
         "required": true,
@@ -666,7 +780,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-03"
       },
       "phase2": {
         "required": true,
@@ -691,7 +806,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-04"
       },
       "phase2": {
         "required": true,
@@ -716,7 +832,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-05"
       },
       "phase2": {
         "required": true,
@@ -741,7 +858,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-06"
       },
       "phase2": {
         "required": true,
@@ -766,7 +884,10 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-07"
       },
       "phase2": {
         "required": true,
@@ -775,9 +896,18 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "variants": [
+        {
+          "id": "offline-logout-and-storage-removal-failure",
+          "status": "FAIL",
+          "scope": "有效token冷模块恢复，真实PGauth/me200；撤销成功对照401；非真人重启",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-03"
+      ],
+      "note": "相关故障变体已有FAIL，不扩大为整个来源用例已完整执行，真人/平台变体未跑。"
     },
     {
       "id": "A:AUTH-08",
@@ -791,7 +921,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:AUTH-08"
       },
       "phase2": {
         "required": true,
@@ -816,7 +947,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-01"
       },
       "phase2": {
         "required": true,
@@ -841,7 +973,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-02"
       },
       "phase2": {
         "required": true,
@@ -866,7 +999,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-03"
       },
       "phase2": {
         "required": false,
@@ -891,7 +1025,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-04"
       },
       "phase2": {
         "required": false,
@@ -916,7 +1051,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-05"
       },
       "phase2": {
         "required": false,
@@ -941,7 +1077,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-06"
       },
       "phase2": {
         "required": true,
@@ -966,7 +1103,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-07"
       },
       "phase2": {
         "required": true,
@@ -991,7 +1129,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:CAP-08"
       },
       "phase2": {
         "required": true,
@@ -1016,7 +1155,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-01"
       },
       "phase2": {
         "required": true,
@@ -1039,9 +1179,12 @@
       "source_mode": "API",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "合法PNG4MiB边界Node24/22实际路由500、provider0",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/node22-recognition--valid-image-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-02"
       },
       "phase2": {
         "required": false,
@@ -1049,10 +1192,19 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-07",
+          "status": "FAIL",
+          "scope": "合法PNG4MiB边界Node24/22实际路由500、provider0",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/node22-recognition--valid-image-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-07"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "A:IMG-03",
@@ -1066,7 +1218,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-03"
       },
       "phase2": {
         "required": false,
@@ -1091,7 +1244,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-04"
       },
       "phase2": {
         "required": false,
@@ -1116,7 +1270,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-05"
       },
       "phase2": {
         "required": true,
@@ -1141,7 +1296,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-06"
       },
       "phase2": {
         "required": true,
@@ -1166,7 +1322,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-07"
       },
       "phase2": {
         "required": true,
@@ -1189,9 +1346,12 @@
       "source_mode": "API",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "真实loopbackHTTP6MiB+ JSON返回500/provider0",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/recognition-runtime--http-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-08"
       },
       "phase2": {
         "required": false,
@@ -1199,10 +1359,19 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-08",
+          "status": "FAIL",
+          "scope": "真实loopbackHTTP6MiB+ JSON返回500/provider0",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/recognition-runtime--http-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-08"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "A:IMG-09",
@@ -1216,7 +1385,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-09"
       },
       "phase2": {
         "required": true,
@@ -1241,7 +1411,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:IMG-10"
       },
       "phase2": {
         "required": false,
@@ -1266,7 +1437,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-01"
       },
       "phase2": {
         "required": false,
@@ -1291,7 +1463,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-02"
       },
       "phase2": {
         "required": false,
@@ -1316,7 +1489,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-03"
       },
       "phase2": {
         "required": true,
@@ -1341,7 +1515,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-04"
       },
       "phase2": {
         "required": true,
@@ -1366,7 +1541,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-05"
       },
       "phase2": {
         "required": false,
@@ -1391,7 +1567,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-06"
       },
       "phase2": {
         "required": true,
@@ -1416,7 +1593,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-07"
       },
       "phase2": {
         "required": true,
@@ -1441,7 +1619,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-08"
       },
       "phase2": {
         "required": true,
@@ -1466,7 +1645,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-09"
       },
       "phase2": {
         "required": true,
@@ -1491,7 +1671,10 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/recognition-runtime--results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-10"
       },
       "phase2": {
         "required": false,
@@ -1500,9 +1683,19 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "variants": [
+        {
+          "id": "provider-response-consumption",
+          "status": "NOT_RUN",
+          "scope": "已观察两个provider完整读取>2MiB且body abort误归invalid_json；实际stall/OOM/总预算未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/recognition-runtime--results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-09",
+        "AUD-10"
+      ],
+      "note": "受控响应观察支持源码风险，不声称真实OOM或完整大响应/断流全部变体执行。"
     },
     {
       "id": "A:MODEL-11",
@@ -1516,7 +1709,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-11"
       },
       "phase2": {
         "required": false,
@@ -1541,7 +1735,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:MODEL-12"
       },
       "phase2": {
         "required": false,
@@ -1566,7 +1761,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-01"
       },
       "phase2": {
         "required": true,
@@ -1591,7 +1787,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-02"
       },
       "phase2": {
         "required": true,
@@ -1616,7 +1813,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-03"
       },
       "phase2": {
         "required": false,
@@ -1641,7 +1839,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-04"
       },
       "phase2": {
         "required": true,
@@ -1666,7 +1865,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-05"
       },
       "phase2": {
         "required": true,
@@ -1691,7 +1891,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-06"
       },
       "phase2": {
         "required": true,
@@ -1716,7 +1917,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-07"
       },
       "phase2": {
         "required": false,
@@ -1741,7 +1943,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RACE-08"
       },
       "phase2": {
         "required": false,
@@ -1766,7 +1969,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-01"
       },
       "phase2": {
         "required": true,
@@ -1791,7 +1995,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-02"
       },
       "phase2": {
         "required": true,
@@ -1816,7 +2021,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-03"
       },
       "phase2": {
         "required": true,
@@ -1841,7 +2047,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-04"
       },
       "phase2": {
         "required": true,
@@ -1866,7 +2073,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-05"
       },
       "phase2": {
         "required": true,
@@ -1891,7 +2099,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-06"
       },
       "phase2": {
         "required": true,
@@ -1916,7 +2125,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-07"
       },
       "phase2": {
         "required": true,
@@ -1941,7 +2151,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:SAVE-08"
       },
       "phase2": {
         "required": true,
@@ -1966,7 +2177,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-01"
       },
       "phase2": {
         "required": true,
@@ -1991,7 +2203,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-02"
       },
       "phase2": {
         "required": true,
@@ -2016,7 +2229,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-03"
       },
       "phase2": {
         "required": true,
@@ -2041,7 +2255,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-04"
       },
       "phase2": {
         "required": true,
@@ -2066,7 +2281,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-05"
       },
       "phase2": {
         "required": true,
@@ -2091,7 +2307,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:QUALITY-06"
       },
       "phase2": {
         "required": true,
@@ -2116,7 +2333,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BAR-01"
       },
       "phase2": {
         "required": true,
@@ -2141,7 +2359,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BAR-02"
       },
       "phase2": {
         "required": true,
@@ -2166,7 +2385,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BAR-03"
       },
       "phase2": {
         "required": true,
@@ -2191,7 +2411,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:BAR-04"
       },
       "phase2": {
         "required": true,
@@ -2216,7 +2437,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-01"
       },
       "phase2": {
         "required": true,
@@ -2241,7 +2463,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-02"
       },
       "phase2": {
         "required": true,
@@ -2266,7 +2489,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-03"
       },
       "phase2": {
         "required": true,
@@ -2291,7 +2515,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-04"
       },
       "phase2": {
         "required": true,
@@ -2316,7 +2541,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-05"
       },
       "phase2": {
         "required": true,
@@ -2341,7 +2567,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-06"
       },
       "phase2": {
         "required": true,
@@ -2366,7 +2593,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-07"
       },
       "phase2": {
         "required": true,
@@ -2391,7 +2619,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:DATA-08"
       },
       "phase2": {
         "required": true,
@@ -2416,7 +2645,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-01"
       },
       "phase2": {
         "required": false,
@@ -2439,9 +2669,12 @@
       "source_mode": "AUTOMATED",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "旧计划page保存A内容到B命名空间；真实平台/升级未跑",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-02"
       },
       "phase2": {
         "required": false,
@@ -2449,10 +2682,19 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-05",
+          "status": "FAIL",
+          "scope": "旧计划page保存A内容到B命名空间；真实平台/升级未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-05"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "A:UPG-03",
@@ -2466,7 +2708,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-03"
       },
       "phase2": {
         "required": false,
@@ -2491,7 +2734,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-04"
       },
       "phase2": {
         "required": false,
@@ -2516,7 +2760,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-05"
       },
       "phase2": {
         "required": true,
@@ -2541,7 +2786,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-06"
       },
       "phase2": {
         "required": false,
@@ -2566,7 +2812,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-07"
       },
       "phase2": {
         "required": false,
@@ -2591,7 +2838,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-08"
       },
       "phase2": {
         "required": false,
@@ -2616,7 +2864,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-09"
       },
       "phase2": {
         "required": true,
@@ -2641,7 +2890,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UPG-10"
       },
       "phase2": {
         "required": true,
@@ -2666,7 +2916,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-01"
       },
       "phase2": {
         "required": true,
@@ -2691,7 +2942,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-02"
       },
       "phase2": {
         "required": true,
@@ -2716,7 +2968,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-03"
       },
       "phase2": {
         "required": true,
@@ -2741,7 +2994,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-04"
       },
       "phase2": {
         "required": true,
@@ -2766,7 +3020,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-05"
       },
       "phase2": {
         "required": false,
@@ -2791,7 +3046,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:PLAN-06"
       },
       "phase2": {
         "required": true,
@@ -2816,7 +3072,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-01"
       },
       "phase2": {
         "required": true,
@@ -2841,7 +3098,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-02"
       },
       "phase2": {
         "required": true,
@@ -2864,9 +3122,12 @@
       "source_mode": "AUTOMATED_DEVICE",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "真实页面/API清token后仍dispatch share；wx替身，真分享未跑",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-03"
       },
       "phase2": {
         "required": true,
@@ -2874,10 +3135,19 @@
         "status": "NOT_RUN",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-04",
+          "status": "FAIL",
+          "scope": "真实页面/API清token后仍dispatch share；wx替身，真分享未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-04"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "A:EXPORT-04",
@@ -2891,7 +3161,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-04"
       },
       "phase2": {
         "required": false,
@@ -2916,7 +3187,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-05"
       },
       "phase2": {
         "required": false,
@@ -2941,7 +3213,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:EXPORT-06"
       },
       "phase2": {
         "required": false,
@@ -2966,7 +3239,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-01"
       },
       "phase2": {
         "required": true,
@@ -2991,7 +3265,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-02"
       },
       "phase2": {
         "required": true,
@@ -3016,7 +3291,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-03"
       },
       "phase2": {
         "required": true,
@@ -3041,7 +3317,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-04"
       },
       "phase2": {
         "required": true,
@@ -3066,7 +3343,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-05"
       },
       "phase2": {
         "required": true,
@@ -3091,7 +3369,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:UI-06"
       },
       "phase2": {
         "required": true,
@@ -3116,7 +3395,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-01"
       },
       "phase2": {
         "required": false,
@@ -3141,7 +3421,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-02"
       },
       "phase2": {
         "required": true,
@@ -3166,7 +3447,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-03"
       },
       "phase2": {
         "required": true,
@@ -3191,7 +3473,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-04"
       },
       "phase2": {
         "required": true,
@@ -3216,7 +3499,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-05"
       },
       "phase2": {
         "required": true,
@@ -3241,7 +3525,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-06"
       },
       "phase2": {
         "required": true,
@@ -3266,7 +3551,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-07"
       },
       "phase2": {
         "required": true,
@@ -3291,7 +3577,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#A:RELEASE-08"
       },
       "phase2": {
         "required": true,
@@ -3316,7 +3603,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-01"
       },
       "phase2": {
         "required": true,
@@ -3341,7 +3629,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-02"
       },
       "phase2": {
         "required": true,
@@ -3366,7 +3655,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-03"
       },
       "phase2": {
         "required": true,
@@ -3391,7 +3681,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-04"
       },
       "phase2": {
         "required": true,
@@ -3416,7 +3707,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-05"
       },
       "phase2": {
         "required": true,
@@ -3441,7 +3733,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-06"
       },
       "phase2": {
         "required": true,
@@ -3466,7 +3759,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-07"
       },
       "phase2": {
         "required": true,
@@ -3491,7 +3785,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:BASE-08"
       },
       "phase2": {
         "required": true,
@@ -3514,11 +3809,12 @@
       "source_mode": "真实页面＋隔离PostgreSQL",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
+        "scope": "开启阈值实际页面/路由/PG保真，2活动批次到0，metadata清空",
+        "status": "FAIL",
         "evidence": [
-          "initial-results.json#LOCAL-THRESHOLD-CONTRACT"
-        ]
+          "../../reports/phase1-2026-10-09/evidence/pg-threshold-v2-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-01"
       },
       "phase2": {
         "required": false,
@@ -3526,7 +3822,7 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
+      "overall_status": "FAIL",
       "variants": [
         {
           "id": "enable_threshold:CONTRACT",
@@ -3540,12 +3836,18 @@
           "scope": "Actual route and dedicated PostgreSQL state comparison",
           "status": "NOT_RUN",
           "evidence": []
+        },
+        {
+          "id": "phase1-20261009:AUD-01",
+          "status": "FAIL",
+          "scope": "开启阈值实际页面/路由/PG保真，2活动批次到0，metadata清空",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/pg-threshold-v2-results.json"
         }
       ],
       "defect_ids": [
         "AUD-01"
       ],
-      "note": "局部契约已FAIL；PG与完整断言未跑，整体保持NOT_RUN，不能把未完成当通过。"
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "B:REG-02",
@@ -3557,11 +3859,12 @@
       "source_mode": "真实页面＋隔离PostgreSQL",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
+        "scope": "关闭阈值实际页面/路由/PG保真，2活动批次到0，metadata清空",
+        "status": "FAIL",
         "evidence": [
-          "initial-results.json#LOCAL-THRESHOLD-CONTRACT"
-        ]
+          "../../reports/phase1-2026-10-09/evidence/pg-threshold-v2-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-02"
       },
       "phase2": {
         "required": false,
@@ -3569,7 +3872,7 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
+      "overall_status": "FAIL",
       "variants": [
         {
           "id": "disable_threshold:CONTRACT",
@@ -3583,12 +3886,18 @@
           "scope": "Actual route and dedicated PostgreSQL state comparison",
           "status": "NOT_RUN",
           "evidence": []
+        },
+        {
+          "id": "phase1-20261009:AUD-01",
+          "status": "FAIL",
+          "scope": "关闭阈值实际页面/路由/PG保真，2活动批次到0，metadata清空",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/pg-threshold-v2-results.json"
         }
       ],
       "defect_ids": [
         "AUD-01"
       ],
-      "note": "局部契约已FAIL；PG与完整断言未跑，整体保持NOT_RUN，不能把未完成当通过。"
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "B:REG-03",
@@ -3602,7 +3911,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-03"
       },
       "phase2": {
         "required": false,
@@ -3627,7 +3937,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-04"
       },
       "phase2": {
         "required": false,
@@ -3650,9 +3961,12 @@
       "source_mode": "真实页面＋隔离PostgreSQL",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "实际客户端API方法＋Fastify/PG/PrivatePhotoStore；ACK丢失，重试有效照片1变2；整页面/原生未跑",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/photo-upload-ack-loss-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-05"
       },
       "phase2": {
         "required": false,
@@ -3660,9 +3974,18 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "photo-upload-ack-loss-api-pg",
+          "status": "FAIL",
+          "scope": "实际客户端API方法＋Fastify/PG/PrivatePhotoStore；ACK丢失，重试有效照片1变2；整页面/原生未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/photo-upload-ack-loss-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-13"
+      ],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
     {
@@ -3677,7 +4000,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-06"
       },
       "phase2": {
         "required": false,
@@ -3700,9 +4024,12 @@
       "source_mode": "真实页面＋隔离PostgreSQL",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "4种实际ApiError到实际页面被统一提示覆盖，其他5类别未跑",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/recognition-runtime--page-error-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-07"
       },
       "phase2": {
         "required": false,
@@ -3710,10 +4037,19 @@
         "status": "NOT_APPLICABLE_PLANNED",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-11",
+          "status": "FAIL",
+          "scope": "4种实际ApiError到实际页面被统一提示覆盖，其他5类别未跑",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/recognition-runtime--page-error-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-11"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "B:REG-08",
@@ -3727,7 +4063,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REG-08"
       },
       "phase2": {
         "required": false,
@@ -3752,7 +4089,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-01"
       },
       "phase2": {
         "required": true,
@@ -3777,7 +4115,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-02"
       },
       "phase2": {
         "required": true,
@@ -3802,7 +4141,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-03"
       },
       "phase2": {
         "required": true,
@@ -3827,7 +4167,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-04"
       },
       "phase2": {
         "required": true,
@@ -3852,7 +4193,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-05"
       },
       "phase2": {
         "required": true,
@@ -3877,7 +4219,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-06"
       },
       "phase2": {
         "required": true,
@@ -3902,7 +4245,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-07"
       },
       "phase2": {
         "required": true,
@@ -3927,7 +4271,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-08"
       },
       "phase2": {
         "required": true,
@@ -3952,7 +4297,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-09"
       },
       "phase2": {
         "required": true,
@@ -3977,7 +4323,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-10"
       },
       "phase2": {
         "required": true,
@@ -4002,7 +4349,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-11"
       },
       "phase2": {
         "required": true,
@@ -4027,7 +4375,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-12"
       },
       "phase2": {
         "required": true,
@@ -4052,7 +4401,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-13"
       },
       "phase2": {
         "required": true,
@@ -4077,7 +4427,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:CAP-14"
       },
       "phase2": {
         "required": true,
@@ -4102,7 +4453,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-01"
       },
       "phase2": {
         "required": true,
@@ -4127,7 +4479,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-02"
       },
       "phase2": {
         "required": true,
@@ -4152,7 +4505,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-03"
       },
       "phase2": {
         "required": true,
@@ -4177,7 +4531,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-04"
       },
       "phase2": {
         "required": true,
@@ -4202,7 +4557,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-05"
       },
       "phase2": {
         "required": true,
@@ -4227,7 +4583,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-06"
       },
       "phase2": {
         "required": true,
@@ -4250,9 +4607,12 @@
       "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
       "phase1": {
         "required": true,
-        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
-        "status": "NOT_RUN",
-        "evidence": []
+        "scope": "正常4MiB图500；另超6MiB真实HTTP也500",
+        "status": "FAIL",
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/recognition-runtime--http-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-07"
       },
       "phase2": {
         "required": true,
@@ -4260,10 +4620,19 @@
         "status": "NOT_RUN",
         "evidence": []
       },
-      "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "overall_status": "FAIL",
+      "variants": [
+        {
+          "id": "phase1-20261009:AUD-07",
+          "status": "FAIL",
+          "scope": "正常4MiB图500；另超6MiB真实HTTP也500",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/recognition-runtime--http-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-07"
+      ],
+      "note": "已执行的范围内必测子断言失败，因此整项不能通过；未执行设备/其他变体仍保留，FAIL不是全部步骤均已跑。"
     },
     {
       "id": "B:API-08",
@@ -4277,7 +4646,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-08"
       },
       "phase2": {
         "required": true,
@@ -4302,7 +4672,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-09"
       },
       "phase2": {
         "required": true,
@@ -4327,7 +4698,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-10"
       },
       "phase2": {
         "required": true,
@@ -4352,7 +4724,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-11"
       },
       "phase2": {
         "required": true,
@@ -4377,7 +4750,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-12"
       },
       "phase2": {
         "required": true,
@@ -4402,7 +4776,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-13"
       },
       "phase2": {
         "required": true,
@@ -4427,7 +4802,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-14"
       },
       "phase2": {
         "required": true,
@@ -4452,7 +4828,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-15"
       },
       "phase2": {
         "required": true,
@@ -4477,7 +4854,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-16"
       },
       "phase2": {
         "required": true,
@@ -4502,7 +4880,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-17"
       },
       "phase2": {
         "required": true,
@@ -4527,7 +4906,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:API-18"
       },
       "phase2": {
         "required": true,
@@ -4552,7 +4932,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-01"
       },
       "phase2": {
         "required": true,
@@ -4577,7 +4958,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-02"
       },
       "phase2": {
         "required": true,
@@ -4602,7 +4984,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-03"
       },
       "phase2": {
         "required": true,
@@ -4627,7 +5010,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-04"
       },
       "phase2": {
         "required": true,
@@ -4652,7 +5036,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-05"
       },
       "phase2": {
         "required": true,
@@ -4677,7 +5062,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-06"
       },
       "phase2": {
         "required": true,
@@ -4702,7 +5088,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-07"
       },
       "phase2": {
         "required": true,
@@ -4727,7 +5114,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-08"
       },
       "phase2": {
         "required": true,
@@ -4752,7 +5140,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-09"
       },
       "phase2": {
         "required": true,
@@ -4777,7 +5166,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-10"
       },
       "phase2": {
         "required": true,
@@ -4802,7 +5192,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-11"
       },
       "phase2": {
         "required": true,
@@ -4827,7 +5218,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-12"
       },
       "phase2": {
         "required": true,
@@ -4852,7 +5244,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-13"
       },
       "phase2": {
         "required": true,
@@ -4877,7 +5270,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-14"
       },
       "phase2": {
         "required": true,
@@ -4902,7 +5296,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-15"
       },
       "phase2": {
         "required": true,
@@ -4927,7 +5322,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:OCR-16"
       },
       "phase2": {
         "required": true,
@@ -4952,7 +5348,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-01"
       },
       "phase2": {
         "required": true,
@@ -4977,7 +5374,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-02"
       },
       "phase2": {
         "required": true,
@@ -5002,7 +5400,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-03"
       },
       "phase2": {
         "required": true,
@@ -5027,7 +5426,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-04"
       },
       "phase2": {
         "required": true,
@@ -5052,7 +5452,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-05"
       },
       "phase2": {
         "required": true,
@@ -5077,7 +5478,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-06"
       },
       "phase2": {
         "required": true,
@@ -5102,7 +5504,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-07"
       },
       "phase2": {
         "required": true,
@@ -5127,7 +5530,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-08"
       },
       "phase2": {
         "required": true,
@@ -5152,7 +5556,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-09"
       },
       "phase2": {
         "required": true,
@@ -5177,7 +5582,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:FILL-10"
       },
       "phase2": {
         "required": true,
@@ -5202,7 +5608,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-01"
       },
       "phase2": {
         "required": false,
@@ -5227,7 +5634,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-02"
       },
       "phase2": {
         "required": false,
@@ -5252,7 +5660,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-03"
       },
       "phase2": {
         "required": false,
@@ -5277,7 +5686,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-04"
       },
       "phase2": {
         "required": false,
@@ -5302,7 +5712,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-05"
       },
       "phase2": {
         "required": false,
@@ -5327,7 +5738,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-06"
       },
       "phase2": {
         "required": false,
@@ -5352,7 +5764,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-07"
       },
       "phase2": {
         "required": false,
@@ -5377,7 +5790,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-08"
       },
       "phase2": {
         "required": false,
@@ -5402,7 +5816,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-09"
       },
       "phase2": {
         "required": false,
@@ -5427,7 +5842,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-10"
       },
       "phase2": {
         "required": false,
@@ -5452,7 +5868,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-11"
       },
       "phase2": {
         "required": false,
@@ -5477,7 +5894,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-12"
       },
       "phase2": {
         "required": false,
@@ -5502,7 +5920,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-13"
       },
       "phase2": {
         "required": false,
@@ -5527,7 +5946,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:SAVE-14"
       },
       "phase2": {
         "required": false,
@@ -5552,7 +5972,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-01"
       },
       "phase2": {
         "required": true,
@@ -5577,7 +5998,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-02"
       },
       "phase2": {
         "required": true,
@@ -5602,7 +6024,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-03"
       },
       "phase2": {
         "required": true,
@@ -5627,7 +6050,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-04"
       },
       "phase2": {
         "required": true,
@@ -5652,7 +6076,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-05"
       },
       "phase2": {
         "required": true,
@@ -5677,7 +6102,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-06"
       },
       "phase2": {
         "required": true,
@@ -5702,7 +6128,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-07"
       },
       "phase2": {
         "required": true,
@@ -5727,7 +6154,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-08"
       },
       "phase2": {
         "required": true,
@@ -5752,7 +6180,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-09"
       },
       "phase2": {
         "required": true,
@@ -5777,7 +6206,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-10"
       },
       "phase2": {
         "required": true,
@@ -5802,7 +6232,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-11"
       },
       "phase2": {
         "required": true,
@@ -5827,7 +6258,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PHOTO-12"
       },
       "phase2": {
         "required": true,
@@ -5852,7 +6284,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-01"
       },
       "phase2": {
         "required": true,
@@ -5877,7 +6310,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-02"
       },
       "phase2": {
         "required": true,
@@ -5902,7 +6336,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-03"
       },
       "phase2": {
         "required": true,
@@ -5927,7 +6362,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-04"
       },
       "phase2": {
         "required": true,
@@ -5952,7 +6388,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-05"
       },
       "phase2": {
         "required": true,
@@ -5977,7 +6414,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-06"
       },
       "phase2": {
         "required": true,
@@ -6002,7 +6440,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-07"
       },
       "phase2": {
         "required": true,
@@ -6027,7 +6466,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-08"
       },
       "phase2": {
         "required": true,
@@ -6052,7 +6492,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-09"
       },
       "phase2": {
         "required": true,
@@ -6077,7 +6518,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-10"
       },
       "phase2": {
         "required": true,
@@ -6102,7 +6544,10 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-11"
       },
       "phase2": {
         "required": true,
@@ -6111,9 +6556,18 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "variants": [
+        {
+          "id": "offline-logout-and-storage-removal-failure",
+          "status": "FAIL",
+          "scope": "有效token冷模块恢复，真实PGauth/me200；撤销成功对照401；非真人重启",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-03"
+      ],
+      "note": "相关故障变体已有FAIL，不扩大为整个来源用例已完整执行，真人/平台变体未跑。"
     },
     {
       "id": "B:AUTH-12",
@@ -6127,7 +6581,10 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:AUTH-12"
       },
       "phase2": {
         "required": true,
@@ -6136,9 +6593,18 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
-      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+      "variants": [
+        {
+          "id": "offline-logout-and-storage-removal-failure",
+          "status": "FAIL",
+          "scope": "有效token冷模块恢复，真实PGauth/me200；撤销成功对照401；非真人重启",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/identity-photo--pg-logout-results.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-03"
+      ],
+      "note": "相关故障变体已有FAIL，不扩大为整个来源用例已完整执行，真人/平台变体未跑。"
     },
     {
       "id": "B:INV-01",
@@ -6152,7 +6618,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-01"
       },
       "phase2": {
         "required": true,
@@ -6177,7 +6644,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-02"
       },
       "phase2": {
         "required": true,
@@ -6202,7 +6670,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-03"
       },
       "phase2": {
         "required": true,
@@ -6227,7 +6696,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-04"
       },
       "phase2": {
         "required": true,
@@ -6252,7 +6722,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-05"
       },
       "phase2": {
         "required": true,
@@ -6277,7 +6748,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-06"
       },
       "phase2": {
         "required": true,
@@ -6302,7 +6774,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-07"
       },
       "phase2": {
         "required": true,
@@ -6327,7 +6800,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-08"
       },
       "phase2": {
         "required": true,
@@ -6352,7 +6826,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-09"
       },
       "phase2": {
         "required": true,
@@ -6377,7 +6852,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-10"
       },
       "phase2": {
         "required": true,
@@ -6402,7 +6878,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-11"
       },
       "phase2": {
         "required": true,
@@ -6427,7 +6904,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-12"
       },
       "phase2": {
         "required": true,
@@ -6452,7 +6930,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-13"
       },
       "phase2": {
         "required": true,
@@ -6477,7 +6956,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:INV-14"
       },
       "phase2": {
         "required": true,
@@ -6502,7 +6982,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-01"
       },
       "phase2": {
         "required": true,
@@ -6527,7 +7008,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-02"
       },
       "phase2": {
         "required": true,
@@ -6552,7 +7034,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-03"
       },
       "phase2": {
         "required": true,
@@ -6577,7 +7060,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-04"
       },
       "phase2": {
         "required": true,
@@ -6602,7 +7086,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-05"
       },
       "phase2": {
         "required": true,
@@ -6627,7 +7112,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-06"
       },
       "phase2": {
         "required": true,
@@ -6652,7 +7138,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-07"
       },
       "phase2": {
         "required": true,
@@ -6677,7 +7164,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-08"
       },
       "phase2": {
         "required": true,
@@ -6702,7 +7190,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-09"
       },
       "phase2": {
         "required": true,
@@ -6727,7 +7216,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:PLAN-10"
       },
       "phase2": {
         "required": true,
@@ -6752,7 +7242,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-01"
       },
       "phase2": {
         "required": false,
@@ -6777,7 +7268,10 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [
+          "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        ],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-02"
       },
       "phase2": {
         "required": false,
@@ -6786,8 +7280,17 @@
         "evidence": []
       },
       "overall_status": "NOT_RUN",
-      "variants": [],
-      "defect_ids": [],
+      "variants": [
+        {
+          "id": "json-backup-file-cleanup",
+          "status": "FAIL",
+          "scope": "实际页面/wx FS替身写1分享1删除0，不是实际OS文件配额",
+          "evidence": "../../reports/phase1-2026-10-09/evidence/independent-parent-rechecks.json"
+        }
+      ],
+      "defect_ids": [
+        "AUD-06"
+      ],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
     },
     {
@@ -6802,7 +7305,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-03"
       },
       "phase2": {
         "required": false,
@@ -6827,7 +7331,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-04"
       },
       "phase2": {
         "required": false,
@@ -6852,7 +7357,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-05"
       },
       "phase2": {
         "required": false,
@@ -6877,7 +7383,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-06"
       },
       "phase2": {
         "required": false,
@@ -6902,7 +7409,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-07"
       },
       "phase2": {
         "required": false,
@@ -6927,7 +7435,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:EXPORT-08"
       },
       "phase2": {
         "required": false,
@@ -6952,7 +7461,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-01"
       },
       "phase2": {
         "required": true,
@@ -6977,7 +7487,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-02"
       },
       "phase2": {
         "required": true,
@@ -7002,7 +7513,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-03"
       },
       "phase2": {
         "required": true,
@@ -7027,7 +7539,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-04"
       },
       "phase2": {
         "required": true,
@@ -7052,7 +7565,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-05"
       },
       "phase2": {
         "required": true,
@@ -7077,7 +7591,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-06"
       },
       "phase2": {
         "required": true,
@@ -7102,7 +7617,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-07"
       },
       "phase2": {
         "required": true,
@@ -7127,7 +7643,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-08"
       },
       "phase2": {
         "required": true,
@@ -7152,7 +7669,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-09"
       },
       "phase2": {
         "required": true,
@@ -7177,7 +7695,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-10"
       },
       "phase2": {
         "required": true,
@@ -7202,7 +7721,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-11"
       },
       "phase2": {
         "required": true,
@@ -7227,7 +7747,8 @@
         "required": true,
         "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
         "status": "NOT_RUN",
-        "evidence": []
+        "evidence": [],
+        "local_review_reference": "../../reports/phase1-2026-10-09/local-case-dispositions.json#B:REL-12"
       },
       "phase2": {
         "required": true,
@@ -7239,6 +7760,25 @@
       "variants": [],
       "defect_ids": [],
       "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    }
+  ],
+  "phase1_run_reference": "../../reports/phase1-2026-10-09/README.md",
+  "summary": {
+    "overall_status_counts": {
+      "NOT_RUN": 275,
+      "PASS": 3,
+      "FAIL": 10
+    },
+    "reviewed_source_specifications": 288,
+    "note": "13条完整来源规格有当前结果：3PASS、10FAIL；275整项NOT_RUN但局部证据与逐项审核已另记。新增LOCAL余量反例不强行映射原规格。"
+  },
+  "additional_local_cases": [
+    {
+      "id": "LOCAL:QUANTITY-PANEL-PRESERVATION",
+      "defect_id": "AUD-14",
+      "status": "FAIL",
+      "scope": "actualpage/parser/Fastify/PG,UI mocked",
+      "evidence": "../../reports/phase1-2026-10-09/evidence/quantity-panel-results.json"
     }
   ]
 }

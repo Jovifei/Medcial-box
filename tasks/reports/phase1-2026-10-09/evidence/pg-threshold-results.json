@@ -1,0 +1,188 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "product_baseline": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "scope": "actual page method + actual Fastify route + PostgreSQL; only UI/login boundaries mocked",
+  "page_sha256": "254e528264910c10fe774ecefe7f5c1a6c194680752cc47391dd8e978b5aa863",
+  "pg_container": "medbox-phase1-dc00c29e3d65",
+  "variants": [
+    {
+      "variant": "enable",
+      "status": "FAIL",
+      "http_status": 200,
+      "assertions": {
+        "batch_ids_retained": false,
+        "barcode_retained": false,
+        "population_tags_retained": false,
+        "purpose_tags_retained": false,
+        "brand_retained": true,
+        "already_deleted_batch_stays_deleted": true,
+        "stale_version_rejected": true
+      },
+      "active_batches_before": 2,
+      "active_batches_after": 0,
+      "before_rows": [
+        {
+          "id": "58c1bc6a-9b6f-402f-a3b6-67475d899729",
+          "quantity": "5.000",
+          "unit": "box",
+          "version": 1,
+          "deleted_at": null
+        },
+        {
+          "id": "6cde61a4-10c7-46cd-bcef-ed1b38c6fba8",
+          "quantity": "1.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.238Z"
+        },
+        {
+          "id": "e8e31c52-54e1-48a3-9c76-4da004e2bd82",
+          "quantity": "2.000",
+          "unit": "box",
+          "version": 1,
+          "deleted_at": null
+        }
+      ],
+      "after_rows": [
+        {
+          "id": "58c1bc6a-9b6f-402f-a3b6-67475d899729",
+          "quantity": "5.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.253Z"
+        },
+        {
+          "id": "6cde61a4-10c7-46cd-bcef-ed1b38c6fba8",
+          "quantity": "1.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.238Z"
+        },
+        {
+          "id": "e8e31c52-54e1-48a3-9c76-4da004e2bd82",
+          "quantity": "2.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.253Z"
+        }
+      ],
+      "before_metadata": {
+        "barcodeValue": "6900000000000",
+        "populationTags": [
+          "adult"
+        ],
+        "purposeTags": [
+          "fever"
+        ]
+      },
+      "after_metadata": {
+        "barcodeValue": null,
+        "populationTags": [],
+        "purposeTags": []
+      },
+      "submitted_field_names": [
+        "name",
+        "specification",
+        "manufacturer",
+        "approvalNumber",
+        "activeIngredients",
+        "purposeCategory",
+        "leaflet",
+        "lowStockThreshold",
+        "version"
+      ]
+    },
+    {
+      "variant": "disable",
+      "status": "FAIL",
+      "http_status": 200,
+      "assertions": {
+        "batch_ids_retained": false,
+        "barcode_retained": false,
+        "population_tags_retained": false,
+        "purpose_tags_retained": false,
+        "brand_retained": true,
+        "already_deleted_batch_stays_deleted": true,
+        "stale_version_rejected": true
+      },
+      "active_batches_before": 2,
+      "active_batches_after": 0,
+      "before_rows": [
+        {
+          "id": "6d434dfc-94b2-4d23-8cf3-b627ed625b89",
+          "quantity": "2.000",
+          "unit": "box",
+          "version": 1,
+          "deleted_at": null
+        },
+        {
+          "id": "a2dea987-72bf-42ff-ac6a-556d39845d84",
+          "quantity": "5.000",
+          "unit": "box",
+          "version": 1,
+          "deleted_at": null
+        },
+        {
+          "id": "ecd5c2c0-ed67-475e-8a44-10dc0c47d9f6",
+          "quantity": "1.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.294Z"
+        }
+      ],
+      "after_rows": [
+        {
+          "id": "6d434dfc-94b2-4d23-8cf3-b627ed625b89",
+          "quantity": "2.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.306Z"
+        },
+        {
+          "id": "a2dea987-72bf-42ff-ac6a-556d39845d84",
+          "quantity": "5.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.306Z"
+        },
+        {
+          "id": "ecd5c2c0-ed67-475e-8a44-10dc0c47d9f6",
+          "quantity": "1.000",
+          "unit": "box",
+          "version": 2,
+          "deleted_at": "2026-10-08T16:07:18.294Z"
+        }
+      ],
+      "before_metadata": {
+        "barcodeValue": "6900000000000",
+        "populationTags": [
+          "adult"
+        ],
+        "purposeTags": [
+          "fever"
+        ]
+      },
+      "after_metadata": {
+        "barcodeValue": null,
+        "populationTags": [],
+        "purposeTags": []
+      },
+      "submitted_field_names": [
+        "name",
+        "specification",
+        "manufacturer",
+        "approvalNumber",
+        "activeIngredients",
+        "purposeCategory",
+        "leaflet",
+        "lowStockThreshold",
+        "version"
+      ]
+    }
+  ],
+  "cleanup": {
+    "fixtureSchema": "owned schema removed after snapshot receipt"
+  },
+  "status": "FAIL",
+  "finished_at": "2026-10-08T16:07:18.508Z"
+}

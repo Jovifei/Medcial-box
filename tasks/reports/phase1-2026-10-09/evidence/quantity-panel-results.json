@@ -1,0 +1,122 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "actual quantity-page method and input parser plus Fastify/PG; UI/login mocked",
+  "variants": [
+    {
+      "unit": "box",
+      "http_status": 200,
+      "payload_keys": [
+        "quantity",
+        "version"
+      ],
+      "before": {
+        "quantity": 2,
+        "unit": "box",
+        "lotNumber": "QA-LOT",
+        "expiry": {
+          "value": "2027-12",
+          "precision": "month"
+        },
+        "storageLocation": "QA柜"
+      },
+      "after": {
+        "quantity": 3,
+        "unit": "other",
+        "lotNumber": null,
+        "expiry": {
+          "value": null,
+          "precision": "unknown"
+        },
+        "storageLocation": null
+      },
+      "assertions": {
+        "quantity_changed_correctly": true,
+        "unit_retained": false,
+        "lot_number_retained": false,
+        "expiry_retained": false,
+        "storage_location_retained": false
+      },
+      "toasts": [],
+      "status": "FAIL"
+    },
+    {
+      "unit": "capsule",
+      "http_status": 200,
+      "payload_keys": [
+        "quantity",
+        "version"
+      ],
+      "before": {
+        "quantity": 2,
+        "unit": "capsule",
+        "lotNumber": "QA-LOT",
+        "expiry": {
+          "value": "2027-12",
+          "precision": "month"
+        },
+        "storageLocation": "QA柜"
+      },
+      "after": {
+        "quantity": 3,
+        "unit": "other",
+        "lotNumber": null,
+        "expiry": {
+          "value": null,
+          "precision": "unknown"
+        },
+        "storageLocation": null
+      },
+      "assertions": {
+        "quantity_changed_correctly": true,
+        "unit_retained": false,
+        "lot_number_retained": false,
+        "expiry_retained": false,
+        "storage_location_retained": false
+      },
+      "toasts": [],
+      "status": "FAIL"
+    },
+    {
+      "unit": "ml",
+      "http_status": 400,
+      "payload_keys": [
+        "quantity",
+        "version"
+      ],
+      "before": {
+        "quantity": 1.234,
+        "unit": "ml",
+        "lotNumber": "QA-LOT",
+        "expiry": {
+          "value": "2027-12",
+          "precision": "month"
+        },
+        "storageLocation": "QA柜"
+      },
+      "after": {
+        "quantity": 1.234,
+        "unit": "ml",
+        "lotNumber": "QA-LOT",
+        "expiry": {
+          "value": "2027-12",
+          "precision": "month"
+        },
+        "storageLocation": "QA柜"
+      },
+      "assertions": {
+        "quantity_changed_correctly": false,
+        "unit_retained": true,
+        "lot_number_retained": true,
+        "expiry_retained": true,
+        "storage_location_retained": true
+      },
+      "toasts": [
+        "quantity 在计件单位下必须是整数"
+      ],
+      "status": "FAIL"
+    }
+  ],
+  "owned_schema_removed": true,
+  "status": "FAIL",
+  "finished_at": "2026-10-08T17:24:38.410Z"
+}

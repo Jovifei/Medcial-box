@@ -1,0 +1,263 @@
+{
+  "stage_id": "phase1-20261008",
+  "execution_local_date": "2026-10-09 Asia/Shanghai",
+  "frozen_checkout": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "product_baseline": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "source_tree": "41f91550c8ed88d60ed8c518476a3d93a3339340",
+  "miniprogram_tree": "17dbc684f86008de4e387b40a36097606907d9ef",
+  "node_version": "v24.18.0",
+  "flutter_version": "3.47.5",
+  "dart_version": "3.13.4",
+  "tests": {
+    "mini": {
+      "pass": 389,
+      "fail": 0,
+      "skipped": 0
+    },
+    "api_non_pg": {
+      "pass": 256,
+      "fail": 0,
+      "skipped": 14
+    },
+    "tooling": {
+      "pass": 86,
+      "fail": 0,
+      "skipped": 24
+    },
+    "strict_pg": {
+      "suites": 13,
+      "pass": 152,
+      "fail": 0,
+      "skipped": 0
+    },
+    "flutter": {
+      "pass": 706,
+      "fail": 0,
+      "skipped": 15,
+      "skip_reason": "Windows symlink privilege constraints; do not call skipped security variants PASS"
+    }
+  },
+  "checks": {
+    "offline_dependency_install": "PASS after initial network ECONNRESET",
+    "build": "PASS",
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "flutter_analyze": "PASS",
+    "official_wxml": "27 files PASS",
+    "official_wxss": "28 files PASS",
+    "source_package": "PASS",
+    "https_generated_package": "PASS,622484 bytes/124files",
+    "debug_apk": "BUILD_PASS,debug certificate,not installed",
+    "release_apk": "BUILD_PASS,unsigned,not installed",
+    "paired_synthetic_restore": "PASS for4tables and1syntheticphoto; not production backup script",
+    "production_sigterm": "FAIL init=true pool.end not called",
+    "real_model_quality": "NOT_RUN; no samples/provider authorization used",
+    "mcp_single_file_compile": "BLOCKED_GUI_WINDOW_NOT_FOUND; offline compilers used separately",
+    "hosted_ci_backup_runtime": "BLOCKED_CI_ONLY_GUARD; not bypassed",
+    "https_ready": "TLS handshake failed,HTTP000 on current check",
+    "exact_head_qa": "36PASS/1SKIP,37tests; explicit QA_INTEGRATION_SOURCE_SHA=85bfe72,source manifest verified; not nativeSDK",
+    "photo_upload_ack_loss": "FAIL actual mini API+Fastify+PG+store:1readyphoto afterlostACK ->2afterretry,quota70->140bytes;fullpage/native notrun",
+    "quantity_panel": "FAIL actualpage+PG:box/capsule unit->other,expiry/lot/location cleared;validml2.345 returns400"
+  },
+  "new_probe_product_verdict": "CHANGES_REQUIRED",
+  "business_sources_changed": false,
+  "human_phase_status": "BLOCKED_PENDING_DEFECT_FIXES_AND_ENVIRONMENT",
+  "independent_agents": [
+    {
+      "name": "phase1_identity_photo",
+      "model": "gpt-6.1-sol",
+      "effort": "low"
+    },
+    {
+      "name": "phase1_recognition_runtime",
+      "model": "gpt-6.1-sol",
+      "effort": "low"
+    },
+    {
+      "name": "phase1_plan_export_ui",
+      "model": "gpt-6.1-sol",
+      "effort": "low"
+    }
+  ],
+  "blocked_automation": [
+    {
+      "scope": "plan status/grant-revocation concurrent PG experiment",
+      "reason": "Subagent automatic safety review flagged possible cybersecurity risk",
+      "state": "BLOCKED_AUTOMATIC_SAFETY_REVIEW",
+      "retry_or_workaround": false
+    }
+  ],
+  "local_models_read_only": [
+    {
+      "model": "qwen3.5:4b",
+      "id": "2a654d98e6fb"
+    },
+    {
+      "model": "qwen3.5:9b",
+      "id": "6488c96fa5fa"
+    }
+  ],
+  "driver_preparation_failures": [
+    "online npm ci ECONNRESET; retried with existing offline cache successfully",
+    "paired restore driver initial SQL quote SyntaxError (before product execution)",
+    "paired restore first runnable attempt passedSQL roundtrip but copy target EEXIST; final unique paths passed",
+    "HTTP fetch firstattempt ECONNRESET; node:http recorded actual500",
+    "non-init Docker production process did not exit within15s; init=true matchingstaging exited143 but didnotcallpool.end",
+    "quantity probe initial invalid pill unit seed rejected400; corrected fixture to valid capsule and reran"
+  ],
+  "note": "Independent agent test counts overlap parent regression and are not added. Driverexit0 proves reproduction, not productPASS. Raw logs/APK/dumps/photos/ephemeralcredentials stay outsideGit.",
+  "files": [
+    {
+      "file": "evidence/pg-threshold-results.json",
+      "sha256": "f89f62865f24e2d6586b95ce7bf08791a69908509872e6bbb98c0924c8d17c5e"
+    },
+    {
+      "file": "evidence/pg-threshold-v2-results.json",
+      "sha256": "588a1c86af5c276527541a18528d54bc3e6591a8219b230090b16f13e0896619"
+    },
+    {
+      "file": "evidence/identity-photo--pg-logout-results.json",
+      "sha256": "d3ed13359b05cc1be72f6c6fe7469701be130217feb856cebd75b87b875a6e3f"
+    },
+    {
+      "file": "evidence/recognition-runtime--results.json",
+      "sha256": "5dfa88527aa71528d465d10a3e96859c7e881f5d4e3755de2a430a28edf063c2"
+    },
+    {
+      "file": "evidence/recognition-runtime--valid-image-results.json",
+      "sha256": "3fe339202bb2cc1410543b02d073015267e3fe9312c4f5b044ef668c743ed26a"
+    },
+    {
+      "file": "evidence/recognition-runtime--http-results.json",
+      "sha256": "03055502818ea996b786fe640e4fddeb297c91309c7fe4c5c0d88509d4b5ef2e"
+    },
+    {
+      "file": "evidence/recognition-runtime--page-error-results.json",
+      "sha256": "06775a4ad74cadaa53a119eb8ffd2f211285ff8cc4a9b5bfcddfd4a5a0283f77"
+    },
+    {
+      "file": "evidence/node22-recognition--valid-image-results.json",
+      "sha256": "3fe339202bb2cc1410543b02d073015267e3fe9312c4f5b044ef668c743ed26a"
+    },
+    {
+      "file": "evidence/linux-lifecycle-results.json",
+      "sha256": "74d9ffba61b3f9242a24b70a926174285d77f826b0c07cc45293dc05c4947cb7"
+    },
+    {
+      "file": "evidence/linux-lifecycle-init-results.json",
+      "sha256": "0b34639439e0595117d52da400958293ecfc2daaaf4093f874603356a26cab5f"
+    },
+    {
+      "file": "evidence/paired-restore-results.json",
+      "sha256": "2233e0f6b8085a5e334b2e5942a47dd803e98f36b86908c275606f1d73320a53"
+    },
+    {
+      "file": "evidence/paired-restore-v2-results.json",
+      "sha256": "e459e28a838f3b5ed1ff3e8eebdc6b6858487d4ad0ef2b9a53944a647011009b"
+    },
+    {
+      "file": "evidence/android-artifacts.json",
+      "sha256": "9134bb84821368720daea488fa8b6145755f766d16bdb72674a236beccbf3fbf"
+    },
+    {
+      "file": "evidence/official-compile-results.json",
+      "sha256": "8a3a931e4bfe057c3b6c699958acc267b2ee708b99abc6ebdbc89ebbd017d45b"
+    },
+    {
+      "file": "evidence/independent-parent-rechecks.json",
+      "sha256": "22b70966de56bf852f80e817e0999e04af71b2bd33623c7fcac3546869bbd3de"
+    },
+    {
+      "file": "evidence/cleanup-results.json",
+      "sha256": "dd58c31623ff42a361a19016eb5dd1a4c57b89320bd83406c69eae162d08bed3"
+    },
+    {
+      "file": "drivers/pg-threshold-probe.mjs",
+      "sha256": "6d5b93a263ea0ae185265f51b5961db19aa78c88e8ee5122f585ae53dae235c6"
+    },
+    {
+      "file": "drivers/paired-restore-probe.mjs",
+      "sha256": "eb538a65d84f7b956c9a67da655eaf0047a38c816714277a146c78defa270bf5"
+    },
+    {
+      "file": "drivers/linux-lifecycle-init-probe.py",
+      "sha256": "b9d3957e961a27d1902cd52ec0415694ea2969bd263baec30ed4f55f7b575977"
+    },
+    {
+      "file": "drivers/linux-lifecycle-init--preload.mjs",
+      "sha256": "681136cba7d5ee4955673df837d898ee166f3ead39c8678959bced30710c3387"
+    },
+    {
+      "file": "drivers/identity-photo--identity-probes.mjs",
+      "sha256": "36029a81e869481601f9220b1539c4f0071c3d3c67abd4da8b4a5751fe6328e8"
+    },
+    {
+      "file": "drivers/identity-photo--pg-logout-probe.mjs",
+      "sha256": "227a0ae87e6bb438a4381b51a6952cdb436972bb3a14095389836d4ccfe27b78"
+    },
+    {
+      "file": "drivers/plans-export-ui--plan-draft-scope-probe.mjs",
+      "sha256": "90c20e12c50c1fb9e7f7012dce3a090c937b274f14f04011938d75929947266c"
+    },
+    {
+      "file": "drivers/plans-export-ui--export-session-share-probe.mjs",
+      "sha256": "ddb7486b0b8a24de96f8ed8bbe533ce18c88d17e483d475a002831ea9a9b10c0"
+    },
+    {
+      "file": "drivers/plans-export-ui--backup-file-probe.mjs",
+      "sha256": "8977eafdef9747815c74a7bbcb124d11b736e69d75aae8e646b63e9b5083ea5a"
+    },
+    {
+      "file": "drivers/recognition-runtime--probe.mjs",
+      "sha256": "13fb5505440039d762e2138dab10942693a70cd927568b8099f64ead162ca46f"
+    },
+    {
+      "file": "drivers/recognition-runtime--valid-image-probe.mjs",
+      "sha256": "388aee39d46033afa48e213aee6e010580aeed4c7ec156751b1fa24d9d4e5621"
+    },
+    {
+      "file": "drivers/recognition-runtime--http-probe.mjs",
+      "sha256": "14ff25202d59fdd0f0ba95b513fe5f4674ee669cff963d4dceefcc17316d2584"
+    },
+    {
+      "file": "drivers/recognition-runtime--page-error-probe.mjs",
+      "sha256": "ad6f55cf449336892db9acd45dafac1784ad9b8280a99f7bb1dee0a04f5f14d1"
+    },
+    {
+      "file": "evidence/regression-summary.json",
+      "sha256": "c8f882e3db820b7f4a062be3ffcd5e0ac95f79d49f1e9f268726e90ce56b9cb7"
+    },
+    {
+      "file": "evidence/exact-head-qa-summary.json",
+      "sha256": "0a80209a44d33b2425c6f5fad266732e5c8d9a48c7344046be8eb26b1bc00b7a"
+    },
+    {
+      "file": "evidence/https-ready-check.json",
+      "sha256": "aa75d3f2fac474728e2792d5d8963615ac3ef63745f67487376f1d5683243ac9"
+    },
+    {
+      "file": "drivers/photo-upload-ack-loss-probe.mjs",
+      "sha256": "26298ef2e763facf74302eaa1a93bf9c6da6ebb5ebe374404b74178a0b1db29c"
+    },
+    {
+      "file": "evidence/photo-upload-ack-loss-results.json",
+      "sha256": "cfc77c22f85982a9ced209af32454c36219d14d98ab86f092425e19624e2aa35"
+    },
+    {
+      "file": "evidence/photo-retry-cleanup.json",
+      "sha256": "19e9f2eda24411fa347d47f946dc8a4baf0eda34ff973dc1b8fb7095b0f519fb"
+    },
+    {
+      "file": "drivers/quantity-panel-probe.mjs",
+      "sha256": "a69f2399a774bff2a0b53f6548cc44f4142abf451bc72d5b093200bc798c1945"
+    },
+    {
+      "file": "evidence/quantity-panel-results.json",
+      "sha256": "c0afd3801b38310204fff1f4843aa2db4809ef776eb42ba457d3b58527831f35"
+    },
+    {
+      "file": "evidence/quantity-cleanup.json",
+      "sha256": "fb636ad368ff7ed932b1beb731570d46197e4a50b9bc76e9199b12339cb33ff7"
+    }
+  ]
+}

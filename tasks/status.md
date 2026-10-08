@@ -1,3 +1,9 @@
+# 当前执行 · 第一阶段审核结果（2026-10-09）
+
+分支codex/two-stage-audit-20261008；测试冻结85bfe72，产品f675416。CHANGES_REQUIRED：实际PG确认库存提醒保存软删批次及清空资料；另外身份/导出/草稿/识别边界与生产关闭链路存在已复现问题。已有全量回归通过不覆盖这些新负例。业务源码、main、用户数据未改；APK未安装，未重新上传或提审。详见[第一阶段报告](reports/phase1-2026-10-09/README.md)及[缺陷清单](reports/phase1-2026-10-09/defects.md)。真人阶段保持等待安全修复；未执行规格/环境缺口如实列出。
+
+---
+
 # 当前阶段 · 2026-10-08 两阶段验收计划
 
 main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLAN_READY / INITIAL_AUDIT，完整验收未执行。三名独立子代理初审与局部实际页面/validator探针发现库存阈值保存缺字段风险（开/关均CONTRACT_FAIL，PG尚未复现）。相关真实数据路径不放行；本机独立测试继续。计划/288条来源规格映射/人工卡/缺陷证据见[two-stage-audit](plans/2026-10-08-two-stage-audit/README.md)。下列历史状态只对应其日期和SHA，不作当前PASS。

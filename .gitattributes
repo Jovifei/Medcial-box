@@ -5,3 +5,7 @@
 
 # Preserve reviewed audit attachments byte-for-byte for provenance hashes.
 tasks/plans/2026-10-08-two-stage-audit/sources/** -text
+
+# Preserve audit evidence and reproduction-driver bytes for checksum review.
+tasks/reports/phase1-2026-10-09/evidence/** -text
+tasks/reports/phase1-2026-10-09/drivers/** -text

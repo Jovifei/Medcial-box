@@ -1,0 +1,113 @@
+{
+  "baseline": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "database": "FAKE_ONLY",
+  "network": "NONE",
+  "results": [
+    {
+      "id": "F07",
+      "status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "服务暂时不可用，请稍后重试"
+        }
+      },
+      "providerCalls": 0,
+      "expected": 413,
+      "reproduced": true
+    },
+    {
+      "id": "F03",
+      "status": 200,
+      "providerCalls": 1,
+      "width": 2147483647,
+      "height": 2147483647,
+      "inputBytes": 128,
+      "syntheticEnvelopeNotDecodable": true,
+      "reproduced": true
+    },
+    {
+      "id": "image-byte-boundary",
+      "imageBytes": 4194303,
+      "status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "服务暂时不可用，请稍后重试"
+        }
+      },
+      "providerCalls": 0,
+      "syntheticEnvelopeNotDecodable": true
+    },
+    {
+      "id": "image-byte-boundary",
+      "imageBytes": 4194304,
+      "status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "服务暂时不可用，请稍后重试"
+        }
+      },
+      "providerCalls": 0,
+      "syntheticEnvelopeNotDecodable": true
+    },
+    {
+      "id": "image-byte-boundary",
+      "imageBytes": 4194305,
+      "status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "服务暂时不可用，请稍后重试"
+        }
+      },
+      "providerCalls": 0,
+      "syntheticEnvelopeNotDecodable": true
+    },
+    {
+      "id": "F04-error",
+      "provider": "ollama",
+      "consumedBytes": 2097164,
+      "responseBytes": 2097164,
+      "reason": "provider_unavailable",
+      "reproduced": true
+    },
+    {
+      "id": "F04-success",
+      "provider": "ollama",
+      "responseBytes": 2097219,
+      "draftName": "synthetic",
+      "acceptedOver2MiB": true
+    },
+    {
+      "id": "F04-body-abort",
+      "provider": "ollama",
+      "reason": "invalid_json",
+      "expected": "timeout",
+      "reproduced": true
+    },
+    {
+      "id": "F04-error",
+      "provider": "dashscope",
+      "consumedBytes": 2097164,
+      "responseBytes": 2097164,
+      "reason": "provider_unavailable",
+      "reproduced": true
+    },
+    {
+      "id": "F04-success",
+      "provider": "dashscope",
+      "responseBytes": 2097233,
+      "draftName": "synthetic",
+      "acceptedOver2MiB": true
+    },
+    {
+      "id": "F04-body-abort",
+      "provider": "dashscope",
+      "reason": "invalid_json",
+      "expected": "timeout",
+      "reproduced": true
+    }
+  ]
+}

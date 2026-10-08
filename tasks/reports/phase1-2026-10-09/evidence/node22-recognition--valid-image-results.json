@@ -1,0 +1,40 @@
+[
+  {
+    "inputBytes": 128,
+    "width": 1,
+    "height": 1,
+    "format": "PNG 8-bit RGBA valid chunks CRC32 plus inflated IDAT verified",
+    "status": 200,
+    "providerCalls": 1
+  },
+  {
+    "inputBytes": 4194303,
+    "width": 1,
+    "height": 1,
+    "format": "PNG 8-bit RGBA valid chunks CRC32 plus inflated IDAT verified",
+    "status": 500,
+    "providerCalls": 0,
+    "errorName": "RangeError",
+    "errorMessage": "Maximum call stack size exceeded"
+  },
+  {
+    "inputBytes": 4194304,
+    "width": 1,
+    "height": 1,
+    "format": "PNG 8-bit RGBA valid chunks CRC32 plus inflated IDAT verified",
+    "status": 500,
+    "providerCalls": 0,
+    "errorName": "RangeError",
+    "errorMessage": "Maximum call stack size exceeded"
+  },
+  {
+    "inputBytes": 4194305,
+    "width": 1,
+    "height": 1,
+    "format": "PNG 8-bit RGBA valid chunks CRC32 plus inflated IDAT verified",
+    "status": 500,
+    "providerCalls": 0,
+    "errorName": "RangeError",
+    "errorMessage": "Maximum call stack size exceeded"
+  }
+]
