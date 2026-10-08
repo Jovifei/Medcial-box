@@ -11,3 +11,13 @@ post-merge-delivery-stage-2026-10-07 的九文件工具增量已合入隔离分�
 误推的 local-delivery-handoff-20261008 分支已按用户授权删除；新整合历史从最新 main 出发，不合入旧分支内 var 私照历史。删除远端引用不能保证 GitHub 历史对象清除，彻底移除尚需 GitHub 侧处理。
 
 真实微信、双账号双手机、通知送达、正式签名、HTTPS 和生产数据库+照片恢复仍是独立门槛。合并与自动化通过不能替代。
+
+## 本次验证
+
+fe7d1ef357d043f050f5abce38bd4238dd2d0b32 冻结后 npm build/lint/typecheck 通过；npm test：小程序389 PASS，API256 PASS/14 SKIPPED（未配置 PostgreSQL），tooling86 PASS/24 SKIPPED（原有环境门槛）。随后仅纠正一条升级脚本注释与历史审计合并身份；小程序子树始终为17dbc684f86008de4e387b40a36097606907d9ef，Flutter源码与原main完全一致，没有重构或重新安装。
+
+小程序 source 包检查通过，622618字节/124文件。直接对源码运行 release 门禁被正确拒绝（源码并非独立HTTPS发布包），不把source通过称为release验收。
+
+独立代理仅只读复审，7项新增工具测试通过，确认删除范围为历史截图、运行代码/品牌资源/已有隐私测试保留。指出的一条升级检查注释已修正。
+
+旧delivery-audit分支使用保留最新主线的合并策略登记祖先；四项旧变更已有更新实现，未拿旧树覆盖主线。原本地分支b18e985保留、不并入main（其旧历史含var私照）；新交付记录按文件选择复制。
