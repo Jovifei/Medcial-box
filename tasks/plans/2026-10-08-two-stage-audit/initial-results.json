@@ -1,0 +1,131 @@
+{
+  "baseline": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "full_suite_status": "NOT_RUN_THIS_STAGE",
+  "independent_code_audit_status": "INITIAL_REVIEW_ONLY",
+  "runs": [
+    {
+      "id": "LOCAL-THRESHOLD-CONTRACT",
+      "source_spec_refs": [
+        "B:REG-01",
+        "B:REG-02"
+      ],
+      "scope": "Actual extracted page method plus freshly built production validator; stubs for UI/API; no PostgreSQL or provider",
+      "source_commit": "f675416ced73b59144c1f3d327dcdc741608a84e",
+      "head_matches_audit": true,
+      "command": "npm run build --workspace @home-medicine/api; then reviewed bundle B threshold contract probe --repo <isolated-f675416> --out <new-local-report>",
+      "build_exit_code": 0,
+      "probe_exit_code": 1,
+      "status": "FAIL",
+      "production_files": {
+        "page_sha256": "254e528264910c10fe774ecefe7f5c1a6c194680752cc47391dd8e978b5aa863",
+        "inputs_source_sha256": "f66ed938bc4f38e418147e6ad5d1bdece2e4ad56504c6a6d1ea4357d07c43a02",
+        "inputs_dist_sha256": "f2ea6a017127b2b249aa780dd37a5d14222bf414e339f25123e2d730196375a2"
+      },
+      "variants": [
+        {
+          "variant": "enable_threshold",
+          "status": "FAIL",
+          "assertions": [
+            {
+              "name": "validator_accepts_request",
+              "ok": true,
+              "details": "accepted"
+            },
+            {
+              "name": "all_existing_batch_ids_retained",
+              "ok": false,
+              "details": {
+                "beforeIds": [
+                  "00000000-0000-4000-8000-000000000011",
+                  "00000000-0000-4000-8000-000000000012"
+                ],
+                "afterIds": []
+              }
+            },
+            {
+              "name": "barcode_retained",
+              "ok": false,
+              "details": {
+                "before": "QA-BARCODE-SENTINEL",
+                "after": null
+              }
+            },
+            {
+              "name": "populationTags_retained",
+              "ok": false,
+              "details": {
+                "before": [
+                  "adult"
+                ],
+                "after": []
+              }
+            },
+            {
+              "name": "purposeTags_retained",
+              "ok": false,
+              "details": {
+                "before": [
+                  "other"
+                ],
+                "after": []
+              }
+            }
+          ]
+        },
+        {
+          "variant": "disable_threshold",
+          "status": "FAIL",
+          "assertions": [
+            {
+              "name": "validator_accepts_request",
+              "ok": true,
+              "details": "accepted"
+            },
+            {
+              "name": "all_existing_batch_ids_retained",
+              "ok": false,
+              "details": {
+                "beforeIds": [
+                  "00000000-0000-4000-8000-000000000011",
+                  "00000000-0000-4000-8000-000000000012"
+                ],
+                "afterIds": []
+              }
+            },
+            {
+              "name": "barcode_retained",
+              "ok": false,
+              "details": {
+                "before": "QA-BARCODE-SENTINEL",
+                "after": null
+              }
+            },
+            {
+              "name": "populationTags_retained",
+              "ok": false,
+              "details": {
+                "before": [
+                  "adult"
+                ],
+                "after": []
+              }
+            },
+            {
+              "name": "purposeTags_retained",
+              "ok": false,
+              "details": {
+                "before": [
+                  "other"
+                ],
+                "after": []
+              }
+            }
+          ]
+        }
+      ],
+      "defect_id": "AUD-01",
+      "pg_status": "NOT_RUN",
+      "device_status": "NOT_RUN"
+    }
+  ]
+}

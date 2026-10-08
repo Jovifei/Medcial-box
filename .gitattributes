@@ -2,3 +2,6 @@
 # Migration checksums and Linux shell execution must not depend on checkout OS.
 *.sql text eol=lf
 *.sh text eol=lf
+
+# Preserve reviewed audit attachments byte-for-byte for provenance hashes.
+tasks/plans/2026-10-08-two-stage-audit/sources/** -text

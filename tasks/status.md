@@ -1,3 +1,9 @@
+# 当前阶段 · 2026-10-08 两阶段验收计划
+
+main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLAN_READY / INITIAL_AUDIT，完整验收未执行。三名独立子代理初审与局部实际页面/validator探针发现库存阈值保存缺字段风险（开/关均CONTRACT_FAIL，PG尚未复现）。相关真实数据路径不放行；本机独立测试继续。计划/288条来源规格映射/人工卡/缺陷证据见[two-stage-audit](plans/2026-10-08-two-stage-audit/README.md)。下列历史状态只对应其日期和SHA，不作当前PASS。
+
+---
+
 # 当前执行补充 · 2026-10-05 原生能力与安全写入
 
 当前原分支 `audit/final-delivery-2026-10-04`。截至基线 `9de6d991`，照片清理归属、条码/编辑加载原家庭保护、日期精度与期限模式修复均已独立审查并提交；精确CI全绿：mini265、API389（严格PG无跳过）、tooling59、Flutter689/analyze、Debug/unsigned Release、隔离Docker恢复。

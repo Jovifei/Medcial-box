@@ -1,0 +1,5198 @@
+{
+  "schema_version": 1,
+  "project": "JF小药箱",
+  "repository": "Jovifei/Medcial-box",
+  "audited_commit": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "audit_date": "2026-10-08",
+  "kind": "TEST_PLAN_NOT_EXECUTION_RESULTS",
+  "notice": "本文件是待执行测试规格，不是测试结果。全部用例初始NOT_RUN。模板要求不代表当前实现均已具备。",
+  "status_values": [
+    "PASS",
+    "FAIL",
+    "BLOCKED",
+    "SKIPPED",
+    "NOT_RUN"
+  ],
+  "scope_policy": "逐平台/设备/provider/故障变体展开；只有全部必测变体PASS才能标记用例PASS。Android专属项不阻断仅微信范围，但必须明确排除。",
+  "case_count": 156,
+  "cases": [
+    {
+      "id": "BASE-01",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "本地仓库可读",
+        "不改工作树"
+      ],
+      "steps": [
+        "记录remote、git status与HEAD",
+        "比对审核SHA",
+        "记录客户端构建SHA与后端SHA",
+        "有差异先生成差异清单"
+      ],
+      "expected_assertions": [
+        "未提交修改不丢失",
+        "旧安装包不得替代新候选",
+        "差异未审不复用旧PASS"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "代码与安装基线一致"
+    },
+    {
+      "id": "BASE-02",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "建立独立medbox_qa数据库及专用照片目录"
+      ],
+      "steps": [
+        "读取测试脚本清库范围",
+        "核对连接目标与目录",
+        "以无生产权限的测试账号连接",
+        "写入合成哨兵并查询"
+      ],
+      "expected_assertions": [
+        "测试账号不能接触生产库/照片",
+        "未知目标立即BLOCKED",
+        "禁止沿用真实药箱执行破坏性用例"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "测试数据和生产彻底隔离"
+    },
+    {
+      "id": "BASE-03",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "锁文件已提交",
+        "已批准安装锁定依赖"
+      ],
+      "steps": [
+        "记录Node/npm/Flutter/Dart/Java/DevTools/微信版本",
+        "npm ci",
+        "比对锁文件前后hash"
+      ],
+      "expected_assertions": [
+        "使用锁定依赖",
+        "不运行npm update或擅自升SDK",
+        "安装失败不跳过门禁"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "依赖和工具版本冻结"
+    },
+    {
+      "id": "BASE-04",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "识别环境配置可读取但不导出密钥"
+      ],
+      "steps": [
+        "记录provider/model/base origin及模型版本或digest",
+        "记录prompt hash",
+        "核对网络出口",
+        "确认真实图片授权和调用预算"
+      ],
+      "expected_assertions": [
+        "未知provider不自动改用云服务",
+        "密钥不进日志",
+        "未授权照片不发送第三方"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "模型和数据发送目的地冻结"
+    },
+    {
+      "id": "BASE-05",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "支持固定时间的测试入口",
+        "两端时区已记录"
+      ],
+      "steps": [
+        "固定合成日期到2026-10-08",
+        "记录Asia/Shanghai业务日期和设备时区",
+        "核对月末/跨日样本"
+      ],
+      "expected_assertions": [
+        "日期预期依业务口径而非审核者电脑时区",
+        "设备改时不得修改生产主机时间"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "时间与测试场景统一"
+    },
+    {
+      "id": "BASE-06",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "独立测试环境启用可控日志"
+      ],
+      "steps": [
+        "执行一条合成识别",
+        "收集客户端请求、API和模型时间",
+        "检查日志",
+        "尝试搜索合成秘密哨兵"
+      ],
+      "expected_assertions": [
+        "同一请求可以关联",
+        "禁止完整base64、Bearer、openid、session_key或真实剂量出现在可提交日志"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "日志脱敏及关联"
+    },
+    {
+      "id": "BASE-07",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "创建本计划的results副本"
+      ],
+      "steps": [
+        "执行一个PASS、一个FAIL及一个故意缺设备的用例",
+        "生成汇总",
+        "核对必测项阻断状态"
+      ],
+      "expected_assertions": [
+        "FAIL/BLOCKED/SKIPPED/NOT_RUN均不算PASS",
+        "缺少证据的PASS被拒绝"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "结果状态不冒充通过"
+    },
+    {
+      "id": "BASE-08",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "platform": "全部",
+      "execution_mode": "本地自动化/人工复核",
+      "preconditions": [
+        "只审当前文件和历史元数据",
+        "不打开历史私人照片"
+      ],
+      "steps": [
+        "核对var和运行目录忽略规则",
+        "审查待提交文件列表",
+        "核对既往私照误推处置凭据"
+      ],
+      "expected_assertions": [
+        "不把删除分支当作对象已清除",
+        "敏感图片不重新提交",
+        "历史处置未证实如实记录"
+      ],
+      "evidence_required": [
+        "脱敏环境清单",
+        "完整命令与退出码",
+        "精确SHA与配置摘要"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "工作区与照片历史卫生"
+    },
+    {
+      "id": "REG-01",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "药品M有两个不同批次及条码/标签",
+        "当前版本已记录"
+      ],
+      "steps": [
+        "打开药品详情",
+        "设置低库存阈值3盒",
+        "保存库存提醒",
+        "重新GET药品",
+        "直接查询批次与元数据"
+      ],
+      "expected_assertions": [
+        "只允许阈值和正常版本/审计字段变化",
+        "两个原批次ID数量日期完全保留",
+        "条码/标签不清空"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "开启低库存提醒不删除批次"
+    },
+    {
+      "id": "REG-02",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "同REG-01且已有阈值"
+      ],
+      "steps": [
+        "关闭提醒开关",
+        "保存",
+        "重开药品详情",
+        "比较原批次及所有非阈值字段"
+      ],
+      "expected_assertions": [
+        "阈值变null",
+        "库存与药品资料不变",
+        "不得以保存成功toast代替比较"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "关闭低库存提醒不删除批次"
+    },
+    {
+      "id": "REG-03",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "隔离药品存在两批次",
+        "可发送测试API请求"
+      ],
+      "steps": [
+        "分别提交缺省batches、null、显式空数组",
+        "记录已定义接口语义",
+        "核对实际写库结果"
+      ],
+      "expected_assertions": [
+        "缺省字段不得被意外解释为删除",
+        "危险请求应保留原值或明确拒绝",
+        "显式删除按已批准完整替换契约验证"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "局部更新与完整替换契约"
+    },
+    {
+      "id": "REG-04",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "设备A/B打开同药品同version"
+      ],
+      "steps": [
+        "B增加批次并保存",
+        "A保存旧阈值",
+        "查询最新药品与批次"
+      ],
+      "expected_assertions": [
+        "旧版本冲突或安全合并按契约处理",
+        "不得静默删除B新增批次",
+        "用户看到可恢复冲突"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "阈值保存并发修改"
+    },
+    {
+      "id": "REG-05",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "药品已保存",
+        "一张合成照片",
+        "可控代理"
+      ],
+      "steps": [
+        "在照片激活提交后丢弃HTTP201响应",
+        "客户端收到超时",
+        "再次保存",
+        "查询照片行与文件"
+      ],
+      "expected_assertions": [
+        "同一上传意图最终只有一个有效照片记录",
+        "无额外配额损耗",
+        "新照片ID不能掩盖重复上传"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "私照提交成功但响应丢失"
+    },
+    {
+      "id": "REG-06",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "已获取照片201",
+        "本地可精确注入崩溃"
+      ],
+      "steps": [
+        "收到201后、uploadedId持久化前终止客户端",
+        "冷启动恢复",
+        "重试补照片",
+        "检查服务端副本数"
+      ],
+      "expected_assertions": [
+        "原药品不重复",
+        "同一照片不重复",
+        "若不能保证应记录FAIL而非仅清掉队列"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "照片成功与回执持久化之间崩溃"
+    },
+    {
+      "id": "REG-07",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "测试模型逐一产生9类失败",
+        "页面可用"
+      ],
+      "steps": [
+        "注入模型缺失、解码失败、OOM、上下文超限、不可达、非法请求、非法JSON、超时、未知错误",
+        "观察API和页面提示"
+      ],
+      "expected_assertions": [
+        "类别或操作建议有可辨差异",
+        "不泄露内部细节",
+        "不能把所有失败都隐藏成相同不可用提示"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "识别失败类别能到达用户"
+    },
+    {
+      "id": "REG-08",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "platform": "小程序/API",
+      "execution_mode": "真实页面＋隔离PostgreSQL",
+      "preconditions": [
+        "同药品有两个不同批次",
+        "目标是第二批次"
+      ],
+      "steps": [
+        "从实际可见入口选择目标批次",
+        "补拍有效期",
+        "核对表单回填",
+        "保存",
+        "检查photo.batch_id与批次日期"
+      ],
+      "expected_assertions": [
+        "照片与所操作批次一致",
+        "不静默写入第一批",
+        "未支持第二批次必须明确限制并列产品缺口"
+      ],
+      "evidence_required": [
+        "操作录像",
+        "脱敏请求体",
+        "药品/批次/标签/条码前后快照",
+        "缺陷复现记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "多批次有效期照片正确归属"
+    },
+    {
+      "id": "CAP-01",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "已登录测试家庭",
+        "有效JPEG药盒样本"
+      ],
+      "steps": [
+        "进入新增药品",
+        "选择拍照",
+        "拍清晰正面",
+        "确认照片",
+        "观察草稿与识别状态"
+      ],
+      "expected_assertions": [
+        "只有一次采集和一次当前识别",
+        "照片可预览",
+        "不会直接创建药品"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "首次拍照正常链路"
+    },
+    {
+      "id": "CAP-02",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "测试相册有真实可解码PNG"
+      ],
+      "steps": [
+        "选择相册",
+        "选图",
+        "确认",
+        "核对MIME与读取结果"
+      ],
+      "expected_assertions": [
+        "按实际文件内容判断类型",
+        "PNG保持可读取",
+        "显示正确缩略图"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "从相册选择PNG"
+    },
+    {
+      "id": "CAP-03",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "已有人工录入字段"
+      ],
+      "steps": [
+        "分别进入相机/相册",
+        "取消",
+        "回到表单",
+        "检查网络及数据库"
+      ],
+      "expected_assertions": [
+        "不发送识别或保存请求",
+        "不丢已有输入",
+        "无误报服务故障"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "取消拍照与取消相册"
+    },
+    {
+      "id": "CAP-04",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "清除测试客户端相机授权"
+      ],
+      "steps": [
+        "首次拒绝",
+        "再次尝试",
+        "进入系统设置授权",
+        "返回重试"
+      ],
+      "expected_assertions": [
+        "拒绝有明确可操作提示",
+        "不循环强求授权",
+        "手动录入保持可用"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "拒绝相机权限"
+    },
+    {
+      "id": "CAP-05",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "首次运行或权限可重置"
+      ],
+      "steps": [
+        "在平台隐私授权和相册入口拒绝",
+        "回到应用",
+        "查看网络出站",
+        "再次授权"
+      ],
+      "expected_assertions": [
+        "未授权阶段不采集或发图",
+        "说明与实际收集一致",
+        "恢复无需删库重装"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "拒绝隐私或相册授权"
+    },
+    {
+      "id": "CAP-06",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "识别请求处于进行中"
+      ],
+      "steps": [
+        "切后台",
+        "锁屏",
+        "恢复",
+        "再次打开表单"
+      ],
+      "expected_assertions": [
+        "不会重复提交",
+        "状态结束可知",
+        "结果仅回填原身份原草稿"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "前后台与锁屏"
+    },
+    {
+      "id": "CAP-07",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "真机支持前后摄像头/方向元数据"
+      ],
+      "steps": [
+        "横竖拍摄同包装",
+        "切换摄像头",
+        "比较实际上传图与识别"
+      ],
+      "expected_assertions": [
+        "不出现错误方向或黑图",
+        "上传字节对应当前确认照片",
+        "取消不留错误草稿"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "摄像头切换和旋转"
+    },
+    {
+      "id": "CAP-08",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "准备HEIC/WebP/GIF和仅改后缀文件"
+      ],
+      "steps": [
+        "分别从实际入口选择",
+        "记录平台是否转换",
+        "检查上传MIME和结果"
+      ],
+      "expected_assertions": [
+        "只接受有效转换后的JPEG/PNG或明确拒绝",
+        "不能仅看扩展名放行"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "不支持的文件格式"
+    },
+    {
+      "id": "CAP-09",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "三张可解码JPEG在压缩后为4194303/4194304/4194305字节"
+      ],
+      "steps": [
+        "逐张选图",
+        "记录实际文件长度",
+        "发起识别"
+      ],
+      "expected_assertions": [
+        "不超过4MiB可进入后续校验",
+        "超过限制安全拒绝",
+        "不把压缩前大小当实际上传大小"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "4MiB边界"
+    },
+    {
+      "id": "CAP-10",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "可注入临时文件被删除或readFile失败"
+      ],
+      "steps": [
+        "选图成功",
+        "读取前删除测试临时文件",
+        "继续识别"
+      ],
+      "expected_assertions": [
+        "有失败提示",
+        "无空图请求",
+        "输入和已有照片不被覆盖"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "照片读取失败"
+    },
+    {
+      "id": "CAP-11",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "专用存储配额可模拟耗尽"
+      ],
+      "steps": [
+        "选图",
+        "写入本机持久草稿时触发失败",
+        "重试或手工录入"
+      ],
+      "expected_assertions": [
+        "不会假称草稿已安全保存",
+        "不丢现有数据",
+        "reserved回执可处理"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "持久目录空间不足"
+    },
+    {
+      "id": "CAP-12",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "可在owned photo两个阶段暂停"
+      ],
+      "steps": [
+        "登记reserved后杀进程",
+        "重启",
+        "另一次在写入后markReady前杀进程",
+        "恢复"
+      ],
+      "expected_assertions": [
+        "未完成文件不被当成可上传完整图",
+        "清理只处理本草稿拥有文件"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "reserved与ready崩溃恢复"
+    },
+    {
+      "id": "CAP-13",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "图文草稿存在且未保存"
+      ],
+      "steps": [
+        "逐一测试三个离开选项",
+        "退出重开",
+        "核对文件和文字"
+      ],
+      "expected_assertions": [
+        "保留可恢复",
+        "放弃不删除其他草稿文件",
+        "继续保持输入",
+        "清理失败有状态"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "放弃/保留/继续编辑"
+    },
+    {
+      "id": "CAP-14",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "真机＋文件故障注入",
+      "preconditions": [
+        "两个页面实例引用同一草稿"
+      ],
+      "steps": [
+        "A编辑普通字段",
+        "B完成新照片回执",
+        "A持久化",
+        "重新读取队列"
+      ],
+      "expected_assertions": [
+        "较新照片归属与上传回执不被旧页面覆盖",
+        "不同批次结构不错误合并"
+      ],
+      "evidence_required": [
+        "录像",
+        "相机/文件API事件",
+        "脱敏草稿元数据",
+        "测试照片文件清单"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "重复进入页面的草稿竞争"
+    },
+    {
+      "id": "API-01",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "无令牌",
+        "合法合成图片"
+      ],
+      "steps": [
+        "POST识别接口",
+        "检查响应",
+        "检查模型调用计数"
+      ],
+      "expected_assertions": [
+        "401",
+        "模型未调用",
+        "无图片或药品持久化"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "未登录识别拒绝"
+    },
+    {
+      "id": "API-02",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "有效账号但没有家庭"
+      ],
+      "steps": [
+        "发送合法识别请求",
+        "查询模型调用记录"
+      ],
+      "expected_assertions": [
+        "按权限契约拒绝",
+        "不能进入其他家庭",
+        "无模型调用"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "未加入家庭识别拒绝"
+    },
+    {
+      "id": "API-03",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "两种真实可解码合成图",
+        "模拟上游有效JSON"
+      ],
+      "steps": [
+        "逐一POST",
+        "核对响应字段、warning和requiresConfirmation"
+      ],
+      "expected_assertions": [
+        "200且结构稳定",
+        "requiresConfirmation为true",
+        "响应没有凭据/服务器私有路径"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "有效JPEG/PNG契约"
+    },
+    {
+      "id": "API-04",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "空串、错误padding、非法字符、截断样本"
+      ],
+      "steps": [
+        "逐一发送",
+        "记录错误及模型计数"
+      ],
+      "expected_assertions": [
+        "400",
+        "模型未调用",
+        "无500栈信息",
+        "无业务写入"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "Base64非法输入"
+    },
+    {
+      "id": "API-05",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "JPEG声明PNG及PNG声明JPEG"
+      ],
+      "steps": [
+        "发送两种错配",
+        "查询上游调用"
+      ],
+      "expected_assertions": [
+        "400",
+        "不把客户端声明当真实性证明"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "MIME与字节内容不符"
+    },
+    {
+      "id": "API-06",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "有头尾但不能真正解码的测试文件"
+      ],
+      "steps": [
+        "经接口调用模拟解码错误",
+        "再在真实模型单独测试此文件"
+      ],
+      "expected_assertions": [
+        "安全失败而不产生药名",
+        "壳校验通过不等于可解码",
+        "真实图像结果独立报告"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "合法图片头但内容损坏"
+    },
+    {
+      "id": "API-07",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "4MiB解码图和超过6MiB请求体"
+      ],
+      "steps": [
+        "发送每个边界",
+        "同时观察代理/API",
+        "查询上游"
+      ],
+      "expected_assertions": [
+        "超过限制为可解释4xx",
+        "不误报500或无限等待",
+        "正常4MiB图不被默认代理1MiB限制拦截"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "图片和HTTP体积双边界"
+    },
+    {
+      "id": "API-08",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "purpose省略、box_front、leaflet、expiry和非法值"
+      ],
+      "steps": [
+        "逐一调用接口",
+        "捕获实际适配器入参"
+      ],
+      "expected_assertions": [
+        "box_front/leaflet和缺省按代码契约处理",
+        "直接expiry不伪装已支持",
+        "前端expiry映射需单独记录"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "识别用途白名单"
+    },
+    {
+      "id": "API-09",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "隔离环境移除测试密钥"
+      ],
+      "steps": [
+        "调用识别",
+        "观察用户响应和日志"
+      ],
+      "expected_assertions": [
+        "显式不可用",
+        "无生产密钥回退",
+        "可手动录入",
+        "不暴露环境值"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "缺失模型密钥/配置"
+    },
+    {
+      "id": "API-10",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "模拟404模型不存在和网络连接拒绝"
+      ],
+      "steps": [
+        "分别调用",
+        "比较错误reason与响应文案"
+      ],
+      "expected_assertions": [
+        "能够分类",
+        "不能说识别成功",
+        "没有图片/密钥原文日志"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "模型缺失与服务不可达"
+    },
+    {
+      "id": "API-11",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "模拟429及OOM500"
+      ],
+      "steps": [
+        "有限次调用",
+        "检查返回与重试行为"
+      ],
+      "expected_assertions": [
+        "安全503或既定错误",
+        "不无限重试/并发放大",
+        "原草稿保留"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "上游限流和显存不足"
+    },
+    {
+      "id": "API-12",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "适配器支持可控响应延迟"
+      ],
+      "steps": [
+        "分别逼近25秒/55秒适配器预算",
+        "注入Abort/Timeout",
+        "核对客户端60秒总预算"
+      ],
+      "expected_assertions": [
+        "超时能结束",
+        "无僵尸loading",
+        "队列/上传耗时也纳入总时延",
+        "客户端先超时需记问题"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "超时预算及取消"
+    },
+    {
+      "id": "API-13",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "非法JSON、数组、缺draft、字段数字、超长文本"
+      ],
+      "steps": [
+        "逐一注入上游结果",
+        "检查清洗或拒绝"
+      ],
+      "expected_assertions": [
+        "不会类型崩溃",
+        "非法结构不伪造成功",
+        "截断有warning",
+        "重要字段不能静默猜补"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "异常JSON与结构"
+    },
+    {
+      "id": "API-14",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "上游返回未知标签、重复标签、额外用量字段"
+      ],
+      "steps": [
+        "发起识别",
+        "对比cleanDraft结果"
+      ],
+      "expected_assertions": [
+        "非法标签不写入",
+        "不接受个体用药建议或库存数量推断",
+        "重复标签去重"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "字段白名单和标签去重"
+    },
+    {
+      "id": "API-15",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "上游给YYYY-MM、YYYY-MM-DD、2027-02-29、垃圾日期"
+      ],
+      "steps": [
+        "逐一调用",
+        "检查value/precision及warning"
+      ],
+      "expected_assertions": [
+        "月份不擅自变成具体日",
+        "非法日历日期未知或明确拒绝",
+        "禁止把生产日期推断成有效期"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "日期精度及非法日历"
+    },
+    {
+      "id": "API-16",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "上游给12小时、24小时、20粒装及12小时/20粒装"
+      ],
+      "steps": [
+        "逐一识别",
+        "核对规格与库存字段"
+      ],
+      "expected_assertions": [
+        "纯持续时间不作为包装数量",
+        "明确包装规格保留",
+        "不自动生成当前库存数量"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "持续时间不是数量"
+    },
+    {
+      "id": "API-17",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "隔离真实PG和私照目录已做前快照"
+      ],
+      "steps": [
+        "调用成功、失败、超时、取消路径",
+        "比较medicines/batches/photos/receipts与文件"
+      ],
+      "expected_assertions": [
+        "识别接口不新增药品、批次或私照记录",
+        "测试日志不形成长期明文图片副本"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "识别全程不写业务数据"
+    },
+    {
+      "id": "API-18",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "platform": "API",
+      "execution_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "preconditions": [
+        "隔离环境分别选择已配置provider"
+      ],
+      "steps": [
+        "捕获脱敏请求origin与模型名",
+        "检查只发当前provider",
+        "模拟失败"
+      ],
+      "expected_assertions": [
+        "无隐式跨提供商回退",
+        "使用与授权说明一致目的地",
+        "只记录必要元数据"
+      ],
+      "evidence_required": [
+        "HTTP状态与业务码",
+        "上游调用次数",
+        "数据库零写入断言",
+        "脱敏适配器请求"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "提供商选择与网络出站"
+    },
+    {
+      "id": "OCR-01",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "真实药盒正面样本",
+        "金标准预先双人核对"
+      ],
+      "steps": [
+        "打乱样本顺序",
+        "对每图调用实际配置模型",
+        "原样记录输出",
+        "按可读字段评分"
+      ],
+      "expected_assertions": [
+        "药名正确率达到预先冻结门槛",
+        "不以品牌替代通用名",
+        "不把漏识别排除分母"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "清晰药盒通用名"
+    },
+    {
+      "id": "OCR-02",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "包装同时有商标和生产企业"
+      ],
+      "steps": [
+        "识别",
+        "分别核对brand/name/manufacturer",
+        "检查表单及保存值"
+      ],
+      "expected_assertions": [
+        "三者不串位",
+        "不可见者留空",
+        "同名不同厂家不直接合并"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "品牌与厂家分离"
+    },
+    {
+      "id": "OCR-03",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "同名药两种规格",
+        "样本配对"
+      ],
+      "steps": [
+        "先后识别两图",
+        "新草稿分别保存",
+        "比较药品与批次"
+      ],
+      "expected_assertions": [
+        "规格不串",
+        "没有上一张残留",
+        "不可把规格当已确认库存"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "同药不同规格"
+    },
+    {
+      "id": "OCR-04",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "包装相似但药名/成分不同"
+      ],
+      "steps": [
+        "随机识别",
+        "对比金标准",
+        "核对是否有自动共用资料"
+      ],
+      "expected_assertions": [
+        "不能静默混为同药",
+        "不从颜色/品牌猜成分或人群"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "相似包装不同药"
+    },
+    {
+      "id": "OCR-05",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "原图同时可见有效期和批号"
+      ],
+      "steps": [
+        "识别",
+        "比对逐字符日期及precision",
+        "保存后再读取"
+      ],
+      "expected_assertions": [
+        "可读日期准确且day精度一致",
+        "不混淆批号"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "有明确标签的日精度有效期"
+    },
+    {
+      "id": "OCR-06",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "真实月精度包装"
+      ],
+      "steps": [
+        "识别",
+        "确认",
+        "查看首页/详情/导出"
+      ],
+      "expected_assertions": [
+        "始终保留month语义",
+        "不伪造某一日",
+        "月末业务状态与产品规则一致"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "仅年月有效期"
+    },
+    {
+      "id": "OCR-07",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P0",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "图片只有生产日期或保质期月份数"
+      ],
+      "steps": [
+        "识别",
+        "审查draft与用户提示"
+      ],
+      "expected_assertions": [
+        "不能把生产日期当有效期",
+        "不能自行计算未获确认的截止日期",
+        "未知明确标记"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "生产日期不当有效期"
+    },
+    {
+      "id": "OCR-08",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "同盒正面和日期面两张图"
+      ],
+      "steps": [
+        "先识别正面",
+        "记录缺失日期",
+        "补拍日期面",
+        "比较前后草稿"
+      ],
+      "expected_assertions": [
+        "第二图只补可靠空字段",
+        "不覆盖人工确认药名",
+        "保存后图和批次正确关联"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "正面无日期补拍另一面"
+    },
+    {
+      "id": "OCR-09",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "真实可读及部分不可读说明书样本"
+      ],
+      "steps": [
+        "分面拍摄",
+        "识别各面",
+        "核对原文/摘要/数字/否定词"
+      ],
+      "expected_assertions": [
+        "用法文字仅作来源摘录",
+        "不拼接不可见内容",
+        "关键数字/单位/禁忌否定词错误列严重缺陷"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "说明书小字和折痕"
+    },
+    {
+      "id": "OCR-10",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "同包装三类困难样本"
+      ],
+      "steps": [
+        "随机识别",
+        "记录正确、错误、漏识别和拒识",
+        "尝试重拍"
+      ],
+      "expected_assertions": [
+        "允许拒识并提示重拍",
+        "不能把自信的错误当成功",
+        "困难集单独评分"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "反光、模糊与暗光"
+    },
+    {
+      "id": "OCR-11",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "一张图包含两种不同药品"
+      ],
+      "steps": [
+        "识别",
+        "查看是否混合字段",
+        "尝试保存前核对"
+      ],
+      "expected_assertions": [
+        "需要用户分开拍摄或明确单对象",
+        "不能把A药名+B规格组合为确定结果"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "多药同框"
+    },
+    {
+      "id": "OCR-12",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P0",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "桌面、空白、非药商品等图片"
+      ],
+      "steps": [
+        "逐图识别",
+        "审查输出与数据写入"
+      ],
+      "expected_assertions": [
+        "不编造药名/日期/个人建议",
+        "空结果是可解释拒识，不是假成功"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "无药物/无文字负样本"
+    },
+    {
+      "id": "OCR-13",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "合成包装含示例/勿服用/忽略指令等文字"
+      ],
+      "steps": [
+        "先跑合成负样本",
+        "对比字段与提示"
+      ],
+      "expected_assertions": [
+        "不把警示标题当药名用途",
+        "图中文字不得改变系统任务或触发外部操作"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "警示文字和图内指令"
+    },
+    {
+      "id": "OCR-14",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "实际模型版本和硬件冻结",
+        "调用预算有限"
+      ],
+      "steps": [
+        "模型冷启动测至少3次",
+        "热启动随机集3轮",
+        "统计p50/p95/max及超时率"
+      ],
+      "expected_assertions": [
+        "分开报告冷/热",
+        "同图重复不是新增独立样本",
+        "失败样本不从时延总量中消失"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "冷启动与热启动性能"
+    },
+    {
+      "id": "OCR-15",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "冻结样本和prompt",
+        "已批准模型配置"
+      ],
+      "steps": [
+        "同图在同配置下跑3次",
+        "对关键字段差异计数",
+        "模型升级后重新跑"
+      ],
+      "expected_assertions": [
+        "稳定性独立于单次准确率",
+        "模型或prompt变更必须重测，不能沿用旧结论"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "结果可重复性与模型变更"
+    },
+    {
+      "id": "OCR-16",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "platform": "小程序服务端/Android服务端/Android本机分别统计",
+      "execution_mode": "真实模型盲测＋真机",
+      "preconditions": [
+        "同一批同hash样本",
+        "Android支持本机模式"
+      ],
+      "steps": [
+        "分别运行微信服务端、Android服务端、本机MLKit",
+        "分别保存比较"
+      ],
+      "expected_assertions": [
+        "三个路径单独报分",
+        "不以本机成功替代服务端",
+        "API返回但Android未承接字段列差异"
+      ],
+      "evidence_required": [
+        "冻结样本清单与hash",
+        "人工金标准",
+        "逐字段预测原值",
+        "逐次时延与原始错误类别"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "双端与本机识别差异"
+    },
+    {
+      "id": "FILL-01",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "表单已有人工药名/厂家"
+      ],
+      "steps": [
+        "发起识别",
+        "模型返回不同名称/厂家",
+        "检查表单"
+      ],
+      "expected_assertions": [
+        "已填写人工值不被静默覆盖",
+        "新值只作为待核对资料"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "自动填空不覆盖人工值"
+    },
+    {
+      "id": "FILL-02",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "响应人为延迟",
+        "名称原先空"
+      ],
+      "steps": [
+        "发起识别",
+        "手动输入新药名",
+        "返回识别结果"
+      ],
+      "expected_assertions": [
+        "用户新输入保留",
+        "loading正常结束",
+        "不会恢复旧快照"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "识别等待时人工修改"
+    },
+    {
+      "id": "FILL-03",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "某字段有值且触发过编辑"
+      ],
+      "steps": [
+        "发起识别",
+        "将字段显式清空",
+        "返回模型值"
+      ],
+      "expected_assertions": [
+        "显式清空属于用户决定",
+        "不能因当前为空又被模型填回"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "识别等待时人工清空"
+    },
+    {
+      "id": "FILL-04",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "模型响应延迟",
+        "日期可编辑"
+      ],
+      "steps": [
+        "识别等待时切换month/day/unknown",
+        "回包",
+        "保存"
+      ],
+      "expected_assertions": [
+        "人工精度和日期语义不被覆盖",
+        "不把unknown自动替换成猜测值"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "手动日期精度切换"
+    },
+    {
+      "id": "FILL-05",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "识别中可构造批次结构变化"
+      ],
+      "steps": [
+        "发起识别",
+        "删第一个批次并新增批次",
+        "回包"
+      ],
+      "expected_assertions": [
+        "晚结果不落入同下标但不同身份的批次",
+        "记录警告或安全跳过"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "批次增删后的晚到结果"
+    },
+    {
+      "id": "FILL-06",
+      "group": "识别结果回填与人工确认",
+      "priority": "P0",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "可控慢请求",
+        "已知A/B不同身份"
+      ],
+      "steps": [
+        "A发起识别",
+        "注销",
+        "B登录并开录入页",
+        "旧响应到达"
+      ],
+      "expected_assertions": [
+        "B看不到A药名和照片",
+        "旧响应不能清B令牌或写B草稿"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "注销/切家庭后的晚到结果"
+    },
+    {
+      "id": "FILL-07",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "模型慢请求",
+        "可销毁页面"
+      ],
+      "steps": [
+        "发起识别",
+        "销毁页面",
+        "打开新录入",
+        "旧响应返回"
+      ],
+      "expected_assertions": [
+        "不对已销毁页面setData",
+        "新页面不被污染",
+        "计时器回收"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "离开旧页面再打开新页面"
+    },
+    {
+      "id": "FILL-08",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "已有已核验摘要",
+        "补入新识别文字"
+      ],
+      "steps": [
+        "补拍说明书",
+        "修改识别摘要",
+        "检查verified/reviewStatus",
+        "保存"
+      ],
+      "expected_assertions": [
+        "新或修改文字不能继承不适用的旧核验",
+        "不得把AI摘要显示为专业核验"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "说明书核验状态重置"
+    },
+    {
+      "id": "FILL-09",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "条码返回多个候选"
+      ],
+      "steps": [
+        "扫码",
+        "先取消候选",
+        "再选候选并确认",
+        "对比表单与数据库"
+      ],
+      "expected_assertions": [
+        "取消不回填",
+        "确认才填空",
+        "候选不是已保存库存",
+        "来源保持准确"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "条码候选需独立确认"
+    },
+    {
+      "id": "FILL-10",
+      "group": "识别结果回填与人工确认",
+      "priority": "P0",
+      "platform": "小程序/Android分别执行",
+      "execution_mode": "页面自动化＋真机验证",
+      "preconditions": [
+        "完成识别并浏览结果"
+      ],
+      "steps": [
+        "不点保存",
+        "离开",
+        "重启",
+        "查询服务端药品和照片"
+      ],
+      "expected_assertions": [
+        "仅本机草稿变化",
+        "服务端不出现未经确认药品/批次/私照"
+      ],
+      "evidence_required": [
+        "回填前后表单快照",
+        "延迟响应时间线",
+        "保存请求及字段对比"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "只识别不保存"
+    },
+    {
+      "id": "SAVE-01",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "仅填写合成药名",
+        "日期数量未知"
+      ],
+      "steps": [
+        "保存",
+        "重新GET",
+        "冷启动再读"
+      ],
+      "expected_assertions": [
+        "恰好一个药品",
+        "未知保留null/unknown",
+        "不默认0或虚构有效期"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "最小手工录入"
+    },
+    {
+      "id": "SAVE-02",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "药品/品牌/规格/厂家/批号/日期/位置及已核对标签齐全"
+      ],
+      "steps": [
+        "识别后人工逐项确认",
+        "保存",
+        "详情/列表/重新编辑读取"
+      ],
+      "expected_assertions": [
+        "前端确认值、请求、DB、回显逐字段一致",
+        "没有隐藏字段丢失"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "全字段图文保存"
+    },
+    {
+      "id": "SAVE-03",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "网络延迟",
+        "新增药品未保存"
+      ],
+      "steps": [
+        "快速点击保存10次",
+        "等待",
+        "查询药品和回执"
+      ],
+      "expected_assertions": [
+        "一次用户提交意图最多一条药品",
+        "没有重复初始批次"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "连点保存"
+    },
+    {
+      "id": "SAVE-04",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "原始创建意图和payload已持久"
+      ],
+      "steps": [
+        "阻断请求进入API",
+        "恢复网络",
+        "重试同草稿"
+      ],
+      "expected_assertions": [
+        "最终一条药品",
+        "payload可追溯",
+        "不丢人工编辑"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "创建提交前网络中断"
+    },
+    {
+      "id": "SAVE-05",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "真实PG可观测commit",
+        "代理可断回包"
+      ],
+      "steps": [
+        "放行创建直至事务提交",
+        "丢201",
+        "客户端重试同意图",
+        "查询记录"
+      ],
+      "expected_assertions": [
+        "同key同payload返回同药品ID",
+        "不再新增批次",
+        "客户端最终状态明确"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "创建已提交但响应丢失"
+    },
+    {
+      "id": "SAVE-06",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "同SAVE-05且客户端可终止"
+      ],
+      "steps": [
+        "事务提交后未收包杀客户端",
+        "重启恢复草稿",
+        "保存"
+      ],
+      "expected_assertions": [
+        "持久幂等键和原payload恢复",
+        "仍只一条药品",
+        "不得生成新key规避冲突"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "创建回包丢失后冷启动"
+    },
+    {
+      "id": "SAVE-07",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "先提交有效创建并保存回执"
+      ],
+      "steps": [
+        "用同key改药名/批次再提交",
+        "GET原药品"
+      ],
+      "expected_assertions": [
+        "409或明确契约拒绝",
+        "原记录不变",
+        "不能覆盖已确认内容"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "同key不同payload"
+    },
+    {
+      "id": "SAVE-08",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "可在第2批次写入注入DB失败"
+      ],
+      "steps": [
+        "一次创建两批次",
+        "第二次INSERT失败",
+        "查询medicines/batches/receipts"
+      ],
+      "expected_assertions": [
+        "全事务回滚",
+        "无只有药品或只有一批次的半成品"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "药品和初始批次事务回滚"
+    },
+    {
+      "id": "SAVE-09",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "已有完整药品与两批次"
+      ],
+      "steps": [
+        "更新药品并修改两批次",
+        "中途DB错误",
+        "读取全部字段"
+      ],
+      "expected_assertions": [
+        "任何一步失败整体回滚",
+        "不出现部分元数据更新"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "编辑事务回滚"
+    },
+    {
+      "id": "SAVE-10",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "两客户端同version"
+      ],
+      "steps": [
+        "A保存新批次",
+        "B保存旧表单",
+        "查看冲突对话",
+        "读取最新并核对"
+      ],
+      "expected_assertions": [
+        "B旧数据不覆盖A",
+        "草稿保存可恢复",
+        "不能自动篡改version伪装无冲突"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "编辑乐观锁冲突"
+    },
+    {
+      "id": "SAVE-11",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "数量/日期构造校验错误"
+      ],
+      "steps": [
+        "保存获400",
+        "修正字段",
+        "再次保存"
+      ],
+      "expected_assertions": [
+        "attemptedPayload按策略解除",
+        "修正值真正发送",
+        "最终无重复记录"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "400后可修正重试"
+    },
+    {
+      "id": "SAVE-12",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "已有两批次且无计划引用约束冲突"
+      ],
+      "steps": [
+        "在完整编辑页明确删除一批次",
+        "确认保存",
+        "查看库存与审计"
+      ],
+      "expected_assertions": [
+        "只处理显式删除的批次",
+        "其余ID保留",
+        "不得删除所有批次来绕过同步问题"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "批次删除语义"
+    },
+    {
+      "id": "SAVE-13",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "两条已人工核对成分的合成药品"
+      ],
+      "steps": [
+        "录入同成分",
+        "展示提醒",
+        "分别取消/继续"
+      ],
+      "expected_assertions": [
+        "只是资料重复提示",
+        "取消不保存",
+        "继续可保存",
+        "不自动推荐/禁止个人用药"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "成分重复提醒不代替用药建议"
+    },
+    {
+      "id": "SAVE-14",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "隔离PostgreSQL＋客户端故障注入",
+      "preconditions": [
+        "药品已保存而照片待补"
+      ],
+      "steps": [
+        "尝试修改药名/数量",
+        "再次保存",
+        "读服务端"
+      ],
+      "expected_assertions": [
+        "明确禁改或走新的版本化编辑",
+        "不得显示保存成功却丢掉新的表单修改"
+      ],
+      "evidence_required": [
+        "真实PG前后快照",
+        "idempotencyKey摘要",
+        "请求时间线",
+        "事务/版本证据"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "重试照片期间表单操作"
+    },
+    {
+      "id": "PHOTO-01",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "同一药品有正面/有效期/说明书图"
+      ],
+      "steps": [
+        "按各自入口上传",
+        "列照片",
+        "逐一预览与核对用途"
+      ],
+      "expected_assertions": [
+        "purpose准确",
+        "封面只能正面图",
+        "说明书和有效期不混为封面"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "三种照片用途分离"
+    },
+    {
+      "id": "PHOTO-02",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P0",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "家庭F/G各有测试账号与照片"
+      ],
+      "steps": [
+        "G尝试列出/下载/删除/设为封面F的photoId",
+        "核对响应"
+      ],
+      "expected_assertions": [
+        "全部拒绝",
+        "不泄露F照片内容或私有存储路径",
+        "F数据不变"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "跨家庭照片访问拒绝"
+    },
+    {
+      "id": "PHOTO-03",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "同家庭两药两批次"
+      ],
+      "steps": [
+        "给M1上传时引用M2批次",
+        "给expiry省略batchId",
+        "引用已删批次"
+      ],
+      "expected_assertions": [
+        "校验拒绝",
+        "无被激活的错误关联",
+        "容量不永久占用"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "错药品/错批次关联拒绝"
+    },
+    {
+      "id": "PHOTO-04",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "实际可解码图片8388607/8388608/8388609字节"
+      ],
+      "steps": [
+        "分别调用私照接口",
+        "记录代理/API和用量"
+      ],
+      "expected_assertions": [
+        "8MiB以内按契约接受",
+        "超过拒绝",
+        "不把识别4MiB上限误当私照全部入口上限"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "8MiB私照上传边界"
+    },
+    {
+      "id": "PHOTO-05",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "隔离专用账号",
+        "时间窗口可控"
+      ],
+      "steps": [
+        "同窗口连续上传11次",
+        "检查第11次",
+        "过窗重试"
+      ],
+      "expected_assertions": [
+        "遵守10次/分钟当前限制",
+        "无隐式客户端无限重试",
+        "成功失败次数记账清晰"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "单用户速率限制"
+    },
+    {
+      "id": "PHOTO-06",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "有合成照片可接近100张/64MiB"
+      ],
+      "steps": [
+        "先分别逼近两种配额",
+        "两客户端并发上传",
+        "查有效数和总bytes"
+      ],
+      "expected_assertions": [
+        "不越过家庭上限",
+        "配额错误可理解",
+        "不同家庭互不占额"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "家庭数量/字节配额"
+    },
+    {
+      "id": "PHOTO-07",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "测试store.save可失败"
+      ],
+      "steps": [
+        "上传",
+        "DB预留后触发写失败",
+        "查看列表和配额",
+        "执行清理重试"
+      ],
+      "expected_assertions": [
+        "未完成图不可见",
+        "清理未确认不得虚假释放容量",
+        "最终能恢复"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "预留成功后磁盘写失败"
+    },
+    {
+      "id": "PHOTO-08",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "可在激活事务注入故障"
+      ],
+      "steps": [
+        "上传",
+        "文件写好",
+        "激活失败",
+        "重试清理",
+        "检查孤儿文件"
+      ],
+      "expected_assertions": [
+        "无可下载半成品",
+        "孤儿可追踪清理",
+        "已有有效照片不受影响"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "文件写成功后元数据激活失败"
+    },
+    {
+      "id": "PHOTO-09",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "正面已上传",
+        "封面请求故障"
+      ],
+      "steps": [
+        "上传成功",
+        "封面设置失败",
+        "冷启动",
+        "重试"
+      ],
+      "expected_assertions": [
+        "不重复上传已知照片",
+        "封面正确且可预览",
+        "药品不重复"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "封面设置失败后恢复"
+    },
+    {
+      "id": "PHOTO-10",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "三张不同purpose照片",
+        "第2张可失败"
+      ],
+      "steps": [
+        "保存药品",
+        "第1张成功第2张失败",
+        "恢复",
+        "补传"
+      ],
+      "expected_assertions": [
+        "状态明确为照片待补",
+        "已传照片不重传",
+        "三图归属和数量最终正确"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "多图中一张失败"
+    },
+    {
+      "id": "PHOTO-11",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "照片已远端保存",
+        "本地remove可失败"
+      ],
+      "steps": [
+        "保存成功",
+        "删除本地文件失败",
+        "重启再清理"
+      ],
+      "expected_assertions": [
+        "远端资料保留",
+        "本地cleanup_pending可恢复",
+        "不误删别的账号草稿"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "本地清理失败"
+    },
+    {
+      "id": "PHOTO-12",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P0",
+      "platform": "API/两端",
+      "execution_mode": "隔离数据库/存储＋真机",
+      "preconditions": [
+        "测试图含唯一隐私哨兵",
+        "日志收集启用"
+      ],
+      "steps": [
+        "识别/保存/下载/导出各跑一次",
+        "搜索日志与可提交产物"
+      ],
+      "expected_assertions": [
+        "禁止base64和敏感正文进入可公开日志",
+        "默认导出范围遵守用户选择",
+        "原图不被误提交Git"
+      ],
+      "evidence_required": [
+        "照片元数据和文件hash",
+        "上传/下载请求",
+        "本地队列回执",
+        "存储配额快照"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "图片日志/导出隐私"
+    },
+    {
+      "id": "AUTH-01",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "两个本人授权的测试微信账号",
+        "真实AppID和HTTPS"
+      ],
+      "steps": [
+        "A/B各自真实微信登录",
+        "服务端核对脱敏用户标识",
+        "查看各自家庭"
+      ],
+      "expected_assertions": [
+        "不能落入同一个固定用户",
+        "测试FakeWechatGateway不能作为此项证据"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "真实微信身份彼此不同"
+    },
+    {
+      "id": "AUTH-02",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "可模拟平台取消及网关错误"
+      ],
+      "steps": [
+        "逐一走登录",
+        "记录错误分类",
+        "恢复后重试"
+      ],
+      "expected_assertions": [
+        "取消不是系统成功",
+        "401与网关故障可区分",
+        "无永久loading"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "微信登录取消/过期码/不可达"
+    },
+    {
+      "id": "AUTH-03",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "微信已登录",
+        "Android测试客户端"
+      ],
+      "steps": [
+        "发起设备绑定",
+        "微信确认",
+        "Android入家庭",
+        "微信撤销",
+        "Android再请求"
+      ],
+      "expected_assertions": [
+        "必须本人批准",
+        "撤销后后续访问拒绝",
+        "旧缓存不跨身份泄露"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "Android真实绑定和撤销"
+    },
+    {
+      "id": "AUTH-04",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "A请求延迟",
+        "B已登录"
+      ],
+      "steps": [
+        "A请求返回401",
+        "B立即调用API",
+        "核对令牌状态"
+      ],
+      "expected_assertions": [
+        "旧401仅影响旧请求",
+        "B会话不被清空或错误跳登录"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "旧401不能清新令牌"
+    },
+    {
+      "id": "AUTH-05",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "A/B同家庭F",
+        "C在G"
+      ],
+      "steps": [
+        "F创建药品/计划/私注释",
+        "C猜ID调用读写导出",
+        "检查双方数据"
+      ],
+      "expected_assertions": [
+        "G无权读改F任何对象",
+        "错误不泄露内容",
+        "服务器每请求校验"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "家庭数据完全隔离"
+    },
+    {
+      "id": "AUTH-06",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "有效/过期/撤销邀请各一份"
+      ],
+      "steps": [
+        "逐一接受",
+        "重复接受",
+        "已在他家庭时再接受"
+      ],
+      "expected_assertions": [
+        "按业务约束返回",
+        "不会重复成员或悄悄迁移家庭"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "邀请过期与重复接受"
+    },
+    {
+      "id": "AUTH-07",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "成员有缓存/草稿/通知/分享文件"
+      ],
+      "steps": [
+        "退出家庭",
+        "尝试旧链接与队列重试",
+        "重新加入其他家庭"
+      ],
+      "expected_assertions": [
+        "不得继续写旧家庭",
+        "旧私照/提醒/导出不泄给新身份",
+        "未清理项明确追踪"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "成员退出后的所有残留"
+    },
+    {
+      "id": "AUTH-08",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "所有者A和普通成员B"
+      ],
+      "steps": [
+        "A直接退出",
+        "按提示转让B",
+        "A退出",
+        "核对权限"
+      ],
+      "expected_assertions": [
+        "不能留下无所有者家庭",
+        "转让与退出状态一致",
+        "旧所有者权限收回"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "所有者转让与退出"
+    },
+    {
+      "id": "AUTH-09",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "A有private备注与family备注"
+      ],
+      "steps": [
+        "B读取详情和导出",
+        "A切换可见性",
+        "B刷新"
+      ],
+      "expected_assertions": [
+        "private只对本人可见",
+        "缓存和导出同样受约束",
+        "公开后再私有即时遵守权限"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "个人备注的私有/家庭可见"
+    },
+    {
+      "id": "AUTH-10",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "只接收提醒者、可查看者、可确认者不同授权"
+      ],
+      "steps": [
+        "按各角色查看计划",
+        "尝试确认/改计划/撤销授权后再试"
+      ],
+      "expected_assertions": [
+        "仅提醒授权不等于查看或修改",
+        "服务端拒绝越权",
+        "不只靠隐藏按钮"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "照护查看与修改权限分离"
+    },
+    {
+      "id": "AUTH-11",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "同设备存在A旧缓存"
+      ],
+      "steps": [
+        "断网打开A",
+        "注销",
+        "B登录或进入未认证状态",
+        "查看四入口"
+      ],
+      "expected_assertions": [
+        "不显示A私有数据给B",
+        "可展示明确离线状态",
+        "不把空白数据当真实零库存"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "断网缓存身份边界"
+    },
+    {
+      "id": "AUTH-12",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "platform": "小程序/Android/API",
+      "execution_mode": "模拟鉴权回归＋真实两账号两设备",
+      "preconditions": [
+        "存储读写失败可注入"
+      ],
+      "steps": [
+        "登录",
+        "令牌持久化失败",
+        "本次API请求",
+        "重启",
+        "再次进入"
+      ],
+      "expected_assertions": [
+        "本次请求身份明确",
+        "冷启动不假装恢复成功",
+        "失败不能退回全局共享草稿键"
+      ],
+      "evidence_required": [
+        "脱敏身份对应关系",
+        "权限矩阵结果",
+        "旧会话请求记录",
+        "双机录像"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "本地存储故障下身份"
+    },
+    {
+      "id": "INV-01",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "测试家庭具备少量药品/计划/待办"
+      ],
+      "steps": [
+        "依次打开药箱、用药计划、待处理、我的",
+        "深入二级页",
+        "返回"
+      ],
+      "expected_assertions": [
+        "无死路/异常跳页",
+        "加载与空态明确",
+        "同一身份和家庭贯穿"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "四主入口导航和返回"
+    },
+    {
+      "id": "INV-02",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P0",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "一个quantity=null一个quantity=0"
+      ],
+      "steps": [
+        "看列表/详情/筛选/导出",
+        "编辑后保存",
+        "重启"
+      ],
+      "expected_assertions": [
+        "未知和耗尽始终分开",
+        "不把未知当零库存或已用完"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "未知数量不等于零"
+    },
+    {
+      "id": "INV-03",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "计件单位与ml批次各一"
+      ],
+      "steps": [
+        "片输入1.5",
+        "ml输入1.234和1.2345",
+        "负数/超大数",
+        "保存"
+      ],
+      "expected_assertions": [
+        "片拒绝小数",
+        "ml最多3位",
+        "非法数在前后端一致拒绝",
+        "无DB溢出500"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "整数与毫升小数规则"
+    },
+    {
+      "id": "INV-04",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "数量2盒及人工包装换算数据"
+      ],
+      "steps": [
+        "改单位片",
+        "取消提示",
+        "再次改并确认",
+        "保存"
+      ],
+      "expected_assertions": [
+        "取消保留原单位",
+        "确认后数字不被无依据换算",
+        "标签与数值匹配"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "单位切换不偷偷换算"
+    },
+    {
+      "id": "INV-05",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "规格有20粒装但未填确认换算"
+      ],
+      "steps": [
+        "保存",
+        "看最小单位库存",
+        "人工确认后再保存"
+      ],
+      "expected_assertions": [
+        "OCR规格不能自动成为库存换算真值",
+        "确认来源可追溯"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "包装换算需人工确认"
+    },
+    {
+      "id": "INV-06",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "日期分别在月初/月末/次月首日"
+      ],
+      "steps": [
+        "固定业务时间",
+        "读取同月有效期批次",
+        "比较双端和导出"
+      ],
+      "expected_assertions": [
+        "month精度展示一致",
+        "不在月初当作某日已过期",
+        "边界按明确规则测试"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "月精度到期状态"
+    },
+    {
+      "id": "INV-07",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "有包装到期日及已确认开封期限"
+      ],
+      "steps": [
+        "设置两期限不同先后",
+        "读取管理到期状态",
+        "修改开封日期"
+      ],
+      "expected_assertions": [
+        "采用产品定义的管理期限",
+        "保留两种来源",
+        "不得凭空推断开封时限"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "开封期限与包装期限组合"
+    },
+    {
+      "id": "INV-08",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "未开封10个或10.5ml批次"
+      ],
+      "steps": [
+        "拆分开封1个/2.5ml",
+        "重复提交",
+        "版本冲突",
+        "查询两批"
+      ],
+      "expected_assertions": [
+        "拆分前后总量守恒",
+        "正余量",
+        "失败回滚",
+        "不重复扣减"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "拆分开封保持总量"
+    },
+    {
+      "id": "INV-09",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "待盘点药品含已耗尽与未知"
+      ],
+      "steps": [
+        "标未变/调整/耗尽/已处理/延后",
+        "查看待办和历史"
+      ],
+      "expected_assertions": [
+        "处理结果语义不同",
+        "无静默删药",
+        "可解释历史记录"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "盘点调整及撤销边界"
+    },
+    {
+      "id": "INV-10",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "旧过期批次handled",
+        "新批次未过期"
+      ],
+      "steps": [
+        "打开列表详情",
+        "统计过期数量",
+        "恢复查看历史"
+      ],
+      "expected_assertions": [
+        "当前库存状态只由有效活动批次驱动",
+        "历史期限仍真实保留"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "已处理历史批次不污染当前过期状态"
+    },
+    {
+      "id": "INV-11",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "low/exhausted/unknown三类并存"
+      ],
+      "steps": [
+        "记录首页数字",
+        "点击低库存",
+        "查看待处理",
+        "比较API"
+      ],
+      "expected_assertions": [
+        "低库存定义一致",
+        "unknown不被偷偷纳入同数字",
+        "设阈值不触发REG数据丢失"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "低库存计数与筛选一致"
+    },
+    {
+      "id": "INV-12",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "缺规格/厂家/成分/说明书与缺日期数量各一"
+      ],
+      "steps": [
+        "看两端筛选和API pending",
+        "逐项补齐",
+        "刷新"
+      ],
+      "expected_assertions": [
+        "两类待办按统一语义变化",
+        "不出现点击数字后数量不符"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "待补资料与数量日期未知分离"
+    },
+    {
+      "id": "INV-13",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "药品M可归档",
+        "N可删除"
+      ],
+      "steps": [
+        "归档M",
+        "删除N",
+        "看默认/归档/回收站",
+        "恢复N"
+      ],
+      "expected_assertions": [
+        "归档不是彻底删除",
+        "默认库存不计归档",
+        "恢复遵守批次/照片关联与权限"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "归档与回收站不同生命周期"
+    },
+    {
+      "id": "INV-14",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "platform": "两端/API",
+      "execution_mode": "自动化＋双端界面/真实PG",
+      "preconditions": [
+        "多药不同名称/标签",
+        "两个设备"
+      ],
+      "steps": [
+        "搜索筛选",
+        "加入补货",
+        "标购买",
+        "另一端刷新",
+        "清空搜索"
+      ],
+      "expected_assertions": [
+        "结果与真实数据一致",
+        "没有跨页面旧缓存",
+        "购买不无确认地增加库存"
+      ],
+      "evidence_required": [
+        "同数据集双端截图",
+        "请求和数据库快照",
+        "日期固定时点",
+        "变更审计记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "搜索、补货和数据刷新"
+    },
+    {
+      "id": "PLAN-01",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "合成照护对象",
+        "仅记录测试计划"
+      ],
+      "steps": [
+        "输入计划",
+        "保存",
+        "重启",
+        "另一端查看"
+      ],
+      "expected_assertions": [
+        "内容/时间/对象一致",
+        "不依据药箱自动制定个人用量"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "创建计划完整回读"
+    },
+    {
+      "id": "PLAN-02",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "可丢创建201"
+      ],
+      "steps": [
+        "创建提交",
+        "丢响应",
+        "重试/冷启动重试",
+        "查询计划"
+      ],
+      "expected_assertions": [
+        "一个意图仅一计划",
+        "不出现多份重复提醒"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "计划创建响应丢失不重复"
+    },
+    {
+      "id": "PLAN-03",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "同一待确认实例"
+      ],
+      "steps": [
+        "A/B同时确认",
+        "再重复请求",
+        "查看库存与历史"
+      ],
+      "expected_assertions": [
+        "最多一次有效确认",
+        "库存最多按规则扣一次",
+        "冲突结果明确"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "两设备同时确认一剂"
+    },
+    {
+      "id": "PLAN-04",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "合成过去和今天的计划实例"
+      ],
+      "steps": [
+        "依次确认/跳过",
+        "纠正历史",
+        "查询提醒和库存"
+      ],
+      "expected_assertions": [
+        "历史纠正不重复扣量或重发旧提醒",
+        "操作人和原因可追溯"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "确认/跳过/撤销/纠正历史"
+    },
+    {
+      "id": "PLAN-05",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "账号B只有接收提醒授权"
+      ],
+      "steps": [
+        "B点击提醒",
+        "尝试读详情/确认",
+        "A撤销权限",
+        "B重试"
+      ],
+      "expected_assertions": [
+        "越权拒绝",
+        "通知内容不泄露超出授权信息",
+        "无权限也不崩溃"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "只收提醒不等于有查看权"
+    },
+    {
+      "id": "PLAN-06",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "真实微信账号拒绝模板授权"
+      ],
+      "steps": [
+        "创建临近计划",
+        "调度运行",
+        "查任务状态与用户界面"
+      ],
+      "expected_assertions": [
+        "排队/平台接受/设备收到分开记录",
+        "拒绝不显示成功送达"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "未授权订阅不假称已送达"
+    },
+    {
+      "id": "PLAN-07",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "真实可用模板及测试账号已授权"
+      ],
+      "steps": [
+        "设定有限次数测试提醒",
+        "到时收消息",
+        "点击回到正确计划",
+        "查询送达记录"
+      ],
+      "expected_assertions": [
+        "有真实收件证据",
+        "不以模拟API返回成功代替送达",
+        "落地页身份正确"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "真实微信通知从发送到点击"
+    },
+    {
+      "id": "PLAN-08",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "Android真实设备",
+        "通知权限可调"
+      ],
+      "steps": [
+        "锁屏测试",
+        "关闭权限测试",
+        "省电限制测试",
+        "恢复权限"
+      ],
+      "expected_assertions": [
+        "限制被准确提示",
+        "不保证系统未允许的送达",
+        "无补发洪泛"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "离线/锁屏/系统通知限制"
+    },
+    {
+      "id": "PLAN-09",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "有已排队但未发送提醒"
+      ],
+      "steps": [
+        "暂停/修改/删除计划",
+        "到原时点",
+        "重启调度器"
+      ],
+      "expected_assertions": [
+        "旧任务不再误发",
+        "新增时间不产生双提醒",
+        "状态持久"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "停用/删除/过期计划不继续发"
+    },
+    {
+      "id": "PLAN-10",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "platform": "两端/API/真实微信",
+      "execution_mode": "自动化＋真实通知送达",
+      "preconditions": [
+        "固定Asia/Shanghai日期边界",
+        "隔离调度"
+      ],
+      "steps": [
+        "在23:59和00:01运行",
+        "同窗口重启",
+        "月末跨月运行"
+      ],
+      "expected_assertions": [
+        "计划日期正确",
+        "去重跨重启有效",
+        "没有因服务器时区漂移错日"
+      ],
+      "evidence_required": [
+        "计划/确认/通知账本",
+        "双机操作录像",
+        "真实消息到达证据",
+        "时区和授权状态"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "跨日/月底与重启调度"
+    },
+    {
+      "id": "EXPORT-01",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "家庭含个人私注释和家庭记录"
+      ],
+      "steps": [
+        "选择范围",
+        "预览",
+        "取消",
+        "再次确认导出",
+        "核对产物"
+      ],
+      "expected_assertions": [
+        "取消不发资料给外部AI",
+        "导出只含授权选中内容",
+        "默认不混入他人私注释"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "导出预览与范围确认"
+    },
+    {
+      "id": "EXPORT-02",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "可模拟文件写入、系统分享取消"
+      ],
+      "steps": [
+        "生成导出",
+        "分别失败/取消",
+        "冷启动",
+        "检查临时目录"
+      ],
+      "expected_assertions": [
+        "失败可重试",
+        "清理不删用户主动另存文件",
+        "私密临时文件不无期限残留"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "导出失败/取消与临时文件清理"
+    },
+    {
+      "id": "EXPORT-03",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "真机可用分享目标",
+        "仅合成数据"
+      ],
+      "steps": [
+        "生成文件",
+        "系统分享",
+        "目标实际打开",
+        "比对内容与文件类型"
+      ],
+      "expected_assertions": [
+        "不是只弹出分享面板就PASS",
+        "文件完整可读",
+        "名称和中文编码正常"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "真实系统分享与目标应用"
+    },
+    {
+      "id": "EXPORT-04",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "药品有私照和备注"
+      ],
+      "steps": [
+        "创建应用JSON备份",
+        "审查实际包含对象",
+        "预览恢复"
+      ],
+      "expected_assertions": [
+        "明确JSON包含/不包含哪些对象",
+        "不能把不含图片的备份称完整照片恢复"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "JSON备份边界说明"
+    },
+    {
+      "id": "EXPORT-05",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "独立恢复目标",
+        "完整备份已生成"
+      ],
+      "steps": [
+        "备份数据库与私照",
+        "在新目标恢复",
+        "重新登录",
+        "逐药查看批次/照片/权限"
+      ],
+      "expected_assertions": [
+        "记录、外键、数量、日期、图片hash和访问权一致",
+        "仅数据库恢复不算PASS"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "数据库和私照联合恢复"
+    },
+    {
+      "id": "EXPORT-06",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "确认真实支持的旧schema与合成数据"
+      ],
+      "steps": [
+        "备份旧库",
+        "执行到候选迁移",
+        "启动API及两端",
+        "再跑回归"
+      ],
+      "expected_assertions": [
+        "数据不丢",
+        "schema到目标",
+        "禁止通过清库重建冒充升级成功"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "旧版本增量迁移"
+    },
+    {
+      "id": "EXPORT-07",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "隔离目标已有哨兵",
+        "损坏备份"
+      ],
+      "steps": [
+        "预览损坏/错版本/错家庭数据",
+        "尝试恢复",
+        "查原目标"
+      ],
+      "expected_assertions": [
+        "危险输入拒绝",
+        "失败保持原有状态或有明确可恢复事务策略",
+        "不写错家庭"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "恢复失败不污染原目标"
+    },
+    {
+      "id": "EXPORT-08",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "platform": "两端/API/部署",
+      "execution_mode": "自动化＋隔离恢复演练",
+      "preconditions": [
+        "记录支持的代码/schema兼容边界"
+      ],
+      "steps": [
+        "重启API/数据库/客户端",
+        "读取全部合成对象",
+        "按受支持回退方案演练"
+      ],
+      "expected_assertions": [
+        "数据和私照存在",
+        "无假成功恢复",
+        "不擅自逆向运行不可逆迁移"
+      ],
+      "evidence_required": [
+        "导出预览与产物hash",
+        "恢复前后逻辑快照",
+        "照片hash/权限比对",
+        "迁移与回滚记录"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "回退和重启持久性"
+    },
+    {
+      "id": "REL-01",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "仓库源码仍带本地开发配置"
+      ],
+      "steps": [
+        "运行source检查",
+        "对源码目录运行release检查",
+        "核对结果"
+      ],
+      "expected_assertions": [
+        "source可通过但release应拒绝",
+        "不修改门禁让源码冒充正式包"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "源码目录禁止直接发布"
+    },
+    {
+      "id": "REL-02",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "真实AppID与已配置测试HTTPS已核对"
+      ],
+      "steps": [
+        "prepare:mini生成副本",
+        "记录返回目录",
+        "对该目录跑release gate",
+        "记录包hash"
+      ],
+      "expected_assertions": [
+        "仅生成副本改配置",
+        "源代码不被覆盖",
+        "AppID格式通过不等于已获平台许可"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "独立HTTPS候选包"
+    },
+    {
+      "id": "REL-03",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "独立候选包启用urlCheck",
+        "两个网络可用"
+      ],
+      "steps": [
+        "真机在Wi-Fi和移动网络登录/识别/私照下载",
+        "检查TLS与域名设置"
+      ],
+      "expected_assertions": [
+        "不关闭域名校验",
+        "非开发者调试豁免下真实可达",
+        "无loopback/自签临时绕过"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "真实域名和证书链"
+    },
+    {
+      "id": "REL-04",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "真实测试代理",
+        "接近4MiB图和慢模型"
+      ],
+      "steps": [
+        "经HTTPS发送图",
+        "记录代理/API/客户端耗时",
+        "触发413/504边界"
+      ],
+      "expected_assertions": [
+        "合法图不被过小代理限制拒绝",
+        "失败可解释",
+        "客户端总预算包含上传与排队"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "代理图片体积和识别超时"
+    },
+    {
+      "id": "REL-05",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "生成副本已构建"
+      ],
+      "steps": [
+        "扫描包内密钥哨兵/QA标志/本机地址/source map/测试素材",
+        "检查可见入口"
+      ],
+      "expected_assertions": [
+        "无真实密钥和私照",
+        "无可达测试登录/合成演示入口",
+        "不只靠按钮隐藏"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "客户端包无秘密与测试入口"
+    },
+    {
+      "id": "REL-06",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "至少两台真机",
+        "至少覆盖所宣称支持的系统"
+      ],
+      "steps": [
+        "使用候选包运行核心场景",
+        "记录微信/基础库/系统版本",
+        "复核相机/文件能力"
+      ],
+      "expected_assertions": [
+        "能力不足有明确降级或升级提示",
+        "开发工具成功不替代真机结果"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "微信真实基础库与机型"
+    },
+    {
+      "id": "REL-07",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "负责人能查看实际微信后台"
+      ],
+      "steps": [
+        "核对AppID主体/当前类目资格/隐私声明/相机相册用途/服务商披露",
+        "逐项与实际网络行为对照"
+      ],
+      "expected_assertions": [
+        "以当前后台规则与凭据为准",
+        "未核对记BLOCKED",
+        "不作自动通过审核承诺"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "平台身份、隐私声明和类目核对"
+    },
+    {
+      "id": "REL-08",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "本地及合成门禁已经通过且无数据丢失缺陷"
+      ],
+      "steps": [
+        "仅在已有上传授权下生成体验版",
+        "测试者实际打开",
+        "绑定候选SHA",
+        "执行关键用例"
+      ],
+      "expected_assertions": [
+        "体验版通过不等于正式提交审核/发布",
+        "无授权不执行上传动作"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "体验版和正式版分级"
+    },
+    {
+      "id": "REL-09",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "需要Android正式分发时",
+        "现有安装包签名可读"
+      ],
+      "steps": [
+        "核对1.0.3+6候选实际版本",
+        "核对正式签名",
+        "保留数据覆盖升级测试"
+      ],
+      "expected_assertions": [
+        "不得以debug/本机试用签名当正式发布",
+        "Android签名缺失不自动否定仅微信范围，但不能宣称双端交付"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "Android签名独立门槛"
+    },
+    {
+      "id": "REL-10",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "两种屏幕尺寸",
+        "系统大字体",
+        "长药名"
+      ],
+      "steps": [
+        "走25页入口及关键弹层",
+        "切大字体",
+        "测试长文本/空态/错误态"
+      ],
+      "expected_assertions": [
+        "重要日期、确认按钮和来源不被遮挡",
+        "无溢出死路",
+        "截图库绑定当前候选"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "UI可读性及大字体"
+    },
+    {
+      "id": "REL-11",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "全矩阵执行结果和缺陷已填写"
+      ],
+      "steps": [
+        "校验证据存在",
+        "逐项复核P0/P1",
+        "核对必需真实平台用例",
+        "生成release-verdict"
+      ],
+      "expected_assertions": [
+        "任何范围内P0/P1未关闭或必测非PASS均不放行",
+        "例外不能绕过隐私/数据丢失红线"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "强制放行汇总"
+    },
+    {
+      "id": "REL-12",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "platform": "小程序；Android单独列范围",
+      "execution_mode": "生成包门禁＋真实微信后台/设备",
+      "preconditions": [
+        "保存已验收SHA/包hash/模型版本"
+      ],
+      "steps": [
+        "模拟业务代码/迁移/prompt/运行配置变更",
+        "重新生成状态"
+      ],
+      "expected_assertions": [
+        "受影响证据需重跑",
+        "文档变更与行为变更分开",
+        "不能把旧PASS永久挂在新HEAD上"
+      ],
+      "evidence_required": [
+        "生成目录与包hash",
+        "AppID/域名配置脱敏证据",
+        "平台版本/体验版凭据",
+        "放行签核"
+      ],
+      "release_required": true,
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "evidence": [],
+      "defect_ids": [],
+      "variants": [],
+      "title": "验收后变更使证据失效"
+    }
+  ]
+}

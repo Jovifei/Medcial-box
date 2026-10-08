@@ -1,0 +1,7244 @@
+{
+  "schema_version": 1,
+  "baseline": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "source_spec_count": 288,
+  "note": "288条来源规格，不是去重用例数或执行次数；A/B同名ID命名空间隔离。",
+  "items": [
+    {
+      "id": "A:BASE-01",
+      "source_id": "BASE-01",
+      "source_bundle": "A",
+      "title": "冻结精确源码与隔离工作树",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "REPOSITORY",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BASE-02",
+      "source_id": "BASE-02",
+      "source_bundle": "A",
+      "title": "CI结果与来源对应",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "REPOSITORY",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BASE-03",
+      "source_id": "BASE-03",
+      "source_bundle": "A",
+      "title": "测试数据和进程隔离",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "ENVIRONMENT",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BASE-04",
+      "source_id": "BASE-04",
+      "source_bundle": "A",
+      "title": "合成网关与真实微信分离",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "ENVIRONMENT",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BASE-05",
+      "source_id": "BASE-05",
+      "source_bundle": "A",
+      "title": "版本与产物来源",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "REPOSITORY",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BASE-06",
+      "source_id": "BASE-06",
+      "source_bundle": "A",
+      "title": "日志与截图脱敏",
+      "group": "BASE",
+      "priority": "P0",
+      "source_mode": "ALL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-01",
+      "source_id": "BUILD-01",
+      "source_bundle": "A",
+      "title": "Node全量回归",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-02",
+      "source_id": "BUILD-02",
+      "source_bundle": "A",
+      "title": "严格PostgreSQL集成",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-03",
+      "source_id": "BUILD-03",
+      "source_bundle": "A",
+      "title": "小程序冻结HEAD生成QA",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-04",
+      "source_id": "BUILD-04",
+      "source_bundle": "A",
+      "title": "QA安全负例保持",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-05",
+      "source_id": "BUILD-05",
+      "source_bundle": "A",
+      "title": "Flutter回归与优化构建",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-06",
+      "source_id": "BUILD-06",
+      "source_bundle": "A",
+      "title": "微信官方模板样式编译",
+      "group": "BUILD",
+      "priority": "P1",
+      "source_mode": "IDE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-07",
+      "source_id": "BUILD-07",
+      "source_bundle": "A",
+      "title": "生成包正反门禁",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BUILD-08",
+      "source_id": "BUILD-08",
+      "source_bundle": "A",
+      "title": "隔离备份恢复CI复验",
+      "group": "BUILD",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-01",
+      "source_id": "OPS-01",
+      "source_bundle": "A",
+      "title": "实际生产入口启动与数据库ready",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-02",
+      "source_id": "OPS-02",
+      "source_bundle": "A",
+      "title": "数据库不可用启动失败",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-03",
+      "source_id": "OPS-03",
+      "source_bundle": "A",
+      "title": "运行中数据库断连再连接",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-04",
+      "source_id": "OPS-04",
+      "source_bundle": "A",
+      "title": "启动器退出后服务存活",
+      "group": "OPS",
+      "priority": "P1",
+      "source_mode": "PROCESS_WINDOWS",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-05",
+      "source_id": "OPS-05",
+      "source_bundle": "A",
+      "title": "端口冲突与错误服务复用",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-06",
+      "source_id": "OPS-06",
+      "source_bundle": "A",
+      "title": "优雅终止与资源关闭",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS_LINUX",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-07",
+      "source_id": "OPS-07",
+      "source_bundle": "A",
+      "title": "强制终止与重启恢复",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "PROCESS",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-08",
+      "source_id": "OPS-08",
+      "source_bundle": "A",
+      "title": "进程异常退出后的恢复策略",
+      "group": "OPS",
+      "priority": "P1",
+      "source_mode": "PROCESS",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-09",
+      "source_id": "OPS-09",
+      "source_bundle": "A",
+      "title": "正常链路稳定性与负载隔离",
+      "group": "OPS",
+      "priority": "P1",
+      "source_mode": "SOAK",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:OPS-10",
+      "source_id": "OPS-10",
+      "source_bundle": "A",
+      "title": "530分层定位",
+      "group": "OPS",
+      "priority": "P0",
+      "source_mode": "END_TO_END",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-01",
+      "source_id": "AUTH-01",
+      "source_bundle": "A",
+      "title": "两真实微信身份首登",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-02",
+      "source_id": "AUTH-02",
+      "source_bundle": "A",
+      "title": "家庭邀请预览与取消",
+      "group": "AUTH",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-03",
+      "source_id": "AUTH-03",
+      "source_bundle": "A",
+      "title": "邀请码消费、过期与撤销",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-04",
+      "source_id": "AUTH-04",
+      "source_bundle": "A",
+      "title": "跨家庭访问与私照鉴权",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-05",
+      "source_id": "AUTH-05",
+      "source_bundle": "A",
+      "title": "撤销权限和迟到响应",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-06",
+      "source_id": "AUTH-06",
+      "source_bundle": "A",
+      "title": "网络失败与会话过期区分",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-07",
+      "source_id": "AUTH-07",
+      "source_bundle": "A",
+      "title": "退出及切家庭保留边界",
+      "group": "AUTH",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:AUTH-08",
+      "source_id": "AUTH-08",
+      "source_bundle": "A",
+      "title": "共享范围与提醒权限说明",
+      "group": "AUTH",
+      "priority": "P1",
+      "source_mode": "DEVICE_PLATFORM",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-01",
+      "source_id": "CAP-01",
+      "source_bundle": "A",
+      "title": "拍照前用途告知与拒绝",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-02",
+      "source_id": "CAP-02",
+      "source_bundle": "A",
+      "title": "相册、取消及系统返回",
+      "group": "CAP",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-03",
+      "source_id": "CAP-03",
+      "source_bundle": "A",
+      "title": "完整本机写入顺序",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-04",
+      "source_id": "CAP-04",
+      "source_bundle": "A",
+      "title": "部分写入和close失败",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-05",
+      "source_id": "CAP-05",
+      "source_bundle": "A",
+      "title": "文件路径归属负例",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-06",
+      "source_id": "CAP-06",
+      "source_bundle": "A",
+      "title": "基础库能力与降级",
+      "group": "CAP",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_IDE_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-07",
+      "source_id": "CAP-07",
+      "source_bundle": "A",
+      "title": "照片各阶段字节对应",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:CAP-08",
+      "source_id": "CAP-08",
+      "source_bundle": "A",
+      "title": "详情补传说明书与识别分开",
+      "group": "CAP",
+      "priority": "P0",
+      "source_mode": "DEVICE_API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-01",
+      "source_id": "IMG-01",
+      "source_bundle": "A",
+      "title": "真实JPEG和PNG成功请求",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-02",
+      "source_id": "IMG-02",
+      "source_bundle": "A",
+      "title": "识别图片大小临界值",
+      "group": "IMG",
+      "priority": "P0",
+      "source_mode": "API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-03",
+      "source_id": "IMG-03",
+      "source_bundle": "A",
+      "title": "空数据、小图和非法base64",
+      "group": "IMG",
+      "priority": "P0",
+      "source_mode": "API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-04",
+      "source_id": "IMG-04",
+      "source_bundle": "A",
+      "title": "伪图片和截断文件",
+      "group": "IMG",
+      "priority": "P0",
+      "source_mode": "API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-05",
+      "source_id": "IMG-05",
+      "source_bundle": "A",
+      "title": "iPhone格式和方向",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-06",
+      "source_id": "IMG-06",
+      "source_bundle": "A",
+      "title": "3840×2880约465KB历史样本",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "MODEL_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-07",
+      "source_id": "IMG-07",
+      "source_bundle": "A",
+      "title": "高像素低字节与并发资源边界",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "API_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-08",
+      "source_id": "IMG-08",
+      "source_bundle": "A",
+      "title": "JSON请求body超过6MiB",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-09",
+      "source_id": "IMG-09",
+      "source_bundle": "A",
+      "title": "持久照片6MiB/8MiB/12MiB边界",
+      "group": "IMG",
+      "priority": "P1",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:IMG-10",
+      "source_id": "IMG-10",
+      "source_bundle": "A",
+      "title": "请求鉴权、purpose及伪家庭",
+      "group": "IMG",
+      "priority": "P0",
+      "source_mode": "API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-01",
+      "source_id": "MODEL-01",
+      "source_bundle": "A",
+      "title": "真实适配器注入受控HTTP",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-02",
+      "source_id": "MODEL-02",
+      "source_bundle": "A",
+      "title": "正常字段清洗与空字段",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-03",
+      "source_id": "MODEL-03",
+      "source_bundle": "A",
+      "title": "12小时不是12粒",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-04",
+      "source_id": "MODEL-04",
+      "source_bundle": "A",
+      "title": "日期精度、非法日期与生产日期",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-05",
+      "source_id": "MODEL-05",
+      "source_bundle": "A",
+      "title": "字段类型错误与超长文本",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-06",
+      "source_id": "MODEL-06",
+      "source_bundle": "A",
+      "title": "标签白名单和禁止推断",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-07",
+      "source_id": "MODEL-07",
+      "source_bundle": "A",
+      "title": "非法JSON和异常响应结构",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-08",
+      "source_id": "MODEL-08",
+      "source_bundle": "A",
+      "title": "上下文、显存、模型与网络失败",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-09",
+      "source_id": "MODEL-09",
+      "source_bundle": "A",
+      "title": "超时与总等待上限",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-10",
+      "source_id": "MODEL-10",
+      "source_bundle": "A",
+      "title": "上游大响应与断流",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-11",
+      "source_id": "MODEL-11",
+      "source_bundle": "A",
+      "title": "供方选择与未配置降级",
+      "group": "MODEL",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:MODEL-12",
+      "source_id": "MODEL-12",
+      "source_bundle": "A",
+      "title": "第三方异常信息不泄漏",
+      "group": "MODEL",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-01",
+      "source_id": "RACE-01",
+      "source_bundle": "A",
+      "title": "识别等待时修改字段",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-02",
+      "source_id": "RACE-02",
+      "source_bundle": "A",
+      "title": "识别等待时增删或调整批次",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-03",
+      "source_id": "RACE-03",
+      "source_bundle": "A",
+      "title": "双识别先后回包",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-04",
+      "source_id": "RACE-04",
+      "source_bundle": "A",
+      "title": "识别中退出或切账号",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-05",
+      "source_id": "RACE-05",
+      "source_bundle": "A",
+      "title": "识别中撤销家庭成员资格",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-06",
+      "source_id": "RACE-06",
+      "source_bundle": "A",
+      "title": "应用被结束后的照片草稿恢复",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-07",
+      "source_id": "RACE-07",
+      "source_bundle": "A",
+      "title": "本地配额耗尽与持久化失败",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RACE-08",
+      "source_id": "RACE-08",
+      "source_bundle": "A",
+      "title": "并行页面恢复与队列合并",
+      "group": "RACE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-01",
+      "source_id": "SAVE-01",
+      "source_bundle": "A",
+      "title": "未确认不落药箱",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-02",
+      "source_id": "SAVE-02",
+      "source_bundle": "A",
+      "title": "人工修改保存后全链一致",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-03",
+      "source_id": "SAVE-03",
+      "source_bundle": "A",
+      "title": "快速连点与显式重试幂等",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-04",
+      "source_id": "SAVE-04",
+      "source_bundle": "A",
+      "title": "药品已存、照片上传失败",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-05",
+      "source_id": "SAVE-05",
+      "source_bundle": "A",
+      "title": "图片写成功但回包丢失",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "API_DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-06",
+      "source_id": "SAVE-06",
+      "source_bundle": "A",
+      "title": "封面设置失败与重试",
+      "group": "SAVE",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-07",
+      "source_id": "SAVE-07",
+      "source_bundle": "A",
+      "title": "有效期照片绑定具体批次",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:SAVE-08",
+      "source_id": "SAVE-08",
+      "source_bundle": "A",
+      "title": "仅修改一字段保留其他资料",
+      "group": "SAVE",
+      "priority": "P0",
+      "source_mode": "DEVICE_API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-01",
+      "source_id": "QUALITY-01",
+      "source_bundle": "A",
+      "title": "人工真值与可辨识性冻结",
+      "group": "QUALITY",
+      "priority": "P1",
+      "source_mode": "MANUAL_PREPARATION",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-02",
+      "source_id": "QUALITY-02",
+      "source_bundle": "A",
+      "title": "两微信设备真实端到端识别",
+      "group": "QUALITY",
+      "priority": "P1",
+      "source_mode": "DEVICE_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-03",
+      "source_id": "QUALITY-03",
+      "source_bundle": "A",
+      "title": "冷启动、热模型和历史回归",
+      "group": "QUALITY",
+      "priority": "P1",
+      "source_mode": "DEVICE_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-04",
+      "source_id": "QUALITY-04",
+      "source_bundle": "A",
+      "title": "识别质量指标与门槛",
+      "group": "QUALITY",
+      "priority": "P1",
+      "source_mode": "ANALYSIS",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-05",
+      "source_id": "QUALITY-05",
+      "source_bundle": "A",
+      "title": "难图和非药品图",
+      "group": "QUALITY",
+      "priority": "P0",
+      "source_mode": "DEVICE_MODEL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:QUALITY-06",
+      "source_id": "QUALITY-06",
+      "source_bundle": "A",
+      "title": "原件保留与可复验结果",
+      "group": "QUALITY",
+      "priority": "P0",
+      "source_mode": "DEVICE_LOCAL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "依赖人工独立真值及真实样本运行，统计自动计算不替代样本事实",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BAR-01",
+      "source_id": "BAR-01",
+      "source_bundle": "A",
+      "title": "条码命中候选",
+      "group": "BAR",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BAR-02",
+      "source_id": "BAR-02",
+      "source_bundle": "A",
+      "title": "真实资料库零命中",
+      "group": "BAR",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BAR-03",
+      "source_id": "BAR-03",
+      "source_bundle": "A",
+      "title": "查询失败与未配置区分",
+      "group": "BAR",
+      "priority": "P1",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:BAR-04",
+      "source_id": "BAR-04",
+      "source_bundle": "A",
+      "title": "候选冲突和共享来源",
+      "group": "BAR",
+      "priority": "P0",
+      "source_mode": "DEVICE_API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-01",
+      "source_id": "DATA-01",
+      "source_bundle": "A",
+      "title": "未知数量与零数量",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-02",
+      "source_id": "DATA-02",
+      "source_bundle": "A",
+      "title": "包装规格与计数单位",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-03",
+      "source_id": "DATA-03",
+      "source_bundle": "A",
+      "title": "效期精度和开封期限",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-04",
+      "source_id": "DATA-04",
+      "source_bundle": "A",
+      "title": "批次、位置和拆分守恒",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-05",
+      "source_id": "DATA-05",
+      "source_bundle": "A",
+      "title": "并发编辑冲突",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-06",
+      "source_id": "DATA-06",
+      "source_bundle": "A",
+      "title": "归档、已处理和回收站",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-07",
+      "source_id": "DATA-07",
+      "source_bundle": "A",
+      "title": "个人备注与说明书分离",
+      "group": "DATA",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:DATA-08",
+      "source_id": "DATA-08",
+      "source_bundle": "A",
+      "title": "未登录、空态和失败态不伪造数据",
+      "group": "DATA",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-01",
+      "source_id": "UPG-01",
+      "source_bundle": "A",
+      "title": "从旧序列化值恢复合法身份",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-02",
+      "source_id": "UPG-02",
+      "source_bundle": "A",
+      "title": "不同API或不同账号旧数据隔离",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-03",
+      "source_id": "UPG-03",
+      "source_bundle": "A",
+      "title": "真实SharedPreferences迁移与重载",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_FLUTTER",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-04",
+      "source_id": "UPG-04",
+      "source_bundle": "A",
+      "title": "迁移写失败、删除失败和冲突",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_FLUTTER",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-05",
+      "source_id": "UPG-05",
+      "source_bundle": "A",
+      "title": "药品/计划普通草稿真实恢复",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-06",
+      "source_id": "UPG-06",
+      "source_bundle": "A",
+      "title": "私照元数据与真实临时文件恢复",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "AUTOMATED",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-07",
+      "source_id": "UPG-07",
+      "source_bundle": "A",
+      "title": "数据库旧版本到030",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "PG_INTEGRATION",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-08",
+      "source_id": "UPG-08",
+      "source_bundle": "A",
+      "title": "迁移中断和恢复回滚",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "PG_INTEGRATION",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-09",
+      "source_id": "UPG-09",
+      "source_bundle": "A",
+      "title": "Android同证书覆盖升级全状态",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UPG-10",
+      "source_id": "UPG-10",
+      "source_bundle": "A",
+      "title": "微信覆盖更新而非清缓存",
+      "group": "UPG",
+      "priority": "P0",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-01",
+      "source_id": "PLAN-01",
+      "source_bundle": "A",
+      "title": "计划创建、时间与星期",
+      "group": "PLAN",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-02",
+      "source_id": "PLAN-02",
+      "source_bundle": "A",
+      "title": "计划创建与确认幂等",
+      "group": "PLAN",
+      "priority": "P0",
+      "source_mode": "API_PG_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-03",
+      "source_id": "PLAN-03",
+      "source_bundle": "A",
+      "title": "历史更正与权限",
+      "group": "PLAN",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-04",
+      "source_id": "PLAN-04",
+      "source_bundle": "A",
+      "title": "微信真实提醒送达与点击",
+      "group": "PLAN",
+      "priority": "P1",
+      "source_mode": "DEVICE_PLATFORM",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-05",
+      "source_id": "PLAN-05",
+      "source_bundle": "A",
+      "title": "发送未知结果不得重复轰炸",
+      "group": "PLAN",
+      "priority": "P0",
+      "source_mode": "API_PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:PLAN-06",
+      "source_id": "PLAN-06",
+      "source_bundle": "A",
+      "title": "Android通知权限与后台恢复",
+      "group": "PLAN",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-01",
+      "source_id": "EXPORT-01",
+      "source_bundle": "A",
+      "title": "预览与UTF-8导出一致",
+      "group": "EXPORT",
+      "priority": "P0",
+      "source_mode": "API_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-02",
+      "source_id": "EXPORT-02",
+      "source_bundle": "A",
+      "title": "系统分享及取消",
+      "group": "EXPORT",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-03",
+      "source_id": "EXPORT-03",
+      "source_bundle": "A",
+      "title": "分享期间切账号与文件租约",
+      "group": "EXPORT",
+      "priority": "P0",
+      "source_mode": "AUTOMATED_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-04",
+      "source_id": "EXPORT-04",
+      "source_bundle": "A",
+      "title": "数据库与照片成对备份恢复",
+      "group": "EXPORT",
+      "priority": "P0",
+      "source_mode": "PG_FILESYSTEM",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-05",
+      "source_id": "EXPORT-05",
+      "source_bundle": "A",
+      "title": "缺图损坏和版本不兼容恢复",
+      "group": "EXPORT",
+      "priority": "P0",
+      "source_mode": "PG_FILESYSTEM",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:EXPORT-06",
+      "source_id": "EXPORT-06",
+      "source_bundle": "A",
+      "title": "恢复后权限与业务保真",
+      "group": "EXPORT",
+      "priority": "P0",
+      "source_mode": "PG_API",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-01",
+      "source_id": "UI-01",
+      "source_bundle": "A",
+      "title": "四主入口与实际数据状态",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-02",
+      "source_id": "UI-02",
+      "source_bundle": "A",
+      "title": "大小、字体与长文本",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "DEVICE_RENDER",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-03",
+      "source_id": "UI-03",
+      "source_bundle": "A",
+      "title": "键盘、安全区与系统返回",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-04",
+      "source_id": "UI-04",
+      "source_bundle": "A",
+      "title": "识别状态可理解可恢复",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-05",
+      "source_id": "UI-05",
+      "source_bundle": "A",
+      "title": "日期组件与批次上下文",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:UI-06",
+      "source_id": "UI-06",
+      "source_bundle": "A",
+      "title": "截图证据和隐私裁剪",
+      "group": "UI",
+      "priority": "P1",
+      "source_mode": "MANUAL_REVIEW",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-01",
+      "source_id": "RELEASE-01",
+      "source_bundle": "A",
+      "title": "上传副本而非源码/QA包",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "PACKAGE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-02",
+      "source_id": "RELEASE-02",
+      "source_bundle": "A",
+      "title": "IDE基础库与后台最低库分开",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "PLATFORM_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-03",
+      "source_id": "RELEASE-03",
+      "source_bundle": "A",
+      "title": "隐私指引与实际网络用途",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "PLATFORM_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-04",
+      "source_id": "RELEASE-04",
+      "source_bundle": "A",
+      "title": "域名项按实际调用配置",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "PLATFORM_NETWORK",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-05",
+      "source_id": "RELEASE-05",
+      "source_bundle": "A",
+      "title": "UGC与内容声明由Owner核对",
+      "group": "RELEASE",
+      "priority": "P1",
+      "source_mode": "PLATFORM",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-06",
+      "source_id": "RELEASE-06",
+      "source_bundle": "A",
+      "title": "Android分发签名与升级包",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "PACKAGE_DEVICE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-07",
+      "source_id": "RELEASE-07",
+      "source_bundle": "A",
+      "title": "上传体验与提审发布分闸",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "HUMAN_GATE",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "A:RELEASE-08",
+      "source_id": "RELEASE-08",
+      "source_bundle": "A",
+      "title": "最终账本与开放缺陷复核",
+      "group": "RELEASE",
+      "priority": "P0",
+      "source_mode": "REVIEW",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-01",
+      "source_id": "BASE-01",
+      "source_bundle": "B",
+      "title": "代码与安装基线一致",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-02",
+      "source_id": "BASE-02",
+      "source_bundle": "B",
+      "title": "测试数据和生产彻底隔离",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-03",
+      "source_id": "BASE-03",
+      "source_bundle": "B",
+      "title": "依赖和工具版本冻结",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-04",
+      "source_id": "BASE-04",
+      "source_bundle": "B",
+      "title": "模型和数据发送目的地冻结",
+      "group": "基线、隔离与证据",
+      "priority": "P0",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-05",
+      "source_id": "BASE-05",
+      "source_bundle": "B",
+      "title": "时间与测试场景统一",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-06",
+      "source_id": "BASE-06",
+      "source_bundle": "B",
+      "title": "日志脱敏及关联",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-07",
+      "source_id": "BASE-07",
+      "source_bundle": "B",
+      "title": "结果状态不冒充通过",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:BASE-08",
+      "source_id": "BASE-08",
+      "source_bundle": "B",
+      "title": "工作区与照片历史卫生",
+      "group": "基线、隔离与证据",
+      "priority": "P1",
+      "source_mode": "本地自动化/人工复核",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-01",
+      "source_id": "REG-01",
+      "source_bundle": "B",
+      "title": "开启低库存提醒不删除批次",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": [
+          "initial-results.json#LOCAL-THRESHOLD-CONTRACT"
+        ]
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [
+        {
+          "id": "enable_threshold:CONTRACT",
+          "scope": "Actual extracted page method and production validator only",
+          "status": "FAIL",
+          "evidence": "initial-results.json",
+          "defect_id": "AUD-01"
+        },
+        {
+          "id": "enable_threshold:REAL_PG",
+          "scope": "Actual route and dedicated PostgreSQL state comparison",
+          "status": "NOT_RUN",
+          "evidence": []
+        }
+      ],
+      "defect_ids": [
+        "AUD-01"
+      ],
+      "note": "局部契约已FAIL；PG与完整断言未跑，整体保持NOT_RUN，不能把未完成当通过。"
+    },
+    {
+      "id": "B:REG-02",
+      "source_id": "REG-02",
+      "source_bundle": "B",
+      "title": "关闭低库存提醒不删除批次",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": [
+          "initial-results.json#LOCAL-THRESHOLD-CONTRACT"
+        ]
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [
+        {
+          "id": "disable_threshold:CONTRACT",
+          "scope": "Actual extracted page method and production validator only",
+          "status": "FAIL",
+          "evidence": "initial-results.json",
+          "defect_id": "AUD-01"
+        },
+        {
+          "id": "disable_threshold:REAL_PG",
+          "scope": "Actual route and dedicated PostgreSQL state comparison",
+          "status": "NOT_RUN",
+          "evidence": []
+        }
+      ],
+      "defect_ids": [
+        "AUD-01"
+      ],
+      "note": "局部契约已FAIL；PG与完整断言未跑，整体保持NOT_RUN，不能把未完成当通过。"
+    },
+    {
+      "id": "B:REG-03",
+      "source_id": "REG-03",
+      "source_bundle": "B",
+      "title": "局部更新与完整替换契约",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-04",
+      "source_id": "REG-04",
+      "source_bundle": "B",
+      "title": "阈值保存并发修改",
+      "group": "本次审计优先回归",
+      "priority": "P0",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-05",
+      "source_id": "REG-05",
+      "source_bundle": "B",
+      "title": "私照提交成功但响应丢失",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-06",
+      "source_id": "REG-06",
+      "source_bundle": "B",
+      "title": "照片成功与回执持久化之间崩溃",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-07",
+      "source_id": "REG-07",
+      "source_bundle": "B",
+      "title": "识别失败类别能到达用户",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REG-08",
+      "source_id": "REG-08",
+      "source_bundle": "B",
+      "title": "多批次有效期照片正确归属",
+      "group": "本次审计优先回归",
+      "priority": "P1",
+      "source_mode": "真实页面＋隔离PostgreSQL",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-01",
+      "source_id": "CAP-01",
+      "source_bundle": "B",
+      "title": "首次拍照正常链路",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-02",
+      "source_id": "CAP-02",
+      "source_bundle": "B",
+      "title": "从相册选择PNG",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-03",
+      "source_id": "CAP-03",
+      "source_bundle": "B",
+      "title": "取消拍照与取消相册",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-04",
+      "source_id": "CAP-04",
+      "source_bundle": "B",
+      "title": "拒绝相机权限",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-05",
+      "source_id": "CAP-05",
+      "source_bundle": "B",
+      "title": "拒绝隐私或相册授权",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-06",
+      "source_id": "CAP-06",
+      "source_bundle": "B",
+      "title": "前后台与锁屏",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-07",
+      "source_id": "CAP-07",
+      "source_bundle": "B",
+      "title": "摄像头切换和旋转",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-08",
+      "source_id": "CAP-08",
+      "source_bundle": "B",
+      "title": "不支持的文件格式",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-09",
+      "source_id": "CAP-09",
+      "source_bundle": "B",
+      "title": "4MiB边界",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-10",
+      "source_id": "CAP-10",
+      "source_bundle": "B",
+      "title": "照片读取失败",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-11",
+      "source_id": "CAP-11",
+      "source_bundle": "B",
+      "title": "持久目录空间不足",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-12",
+      "source_id": "CAP-12",
+      "source_bundle": "B",
+      "title": "reserved与ready崩溃恢复",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-13",
+      "source_id": "CAP-13",
+      "source_bundle": "B",
+      "title": "放弃/保留/继续编辑",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:CAP-14",
+      "source_id": "CAP-14",
+      "source_bundle": "B",
+      "title": "重复进入页面的草稿竞争",
+      "group": "拍照、相册和本机照片生命周期",
+      "priority": "P1",
+      "source_mode": "真机＋文件故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-01",
+      "source_id": "API-01",
+      "source_bundle": "B",
+      "title": "未登录识别拒绝",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-02",
+      "source_id": "API-02",
+      "source_bundle": "B",
+      "title": "未加入家庭识别拒绝",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-03",
+      "source_id": "API-03",
+      "source_bundle": "B",
+      "title": "有效JPEG/PNG契约",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-04",
+      "source_id": "API-04",
+      "source_bundle": "B",
+      "title": "Base64非法输入",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-05",
+      "source_id": "API-05",
+      "source_bundle": "B",
+      "title": "MIME与字节内容不符",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-06",
+      "source_id": "API-06",
+      "source_bundle": "B",
+      "title": "合法图片头但内容损坏",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-07",
+      "source_id": "API-07",
+      "source_bundle": "B",
+      "title": "图片和HTTP体积双边界",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-08",
+      "source_id": "API-08",
+      "source_bundle": "B",
+      "title": "识别用途白名单",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-09",
+      "source_id": "API-09",
+      "source_bundle": "B",
+      "title": "缺失模型密钥/配置",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-10",
+      "source_id": "API-10",
+      "source_bundle": "B",
+      "title": "模型缺失与服务不可达",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-11",
+      "source_id": "API-11",
+      "source_bundle": "B",
+      "title": "上游限流和显存不足",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-12",
+      "source_id": "API-12",
+      "source_bundle": "B",
+      "title": "超时预算及取消",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-13",
+      "source_id": "API-13",
+      "source_bundle": "B",
+      "title": "异常JSON与结构",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-14",
+      "source_id": "API-14",
+      "source_bundle": "B",
+      "title": "字段白名单和标签去重",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-15",
+      "source_id": "API-15",
+      "source_bundle": "B",
+      "title": "日期精度及非法日历",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-16",
+      "source_id": "API-16",
+      "source_bundle": "B",
+      "title": "持续时间不是数量",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-17",
+      "source_id": "API-17",
+      "source_bundle": "B",
+      "title": "识别全程不写业务数据",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P0",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:API-18",
+      "source_id": "API-18",
+      "source_bundle": "B",
+      "title": "提供商选择与网络出站",
+      "group": "识别HTTP接口与模型适配器契约",
+      "priority": "P1",
+      "source_mode": "自动化：真实路由/模拟上游；另列真实模型",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-01",
+      "source_id": "OCR-01",
+      "source_bundle": "B",
+      "title": "清晰药盒通用名",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-02",
+      "source_id": "OCR-02",
+      "source_bundle": "B",
+      "title": "品牌与厂家分离",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-03",
+      "source_id": "OCR-03",
+      "source_bundle": "B",
+      "title": "同药不同规格",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-04",
+      "source_id": "OCR-04",
+      "source_bundle": "B",
+      "title": "相似包装不同药",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-05",
+      "source_id": "OCR-05",
+      "source_bundle": "B",
+      "title": "有明确标签的日精度有效期",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-06",
+      "source_id": "OCR-06",
+      "source_bundle": "B",
+      "title": "仅年月有效期",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-07",
+      "source_id": "OCR-07",
+      "source_bundle": "B",
+      "title": "生产日期不当有效期",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P0",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-08",
+      "source_id": "OCR-08",
+      "source_bundle": "B",
+      "title": "正面无日期补拍另一面",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-09",
+      "source_id": "OCR-09",
+      "source_bundle": "B",
+      "title": "说明书小字和折痕",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-10",
+      "source_id": "OCR-10",
+      "source_bundle": "B",
+      "title": "反光、模糊与暗光",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-11",
+      "source_id": "OCR-11",
+      "source_bundle": "B",
+      "title": "多药同框",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-12",
+      "source_id": "OCR-12",
+      "source_bundle": "B",
+      "title": "无药物/无文字负样本",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P0",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-13",
+      "source_id": "OCR-13",
+      "source_bundle": "B",
+      "title": "警示文字和图内指令",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-14",
+      "source_id": "OCR-14",
+      "source_bundle": "B",
+      "title": "冷启动与热启动性能",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-15",
+      "source_id": "OCR-15",
+      "source_bundle": "B",
+      "title": "结果可重复性与模型变更",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:OCR-16",
+      "source_id": "OCR-16",
+      "source_bundle": "B",
+      "title": "双端与本机识别差异",
+      "group": "真实图片识别质量与稳定性",
+      "priority": "P1",
+      "source_mode": "真实模型盲测＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-01",
+      "source_id": "FILL-01",
+      "source_bundle": "B",
+      "title": "自动填空不覆盖人工值",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-02",
+      "source_id": "FILL-02",
+      "source_bundle": "B",
+      "title": "识别等待时人工修改",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-03",
+      "source_id": "FILL-03",
+      "source_bundle": "B",
+      "title": "识别等待时人工清空",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-04",
+      "source_id": "FILL-04",
+      "source_bundle": "B",
+      "title": "手动日期精度切换",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-05",
+      "source_id": "FILL-05",
+      "source_bundle": "B",
+      "title": "批次增删后的晚到结果",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-06",
+      "source_id": "FILL-06",
+      "source_bundle": "B",
+      "title": "注销/切家庭后的晚到结果",
+      "group": "识别结果回填与人工确认",
+      "priority": "P0",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-07",
+      "source_id": "FILL-07",
+      "source_bundle": "B",
+      "title": "离开旧页面再打开新页面",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-08",
+      "source_id": "FILL-08",
+      "source_bundle": "B",
+      "title": "说明书核验状态重置",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-09",
+      "source_id": "FILL-09",
+      "source_bundle": "B",
+      "title": "条码候选需独立确认",
+      "group": "识别结果回填与人工确认",
+      "priority": "P1",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:FILL-10",
+      "source_id": "FILL-10",
+      "source_bundle": "B",
+      "title": "只识别不保存",
+      "group": "识别结果回填与人工确认",
+      "priority": "P0",
+      "source_mode": "页面自动化＋真机验证",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-01",
+      "source_id": "SAVE-01",
+      "source_bundle": "B",
+      "title": "最小手工录入",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-02",
+      "source_id": "SAVE-02",
+      "source_bundle": "B",
+      "title": "全字段图文保存",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-03",
+      "source_id": "SAVE-03",
+      "source_bundle": "B",
+      "title": "连点保存",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-04",
+      "source_id": "SAVE-04",
+      "source_bundle": "B",
+      "title": "创建提交前网络中断",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-05",
+      "source_id": "SAVE-05",
+      "source_bundle": "B",
+      "title": "创建已提交但响应丢失",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-06",
+      "source_id": "SAVE-06",
+      "source_bundle": "B",
+      "title": "创建回包丢失后冷启动",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-07",
+      "source_id": "SAVE-07",
+      "source_bundle": "B",
+      "title": "同key不同payload",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-08",
+      "source_id": "SAVE-08",
+      "source_bundle": "B",
+      "title": "药品和初始批次事务回滚",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-09",
+      "source_id": "SAVE-09",
+      "source_bundle": "B",
+      "title": "编辑事务回滚",
+      "group": "确认保存、幂等与事务",
+      "priority": "P0",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-10",
+      "source_id": "SAVE-10",
+      "source_bundle": "B",
+      "title": "编辑乐观锁冲突",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-11",
+      "source_id": "SAVE-11",
+      "source_bundle": "B",
+      "title": "400后可修正重试",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-12",
+      "source_id": "SAVE-12",
+      "source_bundle": "B",
+      "title": "批次删除语义",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-13",
+      "source_id": "SAVE-13",
+      "source_bundle": "B",
+      "title": "成分重复提醒不代替用药建议",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:SAVE-14",
+      "source_id": "SAVE-14",
+      "source_bundle": "B",
+      "title": "重试照片期间表单操作",
+      "group": "确认保存、幂等与事务",
+      "priority": "P1",
+      "source_mode": "隔离PostgreSQL＋客户端故障注入",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-01",
+      "source_id": "PHOTO-01",
+      "source_bundle": "B",
+      "title": "三种照片用途分离",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-02",
+      "source_id": "PHOTO-02",
+      "source_bundle": "B",
+      "title": "跨家庭照片访问拒绝",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P0",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-03",
+      "source_id": "PHOTO-03",
+      "source_bundle": "B",
+      "title": "错药品/错批次关联拒绝",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-04",
+      "source_id": "PHOTO-04",
+      "source_bundle": "B",
+      "title": "8MiB私照上传边界",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-05",
+      "source_id": "PHOTO-05",
+      "source_bundle": "B",
+      "title": "单用户速率限制",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-06",
+      "source_id": "PHOTO-06",
+      "source_bundle": "B",
+      "title": "家庭数量/字节配额",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-07",
+      "source_id": "PHOTO-07",
+      "source_bundle": "B",
+      "title": "预留成功后磁盘写失败",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-08",
+      "source_id": "PHOTO-08",
+      "source_bundle": "B",
+      "title": "文件写成功后元数据激活失败",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-09",
+      "source_id": "PHOTO-09",
+      "source_bundle": "B",
+      "title": "封面设置失败后恢复",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-10",
+      "source_id": "PHOTO-10",
+      "source_bundle": "B",
+      "title": "多图中一张失败",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-11",
+      "source_id": "PHOTO-11",
+      "source_bundle": "B",
+      "title": "本地清理失败",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P1",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PHOTO-12",
+      "source_id": "PHOTO-12",
+      "source_bundle": "B",
+      "title": "图片日志/导出隐私",
+      "group": "私有照片、关联、配额和恢复",
+      "priority": "P0",
+      "source_mode": "隔离数据库/存储＋真机",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-01",
+      "source_id": "AUTH-01",
+      "source_bundle": "B",
+      "title": "真实微信身份彼此不同",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-02",
+      "source_id": "AUTH-02",
+      "source_bundle": "B",
+      "title": "微信登录取消/过期码/不可达",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-03",
+      "source_id": "AUTH-03",
+      "source_bundle": "B",
+      "title": "Android真实绑定和撤销",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-04",
+      "source_id": "AUTH-04",
+      "source_bundle": "B",
+      "title": "旧401不能清新令牌",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-05",
+      "source_id": "AUTH-05",
+      "source_bundle": "B",
+      "title": "家庭数据完全隔离",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-06",
+      "source_id": "AUTH-06",
+      "source_bundle": "B",
+      "title": "邀请过期与重复接受",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-07",
+      "source_id": "AUTH-07",
+      "source_bundle": "B",
+      "title": "成员退出后的所有残留",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-08",
+      "source_id": "AUTH-08",
+      "source_bundle": "B",
+      "title": "所有者转让与退出",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-09",
+      "source_id": "AUTH-09",
+      "source_bundle": "B",
+      "title": "个人备注的私有/家庭可见",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-10",
+      "source_id": "AUTH-10",
+      "source_bundle": "B",
+      "title": "照护查看与修改权限分离",
+      "group": "登录、家庭和权限边界",
+      "priority": "P0",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-11",
+      "source_id": "AUTH-11",
+      "source_bundle": "B",
+      "title": "断网缓存身份边界",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:AUTH-12",
+      "source_id": "AUTH-12",
+      "source_bundle": "B",
+      "title": "本地存储故障下身份",
+      "group": "登录、家庭和权限边界",
+      "priority": "P1",
+      "source_mode": "模拟鉴权回归＋真实两账号两设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-01",
+      "source_id": "INV-01",
+      "source_bundle": "B",
+      "title": "四主入口导航和返回",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-02",
+      "source_id": "INV-02",
+      "source_bundle": "B",
+      "title": "未知数量不等于零",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P0",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-03",
+      "source_id": "INV-03",
+      "source_bundle": "B",
+      "title": "整数与毫升小数规则",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-04",
+      "source_id": "INV-04",
+      "source_bundle": "B",
+      "title": "单位切换不偷偷换算",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-05",
+      "source_id": "INV-05",
+      "source_bundle": "B",
+      "title": "包装换算需人工确认",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-06",
+      "source_id": "INV-06",
+      "source_bundle": "B",
+      "title": "月精度到期状态",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-07",
+      "source_id": "INV-07",
+      "source_bundle": "B",
+      "title": "开封期限与包装期限组合",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-08",
+      "source_id": "INV-08",
+      "source_bundle": "B",
+      "title": "拆分开封保持总量",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-09",
+      "source_id": "INV-09",
+      "source_bundle": "B",
+      "title": "盘点调整及撤销边界",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-10",
+      "source_id": "INV-10",
+      "source_bundle": "B",
+      "title": "已处理历史批次不污染当前过期状态",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-11",
+      "source_id": "INV-11",
+      "source_bundle": "B",
+      "title": "低库存计数与筛选一致",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-12",
+      "source_id": "INV-12",
+      "source_bundle": "B",
+      "title": "待补资料与数量日期未知分离",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-13",
+      "source_id": "INV-13",
+      "source_bundle": "B",
+      "title": "归档与回收站不同生命周期",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:INV-14",
+      "source_id": "INV-14",
+      "source_bundle": "B",
+      "title": "搜索、补货和数据刷新",
+      "group": "药箱、库存、日期与四入口一致性",
+      "priority": "P1",
+      "source_mode": "自动化＋双端界面/真实PG",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-01",
+      "source_id": "PLAN-01",
+      "source_bundle": "B",
+      "title": "创建计划完整回读",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-02",
+      "source_id": "PLAN-02",
+      "source_bundle": "B",
+      "title": "计划创建响应丢失不重复",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-03",
+      "source_id": "PLAN-03",
+      "source_bundle": "B",
+      "title": "两设备同时确认一剂",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-04",
+      "source_id": "PLAN-04",
+      "source_bundle": "B",
+      "title": "确认/跳过/撤销/纠正历史",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-05",
+      "source_id": "PLAN-05",
+      "source_bundle": "B",
+      "title": "只收提醒不等于有查看权",
+      "group": "用药计划、照护与提醒",
+      "priority": "P0",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-06",
+      "source_id": "PLAN-06",
+      "source_bundle": "B",
+      "title": "未授权订阅不假称已送达",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-07",
+      "source_id": "PLAN-07",
+      "source_bundle": "B",
+      "title": "真实微信通知从发送到点击",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-08",
+      "source_id": "PLAN-08",
+      "source_bundle": "B",
+      "title": "离线/锁屏/系统通知限制",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-09",
+      "source_id": "PLAN-09",
+      "source_bundle": "B",
+      "title": "停用/删除/过期计划不继续发",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:PLAN-10",
+      "source_id": "PLAN-10",
+      "source_bundle": "B",
+      "title": "跨日/月底与重启调度",
+      "group": "用药计划、照护与提醒",
+      "priority": "P1",
+      "source_mode": "自动化＋真实通知送达",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-01",
+      "source_id": "EXPORT-01",
+      "source_bundle": "B",
+      "title": "导出预览与范围确认",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-02",
+      "source_id": "EXPORT-02",
+      "source_bundle": "B",
+      "title": "导出失败/取消与临时文件清理",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-03",
+      "source_id": "EXPORT-03",
+      "source_bundle": "B",
+      "title": "真实系统分享与目标应用",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-04",
+      "source_id": "EXPORT-04",
+      "source_bundle": "B",
+      "title": "JSON备份边界说明",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-05",
+      "source_id": "EXPORT-05",
+      "source_bundle": "B",
+      "title": "数据库和私照联合恢复",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-06",
+      "source_id": "EXPORT-06",
+      "source_bundle": "B",
+      "title": "旧版本增量迁移",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P0",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-07",
+      "source_id": "EXPORT-07",
+      "source_bundle": "B",
+      "title": "恢复失败不污染原目标",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:EXPORT-08",
+      "source_id": "EXPORT-08",
+      "source_bundle": "B",
+      "title": "回退和重启持久性",
+      "group": "导出、备份、迁移与恢复",
+      "priority": "P1",
+      "source_mode": "自动化＋隔离恢复演练",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": false,
+        "scope": "不自动列入人工操作；人工复核证据可补充",
+        "status": "NOT_APPLICABLE_PLANNED",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-01",
+      "source_id": "REL-01",
+      "source_bundle": "B",
+      "title": "源码目录禁止直接发布",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-02",
+      "source_id": "REL-02",
+      "source_bundle": "B",
+      "title": "独立HTTPS候选包",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-03",
+      "source_id": "REL-03",
+      "source_bundle": "B",
+      "title": "真实域名和证书链",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-04",
+      "source_id": "REL-04",
+      "source_bundle": "B",
+      "title": "代理图片体积和识别超时",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-05",
+      "source_id": "REL-05",
+      "source_bundle": "B",
+      "title": "客户端包无秘密与测试入口",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-06",
+      "source_id": "REL-06",
+      "source_bundle": "B",
+      "title": "微信真实基础库与机型",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-07",
+      "source_id": "REL-07",
+      "source_bundle": "B",
+      "title": "平台身份、隐私声明和类目核对",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-08",
+      "source_id": "REL-08",
+      "source_bundle": "B",
+      "title": "体验版和正式版分级",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-09",
+      "source_id": "REL-09",
+      "source_bundle": "B",
+      "title": "Android签名独立门槛",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-10",
+      "source_id": "REL-10",
+      "source_bundle": "B",
+      "title": "UI可读性及大字体",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-11",
+      "source_id": "REL-11",
+      "source_bundle": "B",
+      "title": "强制放行汇总",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P0",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    },
+    {
+      "id": "B:REL-12",
+      "source_id": "REL-12",
+      "source_bundle": "B",
+      "title": "验收后变更使证据失效",
+      "group": "小程序发布候选与独立平台验收",
+      "priority": "P1",
+      "source_mode": "生成包门禁＋真实微信后台/设备",
+      "phase1": {
+        "required": true,
+        "scope": "本机可执行子断言及独立代码审查；不以静态审查替代原用例行为要求",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "phase2": {
+        "required": true,
+        "scope": "真人/真机/模型/平台子断言",
+        "status": "NOT_RUN",
+        "evidence": []
+      },
+      "overall_status": "NOT_RUN",
+      "variants": [],
+      "defect_ids": [],
+      "note": "是否需要人工依原规格初分；执行前逐项核对范围，原规格全部断言保留。"
+    }
+  ]
+}

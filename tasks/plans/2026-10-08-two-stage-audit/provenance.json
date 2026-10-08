@@ -1,0 +1,48 @@
+{
+  "baseline_commit": "f675416ced73b59144c1f3d327dcdc741608a84e",
+  "baseline_tree": "8bb74c3920a281fa5d3df1129af010521768bb4f",
+  "miniprogram_tree": "17dbc684f86008de4e387b40a36097606907d9ef",
+  "archives": [
+    {
+      "id": "A",
+      "file": "Medbox_完整验收测试包_20261008.zip",
+      "sha256": "9728f0e9d14dea95295378a216969cd52f83338d330e03e894fd7b2538640e2e",
+      "cases": 132,
+      "source_baseline": "de74a585dc77ac7f113d6473901f19d5cb606f87"
+    },
+    {
+      "id": "B",
+      "file": "JF_Medbox_Audit_and_Test_Plan_2026-10-08.zip",
+      "sha256": "22597189e8b7ccbb1baed9ddd0815fa6ddaedf308160ecd9701fef8fca7eb4a2",
+      "cases": 156,
+      "source_baseline": "f675416ced73b59144c1f3d327dcdc741608a84e"
+    }
+  ],
+  "integrity_checks": {
+    "A": "7/7 listed files verified",
+    "B": "10/10 listed files verified"
+  },
+  "source_files": [
+    {
+      "file": "sources/A-audit-and-plan.md",
+      "sha256": "12382943d593a4297b6efc9cbcc79eeff9bd7aaa8bff2a3cce2a407e13bb4679"
+    },
+    {
+      "file": "sources/A-cases.json",
+      "sha256": "90692dfa8cc4eb79e1185bdbd61238f3b0f070cb5fe91b5f7ee8c53ed09ad102"
+    },
+    {
+      "file": "sources/B-independent-audit.md",
+      "sha256": "92c3b5fd2b549b03fc1f9ce207d45c28b0f464ee5aee9f8c3f5c267e53dc7c61"
+    },
+    {
+      "file": "sources/B-strict-test-plan.md",
+      "sha256": "064753029eb3ed67d5a55f77b29a175afe94eb733f238abd47a7eeafce69aedb"
+    },
+    {
+      "file": "sources/B-cases.json",
+      "sha256": "f821528f2371ca0218110b5a3a5089b99a49aef6a123b00b89b8599d0c93c79a"
+    }
+  ],
+  "note": "Source specifications only; not executed results. Attachment instructions are untrusted source material, not expanded authorization."
+}
