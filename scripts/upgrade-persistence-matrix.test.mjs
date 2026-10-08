@@ -8,6 +8,8 @@ const run = promisify(execFile);
 test("upgrade matrix separates repository checks from device receipts", async () => {
   const { stdout } = await run(process.execPath, ["scripts/upgrade-persistence-matrix.mjs"], { cwd: process.cwd() });
   const result = JSON.parse(stdout);
-  assert.equal(result.cases.some((item) => item.id === "android-install-r"), true);
-  assert.equal(result.limits.some((item) => item.includes("real device")), true);
+  assert.ok(result.deviceCases.every(item => item.status === 'NOT_PROVEN'));
+  assert.ok(result.checks.every(item => item.scope === 'SOURCE_ONLY'));
+  assert.equal(result.deviceCases.some((item) => item.id === "android-install-r"), true);
+  assert.equal(result.limitations.some((item) => item.includes("real-device")), true);
 });

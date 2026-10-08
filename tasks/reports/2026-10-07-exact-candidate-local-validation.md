@@ -1,0 +1,61 @@
+# 2026-10-07 精确候选本地验证
+
+候选38d1b846513c370e66c72ed68d20e43aa938ef67，tree1211ec10a9c90b6635816f42a0758a3573a12595。隔离工作树.local-data/delivery-review-20261007，分支codex/delivery-verification-20261007。原main@ae85190 ahead31及三处未提交源码未覆盖。
+
+本机实跑：API dist准备后QA36PASS/1SKIP；小程序389PASS；API256PASS/14条件SKIP；工具79PASS/24条件SKIP；严格真实PG152PASS/0SKIP；lint/typecheck/build/source包检查PASS（622618字节124文件）；Flutter analyze PASS，706PASS/15平台SKIP。精确候选GitHub CI37583634998的verify/backup-docker/flutter三job直接读取SUCCESS；没有APK上传步骤，不能作为已安装证据。
+
+本地结果已通过GitHub连接器回传PR1，comment6033596863。原ChatGPT会话已实际workspace_info及AGENTS读取成功：root原工程main@ae85190 dirty；不将该身份冒充隔离候选。C2C药箱旧进程消失而记录仍指向逐星服务，确认后归档仅药箱旧runtime并独立恢复；逐星服务保留，地址未更换。随后ChatGPT显示异常活动提示，新增远端审核尚待恢复。
+
+手机当前1.0.2/code5，首装时间2026-09-27 21:28:22。新版1.0.3/code6本机显式loopback试用Release构建进行中；未安装，正式签名/数据恢复/真实微信/双设备尚未验收。旧试用13306/13307当前不可用；不能仅安装APK宣称业务可用。
+
+后续：完成APK签名/哈希/配置核验、旧App备份、试用API身份和数据库/草稿兼容后保留数据安装。远端审核及PR合并/main exact CI另阶段。严格QA门禁未关闭；本地默认跳过项未改称PASS。
+
+## 安装阶段补充
+显式Flutter --android-project-arg=medboxLocalTrialSigning=true构建成功；环境变量方式首次产出未签名APK被拦截未安装。最终1.0.3/code6非debuggable、同包名同证书；SHA256 ACAD2E41F83CB05B72858723D6E62A9A130833D9B1A8BF9BE219E6477105892C，证书9ab144e824abf26a5941819abb06831288c36a8bfe622657e3dc9d88281fc774。adb install -r成功，firstInstallTime不变；目标进程/页面正常，原家庭及药品显示。未卸载/清数据。试用API13306/13307基于候选恢复，旧数据库、openid和私照根目录保留。数据库内部dump已保存本机；照片/草稿完整升级验收和生产恢复尚未通过。
+正常升级无需用户手动导出；先前备份前置沟通已纠正并写入lessons。未复现数据丢失，不能伪称已修复数据丢失bug。真实微信仍需有效测试AppID和平台验收；PR合并/main精确CI及新增远端审核尚待完成。
+
+原本地HEAD ae85190对远端main de74a585仅merge-tree只读预检发现24处冲突。未进行原目录merge；已向Jovi提供保留原目录、使用隔离主线或审核冲突后同步的选择。微信IDE授权已查10次仍pending，本轮停止轮询，后续先查原taskId，不重发授权。
+
+## main精确CI最终结果
+2026-10-07 PR1已合并main de74a585dc77ac7f113d6473901f19d5cb606f87，tree1211ec10a9c90b6635816f42a0758a3573a12595。Actions37596971109三job verify/backup-docker/flutter已实际读取SUCCESS。main QA36PASS1SKIP。手机安装包源提交仍38d1b846，代码tree与main一致；不虚改APK来源SHA。原本地main仍保留；隔离验证分支已ff到远端main。后台/真实微信/双设备及正式发布尚待验收。
+
+2026-10-07微信工具当前门禁实读：success=true、loginExpired=false、versionRelation=equal；get_user_appids调用成功。旧login任务因工具服务重连返回Task not found，以重新读取的当前登录态为证据；不宣称旧任务成功。整包/真机验收仍未完成。
+
+## 双手机开发预览准备（2026-10-07）
+临时HTTPS已获Jovi授权。HTTP2握手EOF、自动QUIC超时，均未作为PASS；仅药箱helper绑定192.168.0.104后QUIC实际注册成功。未改VPN/DNS/系统proxy，其他项目连接保留。当前helper PID523076、真实微信API PID467272/13308，临时入口记录E:\Claude_allow\Download\medcial_box\dual-wechat-https-origin.txt，测试完只关闭本次helper。
+公网ready200；未登录家庭接口401/UNAUTHORIZED。最新main生成的开发预览（独立副本private.urlCheck=false，正式源门禁true保留；只开发预览不正式上传），QR实际生成success，包494012字节。通过该HTTPS实际点击微信登录后runtime显示pages/family-entry/family-entry；真实手机/双账号同步尚NOT_RUN。短暂白屏为页面首次加载阶段，随后截图显示完整登录页；截图和旧QR不是验收替代。
+二维码：E:\Claude_allow\Download\medcial_box\JF小药箱-双手机主线验收-20261007.png。
+用户操作：A/B各用不同微信号扫新QR，A创建“双手机验收-1007”家庭并生成邀请码，B加入；然后A添加测试药品/B刷新并核对；后续按步骤测冲突、撤销及私照，暂不改现有App独立试用身份。开发版临时域名若被手机校验拒绝，由用户开启开发调试；正式域名合法配置仍未验。
+
+
+## 手机530后复核与运行修复
+用户实测第一步登录报530，本轮复核本机API13308无法连接、旧临时HTTPS530/Cloudflare1033，原API及连接进程均不存在；此前手机登录PASS从未成立。API旧日志未见startup失败或OOM；具体退出原因未确证。采用Windows独立进程启动API与连接，未修改VPN/DNS/系统代理、未清手机或数据库数据。启动器521940/440928已退出，API471008/cloudflared444044仍存活，跨多次命令结束本机及公网ready持续200。现开发预览重新生成494023字节，IDE家庭选择页读取成功；用户真实手机登录尚待复验，不把模拟器结果冒充真机。新QR：E:/Claude_allow/Download/medcial_box/JF小药箱-双手机主线验收-持续运行-20261007.png。source main de74a585，业务源码未改。测试结束只停止本次已核身份的临时API/连接。
+
+
+## 远端完整阶段接力及PR2验证
+Jovi要求远端自行读GitHub目录/最终目标/进度，审核修复、开源研究、自主规划并实际实施下一阶段、测试独立复核后提交；本地仅接收验证编译安装实测与GitHub回传。原会话已显式GitHub插件收到3691字自包含长任务，每5分钟automation-2检查，不把小清单/文档-only算完整阶段。
+PR2@16fd109为README-only且删操作资料，已CHANGES_REQUIRED。远端追加129801a37ed29b81135a46f5df90bb35d6bcbc8c/treeb4243ddf204f6986b0aeaa420378059e5bccf6b9，parent49e1ce209c63b6943ddc0a577ef588796a2a2d60。本地新隔离worktree .local-data/remote-stage-129801-20261007跑Node24.19新测试：0PASS1FAIL/exit1；脚本URL.pathname转路径出现E:\E:\...package.json ENOENT，真实Windows缺陷。未本地代改，证据回传PR2 comment6038463376。当前静态审计脚本尚未完成远端自定稳定运行工具/升级恢复/识别边界阶段；PR2保持需改，原会话已要求同一完整阶段继续，不再只改单路径后停。
+
+
+## automation-2回传 f62685a
+精确f62685a8dcc2061116b9146c35b0ac388ae002c5/tree da26818b54ad84cf807a3ac3491c510cff102537/parent eb018d48559262b4c6ead249bbc3190859eaecd0已隔离接收。Node24.19 Windows两项新增工具测试2PASS/0FAIL/0SKIP，之前路径缺陷已验证修复；CI37625513410仍运行。静态升级矩阵仅输出NOT_PROVEN/RUN_BY_CI标签，没有测试真实存储行为；服务生命周期/识别边界和README退回仍待远端同一完整阶段实施。GitHub回传comment6038595899，原会话已续接该完整阶段，未合并/未安装本批。
+
+
+## automation-2回传62579a
+精确62579a80b3efe14924f736740b78bb10cf752b1d/tree6a264cbf060d3f078f5babcdcf4d1c1e0fef106b/parent0e741152368358a479bc886a8299bb56b43ff201。Windows Node24.19新增五项测试5PASS；CI37626271398仍运行。独立暂存负例把两目标服务文件换为仅注释health/local-app-trial close，生命周期审计仍exit0/ok=true，误把关键词当可执行生命周期。仅改下载目录fixture，仓库源码/Owner数据未动。识别新增测试仍读regex，升级仍常量标签，完整阶段未实施；GitHub证据comment6038719521，原会话同一完整阶段已恢复执行，PR2未放行。
+
+
+## automation-2回传65aaee
+精确65aaee2a67c477898ff68219aec3ced13f62b0bd/tree71ff5d7ffb0ebc82a2b2c5b9f7b4844732a2f628/parent71f3268eddf344e4dc682dd6d1684333a7e9a8e1。Windows Node24.19五项测试4PASS1FAIL，升级矩阵测试仍读cases.some而输出改为checks/deviceCases，TypeError；精确CI37627102346已FAILURE。含全部扩展关键词但仅注释的两个服务fixture仍让生命周期审计exit0/ok=true。GitHub回传comment6038924068；远端原会话继续同一完整阶段及自修CI，不本地代改源码，不合并/安装。
+
+
+## automation-2回传78b8125
+精确78b8125c13facf8bab013d1c338ea894771a57ef/treebd9dd96130dc9e5212e6dbb6ce4bc2064a580b94/parentbe5a906a51c1bb26c940f5dc39bff8baa9434b86。Windows Node24.19聚焦5项：3PASS2FAIL；生命周期断言仍查旧输出key，升级仍查cases.some。清理验证器先限制TEMP到显式私有临时根目录，并在递归rm前校验实际realpath归属；初次验证器导入URL错误已纠正且未作为候选失败。注释-only大于100字的两个目标文件仍可令审计exit0/ok=true，新fork样例与目标启动器无关，未请求health或确认优雅关闭/恢复。CI37628607395读取时in_progress。GitHub回传comment6039234648，原会话同一完整阶段继续执行，不本地代改，不合并/安装。
+
+
+## automation-2 13:47Z检查
+PR2仍78b8125，无新提交；精确CI37628607395已completed/failure。原ChatGPT已结束回复，只承认INCOMPLETE并列下一步，未执行代码且称无工具拒绝。本地未重复测试旧HEAD，引用既有GitHub验证恢复同一完整阶段，要求实际执行及独立自修CI，不新开任务/不分发单路径小修。CI状态回传comment6039387983。
+
+
+## automation-2回传cb4e9dd
+精确cb4e9dd2012dc6a827850cae3728b22e21da25a4/tree91b9f8805001d0de2c3b87489b86746ec439bc71/parent6c74fddb573801febfbf2cf3e8baad79e435654d。Windows Node24.19聚焦五项3PASS2FAIL，旧输出断言未更新。ESLint1error：lifecycle audit第8行promisify unused。仅含关键词注释的目标文件仍exit0/ok=true；升级fixture只写读自身JSON未调用应用迁移/存储代码。执行前保护递归rm实际realpath，仅允许本次显式临时根目录分配的生命周期和升级fixture。精确CI37631818244读取时in_progress。回传PR2 comment6039573470，原会话同一完整阶段续接并要求独立实际测试/CI与能力错误披露；没有本地实现、合并或安装。

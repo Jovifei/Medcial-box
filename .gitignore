@@ -24,3 +24,7 @@ apps/miniprogram/private.config.json
 
 # Local demo artifacts
 /demo-output/
+
+# Runtime photos, local QA copies and Flutter tool state
+/var/
+/.flutter_tool_state
