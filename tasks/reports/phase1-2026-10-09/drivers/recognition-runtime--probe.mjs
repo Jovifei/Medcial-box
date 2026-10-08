@@ -36,5 +36,3 @@ for(const [name,make] of [['ollama',fetch=>new OllamaMedicineRecognitionProvider
 }
 await writeFile(new URL('./results.json',import.meta.url),JSON.stringify({baseline:'85bfe729f2089db2ee48040b450293511e8ce9c7',database:'FAKE_ONLY',network:'NONE',results},null,2));
 console.log(JSON.stringify(results,null,2));assert.ok(results[0].reproduced);assert.ok(results[1].reproduced);
-
-

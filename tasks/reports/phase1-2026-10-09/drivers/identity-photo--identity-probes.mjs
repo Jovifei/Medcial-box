@@ -16,4 +16,3 @@ modal.success({confirm:true}); await Promise.resolve();
 assert.match(requests[0].url,/families/); assert.equal(requests[0].header.authorization,'Bearer synthetic-new');
 requests[0].success({statusCode:200,data:{}}); await leave;
 console.log('REPRODUCED: old family leave confirmation dispatches POST with newer identity token. Only wx.request mocked; real page/API used.');
-

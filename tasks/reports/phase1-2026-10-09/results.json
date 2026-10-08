@@ -189,7 +189,9 @@
     },
     {
       "file": "drivers/identity-photo--identity-probes.mjs",
-      "sha256": "36029a81e869481601f9220b1539c4f0071c3d3c67abd4da8b4a5751fe6328e8"
+      "sha256": "4a79fba879996da9599ff1fd5de91171ef5a84ca7ad4093bb143cf45001faf58",
+      "original_execution_driver_sha256": "36029a81e869481601f9220b1539c4f0071c3d3c67abd4da8b4a5751fe6328e8",
+      "archive_normalization": "Removed empty trailing lines only; original executed driver remains in local evidence directory."
     },
     {
       "file": "drivers/identity-photo--pg-logout-probe.mjs",
@@ -209,7 +211,9 @@
     },
     {
       "file": "drivers/recognition-runtime--probe.mjs",
-      "sha256": "13fb5505440039d762e2138dab10942693a70cd927568b8099f64ead162ca46f"
+      "sha256": "a669660327e99c46c2b2fb5f9d51c0c5d23cea9453583518db91544989210989",
+      "original_execution_driver_sha256": "13fb5505440039d762e2138dab10942693a70cd927568b8099f64ead162ca46f",
+      "archive_normalization": "Removed empty trailing lines only; original executed driver remains in local evidence directory."
     },
     {
       "file": "drivers/recognition-runtime--valid-image-probe.mjs",
@@ -217,7 +221,9 @@
     },
     {
       "file": "drivers/recognition-runtime--http-probe.mjs",
-      "sha256": "14ff25202d59fdd0f0ba95b513fe5f4674ee669cff963d4dceefcc17316d2584"
+      "sha256": "cedf79b798f1b05861310a55862bd06558429eacf6e377759ac92b583177c589",
+      "original_execution_driver_sha256": "14ff25202d59fdd0f0ba95b513fe5f4674ee669cff963d4dceefcc17316d2584",
+      "archive_normalization": "Removed empty trailing lines only; original executed driver remains in local evidence directory."
     },
     {
       "file": "drivers/recognition-runtime--page-error-probe.mjs",
