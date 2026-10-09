@@ -141,7 +141,7 @@ interface PhotoEntryDraft {
   medicineId: string;
   photos: Array<{
     path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry" | "leaflet";
-    batchIndex: number; uploadedId?: string;
+    batchIndex: number; uploadedId?: string; uploadIntentKey?: string;
     ownedLocal?: OwnedPhotoFile;
     localFileRemoved?: boolean;
   }>;
@@ -1811,15 +1811,36 @@ Page({
       if (activePhoto && saved?.id) {
         activePhoto.medicineId = saved.id;
         try {
-          for (const photo of activePhoto.photos) {
-            if (photo.uploadedId) continue;
-            const imageBase64 = await new Promise<string>((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: photo.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject }));
+          for (const snapshotPhoto of activePhoto.photos) {
+            // Always derive the live photo from the durable queue, not a stale page snapshot.
+            const queue = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path);
+            const livePhoto = queue?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!queue || !livePhoto) return;
+            if (livePhoto.uploadedId) continue;
+            if (!livePhoto.uploadIntentKey) {
+              livePhoto.uploadIntentKey = `photo-upload-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+              this.setData({ photoDrafts: queue });
+              if (!this.persistPhotoDrafts()) throw new Error("照片上传回执标识保存失败");
+            }
+            // If persistence is unavailable, never dispatch an unrepeatable upload.
+            const confirmed = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path)
+              ?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!confirmed?.uploadIntentKey) throw new Error("照片上传标识未能持久保存");
+            const imageBase64 = await new Promise<string>((resolve, reject) => wx.getFileSystemManager().readFile({
+              filePath: snapshotPhoto.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject,
+            }));
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            const batchId = saved.batches[photo.batchIndex]?.id;
-            if (photo.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
-            const result = await api.uploadLeafletPhoto(saved.id, imageBase64, photo.mimeType, "medicine_entry", { purpose: photo.purpose, ...(batchId ? { batchId } : {}) });
+            const batchId = saved.batches[confirmed.batchIndex]?.id;
+            if (confirmed.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
+            const result = await api.uploadLeafletPhoto(saved.id, imageBase64, confirmed.mimeType, "medicine_entry",
+              { purpose: confirmed.purpose, ...(batchId ? { batchId } : {}) }, confirmed.uploadIntentKey);
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            photo.uploadedId = result.photo.id;
+            const after = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path);
+            const acknowledged = after?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!after || !acknowledged || acknowledged.uploadIntentKey !== confirmed.uploadIntentKey) return;
+            acknowledged.uploadedId = result.photo.id;
+            this.setData({ photoDrafts: after });
+            if (!this.persistPhotoDrafts()) throw new Error("照片上传成功但本机回执保存失败");
           }
           if (data.usePhotoAsCover) {
             const front = activePhoto.photos.find((photo) => photo.purpose === "box_front" && photo.uploadedId);
