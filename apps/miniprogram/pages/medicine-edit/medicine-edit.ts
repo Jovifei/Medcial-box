@@ -1351,7 +1351,10 @@ Page({
       }
       const code = error instanceof ApiError ? error.code : "";
       if (code === "RECOGNITION_UNAVAILABLE") {
-        this.setData({ recognitionHint: "拍照识别暂不可用，请先填写药品名称保存。" });
+        // The API already maps model/context/timeout failures to safe, actionable
+        // messages. Do not erase that category into a generic unavailable toast.
+        const detail = error instanceof ApiError ? error.message.slice(0, 180) : "";
+        this.setData({ recognitionHint: detail || "拍照识别暂不可用，可重新拍照或先手动录入。" });
       } else if (code !== "") {
         this.setData({ recognitionHint: `识别失败：${error instanceof ApiError ? error.message : "请重试或手动录入"}` });
         showError(error);
