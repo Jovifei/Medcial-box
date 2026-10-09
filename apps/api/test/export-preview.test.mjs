@@ -26,8 +26,12 @@ function harness({ unavailable = false, auth, cleanupFailures = 0 } = {}) {
   };
   vm.runInNewContext(compiled, {
     exports: {}, wx, Page: value => { page = value; },
-    require: name => name.endsWith('/auth') ? { ensureLoggedIn: () => auth?.promise ?? Promise.resolve() } : {
-      ApiError, api: { exportMarkdown: options => { const request = deferred(); requests.push({ ...request, options }); return request.promise; } },
+    require: name => name.endsWith('/auth') ? { ensureLoggedIn: () => auth?.promise ?? Promise.resolve() } :
+      name.endsWith('/session-scope') ? { scopedStorageKey: kind => kind + ':synthetic-user:synthetic-family' } : {
+      ApiError,
+      captureSessionIdentity: () => ({ token: 'synthetic-session', generation: 1 }),
+      isCurrentSession: identity => identity.token === 'synthetic-session' && identity.generation === 1,
+      api: { exportMarkdown: options => { const request = deferred(); requests.push({ ...request, options }); return request.promise; } },
     },
   });
   page.setData = value => Object.assign(page.data, value);
