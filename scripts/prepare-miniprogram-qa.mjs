@@ -22,6 +22,8 @@ const reviewedSourceTrees = new Set([
   '660359aed38af8285229dc106a58f69095d4e12e',
   // Additional review: plan draft owner captured before asynchronous page load, unchanged wx/fs capabilities.
   '9992a7cbdb802344f496790fb0f1a6177b98ad9c',
+  // Final review: backup onShow avoids unlink while sharing; no new native capability.
+  '92a89f61d2ef1b06eb4e7760b60c3b436538b246',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
