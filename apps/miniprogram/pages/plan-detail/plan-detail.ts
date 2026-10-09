@@ -93,10 +93,14 @@ Page({
 
   async onLoad(options: { planId?: string }): Promise<void> {
     this.setData({ planId: options.planId ?? "" });
-    await this.refresh();
+    // Capture at page creation, BEFORE await; a later session switch cannot
+    // relabel A's draft ownership to B after the network response arrives.
     const key = scopedStorageKey("plan-edit-draft", this.data.planId);
     this.draftOwnerKey = key;
-    this.setData({ draftAvailable: key !== null && Boolean(wx.getStorageSync(key)) });
+    await this.refresh();
+    if (!key || key !== scopedStorageKey("plan-edit-draft", this.data.planId)) return;
+    try { this.setData({ draftAvailable: Boolean(wx.getStorageSync(key)) }); }
+    catch { this.setData({ draftAvailable: false }); }
   },
 
   onUnload(): void {
