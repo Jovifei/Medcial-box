@@ -1,5 +1,6 @@
 import { api, ApiError } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { registerTemporaryShareFile, cleanupTemporaryShareFile, recoverTemporaryShareFiles } from "../../services/temporary-share-files";
 import type { FamilyMedicineBackup, PreviewJsonBackupResponse } from "../../services/api-types";
 
 interface LocalFile { path: string; name: string }
@@ -22,6 +23,7 @@ Page({
   // serialize the whole backup to the view layer and can exceed WeChat setData limits.
   pendingImportPayload: null as FamilyMedicineBackup | null,
   pendingConfirmationToken: null as string | null,
+  onShow(): void { void recoverTemporaryShareFiles(); },
   data: {
     busy: false,
     errorMessage: "",
@@ -38,6 +40,7 @@ Page({
   async onCreateBackup(): Promise<void> {
     if (this.data.busy) return;
     this.setData({ busy: true, errorMessage: "", statusText: "正在生成 JSON 备份…" });
+    let localFile = "";
     try {
       await ensureLoggedIn();
       const backup = await api.createJsonBackup();
@@ -45,13 +48,16 @@ Page({
       const filename = `home-medicine-backup-${backup.backupId}.json`;
       const native = wx as unknown as FileSystemCapableWx;
       if (typeof native.shareFileMessage === "function") {
-        const filePath = `${wx.env.USER_DATA_PATH}/${filename}`;
+        localFile = `${wx.env.USER_DATA_PATH}/home-medicine-share-${Date.now()}-${Math.random().toString(36).slice(2, 12)}.json`;
+        if (!registerTemporaryShareFile(localFile)) {
+          throw new Error("无法安全登记临时备份文件；本次没有将备份写入磁盘");
+        }
         await new Promise<void>((resolve, reject) => wx.getFileSystemManager().writeFile({
-          filePath, data: json, encoding: "utf8", success: () => resolve(),
+          filePath: localFile, data: json, encoding: "utf8", success: () => resolve(),
           fail: (error) => reject(new Error(error.errMsg ?? "写入临时备份文件失败")),
         }));
         await new Promise<void>((resolve, reject) => native.shareFileMessage?.({
-          filePath, fileName: filename, success: resolve,
+          filePath: localFile, fileName: filename, success: resolve,
           fail: (error) => reject(new Error(error.errMsg ?? "分享未完成")),
         }));
         this.setData({ backupCreatedAt: backup.exportedAt, backupJson: "", statusText: "JSON 备份文件已交给微信分享。" });
@@ -59,8 +65,14 @@ Page({
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
-      this.setData({ errorMessage: error instanceof ApiError ? error.message : "备份生成或分享失败" });
-    } finally { this.setData({ busy: false }); }
+      this.setData({ errorMessage: error instanceof ApiError ? error.message :
+        error instanceof Error ? error.message : "备份生成或分享失败" });
+    } finally {
+      if (localFile !== "" && !(await cleanupTemporaryShareFile(localFile))) {
+        this.setData({ errorMessage: "临时备份原件清理待重试；下次进入页面将再次清理" });
+      }
+      this.setData({ busy: false });
+    }
   },
 
   onCopyBackup(): void {
