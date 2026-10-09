@@ -6,6 +6,7 @@ import { startReminderScheduler } from "./jobs/reminder-scheduler.js";
 import { startDoseReminderScheduler } from "./jobs/dose-reminder-scheduler.js";
 import { startLeafletPhotoCleanup } from "./jobs/leaflet-photo-cleanup.js";
 import { PrivatePhotoStore } from "./services/private-photo-store.js";
+import { installGracefulShutdown } from "./lifecycle.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -14,6 +15,11 @@ async function main(): Promise<void> {
   }
 
   const pool = createDatabasePool(databaseUrl);
+  let poolClosing: Promise<void> | null = null;
+  const closePool = (): Promise<void> => {
+    poolClosing ??= pool.end();
+    return poolClosing;
+  };
   try {
     await applyMigrations(pool);
     const database = createDatabaseAdapter(pool);
@@ -28,8 +34,12 @@ async function main(): Promise<void> {
       stopReminderScheduler?.();
       stopDoseReminderScheduler?.();
       stopLeafletPhotoCleanup?.();
-      await pool.end();
+      await closePool();
     });
+    // A production SIGINT/SIGTERM must reach Fastify.onClose, not exit(143)
+    // while retaining the database pool or scheduled sender leases.
+    const removeShutdownHandlers = installGracefulShutdown(app);
+    app.addHook("onClose", async () => removeShutdownHandlers());
     const port = Number.parseInt(process.env.API_PORT ?? "3000", 10);
     // Local development defaults to loopback; containers set API_HOST=0.0.0.0.
     const host = process.env.API_HOST ?? "127.0.0.1";
@@ -42,7 +52,7 @@ async function main(): Promise<void> {
     });
     stopLeafletPhotoCleanup = startLeafletPhotoCleanup(database, privatePhotoStore, (message) => app.log.warn(message));
   } catch (error) {
-    await pool.end();
+    await closePool();
     throw error;
   }
 }
