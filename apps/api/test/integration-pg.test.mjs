@@ -94,15 +94,15 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
     });
     app = await buildServer({ database, wechatGateway: gateway, reminderTemplateConfig: reminderConfig, privatePhotoStore, logger: { level: "error" } });
     const request = (user, method, path, payload) => app.inject({ method, url: `/api/v1${path}`, headers: { authorization: `Bearer ${user.token}` }, ...(payload === undefined ? {} : { payload }) });
-    async function user() {
+    async function user(remoteAddress) {
       const code = randomUUID();
       gateway.registerCode(code, `real-pg-${code}`);
-      const auth = status(await app.inject({ method: "POST", url: "/api/v1/auth/wechat", payload: { code } }), 200);
+      const auth = status(await app.inject({ method: "POST", url: "/api/v1/auth/wechat", payload: { code }, ...(remoteAddress ? { remoteAddress } : {}) }), 200);
       assert.equal(auth.user.hasFamily, false);
       return { token: auth.token, id: auth.user.id };
     }
-    async function family(memberCount = 0) {
-      const owner = await user();
+    async function family(memberCount = 0, remoteAddress) {
+      const owner = await user(remoteAddress);
       const created = status(await request(owner, "POST", "/families", { name: `家庭-${randomUUID()}` }), 201);
       owner.membershipId = created.membership.id;
       const members = [];
@@ -128,7 +128,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
     }
 
     await t.test("AUD-01/14 real PG: field-only edits preserve physical inventory, tags, barcode, and reject stale versions", async () => {
-      const { owner } = await family();
+      const { owner } = await family(0, "127.0.0.88");
       const original = status(await request(owner, "POST", "/medicines", {
         name:"合成余量回归药",barcodeValue:"6901234567890",brand:"回归品牌",
         purposeTags:["pain"],populationTags:["adult"],
@@ -145,7 +145,8 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.equal(threshold.brand,"回归品牌");
       assert.deepEqual(threshold.purposeTags,["pain"]);
       assert.deepEqual(threshold.populationTags,["adult"]);
-      assert.deepEqual(threshold.batches,before,"threshold must not replace or version-bump batches");
+      const ordered = items => [...items].sort((a,b)=>a.id.localeCompare(b.id));
+      assert.deepEqual(ordered(threshold.batches),ordered(before),"threshold must not replace or version-bump batches");
       const persisted=await pool.query("SELECT id, deleted_at, lot_number, storage_location, quantity, unit FROM medicine_batches WHERE medicine_id=$1 ORDER BY lot_number",[original.id]);
       assert.equal(persisted.rows.length,2);
       assert.ok(persisted.rows.every(row=>row.deleted_at===null));
