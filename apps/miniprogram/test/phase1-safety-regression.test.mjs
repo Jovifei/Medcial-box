@@ -85,3 +85,59 @@ test("AUD-06 durable temporary file ownership survives a recreated helper and ne
   assert.equal(files.has(outsider),true);
   assert.equal(await afterRestart.cleanupTemporaryShareFile(outsider),false);
 });
+
+test("AUD-03 cold-restart after offline logout plus failed durable erase cannot claim success", async () => {
+  const token="a".repeat(64);
+  const disk=new Map([["home_medicine_session_token",token]]);
+  const {loadApi}=await import("./runtime.mjs");
+  const api=loadApi({wx:{
+    getStorageSync:key=>disk.get(key),
+    setStorageSync:(key,value)=>{if(key==="home_medicine_session_token"&&value==="")throw new Error("synthetic disk write failed");disk.set(key,value);},
+    removeStorageSync:()=>{throw new Error("synthetic erase failed");},
+    request:options=>options.fail({errMsg:"request:fail offline"}),
+  }});
+  const auth=loadService("services/auth.ts",{
+    modules:{"./api":api,"./session-scope":{writeSessionScope(){}}},
+    wx:{login(){throw new Error("logout must not start a new login")}},
+  });
+  await assert.rejects(auth.logout(),error=>error.code==="LOGOUT_NOT_DURABLE");
+  api.__resetTokenMemoryForTest();
+  assert.equal(api.readToken(),token,"fresh module memory exposes persistent stale token until storage heals");
+});
+
+test("AUD-04 account switch while export file is being written prevents stale native share", async () => {
+  let actor="A",version=1,writeDone;
+  let shared=0;
+  const {definition}=loadPage("pages/export-preview/export-preview.ts",{
+    modules:{
+      "../../services/api":{
+        ApiError:class ApiError extends Error{},
+        captureSessionIdentity:()=>({token:actor,generation:version}),
+        isCurrentSession:id=>id.token===actor&&id.generation===version,
+        api:{
+          createExportSnapshot:async()=>({snapshotId:"synthetic-snapshot",generatedAt:"2026-10-09"}),
+          exportMarkdown:async()=>({markdown:"# Synthetic medicine export",generatedAt:"2026-10-09"}),
+        },
+      },
+      "../../services/auth":{ensureLoggedIn:async()=>{}},
+      "../../services/session-scope":{scopedStorageKey:kind=>kind+":"+actor},
+    },
+    wx:{
+      env:{USER_DATA_PATH:"/temporary-test"},
+      getFileSystemManager:()=>({
+        writeFile:opts=>{writeDone=opts.success;},
+        unlink:opts=>opts.success(),
+      }),
+      shareFileMessage:opts=>{shared++;opts.success({errMsg:"ok"});},
+      setClipboardData:opts=>opts.success(),
+    },
+  });
+  const page=makePageContext(definition);
+  const work=page.onShareFile();
+  for(let i=0;i<40 && !writeDone;i++)await Promise.resolve();
+  assert.equal(typeof writeDone,"function","test must hold at the real native-file write boundary");
+  actor="B";version++;
+  writeDone();
+  await work;
+  assert.equal(shared,0);
+});
