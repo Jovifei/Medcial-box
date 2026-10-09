@@ -19,6 +19,7 @@ test("AUD-12 actual Fastify listen + SIGTERM triggers exactly one onClose/resour
   signals.emit("SIGTERM");
   signals.emit("SIGINT");
   await finished;
+  await app.close();
   assert.equal(closed,1);
   detach();
   assert.equal(signals.listenerCount("SIGINT"),0);
