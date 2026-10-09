@@ -24,6 +24,8 @@ const reviewedSourceTrees = new Set([
   '9992a7cbdb802344f496790fb0f1a6177b98ad9c',
   // Final review: backup onShow avoids unlink while sharing; no new native capability.
   '92a89f61d2ef1b06eb4e7760b60c3b436538b246',
+  // Reviewed 2026-10-09: durable photo ACK recovery plus updated synthetic page tests; no new native APIs.
+  'bbdd1af3d8285f897ebc15ef2bec221a251028ad',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
