@@ -23,7 +23,7 @@ Page({
   // serialize the whole backup to the view layer and can exceed WeChat setData limits.
   pendingImportPayload: null as FamilyMedicineBackup | null,
   pendingConfirmationToken: null as string | null,
-  onShow(): void { void recoverTemporaryShareFiles(); },
+  onShow(): void { if (!this.data.busy) void recoverTemporaryShareFiles(); },
   data: {
     busy: false,
     errorMessage: "",
