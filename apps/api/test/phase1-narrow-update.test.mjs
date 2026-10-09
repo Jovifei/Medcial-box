@@ -30,7 +30,7 @@ test("AUD-01 threshold PATCH only touches threshold, never deletes batches or re
     assert.equal(pool.callsMatching(/DELETE|UPDATE medicine_batches SET/).length,0);
     assert.equal(pool.callsMatching(/UPDATE medicines SET low_stock_threshold_quantity/).length,1);
     const sql=pool.callsMatching(/UPDATE medicines SET low_stock_threshold_quantity/)[0].sql;
-    const assignments=sql.split(/\\bWHERE\\b/)[0];
+    const assignments=sql.split(/\bWHERE\b/)[0];
     for(const forbidden of ["barcode_value =", "purpose_tags =", "population_tags =", "leaflet_", "specification ="]) {
       assert.equal(assignments.includes(forbidden),false,forbidden+" must not be assigned");
     }
