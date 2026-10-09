@@ -127,6 +127,55 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.equal(actual.find((row) => row.user_id === group.owner.id)?.role, "member");
     }
 
+    await t.test("AUD-01/14 real PG: field-only edits preserve physical inventory, tags, barcode, and reject stale versions", async () => {
+      const { owner } = await family();
+      const original = status(await request(owner, "POST", "/medicines", {
+        name:"合成余量回归药",barcodeValue:"6901234567890",brand:"回归品牌",
+        purposeTags:["pain"],populationTags:["adult"],
+        batches:[
+          {quantity:3,unit:"box",lotNumber:"LOT-A",expiry:{value:"2030-12",precision:"month"},storageLocation:"卧室"},
+          {quantity:4.125,unit:"ml",lotNumber:"LOT-B",expiry:{value:"2032-02-15",precision:"day"},storageLocation:"冰箱"},
+        ],
+      }),201);
+      const before=original.batches.map(batch=>({...batch}));
+      const threshold=status(await request(owner,"PATCH",`/medicines/${original.id}/low-stock-threshold`,{
+        lowStockThreshold:{quantity:1,unit:"box"},version:original.version,
+      }),200);
+      assert.equal(threshold.barcodeValue,"6901234567890");
+      assert.equal(threshold.brand,"回归品牌");
+      assert.deepEqual(threshold.purposeTags,["pain"]);
+      assert.deepEqual(threshold.populationTags,["adult"]);
+      assert.deepEqual(threshold.batches,before,"threshold must not replace or version-bump batches");
+      const persisted=await pool.query("SELECT id, deleted_at, lot_number, storage_location, quantity, unit FROM medicine_batches WHERE medicine_id=$1 ORDER BY lot_number",[original.id]);
+      assert.equal(persisted.rows.length,2);
+      assert.ok(persisted.rows.every(row=>row.deleted_at===null));
+      assert.deepEqual(persisted.rows.map(row=>row.lot_number),["LOT-A","LOT-B"]);
+      const outOfDate=await request(owner,"PATCH",`/medicines/${original.id}/low-stock-threshold`,{
+        lowStockThreshold:null,version:original.version,
+      });
+      status(outOfDate,409);
+      const second=before.find(batch=>batch.unit==="ml");
+      const changed=status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:2.345,version:second.version,
+      }),200);
+      assert.equal(changed.quantity,2.345);
+      for(const key of ["unit","lotNumber","expiry","storageLocation","openedState","afterOpeningLimit","conversionUnit"]){
+        assert.deepEqual(changed[key],second[key],`field ${key} changed by quantity-only edit`);
+      }
+      const after=status(await request(owner,"GET",`/medicines/${original.id}`),200);
+      assert.equal(after.batches.length,2);
+      assert.equal(after.batches.find(batch=>batch.id===second.id).quantity,2.345);
+      assert.equal(after.batches.find(batch=>batch.id===before[0].id).quantity,3);
+      status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:1,version:second.version,
+      }),409);
+      status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:2.3456,version:changed.version,
+      }),400);
+      const unchanged=status(await request(owner,"GET",`/medicines/${original.id}`),200);
+      assert.equal(unchanged.batches.find(batch=>batch.id===second.id).quantity,2.345);
+    });
+
     await t.test("private photo quota serializes concurrent uploads and releases space only after file removal", async () => {
       const { owner, id: familyId } = await family();
       const medicine = await createMedicine(owner, [], "说明书图片配额测试药");
