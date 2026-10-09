@@ -10,8 +10,8 @@ const routes = [
   ['GET', /^\/api\/v1\/medicines$/], ['POST', /^\/api\/v1\/medicines$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+$/],
   ['PUT', /^\/api\/v1\/medicines\/qa-medicine-\d+$/],
-  ['PATCH', /^\/api\/v1\/medicines\/qa-medicine-\d+\/low-stock-threshold$/],
-  ['PATCH', /^\/api\/v1\/medicines\/qa-medicine-\d+\/batches\/qa-batch-\d+\/quantity$/],
+  ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/low-stock-threshold$/],
+  ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/batches\/qa-batch-\d+\/quantity$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/cover-photo$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/dosage-notes$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
@@ -88,14 +88,14 @@ function createMock() {
     const id = path.split('/')[4];
     const item = db.medicines.find(entry => entry.id === id);
     if (!item) return fail('NOT_FOUND', 404);
-    if (path.endsWith('/low-stock-threshold') && method === 'PATCH') {
+    if (path.endsWith('/low-stock-threshold') && method === 'POST') {
       if (!data || Object.keys(data).some(key => !['version', 'lowStockThreshold'].includes(key))) return fail('VALIDATION_ERROR',400);
       if (data.version !== item.version) return fail('VERSION_CONFLICT', 409);
       item.lowStockThreshold = clone(data.lowStockThreshold ?? null);
       item.version++;
       return ok(item);
     }
-    if (path.endsWith('/quantity') && method === 'PATCH') {
+    if (path.endsWith('/quantity') && method === 'POST') {
       const batchId = path.split('/')[6];
       const batch = item.batches.find(entry => entry.id === batchId);
       if (!batch) return fail('NOT_FOUND', 404);
