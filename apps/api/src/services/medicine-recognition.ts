@@ -20,10 +20,37 @@ export const recognitionFailureMessages: Record<RecognitionFailureReason, string
   timeout: "识别等待超时，请稍后重试或分开拍摄；当前照片草稿仍保留。",
   unknown: "识别服务未能处理这张照片，请重拍后重试；仍失败请联系服务维护者诊断，或先手动录入。",
 };
+/** Bound provider JSON and diagnostic responses before allocating their full text. */
+async function readRecognitionResponse(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > maxBytes) {
+        void reader.cancel().catch(() => undefined);
+        throw new RecognitionUnavailableError("vision provider body exceeded safe size", "invalid_json");
+      }
+      text += decoder.decode(next.value, { stream: true });
+    }
+    return text + decoder.decode();
+  } catch (error) {
+    if (error instanceof RecognitionUnavailableError) throw error;
+    throw requestFailure(error);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function upstreamFailure(response: Response): Promise<RecognitionUnavailableError> {
   let diagnostic = "";
   try {
-    const payload = JSON.parse((await response.text()).slice(0, 8192)) as { error?: unknown };
+    const payload = JSON.parse(await readRecognitionResponse(response, 8192)) as { error?: unknown };
     const detail = payload?.error;
     if (typeof detail === "string") diagnostic = detail;
     else if (typeof detail === "object" && detail !== null && "message" in detail && typeof detail.message === "string") diagnostic = detail.message;
@@ -39,7 +66,8 @@ async function upstreamFailure(response: Response): Promise<RecognitionUnavailab
   return new RecognitionUnavailableError(`vision provider returned ${response.status}`, reason, response.status);
 }
 function requestFailure(error: unknown): RecognitionUnavailableError {
-  const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+  // AbortError alone does not prove the configured wall-clock timeout elapsed.
+  const timedOut = error instanceof Error && error.name === "TimeoutError";
   return new RecognitionUnavailableError("vision provider request failed", timedOut ? "timeout" : "provider_unavailable");
 }
 
@@ -136,11 +164,12 @@ export class DashscopeMedicineRecognitionProvider implements MedicineRecognition
     }
     if (!response.ok) throw await upstreamFailure(response);
     try {
-      const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+      const payload = JSON.parse(await readRecognitionResponse(response, 512 * 1024)) as { choices?: Array<{ message?: { content?: unknown } }> };
       const content = payload.choices?.[0]?.message?.content;
       if (typeof content !== "string") throw new Error("missing content");
       return cleanDraft(JSON.parse(content) as unknown, purpose);
-    } catch {
+    } catch (error) {
+      if (error instanceof RecognitionUnavailableError) throw error;
       throw new RecognitionUnavailableError("vision provider returned invalid JSON", "invalid_json");
     }
   }
@@ -178,10 +207,11 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
     }
     if (!response.ok) throw await upstreamFailure(response);
     try {
-      const payload = await response.json() as { message?: { content?: unknown } };
+      const payload = JSON.parse(await readRecognitionResponse(response, 512 * 1024)) as { message?: { content?: unknown } };
       if (typeof payload.message?.content !== "string") throw new Error("missing content");
       return cleanDraft(JSON.parse(payload.message.content) as unknown, purpose);
-    } catch {
+    } catch (error) {
+      if (error instanceof RecognitionUnavailableError) throw error;
       throw new RecognitionUnavailableError("vision provider returned invalid JSON", "invalid_json");
     }
   }
