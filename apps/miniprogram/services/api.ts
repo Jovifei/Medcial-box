@@ -244,11 +244,13 @@ export const api = {
     mimeType: "image/jpeg" | "image/png",
     source = "package_leaflet",
     association?: { purpose: "box_front" | "expiry" | "leaflet"; batchId?: string | null },
+    uploadIntentKey?: string,
   ): Promise<{ photo: LeafletPhotoSummary }> {
     return request({
       method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos`,
-      payload: { imageBase64, mimeType, source, ...association },
+      payload: { imageBase64, mimeType, source, ...association,
+        ...(uploadIntentKey ? { uploadIntentKey } : {}) },
       timeoutMs: 60000,
     });
   },
