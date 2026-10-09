@@ -839,13 +839,13 @@ test("stale split-open conflict refreshes the batch and reports no split was sav
   assert.ok(modalTexts.some((text) => text.includes("拆分未完成，库存没有改变")));
 });
 
-test("low-stock threshold is saved through the medicine update contract", async () => {
+test("low-stock threshold uses the isolated field-only update contract", async () => {
   const calls = [];
   const { definition } = loadPage("pages/medicine-detail/medicine-detail.ts", {
     modules: {
       "../../services/api": {
         api: {
-          updateMedicine: async (...args) => calls.push(args),
+          updateLowStockThreshold: async (...args) => calls.push(args),
           getMedicine: async () => medicine(),
           listDosageNotes: async () => ({ notes: [] }),
           listLeafletPhotos: async () => ({ photos: [] }),

@@ -41,6 +41,10 @@ export async function buildServer(options: BuildServerOptions) {
 
   // 统一错误 shape：{ error: { code, message } }；内部细节只进服务端日志。
   app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+    // Fastify body parser's 413 is a client-side size limit, not a server 500.
+    if (error.statusCode === 413 || error.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      return reply.code(413).send(errorBody("VALIDATION_ERROR", "图片或请求体过大，请缩小后重试"));
+    }
     if (error.validation !== undefined || error.statusCode === 400 || error.statusCode === 415) {
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "请求格式不正确"));
     }

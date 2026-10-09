@@ -126,8 +126,18 @@ export function storeToken(token: string): void {
   }
 }
 
-export function clearToken(): void {
+/** Report whether the old token was durably erased, not just forgotten in RAM. */
+export function clearToken(): boolean {
   storeToken("");
+  try {
+    const stored = wx.getStorageSync(TOKEN_STORAGE_KEY);
+    if (stored === "" || stored === undefined || stored === null) return true;
+    // Some hosts reject removal but allow replacement with an empty string.
+    wx.setStorageSync(TOKEN_STORAGE_KEY, "");
+    return wx.getStorageSync(TOKEN_STORAGE_KEY) === "";
+  } catch {
+    return false;
+  }
 }
 
 /** 仅供测试使用：重置内存与持久令牌，模拟冷启动。 */
@@ -244,11 +254,13 @@ export const api = {
     mimeType: "image/jpeg" | "image/png",
     source = "package_leaflet",
     association?: { purpose: "box_front" | "expiry" | "leaflet"; batchId?: string | null },
+    uploadIntentKey?: string,
   ): Promise<{ photo: LeafletPhotoSummary }> {
     return request({
       method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos`,
-      payload: { imageBase64, mimeType, source, ...association },
+      payload: { imageBase64, mimeType, source, ...association,
+        ...(uploadIntentKey ? { uploadIntentKey } : {}) },
       timeoutMs: 60000,
     });
   },
@@ -407,6 +419,17 @@ export const api = {
     });
   },
 
+  updateLowStockThreshold(medicineId: string, payload: {
+    lowStockThreshold: { quantity: number; unit: QuantityUnit } | null;
+    version: number;
+  }): Promise<MedicationSummary> {
+    return request<MedicationSummary>({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/low-stock-threshold`,
+      payload,
+    });
+  },
+
   /** 删除药品：进入回收站，30 天内可恢复；与“归档”是两条不同生命周期。 */
   deleteMedicine(medicineId: string): Promise<null> {
     return request({
@@ -440,6 +463,17 @@ export const api = {
       method: "PUT",
       path: `/api/v1/medicines/${medicineId}/batches/${batchId}`,
       payload: toPayload(payload),
+    });
+  },
+
+  updateBatchQuantity(medicineId: string, batchId: string, payload: {
+    quantity: number | null;
+    version: number;
+  }): Promise<MedicationSummary["batches"][number]> {
+    return request<MedicationSummary["batches"][number]>({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/batches/${encodeURIComponent(batchId)}/quantity`,
+      payload,
     });
   },
 

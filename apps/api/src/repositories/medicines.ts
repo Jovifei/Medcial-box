@@ -233,6 +233,27 @@ export async function updateMedicine(
   return result.rows[0] ?? null;
 }
 
+/** Optimistic, narrow update: never touches barcode, tags, metadata or any batch. */
+export async function updateMedicineThreshold(
+  database: QueryRunner,
+  medicineId: string,
+  familyId: string,
+  userId: string,
+  version: number,
+  threshold: { quantity: number; unit: LowStockThresholdInput["unit"] } | null,
+): Promise<MedicineRow | null> {
+  const result = await database.query<MedicineRow>(
+    `UPDATE medicines SET low_stock_threshold_quantity=$4,
+       low_stock_threshold_unit=$5, updated_by=$6,
+       version=version+1, updated_at=now()
+     WHERE id=$1 AND family_id=$2 AND deleted_at IS NULL
+       AND is_archived=FALSE AND version=$3
+     RETURNING ${MEDICINE_COLUMNS}`,
+    [medicineId, familyId, version, threshold?.quantity ?? null, threshold?.unit ?? null, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
 /** Archive (soft delete). Returns false when the row is missing or archived. */
 export async function archiveMedicine(
   database: QueryRunner,

@@ -6,6 +6,7 @@ class ApiError extends Error {}
 function setup({ api = {}, wx = {}, ensureLoggedIn = async () => {} } = {}) {
   const scope = makeSessionScopeModule({ userId: "original-user", familyId: "original-family" });
   const calls = { writes: [], unlinks: [], navigation: 0 };
+  const storage = new Map();
   const loaded = loadPage("pages/medicine-edit/medicine-edit.ts", {
     modules: {
       "session-scope": scope,
@@ -19,7 +20,9 @@ function setup({ api = {}, wx = {}, ensureLoggedIn = async () => {} } = {}) {
         readFile: options => options.success({ data: "/9j/fixture" }),
         unlink: options => { calls.unlinks.push(options.filePath); options.success?.({}); },
       }),
-      setStorageSync: (key, value) => calls.writes.push([key, value]),
+      getStorageSync: key => storage.has(key) ? structuredClone(storage.get(key)) : undefined,
+      setStorageSync: (key, value) => { calls.writes.push([key, value]); storage.set(key, structuredClone(value)); },
+      removeStorageSync: key => storage.delete(key),
       switchTab: () => calls.navigation++,
       ...wx,
     },
@@ -33,8 +36,10 @@ function setup({ api = {}, wx = {}, ensureLoggedIn = async () => {} } = {}) {
 const changeOwner = scope => scope.writeSessionScope({ userId: "other-user", familyId: "other-family" });
 function photos(page) {
   page.data.photoDrafts = [{ id: "photo-1-a", status: "review", fields: {}, medicineId: "", photos: [
-    { path: "/owned/photo-1-a-box_front-2.jpg", mimeType: "image/jpeg", purpose: "box_front", batchIndex: 0 },
-    { path: "/owned/photo-1-a-expiry-3.jpg", mimeType: "image/jpeg", purpose: "expiry", batchIndex: 0 },
+    { path: "/owned/photo-1-a-box_front-2.jpg", mimeType: "image/jpeg", purpose: "box_front", batchIndex: 0,
+      ownedLocal: { path: "/owned/photo-1-a-box_front-2.jpg", scopeKey: page.photoScopeKey, draftId: "photo-1-a", state: "ready", byteLength: 200 } },
+    { path: "/owned/photo-1-a-expiry-3.jpg", mimeType: "image/jpeg", purpose: "expiry", batchIndex: 0,
+      ownedLocal: { path: "/owned/photo-1-a-expiry-3.jpg", scopeKey: page.photoScopeKey, draftId: "photo-1-a", state: "ready", byteLength: 200 } },
   ] }];
   page.data.activePhotoDraftId = "photo-1-a";
 }

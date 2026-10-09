@@ -1,8 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { authenticateRequest, requireFamily } from "../auth/session.js";
 import { findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
 import { privatePhotoStorageKey, PrivatePhotoStore } from "../services/private-photo-store.js";
+import { isCanonicalBase64 } from "../services/base64-validation.js";
 import type { PrivatePhotoType } from "../services/private-photo-store.js";
 import type { Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
@@ -27,6 +28,7 @@ class PhotoMedicineNotFoundError extends Error {}
 class PhotoBatchNotFoundError extends Error {}
 class PhotoNotEligibleAsCoverError extends Error {}
 class PhotoReservationMissingError extends Error {}
+class PhotoIntentConflictError extends Error {}
 
 function allowUpload(userId: string, now = Date.now()): boolean {
   if (uploadWindows.size >= 1000) {
@@ -72,7 +74,8 @@ async function markPhotoStorageRemoved(database: Database, familyId: string, pho
     );
     if (family.rowCount === 0) throw new PhotoFamilyNotFoundError();
     await tx.query(
-      `UPDATE medicine_leaflet_photos SET storage_removed_at = now()
+      `UPDATE medicine_leaflet_photos SET storage_removed_at = now(),
+           upload_intent_key = CASE WHEN upload_completed_at IS NULL THEN NULL ELSE upload_intent_key END
        WHERE id = $1 AND family_id = $2 AND storage_removed_at IS NULL
          AND (deleted_at IS NOT NULL OR upload_completed_at IS NULL)`,
       [photoId, familyId],
@@ -105,40 +108,15 @@ async function purgePendingPhotoStorage(
   }
 }
 
-function isBase64Payload(value: string): boolean {
-  if (value.length === 0 || value.length % 4 !== 0) return false;
-  let padding = 0;
-  if (value.endsWith("==")) padding = 2;
-  else if (value.endsWith("=")) padding = 1;
-  const contentLength = value.length - padding;
-  for (let index = 0; index < contentLength; index += 1) {
-    const code = value.charCodeAt(index);
-    const valid = (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||
-      (code >= 48 && code <= 57) || code === 43 || code === 47;
-    if (!valid) return false;
-  }
-  for (let index = contentLength; index < value.length; index += 1) {
-    if (value.charCodeAt(index) !== 61) return false;
-  }
-  if (padding > 0) {
-    const last = value.charCodeAt(contentLength - 1);
-    const base64Value = last >= 65 && last <= 90 ? last - 65
-      : last >= 97 && last <= 122 ? last - 97 + 26
-      : last >= 48 && last <= 57 ? last - 48 + 52
-      : last === 43 ? 62 : last === 47 ? 63 : -1;
-    if (base64Value < 0 || (padding === 2 && (base64Value & 15) !== 0) ||
-        (padding === 1 && (base64Value & 3) !== 0)) return false;
-  }
-  return true;
-}
 
 function imageBytes(value: unknown, type: unknown): { contentType: PrivatePhotoType; bytes: Buffer } | null {
   if ((type !== "image/jpeg" && type !== "image/png") || typeof value !== "string" || value.length === 0) return null;
-  if (value.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 4 || !isBase64Payload(value)) return null;
+  if (value.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 4 || !isCanonicalBase64(value)) return null;
   const bytes = Buffer.from(value, "base64");
   if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) return null;
   if (type === "image/jpeg") {
-    if (bytes.length < 8 || !bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) || !bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))) return null;
+    if (bytes.length < 8 || !bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ||
+        !bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))) return null;
   } else {
     const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
     const end = Buffer.from([73, 69, 78, 68, 174, 66, 96, 130]);
@@ -215,6 +193,17 @@ export async function registerLeafletPhotoRoutes(
       const requestedBatchId = typeof body?.batchId === "string" && body.batchId.trim() !== ""
         ? body.batchId.trim()
         : null;
+      const uploadIntentKey = body?.uploadIntentKey;
+      if (uploadIntentKey !== undefined &&
+          (typeof uploadIntentKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(uploadIntentKey))) {
+        return reply.code(400).send(errorBody("VALIDATION_ERROR", "照片上传标识格式不正确"));
+      }
+      const uploadPayloadHash = typeof uploadIntentKey === "string"
+        ? createHash("sha256")
+            .update(photo.bytes)
+            .update(JSON.stringify([ctx.familyId, ctx.userId, request.params.medicineId,
+              photo.contentType, source, purpose, requestedBatchId]))
+            .digest("hex") : null;
       // 有效期照片必须说清对应哪一盒库存记录。
       if (purpose === "expiry" && requestedBatchId === null) {
         return reply.code(400).send(errorBody("VALIDATION_ERROR", "有效期照片需要绑定具体的库存批次"));
@@ -233,6 +222,8 @@ export async function registerLeafletPhotoRoutes(
         return reply.code(503).send(errorBody("INTERNAL_ERROR", "历史图片清理未完成，请稍后重试；没有上传新图片"));
       }
 
+      let previousPhoto: LeafletPhotoRow | null = null;
+      let pendingIntent = false;
       try {
         await database.withTransaction(async (tx) => {
           const lockedFamily = await tx.query<{ id: string }>(
@@ -242,6 +233,34 @@ export async function registerLeafletPhotoRoutes(
           if (lockedFamily.rowCount === 0) throw new PhotoFamilyNotFoundError();
           const medicine = await lockMedicineInFamily(tx, request.params.medicineId, ctx.familyId);
           if (medicine === null) throw new PhotoMedicineNotFoundError();
+          // The family lock serializes both new reservations and retries from this household.
+          // Read the completed receipt BEFORE quota checks: replay must not allocate any bytes.
+          if (typeof uploadIntentKey === "string") {
+            const receipts = await tx.query<LeafletPhotoRow & {
+              upload_payload_hash: string | null;
+              upload_completed_at: Date | null;
+              deleted_at: Date | null;
+              storage_removed_at: Date | null;
+            }>(
+              `SELECT id, medicine_id, content_type, size_bytes, source, purpose, batch_id,
+                      storage_key, created_at, upload_payload_hash, upload_completed_at,
+                      deleted_at, storage_removed_at
+                 FROM medicine_leaflet_photos
+                WHERE family_id=$1 AND created_by=$2 AND upload_intent_key=$3
+                FOR UPDATE`,
+              [ctx.familyId, ctx.userId, uploadIntentKey],
+            );
+            const receipt = receipts.rows[0];
+            if (receipt) {
+              if (receipt.medicine_id !== medicine.id || receipt.upload_payload_hash !== uploadPayloadHash ||
+                  receipt.deleted_at !== null || receipt.storage_removed_at !== null) {
+                throw new PhotoIntentConflictError();
+              }
+              if (receipt.upload_completed_at === null) pendingIntent = true;
+              else previousPhoto = receipt;
+              return;
+            }
+          }
           const usage = await photoUsage(tx, ctx.familyId);
           if (exceedsFamilyPhotoQuota(usage.count, usage.bytes, photo.bytes.length)) {
             throw new PhotoQuotaExceededError();
@@ -258,13 +277,18 @@ export async function registerLeafletPhotoRoutes(
           }
           const reservation = await tx.query<{ id: string }>(
             `INSERT INTO medicine_leaflet_photos
-             (id, family_id, medicine_id, storage_key, content_type, size_bytes, source, purpose, batch_id, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-            [id, ctx.familyId, medicine.id, storageKey, photo.contentType, photo.bytes.length, source, purpose, batchId, ctx.userId],
+             (id, family_id, medicine_id, storage_key, content_type, size_bytes, source, purpose,
+              batch_id, created_by, upload_intent_key, upload_payload_hash)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+            [id, ctx.familyId, medicine.id, storageKey, photo.contentType, photo.bytes.length,
+              source, purpose, batchId, ctx.userId, uploadIntentKey ?? null, uploadPayloadHash],
           );
           if (reservation.rowCount === 0) throw new PhotoReservationMissingError();
         });
       } catch (error) {
+        if (error instanceof PhotoIntentConflictError) {
+          return reply.code(409).send(errorBody("VERSION_CONFLICT", "该照片上传标识已用于不同内容或已删除的图片，请核对记录"));
+        }
         if (error instanceof PhotoQuotaExceededError) {
           return reply.code(413).send(errorBody("VALIDATION_ERROR", "家庭说明书图片空间已满，请先移除旧图片"));
         }
@@ -277,6 +301,11 @@ export async function registerLeafletPhotoRoutes(
         }
         throw error;
       }
+
+      if (previousPhoto !== null) return reply.code(200).send({ photo: summary(previousPhoto) });
+      if (pendingIntent) return reply.code(503).send(errorBody(
+        "PHOTO_UPLOAD_PENDING", "同一照片上传尚未完成，请稍后按原提交标识重试",
+      ));
 
       try {
         const savedKey = await store.save({

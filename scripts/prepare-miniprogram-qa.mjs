@@ -18,6 +18,18 @@ const reviewedSourceTrees = new Set([
   '8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5',
   'bc5bc86d76e9f2be34ce2b793d6e2294337a5e8a',
   '17dbc684f86008de4e387b40a36097606907d9ef',
+  // Reviewed 2026-10-09: scoped export/photo intent, session fences, accurate disclosure; no new wx/fs permissions.
+  '660359aed38af8285229dc106a58f69095d4e12e',
+  // Additional review: plan draft owner captured before asynchronous page load, unchanged wx/fs capabilities.
+  '9992a7cbdb802344f496790fb0f1a6177b98ad9c',
+  // Final review: backup onShow avoids unlink while sharing; no new native capability.
+  '92a89f61d2ef1b06eb4e7760b60c3b436538b246',
+  // Reviewed 2026-10-09: durable photo ACK recovery plus updated synthetic page tests; no new native APIs.
+  'bbdd1af3d8285f897ebc15ef2bec221a251028ad',
+  // Reviewed synthetic regression fixtures now carry durable photo receipts; capability set unchanged.
+  '77c5ddde4c710709322cfdc73ef9f5095ef40cb8',
+  // 2026-10-09: native wx.request uses SDK-supported POST; no new wx/fs/component capabilities.
+  'f376be5f9502caffe5d7e83bb039941a2069169e',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],

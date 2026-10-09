@@ -10,6 +10,8 @@ const routes = [
   ['GET', /^\/api\/v1\/medicines$/], ['POST', /^\/api\/v1\/medicines$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+$/],
   ['PUT', /^\/api\/v1\/medicines\/qa-medicine-\d+$/],
+  ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/low-stock-threshold$/],
+  ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/batches\/qa-batch-\d+\/quantity$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/cover-photo$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/dosage-notes$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
@@ -49,7 +51,7 @@ function createMock() {
     batches: [], ...clone(input), id,
   });
   const state = () => {
-    if (!byActor.has(actor)) byActor.set(actor, { medicines: [medicine('qa-medicine-1')], photos: [], creates: new Map() });
+    if (!byActor.has(actor)) byActor.set(actor, { medicines: [medicine('qa-medicine-1')], photos: [], creates: new Map(), photoIntents: new Map() });
     return byActor.get(actor);
   };
   function dispatch({ url, method = 'GET', data, header = {} }) {
@@ -86,13 +88,45 @@ function createMock() {
     const id = path.split('/')[4];
     const item = db.medicines.find(entry => entry.id === id);
     if (!item) return fail('NOT_FOUND', 404);
+    if (path.endsWith('/low-stock-threshold') && method === 'POST') {
+      if (!data || Object.keys(data).some(key => !['version', 'lowStockThreshold'].includes(key))) return fail('VALIDATION_ERROR',400);
+      if (data.version !== item.version) return fail('VERSION_CONFLICT', 409);
+      item.lowStockThreshold = clone(data.lowStockThreshold ?? null);
+      item.version++;
+      return ok(item);
+    }
+    if (path.endsWith('/quantity') && method === 'POST') {
+      const batchId = path.split('/')[6];
+      const batch = item.batches.find(entry => entry.id === batchId);
+      if (!batch) return fail('NOT_FOUND', 404);
+      if (!data || Object.keys(data).some(key => !['version', 'quantity'].includes(key))) return fail('VALIDATION_ERROR', 400);
+      if (data.version !== batch.version) return fail('VERSION_CONFLICT', 409);
+      if (data.quantity !== null && (typeof data.quantity !== 'number' || !Number.isFinite(data.quantity) ||
+          data.quantity < 0 || (batch.unit !== 'ml' && !Number.isInteger(data.quantity)))) return fail('VALIDATION_ERROR', 400);
+      batch.quantity = data.quantity;
+      batch.version++;
+      item.version++;
+      return ok(batch);
+    }
     if (path.endsWith('/dosage-notes')) return ok({ notes: [] });
     if (path.endsWith('/cover-photo')) { item.coverPhotoId = data.photoId; return ok({ coverPhotoId: item.coverPhotoId }); }
     if (path.endsWith('/leaflet-photos')) {
       if (method === 'GET') return ok({ photos: db.photos.filter(photo => photo.medicineId === id) });
       if (data?.imageBase64 !== PNG) return fail('SYNTHETIC_IMAGE_REQUIRED', 400);
+      if (data.uploadIntentKey) {
+        const prior = db.photoIntents.get(data.uploadIntentKey);
+        if (prior) {
+          const same = prior.fingerprint === JSON.stringify([id, data.imageBase64, data.mimeType, data.source, data.purpose, data.batchId ?? null]);
+          if (!same) return fail('VERSION_CONFLICT',409);
+          return ok({ photo: prior.photo }, 200);
+        }
+      }
       const photo = { id: 'qa-photo-' + nextPhoto++, medicineId: id, mimeType: 'image/png', purpose: data.purpose ?? 'leaflet', source: 'QA synthetic', createdAt: time, byteSize: 68 };
-      db.photos.push(photo); return ok({ photo }, 201);
+      db.photos.push(photo);
+      if (data.uploadIntentKey) db.photoIntents.set(data.uploadIntentKey, {
+        photo, fingerprint: JSON.stringify([id, data.imageBase64, data.mimeType, data.source, data.purpose, data.batchId ?? null]),
+      });
+      return ok({ photo }, 201);
     }
     if (path.includes('/leaflet-photos/')) {
       const segments = path.split('/');

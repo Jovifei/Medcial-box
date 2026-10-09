@@ -50,7 +50,7 @@ function loadDetailPage({ api = {}, wx = {} } = {}) {
     getMedicine: async () => medicine(),
     listDosageNotes: async () => ({ notes: [] }),
     listLeafletPhotos: async () => ({ photos: [] }),
-    updateMedicine: async (id, payload) => { updates.push([id, payload]); return medicine({ version: 2 }); },
+    updateLowStockThreshold: async (id, payload) => { updates.push([id, payload]); return medicine({ version: 2 }); },
   };
   const { definition } = loadPage("pages/medicine-detail/medicine-detail.ts", {
     modules: {

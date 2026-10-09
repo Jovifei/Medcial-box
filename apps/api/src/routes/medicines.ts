@@ -15,6 +15,7 @@ import {
   lockMedicineInFamily,
   toMedicineSummary,
   updateMedicine,
+  updateMedicineThreshold,
   type MedicineRow,
 } from "../repositories/medicines.js";
 import {
@@ -28,6 +29,7 @@ import {
 import {
   validateMedicineInput,
   validateMedicineUpdateInput,
+  validateMedicineThresholdChange,
 } from "../inputs.js";
 
 const NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家庭中");
@@ -121,6 +123,31 @@ export async function registerMedicineRoutes(
     const now = new Date();
     return toMedicineSummary(medicine, batchRows.map((row) => toBatchSummary(row, now)), now);
   });
+
+  // Field-only endpoint: threshold changes must never synchronize/delete batches.
+  app.route({ method: ["POST", "PATCH"], url: "/api/v1/medicines/:medicineId/low-stock-threshold", handler: async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const { medicineId } = request.params as { medicineId: string };
+    const parsed = validateMedicineThresholdChange(request.body);
+    if (!parsed.ok) return reply.code(400).send(errorBody("VALIDATION_ERROR", parsed.message));
+    try {
+      return await database.withTransaction(async (tx) => {
+        const existing = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
+        if (existing === null) throw new TransactionConflictError(404, NOT_FOUND_BODY);
+        const updated = await updateMedicineThreshold(
+          tx, medicineId, ctx.familyId, ctx.userId, parsed.value.version, parsed.value.lowStockThreshold,
+        );
+        if (updated === null) throw new TransactionConflictError(409, CONFLICT_BODY);
+        const batches = await listBatchesByMedicine(tx, medicineId, ctx.familyId);
+        const now = new Date();
+        return toMedicineSummary(updated, batches.map(row => toBatchSummary(row, now)), now);
+      });
+    } catch (error) {
+      if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
+      throw error;
+    }
+  }});
 
   app.put("/api/v1/medicines/:medicineId", async (request, reply) => {
     const ctx = requireFamily(request, reply);

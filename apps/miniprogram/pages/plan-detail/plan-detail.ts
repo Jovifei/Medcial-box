@@ -88,12 +88,19 @@ Page({
 
   /** 编辑态是否有未保存改动；只在 true 时占用草稿守卫与原生离开提示。 */
   dirty: false,
+  /** Captured only after the plan's original household is resolved. Never recompute on unload. */
+  draftOwnerKey: null as string | null,
 
   async onLoad(options: { planId?: string }): Promise<void> {
     this.setData({ planId: options.planId ?? "" });
-    await this.refresh();
+    // Capture at page creation, BEFORE await; a later session switch cannot
+    // relabel A's draft ownership to B after the network response arrives.
     const key = scopedStorageKey("plan-edit-draft", this.data.planId);
-    this.setData({ draftAvailable: key !== null && Boolean(wx.getStorageSync(key)) });
+    this.draftOwnerKey = key;
+    await this.refresh();
+    if (!key || key !== scopedStorageKey("plan-edit-draft", this.data.planId)) return;
+    try { this.setData({ draftAvailable: Boolean(wx.getStorageSync(key)) }); }
+    catch { this.setData({ draftAvailable: false }); }
   },
 
   onUnload(): void {
@@ -377,12 +384,21 @@ Page({
     return { dosageText, startDate, endDate, timeSlots: [...timeSlots], timeInput };
   },
   persistLocalDraft(): void {
-    const key = scopedStorageKey("plan-edit-draft", this.data.planId);
-    if (key) wx.setStorageSync(key, this.editFields());
+    const key = this.draftOwnerKey;
+    if (key && key === scopedStorageKey("plan-edit-draft", this.data.planId)) {
+      try { wx.setStorageSync(key, this.editFields()); } catch { wx.showToast({ title: "本机草稿保存失败，请保留当前页面", icon: "none" }); }
+    }
   },
-  removeLocalDraft(): void { const key = scopedStorageKey("plan-edit-draft", this.data.planId); if (key) wx.removeStorageSync(key); this.setData({ draftAvailable: false }); },
+  removeLocalDraft(): void {
+    const key = this.draftOwnerKey;
+    if (key && key === scopedStorageKey("plan-edit-draft", this.data.planId)) {
+      try { wx.removeStorageSync(key); } catch { return; }
+    }
+    this.setData({ draftAvailable: false });
+  },
   onRestoreLocalDraft(): void {
-    const key = scopedStorageKey("plan-edit-draft", this.data.planId);
+    const key = this.draftOwnerKey;
+    if (key !== scopedStorageKey("plan-edit-draft", this.data.planId)) return;
     if (!key || !this.data.canManage) return;
     const fields = wx.getStorageSync(key) as Partial<PlanDetailPageData> | undefined;
     if (fields) { this.setData({ ...fields, editing: true, draftAvailable: false }); this.updateDirtyState(); }

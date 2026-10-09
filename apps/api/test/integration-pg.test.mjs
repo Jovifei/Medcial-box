@@ -94,15 +94,15 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
     });
     app = await buildServer({ database, wechatGateway: gateway, reminderTemplateConfig: reminderConfig, privatePhotoStore, logger: { level: "error" } });
     const request = (user, method, path, payload) => app.inject({ method, url: `/api/v1${path}`, headers: { authorization: `Bearer ${user.token}` }, ...(payload === undefined ? {} : { payload }) });
-    async function user() {
+    async function user(remoteAddress) {
       const code = randomUUID();
       gateway.registerCode(code, `real-pg-${code}`);
-      const auth = status(await app.inject({ method: "POST", url: "/api/v1/auth/wechat", payload: { code } }), 200);
+      const auth = status(await app.inject({ method: "POST", url: "/api/v1/auth/wechat", payload: { code }, ...(remoteAddress ? { remoteAddress } : {}) }), 200);
       assert.equal(auth.user.hasFamily, false);
       return { token: auth.token, id: auth.user.id };
     }
-    async function family(memberCount = 0) {
-      const owner = await user();
+    async function family(memberCount = 0, remoteAddress) {
+      const owner = await user(remoteAddress);
       const created = status(await request(owner, "POST", "/families", { name: `家庭-${randomUUID()}` }), 201);
       owner.membershipId = created.membership.id;
       const members = [];
@@ -126,6 +126,88 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.deepEqual(actual.filter((row) => row.role === "owner"), [{ user_id: winner.id, role: "owner" }]);
       assert.equal(actual.find((row) => row.user_id === group.owner.id)?.role, "member");
     }
+
+    await t.test("AUD-01/14 real PG: field-only edits preserve physical inventory, tags, barcode, and reject stale versions", async () => {
+      const { owner } = await family(0, "127.0.0.88");
+      const original = status(await request(owner, "POST", "/medicines", {
+        name:"合成余量回归药",barcodeValue:"6901234567890",brand:"回归品牌",
+        purposeTags:["pain"],populationTags:["adult"],
+        batches:[
+          {quantity:3,unit:"box",lotNumber:"LOT-A",expiry:{value:"2030-12",precision:"month"},storageLocation:"卧室"},
+          {quantity:4.125,unit:"ml",lotNumber:"LOT-B",expiry:{value:"2032-02-15",precision:"day"},storageLocation:"冰箱"},
+        ],
+      }),201);
+      const before=original.batches.map(batch=>({...batch}));
+      const threshold=status(await request(owner,"POST",`/medicines/${original.id}/low-stock-threshold`,{
+        lowStockThreshold:{quantity:1,unit:"box"},version:original.version,
+      }),200);
+      assert.equal(threshold.barcodeValue,"6901234567890");
+      assert.equal(threshold.brand,"回归品牌");
+      assert.deepEqual(threshold.purposeTags,["pain"]);
+      assert.deepEqual(threshold.populationTags,["adult"]);
+      const ordered = items => [...items].sort((a,b)=>a.id.localeCompare(b.id));
+      assert.deepEqual(ordered(threshold.batches),ordered(before),"threshold must not replace or version-bump batches");
+      const persisted=await pool.query("SELECT id, deleted_at, lot_number, storage_location, quantity, unit FROM medicine_batches WHERE medicine_id=$1 ORDER BY lot_number",[original.id]);
+      assert.equal(persisted.rows.length,2);
+      assert.ok(persisted.rows.every(row=>row.deleted_at===null));
+      assert.deepEqual(persisted.rows.map(row=>row.lot_number),["LOT-A","LOT-B"]);
+      const outOfDate=await request(owner,"PATCH",`/medicines/${original.id}/low-stock-threshold`,{
+        lowStockThreshold:null,version:original.version,
+      });
+      status(outOfDate,409);
+      const second=before.find(batch=>batch.unit==="ml");
+      const changed=status(await request(owner,"POST",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:2.345,version:second.version,
+      }),200);
+      assert.equal(changed.quantity,2.345);
+      for(const key of ["unit","lotNumber","expiry","storageLocation","openedState","afterOpeningLimit","conversionUnit"]){
+        assert.deepEqual(changed[key],second[key],`field ${key} changed by quantity-only edit`);
+      }
+      const after=status(await request(owner,"GET",`/medicines/${original.id}`),200);
+      assert.equal(after.batches.length,2);
+      assert.equal(after.batches.find(batch=>batch.id===second.id).quantity,2.345);
+      assert.equal(after.batches.find(batch=>batch.id===before[0].id).quantity,3);
+      status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:1,version:second.version,
+      }),409);
+      status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+        quantity:2.3456,version:changed.version,
+      }),400);
+      const unchanged=status(await request(owner,"GET",`/medicines/${original.id}`),200);
+      assert.equal(unchanged.batches.find(batch=>batch.id===second.id).quantity,2.345);
+    });
+
+    await t.test("AUD-13 real PG: lost photo response replays one durable receipt without new private bytes or quota", async () => {
+      const { owner, id: familyId } = await family(0, "127.0.0.89");
+      const medicine = await createMedicine(owner, [], "合成照片去重药");
+      const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+      const endpoint = `/medicines/${medicine.id}/leaflet-photos`;
+      const payload = { imageBase64: bytes.toString("base64"), mimeType: "image/png",
+        source: "medicine_entry", purpose: "box_front", uploadIntentKey: "photo-upload-loss-test-0001" };
+      // First POST succeeds server-side. Simulate a lost HTTP ACK by not using the response.
+      status(await request(owner, "POST", endpoint, payload), 201);
+      const replay = status(await request(owner, "POST", endpoint, payload), 200);
+      const records = await pool.query(
+        "SELECT id, size_bytes, upload_intent_key, upload_payload_hash FROM medicine_leaflet_photos WHERE family_id=$1 AND medicine_id=$2 AND deleted_at IS NULL",
+        [familyId, medicine.id],
+      );
+      assert.equal(records.rows.length, 1);
+      assert.equal(replay.photo.id, records.rows[0].id);
+      assert.equal(privatePhotoFiles.size, 1, "replay must not write a second private object");
+      assert.equal(records.rows[0].upload_intent_key, payload.uploadIntentKey);
+      const altered = await request(owner, "POST", endpoint, { ...payload, purpose: "leaflet" });
+      status(altered, 409);
+      assert.equal((await pool.query("SELECT count(*)::int AS count FROM medicine_leaflet_photos WHERE family_id=$1",[familyId])).rows[0].count, 1);
+      // A genuinely different photo intent is not incorrectly deduplicated by bytes alone.
+      const distinct = status(await request(owner, "POST", endpoint,
+        { ...payload, uploadIntentKey: "photo-upload-loss-test-0002" }), 201);
+      assert.equal(privatePhotoFiles.size, 2);
+      // Restore the shared synthetic photo store to its original state; later legacy
+      // quota tests assert exact object counts and must not inherit this fixture.
+      status(await request(owner, "DELETE", `${endpoint}/${replay.photo.id}`), 204);
+      status(await request(owner, "DELETE", `${endpoint}/${distinct.photo.id}`), 204);
+      assert.equal(privatePhotoFiles.size, 0);
+    });
 
     await t.test("private photo quota serializes concurrent uploads and releases space only after file removal", async () => {
       const { owner, id: familyId } = await family();
