@@ -20,6 +20,8 @@ const reviewedSourceTrees = new Set([
   '17dbc684f86008de4e387b40a36097606907d9ef',
   // Reviewed 2026-10-09: scoped export/photo intent, session fences, accurate disclosure; no new wx/fs permissions.
   '660359aed38af8285229dc106a58f69095d4e12e',
+  // Additional review: plan draft owner captured before asynchronous page load, unchanged wx/fs capabilities.
+  '9992a7cbdb802344f496790fb0f1a6177b98ad9c',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
