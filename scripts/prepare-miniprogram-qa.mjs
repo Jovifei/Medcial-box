@@ -18,6 +18,8 @@ const reviewedSourceTrees = new Set([
   '8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5',
   'bc5bc86d76e9f2be34ce2b793d6e2294337a5e8a',
   '17dbc684f86008de4e387b40a36097606907d9ef',
+  // Reviewed 2026-10-09: scoped export/photo intent, session fences, accurate disclosure; no new wx/fs permissions.
+  '660359aed38af8285229dc106a58f69095d4e12e',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
