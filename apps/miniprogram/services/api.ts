@@ -138,7 +138,7 @@ export function __resetTokenMemoryForTest(): void {
 }
 
 interface RequestOptions {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   payload?: Record<string, unknown>;
   timeoutMs?: number;
@@ -407,6 +407,17 @@ export const api = {
     });
   },
 
+  updateLowStockThreshold(medicineId: string, payload: {
+    lowStockThreshold: { quantity: number; unit: QuantityUnit } | null;
+    version: number;
+  }): Promise<MedicationSummary> {
+    return request<MedicationSummary>({
+      method: "PATCH",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/low-stock-threshold`,
+      payload,
+    });
+  },
+
   /** 删除药品：进入回收站，30 天内可恢复；与“归档”是两条不同生命周期。 */
   deleteMedicine(medicineId: string): Promise<null> {
     return request({
@@ -440,6 +451,17 @@ export const api = {
       method: "PUT",
       path: `/api/v1/medicines/${medicineId}/batches/${batchId}`,
       payload: toPayload(payload),
+    });
+  },
+
+  updateBatchQuantity(medicineId: string, batchId: string, payload: {
+    quantity: number | null;
+    version: number;
+  }): Promise<MedicationSummary["batches"][number]> {
+    return request<MedicationSummary["batches"][number]>({
+      method: "PATCH",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/batches/${encodeURIComponent(batchId)}/quantity`,
+      payload,
     });
   },
 
