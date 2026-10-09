@@ -138,7 +138,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
         ],
       }),201);
       const before=original.batches.map(batch=>({...batch}));
-      const threshold=status(await request(owner,"PATCH",`/medicines/${original.id}/low-stock-threshold`,{
+      const threshold=status(await request(owner,"POST",`/medicines/${original.id}/low-stock-threshold`,{
         lowStockThreshold:{quantity:1,unit:"box"},version:original.version,
       }),200);
       assert.equal(threshold.barcodeValue,"6901234567890");
@@ -156,7 +156,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       });
       status(outOfDate,409);
       const second=before.find(batch=>batch.unit==="ml");
-      const changed=status(await request(owner,"PATCH",`/medicines/${original.id}/batches/${second.id}/quantity`,{
+      const changed=status(await request(owner,"POST",`/medicines/${original.id}/batches/${second.id}/quantity`,{
         quantity:2.345,version:second.version,
       }),200);
       assert.equal(changed.quantity,2.345);
