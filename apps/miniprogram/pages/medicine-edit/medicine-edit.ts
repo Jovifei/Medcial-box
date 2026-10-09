@@ -1809,7 +1809,17 @@ Page({
       }
       if (!this.entryScopeIsCurrent(originalScope)) return;
       if (activePhoto && saved?.id) {
-        activePhoto.medicineId = saved.id;
+        // Persist the medicine association before the first upload: a process restart
+        // or lost ACK must resume photos under the already-created medicine.
+        const linkedQueue = this.currentPhotoDraftQueue(activePhoto.id);
+        const linked = linkedQueue?.find(item => item.id === activePhoto.id);
+        if (!linkedQueue || !linked) return;
+        linked.medicineId = saved.id;
+        this.setData({ photoDrafts: linkedQueue });
+        if (!this.persistPhotoDrafts()) {
+          wx.showToast({ title: "药品已保存，但照片关联暂未安全落盘；请重试保存", icon: "none" });
+          return;
+        }
         try {
           for (const snapshotPhoto of activePhoto.photos) {
             // Always derive the live photo from the durable queue, not a stale page snapshot.
@@ -1847,9 +1857,12 @@ Page({
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
           if (!this.entryScopeIsCurrent(originalScope)) return;
-          activePhoto.status = "saved";
-          this.setData({ activePhotoDraftId: "" });
-          if (!this.persistPhotoDrafts()) return;
+          const finishedQueue = this.currentPhotoDraftQueue(activePhoto.id);
+          const finishedDraft = finishedQueue?.find(item => item.id === activePhoto.id);
+          if (!finishedQueue || !finishedDraft) return;
+          finishedDraft.status = "saved";
+          if (!this.writePhotoDraftQueue(finishedQueue)) return;
+          this.setData({ photoDrafts: finishedQueue, activePhotoDraftId: "" });
           await this.cleanupPhotoDrafts();
           if (!this.entryScopeIsCurrent(originalScope)) return;
         } catch {
