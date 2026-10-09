@@ -109,6 +109,22 @@ async function purgePendingPhotoStorage(
 }
 
 
+function imageBytes(value: unknown, type: unknown): { contentType: PrivatePhotoType; bytes: Buffer } | null {
+  if ((type !== "image/jpeg" && type !== "image/png") || typeof value !== "string" || value.length === 0) return null;
+  if (value.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 4 || !isCanonicalBase64(value)) return null;
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) return null;
+  if (type === "image/jpeg") {
+    if (bytes.length < 8 || !bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ||
+        !bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))) return null;
+  } else {
+    const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const end = Buffer.from([73, 69, 78, 68, 174, 66, 96, 130]);
+    if (bytes.length < 20 || !bytes.subarray(0, 8).equals(signature) || bytes.lastIndexOf(end) < bytes.length - 32) return null;
+  }
+  return { contentType: type, bytes };
+}
+
 interface LeafletPhotoRow {
   id: string;
   medicine_id: string;
