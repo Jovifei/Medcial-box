@@ -119,7 +119,7 @@ export async function registerBatchRoutes(
   });
 
   // Quantity-only endpoint: use the actual stored unit and leave expiry/location/lot untouched.
-  app.patch("/api/v1/medicines/:medicineId/batches/:batchId/quantity", async (request, reply) => {
+  app.route({ method: ["POST", "PATCH"], url: "/api/v1/medicines/:medicineId/batches/:batchId/quantity", handler: async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
     const { medicineId, batchId } = request.params as { medicineId: string; batchId: string };
@@ -148,7 +148,7 @@ export async function registerBatchRoutes(
       if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
       throw error;
     }
-  });
+  }});
 
   app.post("/api/v1/medicines/:medicineId/batches/:batchId/open-split", async (request, reply) => {
     const ctx = requireFamily(request, reply);
