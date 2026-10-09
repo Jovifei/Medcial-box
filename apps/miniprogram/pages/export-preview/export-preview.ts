@@ -1,4 +1,6 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
+import type { SessionIdentity } from "../../services/api";
+import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 
 interface ExportOptions {
@@ -10,6 +12,8 @@ interface ExportRequest {
   seq: number;
   format: string;
   options: ExportOptions;
+  identity: SessionIdentity;
+  familyScope: string | null;
 }
 interface ShareFileMessageOption {
   filePath: string;
@@ -55,7 +59,7 @@ Page({
     lastAction: "",
   },
   requestSeq: 0,
-  snapshot: null as { snapshotId: string; options: ExportOptions } | null,
+  snapshot: null as { snapshotId: string; options: ExportOptions; familyScope: string | null } | null,
 
   async onShow() {
     if (this.data.nativeActionPending) return;
@@ -76,13 +80,19 @@ Page({
     };
   },
   beginRequest(): ExportRequest {
-    const request = { seq: ++this.requestSeq, format: this.data.format, options: this.buildOptions() };
-    if (this.snapshot && JSON.stringify(this.snapshot.options) !== JSON.stringify(request.options)) this.snapshot = null;
+    const request: ExportRequest = {
+      seq: ++this.requestSeq, format: this.data.format, options: this.buildOptions(),
+      identity: captureSessionIdentity(), familyScope: scopedStorageKey("export-request"),
+    };
+    if (this.snapshot && (this.snapshot.familyScope !== request.familyScope ||
+        JSON.stringify(this.snapshot.options) !== JSON.stringify(request.options))) this.snapshot = null;
     this.setData({ loading: true, markdown: "", generatedAt: "", lastAction: "" });
     return request;
   },
   isCurrent(request: ExportRequest): boolean {
-    return request.seq === this.requestSeq && request.format === this.data.format &&
+    return request.seq === this.requestSeq && request.familyScope !== null &&
+      request.familyScope === scopedStorageKey("export-request") &&
+      isCurrentSession(request.identity) && request.format === this.data.format &&
       JSON.stringify(request.options) === JSON.stringify(this.buildOptions());
   },
   // 预览与导出动作共用不可变选项快照；每个异步边界后都复核请求身份。
@@ -92,7 +102,7 @@ Page({
     if (!this.snapshot && api.createExportSnapshot) {
       const snapshot = await api.createExportSnapshot(request.options);
       if (!this.isCurrent(request)) return;
-      this.snapshot = { snapshotId: snapshot.snapshotId, options: { ...request.options } };
+      this.snapshot = { snapshotId: snapshot.snapshotId, options: { ...request.options }, familyScope: request.familyScope };
     }
     const options = { ...request.options, ...(this.snapshot ? { snapshotId: this.snapshot.snapshotId } : {}) };
     if (request.format === "csv" && this.snapshot) {
@@ -152,6 +162,7 @@ Page({
   async copyMarkdown(request: ExportRequest, markdown: string, fallback = false): Promise<void> {
     if (!this.isCurrent(request)) return;
     // The native clipboard call cannot be retracted. Freeze options at dispatch.
+    if (!this.isCurrent(request)) return;
     this.setData({ nativeActionPending: true });
     await new Promise<void>((resolve, reject) => {
       wx.setClipboardData({ data: markdown, success: () => resolve(),
@@ -174,6 +185,7 @@ Page({
       const shareApi = (wx as unknown as ShareFileCapableWx).shareFileMessage;
       if (!share || typeof shareApi !== "function") {
         const text = request.format === "pdf" ? (await api.exportMarkdown({ ...request.options, snapshotId: this.snapshot?.snapshotId })).markdown : markdown;
+        if (!this.isCurrent(request)) return;
         await this.copyMarkdown(request, text, share);
         return;
       }
@@ -189,6 +201,7 @@ Page({
       if (!this.isCurrent(request)) return;
       try {
         // The native share call cannot be retracted. Freeze options at dispatch.
+        if (!this.isCurrent(request)) return;
         this.setData({ nativeActionPending: true });
         await new Promise<void>((resolve, reject) => {
           shareApi.call(wx, { filePath, fileName: `家庭药箱清单.${extension}`, success: () => resolve(),
@@ -198,6 +211,7 @@ Page({
         // 仅分享失败/取消回退；网络、写入和剪贴板失败不得报告成功。
         if (this.isCurrent(request)) {
           const text = request.format === "pdf" ? (await api.exportMarkdown({ ...request.options, snapshotId: this.snapshot?.snapshotId })).markdown : markdown;
+          if (!this.isCurrent(request)) return;
           await this.copyMarkdown(request, text, true);
         }
         return;
