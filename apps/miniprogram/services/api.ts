@@ -148,7 +148,7 @@ export function __resetTokenMemoryForTest(): void {
 }
 
 interface RequestOptions {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   payload?: Record<string, unknown>;
   timeoutMs?: number;
@@ -424,7 +424,7 @@ export const api = {
     version: number;
   }): Promise<MedicationSummary> {
     return request<MedicationSummary>({
-      method: "PATCH",
+      method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/low-stock-threshold`,
       payload,
     });
@@ -471,7 +471,7 @@ export const api = {
     version: number;
   }): Promise<MedicationSummary["batches"][number]> {
     return request<MedicationSummary["batches"][number]>({
-      method: "PATCH",
+      method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/batches/${encodeURIComponent(batchId)}/quantity`,
       payload,
     });
