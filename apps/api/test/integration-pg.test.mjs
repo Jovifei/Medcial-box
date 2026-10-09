@@ -176,6 +176,33 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       assert.equal(unchanged.batches.find(batch=>batch.id===second.id).quantity,2.345);
     });
 
+    await t.test("AUD-13 real PG: lost photo response replays one durable receipt without new private bytes or quota", async () => {
+      const { owner, id: familyId } = await family();
+      const medicine = await createMedicine(owner, [], "合成照片去重药");
+      const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+      const endpoint = `/medicines/${medicine.id}/leaflet-photos`;
+      const payload = { imageBase64: bytes.toString("base64"), mimeType: "image/png",
+        source: "medicine_entry", purpose: "box_front", uploadIntentKey: "photo-upload-loss-test-0001" };
+      // First POST succeeds server-side. Simulate a lost HTTP ACK by not using the response.
+      status(await request(owner, "POST", endpoint, payload), 201);
+      const replay = status(await request(owner, "POST", endpoint, payload), 200);
+      const records = await pool.query(
+        "SELECT id, size_bytes, upload_intent_key, upload_payload_hash FROM medicine_leaflet_photos WHERE family_id=$1 AND medicine_id=$2 AND deleted_at IS NULL",
+        [familyId, medicine.id],
+      );
+      assert.equal(records.rows.length, 1);
+      assert.equal(replay.photo.id, records.rows[0].id);
+      assert.equal(privatePhotoFiles.size, 1, "replay must not write a second private object");
+      assert.equal(records.rows[0].upload_intent_key, payload.uploadIntentKey);
+      const altered = await request(owner, "POST", endpoint, { ...payload, purpose: "leaflet" });
+      status(altered, 409);
+      assert.equal((await pool.query("SELECT count(*)::int AS count FROM medicine_leaflet_photos WHERE family_id=$1",[familyId])).rows[0].count, 1);
+      // A genuinely different photo intent is not incorrectly deduplicated by bytes alone.
+      status(await request(owner, "POST", endpoint,
+        { ...payload, uploadIntentKey: "photo-upload-loss-test-0002" }), 201);
+      assert.equal(privatePhotoFiles.size, 2);
+    });
+
     await t.test("private photo quota serializes concurrent uploads and releases space only after file removal", async () => {
       const { owner, id: familyId } = await family();
       const medicine = await createMedicine(owner, [], "说明书图片配额测试药");
