@@ -125,7 +125,7 @@ export async function registerMedicineRoutes(
   });
 
   // Field-only endpoint: threshold changes must never synchronize/delete batches.
-  app.patch("/api/v1/medicines/:medicineId/low-stock-threshold", async (request, reply) => {
+  app.route({ method: ["POST", "PATCH"], url: "/api/v1/medicines/:medicineId/low-stock-threshold", handler: async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
     const { medicineId } = request.params as { medicineId: string };
@@ -147,7 +147,7 @@ export async function registerMedicineRoutes(
       if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
       throw error;
     }
-  });
+  }});
 
   app.put("/api/v1/medicines/:medicineId", async (request, reply) => {
     const ctx = requireFamily(request, reply);
