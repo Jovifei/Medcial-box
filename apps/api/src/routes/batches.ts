@@ -17,9 +17,10 @@ import {
   listBatchesByMedicine,
   toBatchSummary,
   updateBatch,
+  updateBatchQuantity,
 } from "../repositories/batches.js";
 import { bumpMedicineVersion, findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
-import { isMeasuredUnit, validateBatchInput, validateBatchSplitInput, validateBatchUpdateInput } from "../inputs.js";
+import { isMeasuredUnit, validateBatchInput, validateBatchSplitInput, validateBatchUpdateInput, validateBatchQuantityChange } from "../inputs.js";
 
 const MEDICINE_NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家庭中");
 const BATCH_NOT_FOUND_BODY = errorBody("NOT_FOUND", "批次不存在或不在当前药品下");
@@ -113,6 +114,38 @@ export async function registerBatchRoutes(
       if (error instanceof TransactionConflictError) {
         return reply.code(error.statusCode).send(error.body);
       }
+      throw error;
+    }
+  });
+
+  // Quantity-only endpoint: use the actual stored unit and leave expiry/location/lot untouched.
+  app.patch("/api/v1/medicines/:medicineId/batches/:batchId/quantity", async (request, reply) => {
+    const ctx = requireFamily(request, reply);
+    if (ctx === null) return;
+    const { medicineId, batchId } = request.params as { medicineId: string; batchId: string };
+    try {
+      const row = await database.withTransaction(async (tx) => {
+        const medicine = await lockMedicineInFamily(tx, medicineId, ctx.familyId);
+        if (medicine === null) throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
+        const existing = await lockBatchInMedicine(tx, batchId, medicineId, ctx.familyId);
+        if (existing === null) throw new TransactionConflictError(404, BATCH_NOT_FOUND_BODY);
+        if (existing.disposition_status !== "active") {
+          throw new TransactionConflictError(409, CONFLICT_BODY);
+        }
+        const parsed = validateBatchQuantityChange(request.body, existing.unit as import("@home-medicine/contracts").QuantityUnit);
+        if (!parsed.ok) throw new TransactionConflictError(400, errorBody("VALIDATION_ERROR", parsed.message));
+        const updated = await updateBatchQuantity(
+          tx, batchId, medicineId, ctx.familyId, ctx.userId, parsed.value.version, parsed.value.quantity,
+        );
+        if (updated === null) throw new TransactionConflictError(409, CONFLICT_BODY);
+        if (!await bumpMedicineVersion(tx, medicineId, ctx.familyId, ctx.userId)) {
+          throw new TransactionConflictError(404, MEDICINE_NOT_FOUND_BODY);
+        }
+        return updated;
+      });
+      return toBatchSummary(row);
+    } catch (error) {
+      if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
       throw error;
     }
   });
