@@ -1814,6 +1814,12 @@ Page({
       if (activePhoto && saved?.id) {
         // Persist the medicine association before the first upload: a process restart
         // or lost ACK must resume photos under the already-created medicine.
+        // Older in-memory/legacy drafts may not yet have a durable queue receipt.
+        // Write the current draft first and proceed only after it is persisted.
+        if (!this.currentPhotoDraftQueue(activePhoto.id) && !this.persistPhotoDrafts()) {
+          wx.showToast({ title: "照片草稿尚未安全保存，请重试保存后再补传", icon: "none" });
+          return;
+        }
         const linkedQueue = this.currentPhotoDraftQueue(activePhoto.id);
         const linked = linkedQueue?.find(item => item.id === activePhoto.id);
         if (!linkedQueue || !linked) return;
@@ -1856,7 +1862,11 @@ Page({
             if (!this.persistPhotoDrafts()) throw new Error("照片上传成功但本机回执保存失败");
           }
           if (data.usePhotoAsCover) {
-            const front = activePhoto.photos.find((photo) => photo.purpose === "box_front" && photo.uploadedId);
+            // ACKs were committed to a freshly loaded durable queue, not the
+            // original activePhoto object captured at submit start.
+            const acknowledgedDraft = this.currentPhotoDraftQueue(activePhoto.id)
+              ?.find(entry => entry.id === activePhoto.id);
+            const front = acknowledgedDraft?.photos.find(photo => photo.purpose === "box_front" && photo.uploadedId);
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
           if (!this.entryScopeIsCurrent(originalScope)) return;
