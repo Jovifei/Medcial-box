@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { authenticateRequest, requireFamily } from "../auth/session.js";
 import { findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
 import { privatePhotoStorageKey, PrivatePhotoStore } from "../services/private-photo-store.js";
+import { isCanonicalBase64 } from "../services/base64-validation.js";
 import type { PrivatePhotoType } from "../services/private-photo-store.js";
 import type { Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
@@ -107,47 +108,6 @@ async function purgePendingPhotoStorage(
   }
 }
 
-function isBase64Payload(value: string): boolean {
-  if (value.length === 0 || value.length % 4 !== 0) return false;
-  let padding = 0;
-  if (value.endsWith("==")) padding = 2;
-  else if (value.endsWith("=")) padding = 1;
-  const contentLength = value.length - padding;
-  for (let index = 0; index < contentLength; index += 1) {
-    const code = value.charCodeAt(index);
-    const valid = (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||
-      (code >= 48 && code <= 57) || code === 43 || code === 47;
-    if (!valid) return false;
-  }
-  for (let index = contentLength; index < value.length; index += 1) {
-    if (value.charCodeAt(index) !== 61) return false;
-  }
-  if (padding > 0) {
-    const last = value.charCodeAt(contentLength - 1);
-    const base64Value = last >= 65 && last <= 90 ? last - 65
-      : last >= 97 && last <= 122 ? last - 97 + 26
-      : last >= 48 && last <= 57 ? last - 48 + 52
-      : last === 43 ? 62 : last === 47 ? 63 : -1;
-    if (base64Value < 0 || (padding === 2 && (base64Value & 15) !== 0) ||
-        (padding === 1 && (base64Value & 3) !== 0)) return false;
-  }
-  return true;
-}
-
-function imageBytes(value: unknown, type: unknown): { contentType: PrivatePhotoType; bytes: Buffer } | null {
-  if ((type !== "image/jpeg" && type !== "image/png") || typeof value !== "string" || value.length === 0) return null;
-  if (value.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 4 || !isBase64Payload(value)) return null;
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) return null;
-  if (type === "image/jpeg") {
-    if (bytes.length < 8 || !bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) || !bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))) return null;
-  } else {
-    const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-    const end = Buffer.from([73, 69, 78, 68, 174, 66, 96, 130]);
-    if (bytes.length < 20 || !bytes.subarray(0, 8).equals(signature) || bytes.lastIndexOf(end) < bytes.length - 32) return null;
-  }
-  return { contentType: type, bytes };
-}
 
 interface LeafletPhotoRow {
   id: string;
