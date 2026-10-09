@@ -52,14 +52,14 @@ test("AUD-08 Fastify parser keeps sanitized HTTP413 for a body larger than the r
 test("AUD-09/10 oversized JSON stream is canceled and later normal OCR still succeeds", async () => {
   let canceled=0;
   const many = new Uint8Array(600*1024).fill(65);
-  const huge = new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new Response(
-    new ReadableStream({
+  const huge = new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new globalThis.Response(
+    new globalThis.ReadableStream({
       start(controller){controller.enqueue(many);},
       cancel(){canceled++;}
     }),{status:200}));
   await assert.rejects(huge.recognize(tiny,"image/jpeg"),error=>error.reason==="invalid_json");
   assert.equal(canceled,1,"oversized body reader must cancel remaining stream");
-  const normal=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new Response(
+  const normal=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new globalThis.Response(
     JSON.stringify({message:{content:JSON.stringify({name:"合成药",specification:"12小时"})}})));
   const result=await normal.recognize(tiny,"image/jpeg");
   assert.equal(result.draft.name,"合成药");
@@ -68,10 +68,10 @@ test("AUD-09/10 oversized JSON stream is canceled and later normal OCR still suc
 });
 
 test("AUD-10 AbortError during body-read is transport failure, malformed JSON is invalid_json",async()=>{
-  const abort=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new Response(
-    new ReadableStream({start(c){c.error(new DOMException("synthetic aborted","AbortError"));}}),{status:200}));
+  const abort=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new globalThis.Response(
+    new globalThis.ReadableStream({start(c){c.error(new globalThis.DOMException("synthetic aborted","AbortError"));}}),{status:200}));
   await assert.rejects(abort.recognize(tiny,"image/jpeg"),error=>error.reason==="provider_unavailable");
-  const syntax=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new Response(
+  const syntax=new OllamaMedicineRecognitionProvider("synthetic","http://fake.test",async()=>new globalThis.Response(
     JSON.stringify({message:{content:"NOT JSON"}}),{status:200}));
   await assert.rejects(syntax.recognize(tiny,"image/jpeg"),error=>error.reason==="invalid_json");
 });
