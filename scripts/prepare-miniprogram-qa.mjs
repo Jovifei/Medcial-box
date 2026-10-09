@@ -26,6 +26,8 @@ const reviewedSourceTrees = new Set([
   '92a89f61d2ef1b06eb4e7760b60c3b436538b246',
   // Reviewed 2026-10-09: durable photo ACK recovery plus updated synthetic page tests; no new native APIs.
   'bbdd1af3d8285f897ebc15ef2bec221a251028ad',
+  // Reviewed synthetic regression fixtures now carry durable photo receipts; capability set unchanged.
+  '77c5ddde4c710709322cfdc73ef9f5095ef40cb8',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
