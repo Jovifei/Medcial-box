@@ -77,21 +77,23 @@ const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve();
 const callback = invoke => new Promise((resolve, reject) => invoke({ success: resolve, fail: reject }));
 function assertNoOriginals(h) { assert.deepEqual(h.counts, {}); }
 
-test('reviewed QA backend enforces exact stock PATCH routes and stable photo ACK replay', () => {
+test('reviewed QA backend enforces WeChat-supported POST stock routes and stable photo ACK replay', () => {
   const synthetic = { module: { exports: {} } };
   vm.runInNewContext(mockText, synthetic);
   const backend = synthetic.module.exports.createMock();
   const options = { header: { authorization: 'Bearer qa-token-A' } };
   const base = 'http://127.0.0.1:43187/api/v1/medicines/qa-medicine-1';
   const threshold = backend.dispatch({ ...options, url: base + '/low-stock-threshold',
-    method: 'PATCH', data: { lowStockThreshold: { quantity: 2, unit: 'box' }, version: 1 } });
+    method: 'POST', data: { lowStockThreshold: { quantity: 2, unit: 'box' }, version: 1 } });
   assert.equal(threshold.statusCode, 200);
   assert.equal(threshold.data.version, 2);
   assert.equal(threshold.data.lowStockThreshold.quantity, 2);
-  assert.equal(backend.dispatch({ ...options, url: base + '/low-stock-threshold', method: 'PATCH',
+  assert.equal(backend.dispatch({ ...options, url: base + '/low-stock-threshold', method: 'POST',
     data: { lowStockThreshold: null, version: 1 } }).statusCode, 409);
   assert.throws(() => backend.dispatch({ ...options, url: base + '/unsupported',
-    method: 'PATCH', data: {} }), /route denied/);
+    method: 'POST', data: {} }), /route denied/);
+  assert.throws(() => backend.dispatch({ ...options, url: base + '/low-stock-threshold',
+    method: 'PATCH', data: {lowStockThreshold: null, version: 1} }), /route denied/);
   const photoPayload = { imageBase64: synthetic.module.exports.PNG, mimeType: 'image/png',
     source: 'medicine_entry', purpose: 'box_front', uploadIntentKey: 'photo-upload-synthetic-one' };
   const first = backend.dispatch({ ...options, method: 'POST', url: base + '/leaflet-photos', data: photoPayload });
