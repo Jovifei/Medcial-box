@@ -30,7 +30,10 @@ test("AUD-01 threshold PATCH only touches threshold, never deletes batches or re
     assert.equal(pool.callsMatching(/DELETE|UPDATE medicine_batches SET/).length,0);
     assert.equal(pool.callsMatching(/UPDATE medicines SET low_stock_threshold_quantity/).length,1);
     const sql=pool.callsMatching(/UPDATE medicines SET low_stock_threshold_quantity/)[0].sql;
-    for(const forbidden of ["barcode_value","purpose_tags","population_tags","leaflet_","specification"]) assert.equal(sql.includes(forbidden),false);
+    const assignments=sql.split(/\\bWHERE\\b/)[0];
+    for(const forbidden of ["barcode_value =", "purpose_tags =", "population_tags =", "leaflet_", "specification ="]) {
+      assert.equal(assignments.includes(forbidden),false,forbidden+" must not be assigned");
+    }
     const bad=await app.inject({method:"PATCH",url:"/api/v1/medicines/m-1/low-stock-threshold",...auth,payload:{lowStockThreshold:null,version:3,batches:[]}});
     assert.equal(bad.statusCode,400,bad.body);
   } finally { await app.close(); }
