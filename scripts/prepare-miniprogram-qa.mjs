@@ -28,6 +28,8 @@ const reviewedSourceTrees = new Set([
   'bbdd1af3d8285f897ebc15ef2bec221a251028ad',
   // Reviewed synthetic regression fixtures now carry durable photo receipts; capability set unchanged.
   '77c5ddde4c710709322cfdc73ef9f5095ef40cb8',
+  // 2026-10-09: native wx.request uses SDK-supported POST; no new wx/fs/component capabilities.
+  'f376be5f9502caffe5d7e83bb039941a2069169e',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
