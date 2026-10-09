@@ -178,7 +178,7 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
     });
 
     await t.test("AUD-13 real PG: lost photo response replays one durable receipt without new private bytes or quota", async () => {
-      const { owner, id: familyId } = await family();
+      const { owner, id: familyId } = await family(0, "127.0.0.89");
       const medicine = await createMedicine(owner, [], "合成照片去重药");
       const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
       const endpoint = `/medicines/${medicine.id}/leaflet-photos`;
@@ -199,9 +199,14 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       status(altered, 409);
       assert.equal((await pool.query("SELECT count(*)::int AS count FROM medicine_leaflet_photos WHERE family_id=$1",[familyId])).rows[0].count, 1);
       // A genuinely different photo intent is not incorrectly deduplicated by bytes alone.
-      status(await request(owner, "POST", endpoint,
+      const distinct = status(await request(owner, "POST", endpoint,
         { ...payload, uploadIntentKey: "photo-upload-loss-test-0002" }), 201);
       assert.equal(privatePhotoFiles.size, 2);
+      // Restore the shared synthetic photo store to its original state; later legacy
+      // quota tests assert exact object counts and must not inherit this fixture.
+      status(await request(owner, "DELETE", `${endpoint}/${replay.photo.id}`), 204);
+      status(await request(owner, "DELETE", `${endpoint}/${distinct.photo.id}`), 204);
+      assert.equal(privatePhotoFiles.size, 0);
     });
 
     await t.test("private photo quota serializes concurrent uploads and releases space only after file removal", async () => {
