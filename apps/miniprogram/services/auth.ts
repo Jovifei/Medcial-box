@@ -97,7 +97,15 @@ export async function logout(): Promise<void> {
     }
   }
   if (isCurrentSession(identity)) {
-    clearToken();
+    const erased = clearToken();
+    if (!erased && failed) {
+      throw new ApiError("LOGOUT_NOT_DURABLE",
+        "网络撤销和本机登录记录清理均未确认成功；请恢复网络后重试，暂勿把设备交给他人", 0);
+    }
+    if (!erased) {
+      throw new ApiError("LOGOUT_STORAGE_FAILED",
+        "服务端已处理退出，但本机登录记录未能确认清除；请重启并确认登录已失效", 0);
+    }
   } else if (invalidatedSession === undefined || !isCurrentSession(invalidatedSession)) {
     // Another current request may already have cleared an expired token. That
     // still completes this logout, unless a newer login/logout intent took over.
