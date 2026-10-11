@@ -30,6 +30,8 @@ const reviewedSourceTrees = new Set([
   '77c5ddde4c710709322cfdc73ef9f5095ef40cb8',
   // 2026-10-09: native wx.request uses SDK-supported POST; no new wx/fs/component capabilities.
   'f376be5f9502caffe5d7e83bb039941a2069169e',
+  // AUD06 lease/ownership audit: no added native APIs or filesystem operations.
+  '8efdcc18a60ab592b0a4b3345b25be34ec6d92ef',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
