@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, copyFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdtemp, readdir, copyFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { candidateAt, hash, verifyEvidence } from '../../../scripts/family-pilot-evidence.mjs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { applyMigrations } from '../dist/db/migrations.js';
 import { isolatedPostgres } from './helpers/isolated-pg.mjs';
@@ -45,7 +46,8 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
     const upgradedSnapshot=await readSnapshot();
     assert.deepEqual(upgradedSnapshot,originalSnapshot);
     // Artifacts are emitted from real SQL results plus scoped synthetic client input.
-    const artifactDir=await mkdtemp(join(tmpdir(),'medbox-upgrade-evidence-'));
+    const artifactDir=resolve('../../var/family-pilot-upgrade',candidateAt('../../').sha);
+    await mkdir(artifactDir,{recursive:true});
     try {
       const put=async(name,bytes)=>{await writeFile(join(artifactDir,name),bytes);return {path:name,sha256:hash(bytes)};};
       const sourcePhotos=[];
@@ -54,7 +56,8 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
       for(const photo of upgradedSnapshot.photos) evidence.photos.push({id:photo.id,storageKey:photo.storage_key,...await put(`after-${photo.id}.png`,photoBytes)});
       const evidenceFile=join(artifactDir,'evidence.json');await writeFile(evidenceFile,JSON.stringify(evidence));
       verifyEvidence(evidenceFile,{root:'../../'});
-    } finally {await rm(artifactDir,{recursive:true});}
+      for(const helper of ['upgrade-persistence-matrix.mjs','release-candidate-hardening.mjs']) execFileSync(process.execPath,[resolve('../../scripts',helper),'--evidence',evidenceFile],{cwd:resolve('../..'),stdio:'pipe'});
+    } finally { /* Retain synthetic artifact bytes for exact-SHA CI receipt. */ }
     assert.deepEqual((await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows,before);
     assert.deepEqual((await pool.query('SELECT row_to_json(m) AS row FROM family_members m ORDER BY id')).rows,beforeMembers);
     const gateway=createTestGateway({a:'synthetic-a',b:'synthetic-b'});
@@ -86,4 +89,25 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
     // The old synthetic household fixtures remain unchanged throughout join/switch/leave.
     if(process.env.MEDBOX_PILOT_EVIDENCE_DIR) await writeFile(join(process.env.MEDBOX_PILOT_EVIDENCE_DIR,'two-family-upgrade.json'),JSON.stringify({before,after:(await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows}));
   } finally {if(app)await app.close();await fixture.close();await rm(oldDir,{recursive:true});}
+});
+
+test('real PG: partially upgraded legacy user keeps two household roles, IDs and complete medicine content', {skip:!url && process.env.REQUIRE_POSTGRES_TESTS!=='1'}, async()=>{
+  assert(url,'strict PG resource required');
+  const fixture=await isolatedPostgres(url);
+  const oldDir=await mkdtemp(join(tmpdir(),'medbox-partial-migrations-'));
+  try {
+    for(const name of await readdir('db/migrations')) if(Number(name.split('_')[0])<=31) await copyFile(join('db/migrations',name),join(oldDir,name));
+    await applyMigrations(fixture.pool,oldDir);
+    const users=(await fixture.pool.query("INSERT INTO users(openid) VALUES('synthetic-existing-owner'),('synthetic-other-owner') RETURNING id")).rows;
+    const families=(await fixture.pool.query("INSERT INTO families(name,created_by) VALUES('Existing A',$1),('Existing B',$2) RETURNING id",users.map(u=>u.id))).rows;
+    // Model an earlier installation that removed the single-user constraint but
+    // stopped before 033/034. Repair must not delete the second membership.
+    await fixture.pool.query('ALTER TABLE family_members DROP CONSTRAINT family_members_user_id_key');
+    await fixture.pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$3,'owner'),($2,$4,'owner'),($2,$3,'member')",[families[0].id,families[1].id,users[0].id,users[1].id]);
+    for(const [i,family] of families.entries()) await fixture.pool.query('INSERT INTO medicines(family_id,name,created_by,updated_by) VALUES($1,$2,$3,$3)',[family.id,`Original full content ${i}`,users[i].id]);
+    const snapshot=async()=>({members:(await fixture.pool.query('SELECT * FROM family_members ORDER BY id')).rows,medicines:(await fixture.pool.query('SELECT * FROM medicines ORDER BY id')).rows,families:(await fixture.pool.query('SELECT * FROM families ORDER BY id')).rows});
+    const before=await snapshot();await applyMigrations(fixture.pool);assert.deepEqual(await snapshot(),before);
+    assert.deepEqual(await applyMigrations(fixture.pool),[]);assert.deepEqual(await snapshot(),before);
+    assert.deepEqual((await fixture.pool.query('SELECT role FROM family_members WHERE user_id=$1 ORDER BY role',[users[0].id])).rows.map(r=>r.role),['member','owner']);
+  } finally {await fixture.close();await rm(oldDir,{recursive:true});}
 });

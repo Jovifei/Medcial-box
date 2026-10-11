@@ -359,7 +359,10 @@ void main() {
           expect(notifications.pending.keys.toSet(), ids);
           expect(local.family!.id, 'family-b');
           expect(local.inventory!.single.id, 'medicine-b');
-          expect(local.drafts, {'new': 'synthetic-family-b-draft'});
+          expect(local.drafts, {
+            'medicine-new': 'synthetic-private-draft',
+            'new': 'synthetic-family-b-draft',
+          });
           expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
           expect(services.sessionInvalidated.value, isFalse);
           expect(services.familyInvalidated.value, isFalse);
@@ -671,7 +674,10 @@ void main() {
     release.complete();
     await rejected;
     expect(local.family!.id, 'family-b');
-    expect(local.drafts, {'new': 'synthetic-family-b'});
+    expect(local.drafts, {
+      'medicine-new': 'synthetic-private-draft',
+      'new': 'synthetic-family-b',
+    });
     expect(services.familyInvalidated.value, isFalse);
     expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
   });
@@ -730,7 +736,7 @@ void main() {
       );
       await local.saveDraft('old', 'synthetic-private-draft');
       notifications.pending[12] = {'id': 12, 'payload': 'pending'};
-      final methods = <String>[];
+      final paths = <String>[];
       await http.runWithClient(
         () async {
           await tester.pumpWidget(
@@ -744,7 +750,10 @@ void main() {
           await tester.pumpAndSettle();
         },
         () => MockClient((request) async {
-          methods.add(request.method);
+          paths.add('${request.method} ${request.url.path}');
+          if (request.url.path == '/api/v1/families') {
+            return jsonResponse({'families': []});
+          }
           return jsonResponse({
             'user': {'id': 'synthetic-user', 'hasFamily': false},
             'family': null,
@@ -756,7 +765,7 @@ void main() {
       expect(local.drafts, isEmpty);
       expect(notifications.pending, isEmpty);
       expect(storedSyntheticToken(secrets), 'synthetic-session-a');
-      expect(methods, ['GET']);
+      expect(paths, ['GET /api/v1/auth/me', 'GET /api/v1/families']);
       await tester.pumpWidget(const SizedBox.shrink());
       debugDefaultTargetPlatformOverride = null;
     },

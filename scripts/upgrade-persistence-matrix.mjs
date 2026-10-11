@@ -6,6 +6,16 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 
+import { verifyEvidence } from './family-pilot-evidence.mjs';
+const evidenceIndex = process.argv.indexOf('--evidence');
+let syntheticEvidence = null;
+let evidenceError = null;
+if (evidenceIndex >= 0) {
+  try {
+    if (!process.argv[evidenceIndex + 1]) throw new Error('upgrade evidence file required');
+    syntheticEvidence = verifyEvidence(process.argv[evidenceIndex + 1], {root});
+  } catch (error) { evidenceError = error.message; }
+}
 const checks = [];
 function add(id, ok, scope, detail) {
   checks.push({ id, scope: "SOURCE_ONLY", subject: scope, automation: "RUN_BY_REPO", ok, detail });
@@ -33,7 +43,7 @@ const deviceCases = [
   { id: "draft-photo-restore", status: "NOT_PROVEN", reason: "requires device filesystem and private photo receipt" },
 ];
 
-const result = { ok: checks.every((item) => item.ok), checks, deviceCases, limitations: [
+const result = { ok: checks.every((item) => item.ok) && !evidenceError, checks, syntheticEvidence, evidenceError, deviceCases, limitations: [
   "Source presence checks do not execute migration or storage recovery.",
   "Does not read private photos or credentials.",
   "Does not claim real-device upgrade success.",

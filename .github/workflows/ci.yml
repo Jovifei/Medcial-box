@@ -49,6 +49,14 @@ jobs:
           npm run prepare:mini:qa -- --source-sha "$(git rev-parse HEAD)" --output var/family-pilot-mini --run-id family-pilot
           npm run test:mini:qa
 
+      - uses: actions/upload-artifact@v6
+        with:
+          name: family-pilot-upgrade-mini-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            var/family-pilot-upgrade/
+            var/family-pilot-mini/
+          if-no-files-found: error
+
   backup-docker:
     # Disposable synthetic resources only; no deployment environment or secrets.
     runs-on: ubuntu-latest

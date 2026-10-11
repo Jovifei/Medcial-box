@@ -2,7 +2,7 @@ import { peekDirtyDraft } from "../../services/draft-guard";
 Component({
   data: { busy: false },
   methods: {
-    async go(event: { currentTarget: { dataset: { url: string } } }): Promise<void> {
+    async navigate(url: string, tab: boolean): Promise<void> {
       if (this.data.busy) return;
       this.setData({ busy: true });
       try {
@@ -12,10 +12,15 @@ Component({
           if (!save) return;
           await draft.save();
         }
-        wx.switchTab({ url: event.currentTarget.dataset.url, fail: () => wx.showToast({ title: "暂时无法打开，请重试", icon: "none" }) });
+        const options = { url, fail: () => wx.showToast({ title: "暂时无法打开，请重试", icon: "none" as const }) };
+        if (tab) wx.switchTab(options);
+        else wx.navigateTo(options);
       } catch { wx.showToast({ title: "草稿未能保存，请留在本页重试", icon: "none" }); }
       finally { this.setData({ busy: false }); }
     },
-    choose(): void { wx.navigateTo({ url: "/pages/family-entry/family-entry" }); },
+    async go(event: { currentTarget: { dataset: { url: string } } }): Promise<void> {
+      await this.navigate(event.currentTarget.dataset.url, true);
+    },
+    async choose(): Promise<void> { await this.navigate("/pages/family-entry/family-entry", false); },
   },
 });

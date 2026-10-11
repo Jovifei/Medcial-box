@@ -11,6 +11,10 @@ export const DEFAULT_SOURCE_SHA = '9de6d99137262e21142025a941094b7764209228';
 // Trusted frozen-source instrumentation, NOT an arbitrary/malicious JavaScript sandbox.
 // Accept only the independently reviewed baseline tree or the exact frozen writer-patch tree.
 const reviewedSourceTrees = new Set([
+  // 2026-10-11 review: session headers, invite priority and document-flow footer; no added wx/fs APIs.
+  '5c4b56c62c50c46f2bd9a02d7804ad36cfc8ecab',
+  // Follow-up review: footer chooser saves drafts, batch form persists original family/route; capabilities unchanged.
+  '387487e70af66a8203a91c5225d1701dd4a5c820',
   '3ed0f8e6e410daf7fce1277d0e363caa52be3214',
   'abdef7419cb4abf00c54112456897ae05ebcbaba',
   '7a37461f3b3e3245151a91f3e02e8151d6c849e0',
@@ -46,6 +50,7 @@ const reviewedSourceTrees = new Set([
   'e368588172f65e9e07cde1bba6ef2d09abe44b0e',
 ]);
 const reviewedComponents = new Map([
+  ['business-nav', 'components/business-nav/business-nav'],
   ['medicine-date-field', 'components/medicine-date-field/index'],
   ['medicine-time-field', 'components/medicine-time-field/index'],
 ]);

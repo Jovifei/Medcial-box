@@ -156,16 +156,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   String get _draftKey => entryIdentity.$6 == null || entryIdentity.$7 == null
       ? 'medicine-entry'
-      : 'medicine-entry.' +
-            base64Url.encode(
-              utf8.encode(
-                jsonEncode([
-                  entryIdentity.$3,
-                  entryIdentity.$6,
-                  entryIdentity.$7,
-                ]),
-              ),
-            );
+      : 'medicine-entry.${base64Url.encode(utf8.encode(jsonEncode([entryIdentity.$3, entryIdentity.$6, entryIdentity.$7])))}';
   bool restoredDraft = false;
 
   @override

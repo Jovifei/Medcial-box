@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession, type SessionIdentity } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import {
   isStrictNonNegativeInteger,
@@ -15,6 +15,9 @@ import type {
   ExpiryPrecision,
   MedicationBatchSummary,
 } from "../../services/api-types";
+
+import { readSessionScope, scopedStorageKey, type SessionScope } from "../../services/session-scope";
+import { registerDirtyDraft, clearDirtyDraft, type DirtyDraft } from "../../services/draft-guard";
 
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["年、月、日", "仅年、月", "未知"];
@@ -123,6 +126,32 @@ Page({
     openingLimitModeIndex: 0,
   },
 
+  pageIdentity: null as SessionIdentity | null,
+  pageScope: null as SessionScope | null,
+  draftKey: null as string | null,
+  dirtyGuard: null as DirtyDraft | null,
+
+  isScopeCurrent(): boolean {
+    const scope = readSessionScope();
+    return (this.pageIdentity === null || isCurrentSession(this.pageIdentity)) &&
+      (this.pageScope === null || scope !== null && scope.userId === this.pageScope.userId && scope.familyId === this.pageScope.familyId);
+  },
+  restoreDraft(): void {
+    if (!this.draftKey || !this.isScopeCurrent()) return;
+    const draft = wx.getStorageSync(this.draftKey) as { fields?: Partial<BatchEditPageData> } | undefined;
+    if (draft && typeof draft.fields === "object") { this.setData(draft.fields); this.markDirty(); }
+  },
+  markDirty(): void {
+    if (!this.dirtyGuard) this.dirtyGuard = { label: "批次输入", save: async () => {
+      if (!this.draftKey || this.data.submitting || this.data.batchLoading) throw new Error("批次尚未就绪");
+      const fields = { ...this.data };
+      // Persist original route/version and scope; never retarget a pending edit.
+      wx.setStorageSync(this.draftKey, { fields });
+    } };
+    registerDirtyDraft(this.dirtyGuard);
+  },
+  onUnload(): void { if (this.dirtyGuard) clearDirtyDraft(this.dirtyGuard); },
+
   /** 批次加载 promise：测试与重试都依赖它确定加载结束时刻。 */
   batchLoadPromise: null as Promise<void> | null,
 
@@ -132,7 +161,11 @@ Page({
       setTimeout(() => wx.navigateBack(), 900);
       return;
     }
+    this.pageIdentity = captureSessionIdentity();
+    this.pageScope = readSessionScope();
+    this.draftKey = scopedStorageKey("batch-form", `${options.medicineId}:${options.batchId ?? "new"}`);
     this.setData({ medicineId: options.medicineId });
+    if (!options.batchId) this.restoreDraft();
     if (options.batchId) {
       // 路由带 batchId 即刻锁定"编辑"目标：不能等请求回来才决定操作类型，
       // 否则慢加载期间保存会误转成新增批次。
@@ -144,7 +177,9 @@ Page({
   async loadBatch(medicineId: string, batchId: string): Promise<void> {
     try {
       await ensureLoggedIn();
+      if (!this.isScopeCurrent()) return;
       const medicine = await api.getMedicine(medicineId);
+      if (!this.isScopeCurrent()) return;
       const batch = medicine.batches.find((item) => item.id === batchId);
       if (batch === undefined) {
         // 批次不可见时留在编辑路由并提供重试；绝不静默变成新增。
@@ -153,6 +188,7 @@ Page({
         return;
       }
       this.setData({ ...fillFromBatch(batch), batchLoading: false, loadFailed: false });
+      this.restoreDraft();
     } catch (error) {
       this.setData({ batchLoading: false, loadFailed: true });
       showError(error);
@@ -170,6 +206,7 @@ Page({
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
     const field = event.currentTarget.dataset.field;
     if (!field) return;
+    this.markDirty();
     this.setData({ [field]: event.detail.value });
   },
 
@@ -178,6 +215,7 @@ Page({
     const precisionIndex = Number(event.detail.value);
     if (!Number.isInteger(precisionIndex) || !PRECISION_VALUES[precisionIndex]) return;
     const value = this.data.expiryValue;
+    this.markDirty();
     this.setData({ precisionIndex, expiryValue: expiryValueForPrecision(value, PRECISION_VALUES[precisionIndex]) });
   },
 
@@ -185,10 +223,11 @@ Page({
     if (this.data.submitting || this.data.batchLoading || this.data.loadFailed) return;
     const precisionIndex = PRECISION_VALUES.indexOf(event.detail.precision);
     if (precisionIndex < 0) return;
+    this.markDirty();
     this.setData({ expiryValue: expiryValueForPrecision(event.detail.value, PRECISION_VALUES[precisionIndex]), precisionIndex });
   },
 
-  onConversionUnitChange(event: { detail: { value: string | number } }): void { this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
+  onConversionUnitChange(event: { detail: { value: string | number } }): void { this.markDirty(); this.setData({ conversionUnitIndex: Number(event.detail.value) }); },
   onUnitChange(event: { detail: { value: string | number } }): void {
     const nextIndex = Number(event.detail.value);
     const nextUnit = UNIT_VALUES[nextIndex];
@@ -197,7 +236,8 @@ Page({
     // 单位切换守卫：数字不换算，由用户确认后生效，避免 2 片悄悄变成 2 盒。
     const hasValue = this.data.quantity.trim() !== "" || this.data.confirmedUnits.trim() !== "";
     if (!hasValue) {
-      this.setData({ unitIndex: nextIndex });
+      this.markDirty();
+    this.setData({ unitIndex: nextIndex });
       return;
     }
     wx.showModal({
@@ -206,12 +246,13 @@ Page({
       confirmText: "仍要切换",
       cancelText: "保持原单位",
       success: (result) => {
-        if (result.confirm) this.setData({ unitIndex: nextIndex });
+        if (result.confirm && this.isScopeCurrent()) { this.markDirty(); this.setData({ unitIndex: nextIndex }); }
       },
     });
   },
 
   onUnknownChange(event: { detail: { value: boolean } }): void {
+    this.markDirty();
     this.setData({ quantityUnknown: event.detail.value });
   },
 
@@ -225,6 +266,7 @@ Page({
       patch.openingLimitModeIndex = 0;
       patch.openingLimitValue = "";
     }
+    this.markDirty();
     this.setData(patch);
   },
 
@@ -234,6 +276,7 @@ Page({
     if (!Number.isInteger(index) || index < 0 || index > 3) return;
     const openingLimitMode = (["none", "day", "month", "date"] as const)[index] ?? "none";
     const changedKind = openingLimitMode !== this.data.openingLimitMode;
+    this.markDirty();
     this.setData({
       openingLimitMode,
       openingLimitModeIndex: index,
@@ -242,6 +285,7 @@ Page({
   },
 
   onToggleOpeningInfo(): void {
+    this.markDirty();
     this.setData({ openingExpanded: !this.data.openingExpanded });
   },
 
@@ -330,7 +374,7 @@ Page({
 
   async onSubmit(): Promise<void> {
     const data = this.data as BatchEditPageData;
-    if (data.submitting) return;
+    if (data.submitting || !this.isScopeCurrent()) return;
     // 编辑目标未就绪时禁止提交：加载中等待，加载失败先重试，绝不落到新增分支。
     if (data.isEdit && (data.batchLoading || data.loadFailed)) {
       wx.showToast({
@@ -348,6 +392,7 @@ Page({
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!this.isScopeCurrent()) return;
       if (data.isEdit) {
         await api.updateBatch(data.medicineId, data.batchId, {
           ...built.payload,
@@ -358,7 +403,10 @@ Page({
         await api.createBatch(data.medicineId, built.payload);
         wx.showToast({ title: "已添加批次", icon: "success" });
       }
-      setTimeout(() => wx.navigateBack(), 800);
+      if (!this.isScopeCurrent()) return;
+      if (this.draftKey) wx.removeStorageSync(this.draftKey);
+      if (this.dirtyGuard) clearDirtyDraft(this.dirtyGuard);
+      setTimeout(() => { if (this.isScopeCurrent()) wx.navigateBack(); }, 800);
     } catch (error) {
       if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
         wx.showModal({
@@ -385,12 +433,16 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmation) return;
+    if (!confirmation || !this.isScopeCurrent()) return;
     try {
       await ensureLoggedIn();
+      if (!this.isScopeCurrent()) return;
       await api.deleteBatch(data.medicineId, data.batchId);
       wx.showToast({ title: "已删除", icon: "success" });
-      setTimeout(() => wx.navigateBack(), 800);
+      if (!this.isScopeCurrent()) return;
+      if (this.draftKey) wx.removeStorageSync(this.draftKey);
+      if (this.dirtyGuard) clearDirtyDraft(this.dirtyGuard);
+      setTimeout(() => { if (this.isScopeCurrent()) wx.navigateBack(); }, 800);
     } catch (error) {
       showError(error);
     }

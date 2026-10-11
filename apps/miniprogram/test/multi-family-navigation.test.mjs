@@ -31,3 +31,20 @@ test('all non-tab product pages register shared bottom navigation; four primary 
     assert.equal(JSON.parse(fs.readFileSync(new URL(page+'.json',root))).usingComponents['business-nav'],'../../components/business-nav/business-nav');
   }
 });
+test('batch footer saves original household input and stale submit never moves it to B',async()=>{
+  const scope=makeSessionScopeModule({userId:'u',familyId:'a'});
+  const storage=new Map();let guard;let writes=0;
+  const modules={
+    '../../services/session-scope':scope,
+    '../../services/draft-guard':{registerDirtyDraft:d=>{guard=d;},clearDirtyDraft:d=>{if(d===guard)guard=null;}},
+    '../../services/auth':{ensureLoggedIn:async()=>{}},
+    '../../services/api':{api:{createBatch:async()=>{writes++;}},ApiError:class extends Error{}},
+  };
+  const {definition}=loadPage('pages/batch-edit/batch-edit.ts',{modules,wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v))}});
+  const page=makePageContext(definition);page.onLoad({medicineId:'medicine-a'});
+  page.onFieldInput({currentTarget:{dataset:{field:'quantity'}},detail:{value:'7'}});
+  await guard.save();assert.equal(storage.get('batch-form:u:a:medicine-a:new').fields.quantity,'7');
+  scope.writeSessionScope({userId:'u',familyId:'b'});await page.onSubmit();assert.equal(writes,0);
+  scope.writeSessionScope({userId:'u',familyId:'a'});
+  const returned=makePageContext(definition);returned.onLoad({medicineId:'medicine-a'});assert.equal(returned.data.quantity,'7');
+});

@@ -546,3 +546,20 @@ test('revision5 ordinary input retains a newer durable photo ownership receipt',
   assert.equal(h.app.qa.summary().syntheticFiles.includes(newerPath), true);
   assertNoOriginals(h);
 });
+
+test('exact generated business footer guards tab home and family chooser without original native access', async()=>{
+  assert(integrated,'exact committed source required');
+  const h=harness({project:integrated.projectRoot});h.load(join(integrated.projectRoot,'app.js'));
+  h.load(join(integrated.projectRoot,'components/business-nav/business-nav.js'));
+  const footer={...h.component.methods,data:structuredClone(h.component.data),setData(patch){Object.assign(this.data,patch);}};
+  const guard=h.load(join(integrated.projectRoot,'services/draft-guard.js'));
+  let saves=0;guard.registerDirtyDraft({label:'synthetic form',save:async()=>{saves++;}});
+  await footer.go({currentTarget:{dataset:{url:'/pages/index/index'}}});
+  await footer.choose();assert.equal(saves,2);
+  assert(h.uiCalls.some(call=>call.name==='switchTab' && call.options.url==='/pages/index/index'));
+  assert(h.uiCalls.some(call=>call.name==='navigateTo' && call.options.url==='/pages/family-entry/family-entry'));
+  const navCount=h.uiCalls.filter(call=>['switchTab','navigateTo'].includes(call.name)).length;
+  guard.registerDirtyDraft({label:'failed form',save:async()=>{throw new Error('synthetic storage unavailable');}});
+  await footer.choose();assert.equal(h.uiCalls.filter(call=>['switchTab','navigateTo'].includes(call.name)).length,navCount);
+  assertNoOriginals(h);
+});

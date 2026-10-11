@@ -496,7 +496,7 @@ class ApiFamilyRepository {
       await api.cleanupForIdentityTransition(onFamilyChanged!);
       return;
     }
-    await localStore.clearFamilyData();
+    await localStore.clearFamilySnapshot();
   }
 
   Future<String> createInvitation() async {
