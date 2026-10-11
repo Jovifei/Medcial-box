@@ -45,7 +45,11 @@ export async function cleanupTemporaryShareFile(path: string, scopeKey?: string 
   });
   if (!removed) return false;
   try {
-    wx.setStorageSync(storageKey, files.filter(file => file !== path));
+    // Another native unlink may complete while this one is pending. Rebase on
+    // the latest durable receipt set, never replay the pre-await snapshot.
+    const latest = readList(storageKey);
+    if (!latest.includes(path)) return true; // already retired by another owner-scoped cleanup
+    wx.setStorageSync(storageKey, latest.filter(file => file !== path));
     return !readList(storageKey).includes(path);
   } catch { return false; }
 }
@@ -68,6 +72,10 @@ export async function recoverTemporaryShareFiles(): Promise<TemporaryShareRecove
   try { files = readList(storageKey); } catch { return pending(0); }
   const results = await Promise.all(files.map(path => cleanupTemporaryShareFile(path, storageKey)));
   if (temporaryShareScope() !== storageKey || !results.every(Boolean)) return pending(files.length);
+  // Another page may register a fresh file while this sweep is in flight.
+  // Every unlink may have succeeded without emptying the current receipt list.
+  try { if (readList(storageKey).length > 0) return pending(files.length); }
+  catch { return pending(files.length); }
   // "clean" applies solely to this household. Other scoped receipts remain
   // untouched and unverified, even if the caller cold-starts under a new login.
   return { scopeStatus: "clean", inspectedCount: files.length, allHouseholds: "not_verified" };
