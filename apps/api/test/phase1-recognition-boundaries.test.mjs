@@ -82,12 +82,12 @@ test("AUD-10 non-2xx response diagnostic streaming preserves transport errors fo
       [400, "TimeoutError", "timeout"], [503, "TimeoutError", "timeout"],
       [400, "AbortError", "provider_unavailable"], [503, "AbortError", "provider_unavailable"],
     ]) {
-      const stream = new ReadableStream({ start(controller) {
-        controller.error(new DOMException("synthetic diagnostic read failed", errorName));
+      const stream = new globalThis.ReadableStream({ start(controller) {
+        controller.error(new globalThis.DOMException("synthetic diagnostic read failed", errorName));
       } });
       const provider = Provider === OllamaMedicineRecognitionProvider
-        ? new Provider("synthetic", "http://synthetic.invalid", async () => new Response(stream, {status}))
-        : new Provider("synthetic-key", "synthetic", "https://synthetic.invalid", async () => new Response(stream, {status}));
+        ? new Provider("synthetic", "http://synthetic.invalid", async () => new globalThis.Response(stream, {status}))
+        : new Provider("synthetic-key", "synthetic", "https://synthetic.invalid", async () => new globalThis.Response(stream, {status}));
       await assert.rejects(provider.recognize(tiny, "image/jpeg"), error =>
         error.reason === expected && error.upstreamStatus === status &&
         !error.message.includes("synthetic diagnostic"));
@@ -101,14 +101,14 @@ test("AUD-10 malformed diagnostic uses HTTP fallback, oversized body cancels, ne
     let requestCount = 0;
     const fake = async () => {
       requestCount += 1;
-      if (requestCount === 1) return new Response("invalid diagnostic json", {status:503});
-      if (requestCount === 2) return new Response(new ReadableStream({
+      if (requestCount === 1) return new globalThis.Response("invalid diagnostic json", {status:503});
+      if (requestCount === 2) return new globalThis.Response(new globalThis.ReadableStream({
         start(controller) {controller.enqueue(new Uint8Array(9000).fill(65));},
         cancel(){canceled++;}
       }), {status:400});
       return Provider === OllamaMedicineRecognitionProvider
-        ? new Response(JSON.stringify({message:{content:JSON.stringify({name:"合成药"})}}))
-        : new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({name:"合成药"})}}]}));
+        ? new globalThis.Response(JSON.stringify({message:{content:JSON.stringify({name:"合成药"})}}))
+        : new globalThis.Response(JSON.stringify({choices:[{message:{content:JSON.stringify({name:"合成药"})}}]}));
     };
     const provider = Provider === OllamaMedicineRecognitionProvider
       ? new Provider("synthetic","http://synthetic.invalid",fake)
