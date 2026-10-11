@@ -1,7 +1,7 @@
 import { scopedStorageKey } from "./session-scope";
 
 /** Only paths we created and durably registered may be removed after sharing. */
-function key(): string | null {
+export function temporaryShareScope(): string | null {
   return scopedStorageKey("temporary-shared-files");
 }
 function owned(path: string): boolean {
@@ -18,8 +18,8 @@ function readList(storageKey: string): string[] {
   }
   return [...new Set(value as string[])];
 }
-export function registerTemporaryShareFile(path: string): boolean {
-  const storageKey = key();
+export function registerTemporaryShareFile(path: string, scopeKey?: string | null): boolean {
+  const storageKey = scopeKey ?? temporaryShareScope();
   if (!storageKey || !owned(path)) return false;
   try {
     const files = readList(storageKey);
@@ -29,8 +29,8 @@ export function registerTemporaryShareFile(path: string): boolean {
     return verified.includes(path);
   } catch { return false; }
 }
-export async function cleanupTemporaryShareFile(path: string): Promise<boolean> {
-  const storageKey = key();
+export async function cleanupTemporaryShareFile(path: string, scopeKey?: string | null): Promise<boolean> {
+  const storageKey = scopeKey ?? temporaryShareScope();
   if (!storageKey || !owned(path)) return false;
   let files: string[];
   try { files = readList(storageKey); } catch { return false; }
@@ -50,10 +50,10 @@ export async function cleanupTemporaryShareFile(path: string): Promise<boolean> 
   } catch { return false; }
 }
 export async function recoverTemporaryShareFiles(): Promise<boolean> {
-  const storageKey = key();
+  const storageKey = temporaryShareScope();
   if (!storageKey) return false;
   let files: string[];
   try { files = readList(storageKey); } catch { return false; }
-  const results = await Promise.all(files.map(cleanupTemporaryShareFile));
+  const results = await Promise.all(files.map(path => cleanupTemporaryShareFile(path, storageKey)));
   return results.every(Boolean);
 }
