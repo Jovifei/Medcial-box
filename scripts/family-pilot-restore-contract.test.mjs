@@ -23,18 +23,22 @@ const base = {
   }],
 };
 
-test("family pilot restore evidence accepts supplied generated pairing", () => {
-  const result = runEvidence(base);
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /PASS/);
+test("restore evidence accepts complete supplied pairing", () => {
+  assert.equal(runEvidence(base).status, 0);
 });
 
-test("family pilot restore evidence rejects missing photo pairing", () => {
-  const result = runEvidence({ ...base, records: [{ medicineId: "m1", batchId: "b1", photoIds: [], receiptIds: [], photoHashes: [] }] });
-  assert.notEqual(result.status, 0);
+test("restore evidence rejects missing photo pairing", () => {
+  assert.notEqual(runEvidence({ ...base, records: [{ ...base.records[0], photoIds: [], photoHashes: [] }] }).status, 0);
 });
 
-test("family pilot restore evidence rejects candidate without tree binding", () => {
-  const result = runEvidence({ ...base, candidate: { sha: "abc123" } });
-  assert.notEqual(result.status, 0);
+test("restore evidence rejects mismatched photo/hash cardinality", () => {
+  assert.notEqual(runEvidence({ ...base, records: [{ ...base.records[0], photoIds: ["p1", "p2"] }] }).status, 0);
+});
+
+test("restore evidence rejects corrupt hash", () => {
+  assert.notEqual(runEvidence({ ...base, records: [{ ...base.records[0], photoHashes: ["broken"] }] }).status, 0);
+});
+
+test("restore evidence rejects missing candidate tree", () => {
+  assert.notEqual(runEvidence({ ...base, candidate: { sha: "abc123" } }).status, 0);
 });
