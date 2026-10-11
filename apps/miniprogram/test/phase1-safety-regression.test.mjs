@@ -80,7 +80,7 @@ test("AUD-06 durable temporary file ownership survives a recreated helper and ne
   assert.equal(first.registerTemporaryShareFile(path),true);
   assert.equal(first.registerTemporaryShareFile(outsider),false);
   const afterRestart=make();
-  assert.deepEqual(await afterRestart.recoverTemporaryShareFiles(),{scopeStatus:"clean",inspectedCount:1,allHouseholds:"not_verified"});
+  assert.deepEqual(JSON.parse(JSON.stringify(await afterRestart.recoverTemporaryShareFiles())),{scopeStatus:"clean",inspectedCount:1,allHouseholds:"not_verified"});
   assert.equal(files.has(path),false);
   assert.equal(files.has(outsider),true);
   assert.equal(await afterRestart.cleanupTemporaryShareFile(outsider),false);
@@ -180,7 +180,7 @@ test("AUD-06 real backup page: switch household during pending write never share
   assert.equal(shared,0);
   assert.equal(files.has(path),false);
   assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
-  assert.deepEqual(await helpers.recoverTemporaryShareFiles(),{scopeStatus:"clean",inspectedCount:0,allHouseholds:"not_verified"});
+  assert.deepEqual(JSON.parse(JSON.stringify(await helpers.recoverTemporaryShareFiles())),{scopeStatus:"clean",inspectedCount:0,allHouseholds:"not_verified"});
 });
 
 test("AUD-06 durable share receipt: failed delete remains for original family, cold restart retries only own paths",async()=>{
@@ -199,12 +199,12 @@ test("AUD-06 durable share receipt: failed delete remains for original family, c
   assert.equal(helper().registerTemporaryShareFile(path),true);
   assert.equal(await helper().cleanupTemporaryShareFile(path),false);
   actor="B";
-  assert.deepEqual(await helper().recoverTemporaryShareFiles(),{scopeStatus:"clean",inspectedCount:0,allHouseholds:"not_verified"},
+  assert.deepEqual(JSON.parse(JSON.stringify(await helper().recoverTemporaryShareFiles())),{scopeStatus:"clean",inspectedCount:0,allHouseholds:"not_verified"},
     "B scope can be clear, but cannot claim A was inspected or cleaned");
   assert.equal(files.has(path),true);
   assert.equal(await helper().cleanupTemporaryShareFile(path),false);
   actor="A";failDelete=false;
-  assert.deepEqual(await helper().recoverTemporaryShareFiles(),{scopeStatus:"clean",inspectedCount:1,allHouseholds:"not_verified"});
+  assert.deepEqual(JSON.parse(JSON.stringify(await helper().recoverTemporaryShareFiles())),{scopeStatus:"clean",inspectedCount:1,allHouseholds:"not_verified"});
   assert.equal(files.has(path),false);
   assert.deepEqual(store.get("temporary-shared-files:A"),[]);
 });
