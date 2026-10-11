@@ -36,6 +36,8 @@ const reviewedSourceTrees = new Set([
   'e2e9acec0a1ec9e36921397f2c57fb986870846d',
   // AUD06 fallback clipboard lease, reviewed with its exact synthetic scenario fixture.
   'c78f12661af44c8c2cf58a9d07e6e144fce33f1a',
+  // AUD06 independently reviewed scoped-only recovery reporting; no new wx/fs/component capabilities.
+  'f625aa0f3445b686a5a9a434a30649c020723bbe',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
