@@ -377,3 +377,24 @@ test("AUD-06 concurrent scoped recovery retains every other receipt",async()=>{
   assert.equal((await execution).scopeStatus,"clean");
   assert.deepEqual(disk.get("temporary-shared-files:sandbox"),[]);
 });
+
+test("AUD-06 mid-sweep new durable receipt is retained and status remains pending",async()=>{
+  const disk=new Map(),pending=[];
+  const wx={env:{USER_DATA_PATH:"/synthetic"},
+    getStorageSync:key=>disk.get(key),
+    setStorageSync:(key,value)=>disk.set(key,structuredClone(value)),
+    getFileSystemManager:()=>({unlink:request=>pending.push(request)})
+  };
+  const helper=loadService("services/temporary-share-files.ts",{
+    wx,modules:{"./session-scope":{scopedStorageKey:kind=>kind+":sandbox"}}
+  });
+  const prior="/synthetic/home-medicine-share-123456789012-prior.json";
+  const latest="/synthetic/home-medicine-share-123456789012-latest.json";
+  assert.equal(helper.registerTemporaryShareFile(prior),true);
+  const execution=helper.recoverTemporaryShareFiles();
+  assert.equal(pending.length,1);
+  assert.equal(helper.registerTemporaryShareFile(latest),true);
+  pending[0].success();
+  assert.equal((await execution).scopeStatus,"pending");
+  assert.deepEqual(disk.get("temporary-shared-files:sandbox"),[latest]);
+});
