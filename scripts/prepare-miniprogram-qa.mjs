@@ -15,6 +15,8 @@ const reviewedSourceTrees = new Set([
   '5c4b56c62c50c46f2bd9a02d7804ad36cfc8ecab',
   // Follow-up review: footer chooser saves drafts, batch form persists original family/route; capabilities unchanged.
   '387487e70af66a8203a91c5225d1701dd4a5c820',
+  // Reviewed correction: family chooser uses existing guarded wx.navigateTo, no navigator view capability.
+  '9c916f1557d640103c9154d66d3feb2b5302f2fe',
   '3ed0f8e6e410daf7fce1277d0e363caa52be3214',
   'abdef7419cb4abf00c54112456897ae05ebcbaba',
   '7a37461f3b3e3245151a91f3e02e8151d6c849e0',

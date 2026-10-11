@@ -80,6 +80,8 @@ Page({
     try { await ensureLoggedIn({ allowInteractive: false }); if (!stillOriginal()) return; await api.leaveFamily(); if (isCurrentSession(identity)) wx.reLaunch({ url: "/pages/family-entry/family-entry" }); }
     catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "退出失败，请重试", icon: "none" }); }
   },
+  onChooseFamily(): void { wx.navigateTo({ url: "/pages/family-entry/family-entry" }); },
+
   onOpenInvite(): void { wx.navigateTo({ url: "/pages/invite/invite" }); },
   onStartStocktake(): void { wx.navigateTo({ url: "/pages/stocktake/stocktake" }); },
 });

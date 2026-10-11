@@ -288,6 +288,11 @@ export async function exercise() {
         VALUES('${ids.photo2}','${ids.family2}','${ids.medicine2}','${photoKey2}','image/png',${Buffer.from(photoBase64, "base64").length},'${ids.user2}','box_front',now());
       UPDATE medicines SET cover_photo_id='${ids.photo2}' WHERE id='${ids.medicine2}';
       INSERT INTO medicine_batches(medicine_id,quantity,unit,expiry_value,expiry_precision) VALUES('${ids.medicine}',2,'box','2099-12','month'),('${ids.medicine2}',3,'box','2099-12','month');
+      INSERT INTO care_profiles(family_id,display_name,linked_user_id,created_by) VALUES('${ids.family}','Synthetic A profile','${ids.user}','${ids.user}'),('${ids.family2}','Synthetic B profile','${ids.user2}','${ids.user2}');
+      INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by)
+        SELECT c.family_id,c.id,m.id,m.name,'Owner supplied synthetic text','2099-01-01',c.created_by FROM care_profiles c JOIN medicines m ON m.family_id=c.family_id;
+      INSERT INTO reminder_deliveries(family_id,user_id,medicine_id,batch_id,deadline_date,days_before,template_id)
+        SELECT m.family_id,m.created_by,m.id,b.id,'2099-12-31',30,'synthetic-unused' FROM medicines m JOIN medicine_batches b ON b.medicine_id=m.id;
       COMMIT;
     `);
     const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum FROM schema_migrations) t;";
@@ -303,6 +308,7 @@ export async function exercise() {
       'batches', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_batches t),
       'photos', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_leaflet_photos t),
       'drafts', '[]'::json,
+      'careProfiles', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_profiles t),
       'plans', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medication_plans t),
       'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t));`;
     const beforeRecords = (await sql(dbId, snapshotSql)).stdout.trim();

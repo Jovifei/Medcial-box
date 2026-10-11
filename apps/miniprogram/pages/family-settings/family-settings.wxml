@@ -1,4 +1,4 @@
-<navigator url="/pages/family-entry/family-entry" class="btn btn-ghost">选择或加入其他家庭</navigator>
+<view class="btn btn-ghost" bindtap="onChooseFamily">选择或加入其他家庭</view>
 <view class="page">
   <view class="card">
     <view class="family-name">{{familyName || "家庭设置"}}</view>

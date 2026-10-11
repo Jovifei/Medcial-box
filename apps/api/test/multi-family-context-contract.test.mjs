@@ -35,7 +35,7 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
     const before=(await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows;
     const beforeMembers=(await pool.query('SELECT row_to_json(m) AS row FROM family_members m ORDER BY id')).rows;
     const readSnapshot=async()=>{
-      const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',plans:'medication_plans',reminders:'reminder_deliveries'};
+      const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',careProfiles:'care_profiles',plans:'medication_plans',reminders:'reminder_deliveries'};
       const snapshot={drafts:f.map((family,i)=>({id:`draft-${i}`,family_id:family.id,user_id:u[i].id,fields:{name:`Pending input ${i}`},requestKey:`original-${i}`}))};
       for(const [key,table] of Object.entries(tables)) snapshot[key]=(await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows;
       return snapshot;

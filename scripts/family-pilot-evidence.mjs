@@ -29,7 +29,7 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
   };
   const before = JSON.parse(readArtifact(evidence.before));
   const after = JSON.parse(readArtifact(evidence.after));
-  const tables = ['families','members','medicines','batches','photos','drafts','plans','reminders'];
+  const tables = ['families','members','medicines','batches','photos','drafts','careProfiles','plans','reminders'];
   for (const snapshot of [before,after]) {
     for (const table of tables) assert(Array.isArray(snapshot[table]), `missing ${table}`);
     for (const table of ['families','members','medicines','photos']) assert(snapshot[table].length > 0, `empty ${table}`);
@@ -40,6 +40,16 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
     assert.deepEqual(sorted(after[table]),sorted(before[table]), `${table} content or ownership lost`);
     assert.equal(new Set(after[table].map(row=>row.id)).size, after[table].length, `duplicate ${table} id`);
   }
+  const familyIds = new Set(after.families.map(row => row.id));
+  for (const member of after.members) {
+    assert(familyIds.has(member.family_id), 'membership references missing household');
+    assert(['owner','member'].includes(member.role), 'unknown membership role');
+  }
+  for (const family of after.families) assert(after.members.some(member => member.family_id === family.id && member.role === 'owner'), 'ownerless household');
+  for (const table of ['medicines','drafts','careProfiles','plans','reminders']) {
+    for (const row of after[table]) assert(familyIds.has(row.family_id), `${table} references missing household`);
+  }
+  for (const batch of after.batches) assert(after.medicines.some(m => m.id === batch.medicine_id), 'batch references missing medicine');
   for (const photo of after.photos) {
     assert(after.medicines.some(m=>m.id===photo.medicine_id && m.family_id===photo.family_id), 'photo household/medicine association mismatch');
     const artifact = evidence.photos?.find(item=>item.id===photo.id && item.storageKey===photo.storage_key);
