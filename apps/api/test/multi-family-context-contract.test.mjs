@@ -26,7 +26,7 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
       f.push((await pool.query('INSERT INTO families(name,created_by) VALUES($1,$2) RETURNING *',[`Household ${i}`,u[i].id])).rows[0]);
       await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,'owner')",[f[i].id,u[i].id]);
       const medicine=(await pool.query('INSERT INTO medicines(family_id,name,created_by,updated_by) VALUES($1,$2,$3,$3) RETURNING *',[f[i].id,`Preserved content ${i}`,u[i].id])).rows[0];
-      const batch=(await pool.query("INSERT INTO medicine_batches(medicine_id,quantity,unit,expiry_value,expiry_precision) VALUES($1,2,'box','2099-12','month') RETURNING id",[medicine.id])).rows[0];
+      const batch=(await pool.query("INSERT INTO medicine_batches(family_id,medicine_id,quantity,unit,expiry_value,expiry_precision,created_by,updated_by) VALUES($1,$2,2,'box','2099-12','month',$3,$3) RETURNING id",[f[i].id,medicine.id,u[i].id])).rows[0];
       await pool.query("INSERT INTO medicine_leaflet_photos(family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at) VALUES($1,$2,$3,'image/png',$5,$4,'box_front',now())",[f[i].id,medicine.id,`leaflets/fixture-${i}.png`,u[i].id,photoBytes.length]);
       const care=(await pool.query("INSERT INTO care_profiles(family_id,display_name,linked_user_id,created_by) VALUES($1,'Synthetic profile',$2,$2) RETURNING id",[f[i].id,u[i].id])).rows[0];
       await pool.query("INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by) VALUES($1,$2,$3,'Synthetic medicine','Owner supplied synthetic text','2099-01-01',$4)",[f[i].id,care.id,medicine.id,u[i].id]);
