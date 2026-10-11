@@ -288,3 +288,70 @@ test("AUD-06 explicit absent ownership fails closed instead of adopting B for cl
   assert.equal(await helper.cleanupTemporaryShareFile(owned,"temporary-shared-files:B"),true,
     "An explicitly captured original receipt can be cleaned, but not an unowned path");
 });
+
+test("AUD-06 failed native JSON write preserves no share and cleans only registered original",async()=>{
+  let shared=0;
+  const storage=new Map(),removed=[];
+  const wx={env:{USER_DATA_PATH:"/qa-owned"},getStorageSync:k=>storage.get(k),
+    setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),
+    getFileSystemManager:()=>({
+      writeFile:opts=>opts.fail({errMsg:"synthetic disk full"}),
+      unlink:opts=>{removed.push(opts.filePath);opts.fail({errMsg:"ENOENT"});}
+    }),
+    shareFileMessage:opts=>{shared++;opts.success();}
+  };
+  const scopes={scopedStorageKey:k=>k+":A"};
+  const helper=loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
+  const {definition}=loadPage("pages/backup-restore/backup-restore.ts",{wx,modules:{
+    "../../services/api":{
+      ApiError:class ApiError extends Error{},
+      captureSessionIdentity:()=>({token:"A",generation:1}),
+      isCurrentSession:id=>id.token==="A"&&id.generation===1,
+      api:{createJsonBackup:async()=>({backupId:"synthetic-write-error",exportedAt:"2026-10-11",medicines:[]})}
+    },
+    "../../services/auth":{ensureLoggedIn:async()=>{}},
+    "../../services/temporary-share-files":helper,
+  }});
+  const page=makePageContext(definition);
+  await page.onCreateBackup();
+  assert.equal(shared,0);
+  assert.equal(removed.length,1);
+  assert.match(removed[0],/home-medicine-share-/);
+  assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
+  assert.match(page.data.errorMessage,/写入临时备份文件失败|synthetic disk full/);
+});
+
+test("AUD-06 page unload invalidates pending original backup write before share",async()=>{
+  let writeDone,shared=0;
+  const storage=new Map(),removed=[];
+  const wx={env:{USER_DATA_PATH:"/qa-owned"},getStorageSync:k=>storage.get(k),
+    setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),
+    getFileSystemManager:()=>({
+      writeFile:opts=>{writeDone=opts.success;},
+      unlink:opts=>{removed.push(opts.filePath);opts.success();}
+    }),
+    shareFileMessage:opts=>{shared++;opts.success();}
+  };
+  const scopes={scopedStorageKey:k=>k+":A"};
+  const helper=loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
+  const {definition}=loadPage("pages/backup-restore/backup-restore.ts",{wx,modules:{
+    "../../services/api":{
+      ApiError:class ApiError extends Error{},
+      captureSessionIdentity:()=>({token:"A",generation:1}),
+      isCurrentSession:id=>id.token==="A"&&id.generation===1,
+      api:{createJsonBackup:async()=>({backupId:"synthetic-unload",exportedAt:"2026-10-11",medicines:[]})}
+    },
+    "../../services/auth":{ensureLoggedIn:async()=>{}},
+    "../../services/temporary-share-files":helper,
+  }});
+  const page=makePageContext(definition);
+  const pending=page.onCreateBackup();
+  for(let i=0;i<40&&!writeDone;i++)await Promise.resolve();
+  assert.equal(typeof writeDone,"function");
+  page.onUnload();
+  writeDone();
+  await pending;
+  assert.equal(shared,0);
+  assert.equal(removed.length,1);
+  assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
+});
