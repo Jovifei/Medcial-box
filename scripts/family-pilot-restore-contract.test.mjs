@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { candidateAt, hash, verifyEvidence } from './family-pilot-evidence.mjs';
 function fixture(run) {
   const dir=mkdtempSync(join(tmpdir(),'medbox-pilot-'));
@@ -34,3 +35,11 @@ for(const [name,mutate] of [
  ['empty backup',f=>{f.evidence.backupDatabase=f.put('database.dump','');}],
  ['cross-household photo',f=>{f.snapshot.photos[0].family_id='other';f.evidence.before=f.put('before.json',JSON.stringify(f.snapshot));f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],
 ]) test(`fail closed: ${name}`,()=>fixture(f=>{mutate(f);f.save();assert.throws(()=>verifyEvidence(f.file,{restore:true}));}));
+
+test('manifest caller Boolean requests are SOURCE_ONLY and never executed restore evidence',()=>fixture(({dir})=>{
+  const file=join(dir,'manifest.json');
+  writeFileSync(file,JSON.stringify({stage:'family-pilot',release:{mergeAllowed:false,productionDeployment:false},secrets:{valuesIncluded:false},requiredChecks:{databaseBackupRestore:true,privatePhotoRestorePairing:true},before:{},after:{},restoreSucceeded:true}));
+  const result=JSON.parse(execFileSync(process.execPath,['scripts/check-family-pilot-manifest.mjs',file],{encoding:'utf8'}));
+  assert.equal(result.scope,'SOURCE_ONLY');assert.equal(result.sourceContract,'PASS');
+  assert.equal(result.databaseBackupRestore,'NOT_RUN');assert.equal(result.privatePhotoRestorePairing,'NOT_RUN');assert.equal(result.productionRestore,'NOT_RUN');
+}));

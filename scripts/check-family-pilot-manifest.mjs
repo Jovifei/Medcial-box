@@ -17,4 +17,12 @@ if (!required.every(Boolean)) {
   process.exit(1);
 }
 
-console.log("family pilot manifest contract PASS");
+console.log(JSON.stringify({
+  scope: "SOURCE_ONLY",
+  sourceContract: "PASS",
+  databaseBackupRestore: "NOT_RUN",
+  privatePhotoRestorePairing: "NOT_RUN",
+  deviceAcceptance: "NOT_RUN",
+  productionRestore: "NOT_RUN",
+  detail: "Required-check declarations are configuration only; use generated artifacts and the isolated restore runner for execution evidence.",
+}, null, 2));
