@@ -1,0 +1,23 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "actual mini API method + Fastify + PostgreSQL + PrivatePhotoStore; ACK loss injected at wx response boundary; not full page/device",
+  "status": "FAIL",
+  "first_client_error": "NETWORK_ERROR",
+  "http_statuses": [
+    201,
+    201
+  ],
+  "ready_records_after_first": 1,
+  "ready_records_after_retry": 2,
+  "different_photo_ids": 2,
+  "retry_photo_id": "034fae89-ac5e-4d5c-9992-5f2d0cd89724",
+  "total_storage_bytes": 140,
+  "single_file_bytes": 70,
+  "file_hashes": [
+    "ee68049f8976341376cf2883efe6a2afc081d936289bf59260dd278753af0be9",
+    "ee68049f8976341376cf2883efe6a2afc081d936289bf59260dd278753af0be9"
+  ],
+  "expected_ready_records": 1,
+  "owned_schema_removed": true,
+  "finished_at": "2026-10-08T17:09:34.795Z"
+}

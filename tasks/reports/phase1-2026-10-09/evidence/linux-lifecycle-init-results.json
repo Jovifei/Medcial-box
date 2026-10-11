@@ -1,0 +1,16 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "node_image": "sha256:86de8ae5eca2ef6bd8fc99fbc83b99def3c543e0af0596e6de3063faa3044dff",
+  "configuration": "init=true matches deploy/docker-compose.staging.yml",
+  "scope": "actual production entry+PG; no configured provider/messages; no active-send drain proof",
+  "container_id": "e26f71997704f740b17257e967385e2625aa86eb87588695c4fc4ccb8b64eaa5",
+  "ready_status": 200,
+  "process_exit_code": 143,
+  "control": {
+    "instrumentationControlCalls": 1
+  },
+  "poolEndCalls": 0,
+  "status": "FAIL",
+  "owned_runtime_removed": true,
+  "finished_at": "2026-10-08T16:20:03.407584+00:00"
+}

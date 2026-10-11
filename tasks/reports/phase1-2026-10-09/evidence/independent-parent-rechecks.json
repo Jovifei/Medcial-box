@@ -1,0 +1,35 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "actual TS page/service implementation, wx/in-memory boundaries mocked; no device",
+  "runs": [
+    {
+      "driver": "identity-probes.mjs",
+      "sha256": "36029a81e869481601f9220b1539c4f0071c3d3c67abd4da8b4a5751fe6328e8",
+      "exit_code": 0,
+      "meaning": "Exit0 validates observed defect reproduction, not product PASS",
+      "log": "identity-probes-parent-recheck.log"
+    },
+    {
+      "driver": "plan-draft-scope-probe.mjs",
+      "sha256": "90c20e12c50c1fb9e7f7012dce3a090c937b274f14f04011938d75929947266c",
+      "exit_code": 0,
+      "meaning": "Exit0 validates observed defect reproduction, not product PASS",
+      "log": "plan-draft-scope-probe-parent-recheck.log"
+    },
+    {
+      "driver": "export-session-share-probe.mjs",
+      "sha256": "ddb7486b0b8a24de96f8ed8bbe533ce18c88d17e483d475a002831ea9a9b10c0",
+      "exit_code": 0,
+      "meaning": "Exit0 validates observed defect reproduction, not product PASS",
+      "log": "export-session-share-probe-parent-recheck.log"
+    },
+    {
+      "driver": "backup-file-probe.mjs",
+      "sha256": "8977eafdef9747815c74a7bbcb124d11b736e69d75aae8e646b63e9b5083ea5a",
+      "exit_code": 0,
+      "meaning": "Exit0 validates observed defect reproduction, not product PASS",
+      "log": "backup-file-probe-parent-recheck.log"
+    }
+  ],
+  "finished_at": "2026-10-08T16:18:29.067755+00:00"
+}

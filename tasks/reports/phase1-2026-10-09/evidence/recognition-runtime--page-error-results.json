@@ -1,0 +1,38 @@
+[
+  {
+    "reason": "context_limit",
+    "backendMessage": "照片或说明书内容超出识别范围，请分开拍摄、缩小单张内容后重试。",
+    "pageHint": "拍照识别暂不可用，请先填写药品名称保存。",
+    "recognitionCalls": 1,
+    "loadingStopped": true,
+    "photoDraftPreserved": true,
+    "name": "人工药名"
+  },
+  {
+    "reason": "invalid_json",
+    "backendMessage": "识别结果格式不完整，请重试，或先手动录入。",
+    "pageHint": "拍照识别暂不可用，请先填写药品名称保存。",
+    "recognitionCalls": 1,
+    "loadingStopped": true,
+    "photoDraftPreserved": true,
+    "name": "人工药名"
+  },
+  {
+    "reason": "timeout",
+    "backendMessage": "识别等待超时，请稍后重试或分开拍摄；当前照片草稿仍保留。",
+    "pageHint": "拍照识别暂不可用，请先填写药品名称保存。",
+    "recognitionCalls": 1,
+    "loadingStopped": true,
+    "photoDraftPreserved": true,
+    "name": "人工药名"
+  },
+  {
+    "reason": "model_missing",
+    "backendMessage": "识别模型尚未就绪，请联系服务维护者检查模型配置，或先手动录入。",
+    "pageHint": "拍照识别暂不可用，请先填写药品名称保存。",
+    "recognitionCalls": 1,
+    "loadingStopped": true,
+    "photoDraftPreserved": true,
+    "name": "人工药名"
+  }
+]

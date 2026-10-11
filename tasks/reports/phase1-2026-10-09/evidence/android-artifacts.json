@@ -1,0 +1,28 @@
+[
+  {
+    "file": "app-debug.apk",
+    "bytes": 218095819,
+    "sha256": "09ff4db088141e19c2bb906704f76aea58793e7642f4b0ee9a1909d2b84d35d3",
+    "aapt_exit": 0,
+    "package_line": "package: name='com.joviluma.home_medicine_flutter' versionCode='6' versionName='1.0.3' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'",
+    "signature_exit": 0,
+    "signature_output": "Signer #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: 9ab144e824abf26a5941819abb06831288c36a8bfe622657e3dc9d88281fc774\nSigner #1 certificate SHA-1 digest: cfd9c28ce5dd52f9f27a9c07da9da249cb8f8850\nSigner #1 certificate MD5 digest: 54951e1a0027b9dd24812b3b09084b50",
+    "signature_error": "",
+    "installed": false,
+    "API_BASE_URL": "not set for technical builds",
+    "distribution_ready": false
+  },
+  {
+    "file": "app-release.apk",
+    "bytes": 112197365,
+    "sha256": "51f8023689dc9bdc974b618895d01e8d5445e4d6fe396e5c6d7b8245e75afb3a",
+    "aapt_exit": 0,
+    "package_line": "package: name='com.joviluma.home_medicine_flutter' versionCode='6' versionName='1.0.3' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'",
+    "signature_exit": 1,
+    "signature_output": "",
+    "signature_error": "DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF",
+    "installed": false,
+    "API_BASE_URL": "not set for technical builds",
+    "distribution_ready": false
+  }
+]

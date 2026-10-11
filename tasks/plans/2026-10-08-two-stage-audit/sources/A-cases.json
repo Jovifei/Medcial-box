@@ -1,0 +1,4457 @@
+{
+  "spec_version": "1.0",
+  "task": "medbox_delivery_20261007_acceptance",
+  "prepared_date": "2026-10-08",
+  "repository": "Jovifei/Medcial-box",
+  "baseline_commit": "de74a585dc77ac7f113d6473901f19d5cb606f87",
+  "baseline_tree": "1211ec10a9c90b6635816f42a0758a3573a12595",
+  "main_ci": {
+    "run_id": 37596971109,
+    "status": "success",
+    "evidence_kind": "GITHUB_READ",
+    "jobs": [
+      "verify",
+      "backup-docker",
+      "flutter"
+    ]
+  },
+  "excluded_pr2": {
+    "head": "75e06f02a240a1554f5647659d01bc05f309c62e",
+    "tree": "bd123820922173b982d77962d01af8e5ccfe85f6",
+    "ci_run": 37633263578,
+    "ci_result": "failure",
+    "reason": "verify/npm test failed; not merged"
+  },
+  "case_count": 132,
+  "execution_state": "NOT_RUN",
+  "note": "这是一份测试规范和空白账本。所有用例尚未由本方案执行；读过的GitHub历史CI不等于本轮新测试。",
+  "allowed_statuses": [
+    "NOT_RUN",
+    "PASS",
+    "FAIL",
+    "BLOCKED",
+    "SKIP",
+    "N_A"
+  ],
+  "cases": [
+    {
+      "id": "BASE-01",
+      "group": "BASE",
+      "title": "冻结精确源码与隔离工作树",
+      "priority": "P0",
+      "layer": "REPOSITORY",
+      "preconditions": "只使用GitHub工程资料；保留Owner原工作区。",
+      "steps": [
+        "读取origin/main、PR2和对应CI",
+        "在全新目录检出固定SHA",
+        "记录commit、父提交、tree、小程序子树和git status",
+        "构建前后再次核对"
+      ],
+      "expected": [
+        "主线快照与本方案一致或明确登记漂移并重新审核",
+        "不自动混入PR2",
+        "业务源码无未提交改动"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BASE-02",
+      "group": "BASE",
+      "title": "CI结果与来源对应",
+      "priority": "P0",
+      "layer": "REPOSITORY",
+      "preconditions": "可以读取GitHub Actions。",
+      "steps": [
+        "核main run37596971109的head_sha及全部job",
+        "单独核PR2最新head的CI",
+        "分开登记跳过步骤"
+      ],
+      "expected": [
+        "main三job的成功只归属于de74a585",
+        "PR2失败不能借用main PASS",
+        "旧本机计数不冒充本次执行"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BASE-03",
+      "group": "BASE",
+      "title": "测试数据和进程隔离",
+      "priority": "P0",
+      "layer": "ENVIRONMENT",
+      "preconditions": "新测试run_id及专用空数据库/照片目录。",
+      "steps": [
+        "列出本轮创建的资源清单",
+        "核对旧13306/13307服务仅只读",
+        "为故障注入创建一次性资源"
+      ],
+      "expected": [
+        "所有破坏操作仅针对本轮精确持有资源",
+        "不清空Owner数据库、应用或草稿",
+        "不按进程名批量结束Node/Docker"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BASE-04",
+      "group": "BASE",
+      "title": "合成网关与真实微信分离",
+      "priority": "P0",
+      "layer": "ENVIRONMENT",
+      "preconditions": "明确环境SYNTHETIC或REAL_WECHAT。",
+      "steps": [
+        "核实际API入口和gateway来源",
+        "核反向代理目标PID/端口",
+        "核两个真实用户的应用内userId不同"
+      ],
+      "expected": [
+        "真实双机验收绝不指向DevAnyCodeGateway",
+        "固定openid环境不算双身份",
+        "不得把fake gateway暴露到临时HTTPS"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BASE-05",
+      "group": "BASE",
+      "title": "版本与产物来源",
+      "priority": "P0",
+      "layer": "REPOSITORY",
+      "preconditions": "本轮构建已完成或待完成。",
+      "steps": [
+        "读取pubspec与实际APK元数据",
+        "记录source SHA/tree、API配置类别、SDK与锁文件哈希",
+        "计算产物SHA256及签名性质"
+      ],
+      "expected": [
+        "不能低于已安装code6",
+        "unsigned只算构建",
+        "设备安装包必须与该产物哈希相同",
+        "本机签名例外不标正式发布"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BASE-06",
+      "group": "BASE",
+      "title": "日志与截图脱敏",
+      "priority": "P0",
+      "layer": "ALL",
+      "preconditions": "使用专门的合成字段与合成泄漏标记。",
+      "steps": [
+        "检查报告、测试stdout、截图和Git diff",
+        "仅记录尺寸、字节数、哈希、错误类别和匿名ID",
+        "原图和真实响应全文留在受限本机"
+      ],
+      "expected": [
+        "不包含token、AppSecret、连接口令、配对码、私照base64、真实个人剂量",
+        "公开GitHub只收脱敏证据"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "AGENTS.md",
+        "README.md",
+        "tasks/todo.md",
+        "tasks/status.md",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-01",
+      "group": "BUILD",
+      "title": "Node全量回归",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "隔离目录；锁文件未修改；安全注入专用测试库。",
+      "steps": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "npm run typecheck",
+        "npm test",
+        "逐条保存退出码与pass/fail/skip"
+      ],
+      "expected": [
+        "每条实际执行通过",
+        "命令失败不继续声称后续PASS",
+        "不得用PR2检查器字符串输出代替测试"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-02",
+      "group": "BUILD",
+      "title": "严格PostgreSQL集成",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "TEST_DATABASE_URL指向专用可丢弃数据库；不得打印其值。",
+      "steps": [
+        "设置REQUIRE_POSTGRES_TESTS=1",
+        "运行npm run test:integration",
+        "核13套集成进程各自结果",
+        "检查测试资源清理"
+      ],
+      "expected": [
+        "PG必测套件不因缺库而跳过",
+        "迁移/事务/权限/图片/计划/导出均执行",
+        "数据库不可用时非零失败而非假PASS"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-03",
+      "group": "BUILD",
+      "title": "小程序冻结HEAD生成QA",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "API dist已准备；git HEAD包括待验测试所依赖的产品源码。",
+      "steps": [
+        "设置QA_INTEGRATION_SOURCE_SHA为精确HEAD",
+        "运行npm run test:mini:qa",
+        "核manifest sourceSha、helper指纹和小程序子树"
+      ],
+      "expected": [
+        "生成来源为git归档而非工作区未提交文件",
+        "新树必须经审查才批准",
+        "历史批准树与负例不能删除"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-04",
+      "group": "BUILD",
+      "title": "QA安全负例保持",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "使用现有沙盒测试与抛错原生哨兵。",
+      "steps": [
+        "运行未知组件/重复注册/危险hook/原生网络/文件系统逃逸/路径归属负例",
+        "检查reserved写入和跨A/B场景"
+      ],
+      "expected": [
+        "危险能力全部在调用真实原生前拒绝",
+        "原生哨兵次数0",
+        "正例实际执行产品页面而非替代服务器"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-05",
+      "group": "BUILD",
+      "title": "Flutter回归与优化构建",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "Flutter/Android SDK与锁文件可用。",
+      "steps": [
+        "flutter pub get",
+        "flutter analyze",
+        "flutter test",
+        "flutter build apk --debug",
+        "flutter build apk --release"
+      ],
+      "expected": [
+        "分析与完整测试无失败",
+        "符号链接等能力缺失单列SKIP并补平台",
+        "Debug/unsigned Release与安装验收分开"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-06",
+      "group": "BUILD",
+      "title": "微信官方模板样式编译",
+      "priority": "P1",
+      "layer": "IDE",
+      "preconditions": "官方IDE已获人工授权。",
+      "steps": [
+        "从固定SHA生成隔离项目",
+        "运行npm run check:miniprogram",
+        "检查WXML/WXSS及组件错误"
+      ],
+      "expected": [
+        "编译结果有工具版本和日志",
+        "授权pending则BLOCKED",
+        "编译成功不等于真机网络或界面PASS"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-07",
+      "group": "BUILD",
+      "title": "生成包正反门禁",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "脚本源文件已读取，公开AppID和HTTPS origin由Owner提供。",
+      "steps": [
+        "运行source gate",
+        "生成HTTPS副本后执行release package gate",
+        "对复制品注入QA标记、loopback、urlCheck=false、trial、源项目名称逐项运行"
+      ],
+      "expected": [
+        "HTTPS正确副本通过源码级门禁",
+        "不合规副本均失败",
+        "AppID格式检查不宣称平台批准"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BUILD-08",
+      "group": "BUILD",
+      "title": "隔离备份恢复CI复验",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "Docker可用且审查测试脚本只创建合成资源。",
+      "steps": [
+        "运行node scripts/test-staging-backup-docker.mjs",
+        "记录库与照片恢复断言",
+        "核清理清单"
+      ],
+      "expected": [
+        "执行隔离恢复而不只检查压缩包",
+        "失败非零",
+        "结果不冒充生产恢复"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "package.json",
+        "apps/api/package.json",
+        "scripts/run-integration.mjs",
+        "scripts/miniprogram-qa.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-01",
+      "group": "OPS",
+      "title": "实际生产入口启动与数据库ready",
+      "priority": "P0",
+      "layer": "PROCESS_PG",
+      "preconditions": "专用数据库、空私照目录、空闲测试端口；生产入口dist/server.js。",
+      "steps": [
+        "由测试控制器启动真实API入口并保留进程句柄",
+        "请求health/live与health/ready",
+        "运行一次合成药品读写",
+        "核迁移版本"
+      ],
+      "expected": [
+        "live为200",
+        "ready为200且database=connected",
+        "真实读写成功",
+        "进程入口/SHA/PID属于测试",
+        "一次200不算持续可用"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-02",
+      "group": "OPS",
+      "title": "数据库不可用启动失败",
+      "priority": "P0",
+      "layer": "PROCESS_PG",
+      "preconditions": "一次性数据库；不使用Owner凭据。",
+      "steps": [
+        "停本轮专用库或注入不可达地址",
+        "启动同一API入口",
+        "观察有界退出和监听端口"
+      ],
+      "expected": [
+        "不得返回ready成功",
+        "启动失败可诊断且不泄密",
+        "无残留监听或子进程",
+        "恢复库后可重新正常启动"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-03",
+      "group": "OPS",
+      "title": "运行中数据库断连再连接",
+      "priority": "P0",
+      "layer": "PROCESS_PG",
+      "preconditions": "API已完成OPS-01；只允许中断本轮测试库。",
+      "steps": [
+        "记录正常读写",
+        "中断测试库",
+        "请求live/ready与业务API",
+        "恢复库",
+        "显式重试同一业务意图"
+      ],
+      "expected": [
+        "live/ready反映不同层级",
+        "ready断库为503",
+        "无假保存或重复记录",
+        "恢复后真实查询和保存成功"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-04",
+      "group": "OPS",
+      "title": "启动器退出后服务存活",
+      "priority": "P1",
+      "layer": "PROCESS_WINDOWS",
+      "preconditions": "独立Windows测试环境或能证明不触碰旧服务的隔离环境。",
+      "steps": [
+        "使用实际start-local-trials入口而非自建样例",
+        "记录启动器和子服务归属",
+        "让启动器正常退出",
+        "持续请求目标服务并运行登录后读写"
+      ],
+      "expected": [
+        "子服务若设计为detached应按声明继续服务",
+        "不依赖启动器活着的一次200",
+        "无进程归属证据则BLOCKED而非kill旧进程"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-05",
+      "group": "OPS",
+      "title": "端口冲突与错误服务复用",
+      "priority": "P0",
+      "layer": "PROCESS",
+      "preconditions": "隔离端口命名空间；占位服务仅作为负例环境。",
+      "steps": [
+        "在目标端口放置返回相同mode但错误PID/版本的占位服务",
+        "执行真实启动器",
+        "核返回值和资源清理"
+      ],
+      "expected": [
+        "启动器不能将仅mode一致标成可信本项目服务",
+        "不能终止占位外部进程",
+        "冲突须明确失败或要求人工核对"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-06",
+      "group": "OPS",
+      "title": "优雅终止与资源关闭",
+      "priority": "P0",
+      "layer": "PROCESS_LINUX",
+      "preconditions": "真实dist/server.js；进程内测试观测或已有安全指标可用。",
+      "steps": [
+        "发起可控进行中请求",
+        "向持有的目标进程发SIGTERM",
+        "观测停止接收/进行中请求/调度器与数据库池close",
+        "等待退出并重绑原端口"
+      ],
+      "expected": [
+        "有实际app.close/onClose证据",
+        "既定宽限内退出",
+        "无幽灵调度器或遗留端口",
+        "仅观察PID消失不足以证明优雅关闭"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-07",
+      "group": "OPS",
+      "title": "强制终止与重启恢复",
+      "priority": "P0",
+      "layer": "PROCESS",
+      "preconditions": "仅合成数据；测试控制器持有目标进程句柄。",
+      "steps": [
+        "分别在事务前/提交后未回包时强制结束目标API",
+        "重启相同入口和同一测试库",
+        "读取回执并显式重试"
+      ],
+      "expected": [
+        "已提交结果可查询",
+        "未提交事务回滚",
+        "不重复药品/计划/确认",
+        "强杀与正常close结果分开记"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-08",
+      "group": "OPS",
+      "title": "进程异常退出后的恢复策略",
+      "priority": "P1",
+      "layer": "PROCESS",
+      "preconditions": "部署方案或实际启动工具已声明重启责任。",
+      "steps": [
+        "让目标服务非零退出",
+        "观测真实启动/管理工具是否检测、限次重试、退避",
+        "恢复正常依赖"
+      ],
+      "expected": [
+        "按既定方案恢复且留下退出码/时间/来源",
+        "无守护实现时记实现缺口，不能以手工启动成功当自动恢复PASS"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-09",
+      "group": "OPS",
+      "title": "正常链路稳定性与负载隔离",
+      "priority": "P1",
+      "layer": "SOAK",
+      "preconditions": "识别模型固定；测试资源配额冻结。",
+      "steps": [
+        "每5秒采样live/ready与目标PID",
+        "连续30分钟正常场景",
+        "再完成2小时低负载观察",
+        "穿插手录、查询和识别"
+      ],
+      "expected": [
+        "计划内停机另计",
+        "无无故530/失联/进程泄漏",
+        "记录可用率、p95耗时、内存趋势",
+        "不据此声称24小时或重启后可用"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "OPS-10",
+      "group": "OPS",
+      "title": "530分层定位",
+      "priority": "P0",
+      "layer": "END_TO_END",
+      "preconditions": "仅批准临时HTTPS测试；保留origin与边缘健康路径。",
+      "steps": [
+        "同一失败窗口分别取手机状态、HTTPS边缘状态、origin live/ready、目标PID/启动退出事件",
+        "恢复后重放同一请求"
+      ],
+      "expected": [
+        "明确卡在哪一跳",
+        "不能把530直接归因OCR或OOM",
+        "不改VPN/DNS/系统代理",
+        "无完整事件时根因UNCONFIRMED"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "scripts/start-local-trials.mjs",
+        "scripts/dev-simulator-server.mjs",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-01",
+      "group": "AUTH",
+      "title": "两真实微信身份首登",
+      "priority": "P0",
+      "layer": "DEVICE",
+      "preconditions": "Android微信A+iPhone微信B，两个不同身份；同一真实网关服务。",
+      "steps": [
+        "分别首次登录",
+        "通过应用/安全测试摘要核userId",
+        "各自结束重开",
+        "核库存初始状态"
+      ],
+      "expected": [
+        "A与B不同userId",
+        "会话合法",
+        "iPhone用微信小程序不冒充原生iOS App",
+        "没有静默共享fixed openid"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-02",
+      "group": "AUTH",
+      "title": "家庭邀请预览与取消",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "A创建测试家庭，B尚未加入。",
+      "steps": [
+        "A生成邀请码",
+        "B预览并核名称/有效期",
+        "取消确认",
+        "再次预览"
+      ],
+      "expected": [
+        "取消不消耗邀请码、不加入家庭",
+        "页面有真实确认而非不存在入口",
+        "不在公开截图暴露有效邀请码"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-03",
+      "group": "AUTH",
+      "title": "邀请码消费、过期与撤销",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "专用A/B/C测试用户。",
+      "steps": [
+        "B确认加入",
+        "C重用同码",
+        "试用过期码和撤销码",
+        "并发接受同一码"
+      ],
+      "expected": [
+        "成功最多一次",
+        "过期/撤销/重用拒绝",
+        "失败不写入多余成员",
+        "后端事务证据而非只看toast"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-04",
+      "group": "AUTH",
+      "title": "跨家庭访问与私照鉴权",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "A/B同家庭F1，C在F2；仅合成药品和照片。",
+      "steps": [
+        "C使用F1药品/批次/照片ID请求读取和修改",
+        "未登录请求照片",
+        "撤销B后重试旧URL"
+      ],
+      "expected": [
+        "全部未授权请求拒绝且不泄露存在性敏感内容",
+        "无数据改变",
+        "家庭ID不能由前端伪造获得权限"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-05",
+      "group": "AUTH",
+      "title": "撤销权限和迟到响应",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "B打开库存/私照，拦截请求回包在测试传输层。",
+      "steps": [
+        "A撤销B",
+        "释放B旧响应",
+        "B刷新/尝试保存",
+        "重新登录后检查"
+      ],
+      "expected": [
+        "新服务端操作被拒绝",
+        "旧响应不解锁新会话页面",
+        "已被合法看见/系统分享的副本不能虚称远程抹除"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-06",
+      "group": "AUTH",
+      "title": "网络失败与会话过期区分",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "使用真实auth.ts/api.ts请求封装。",
+      "steps": [
+        "分别注入断网、503、530、401",
+        "恢复网络并重试",
+        "将旧401延迟到新登录成功后"
+      ],
+      "expected": [
+        "仅当前有效401清理当前令牌",
+        "网络错不误当注销",
+        "旧401不清理新令牌",
+        "重试不串账号"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-07",
+      "group": "AUTH",
+      "title": "退出及切家庭保留边界",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "A具有未保存草稿，B为不同身份。",
+      "steps": [
+        "A退出或切换家庭",
+        "切入B",
+        "重开同入口",
+        "再返回合法A"
+      ],
+      "expected": [
+        "B看不到A私有字段/照片",
+        "未知归属不自动认领或广泛删除",
+        "符合产品策略的A草稿可恢复/隔离说明明确"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "AUTH-08",
+      "group": "AUTH",
+      "title": "共享范围与提醒权限说明",
+      "priority": "P1",
+      "layer": "DEVICE_PLATFORM",
+      "preconditions": "实际家庭管理/照护权限入口。",
+      "steps": [
+        "逐项核家庭共享库存、说明书、个人备注可见性",
+        "核只接收提醒角色",
+        "Owner核对后台内容声明"
+      ],
+      "expected": [
+        "说明与实际权限一致",
+        "只收提醒不能访问药名/剂量/历史的限制投影之外信息",
+        "不因没有公开社区直接断言UGC不适用"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/services/auth.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.ts",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-01",
+      "group": "CAP",
+      "title": "拍照前用途告知与拒绝",
+      "priority": "P0",
+      "layer": "DEVICE",
+      "preconditions": "合成药盒；首次进入、撤回授权及已授权三状态。",
+      "steps": [
+        "记录页面告知",
+        "拒绝相机/隐私授权",
+        "检查模型请求计数",
+        "同意后重新拍照"
+      ],
+      "expected": [
+        "拒绝无采集上传",
+        "识别传输与家庭持久保存用途分开说明",
+        "未保存仅本机的文案不得遮蔽已上传识别事实"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-02",
+      "group": "CAP",
+      "title": "相册、取消及系统返回",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "两微信设备与Android App分开执行。",
+      "steps": [
+        "打开相册后取消",
+        "拍摄后返回不选",
+        "授权拒绝后重试",
+        "App/微信切后台再回来"
+      ],
+      "expected": [
+        "无幽灵照片/卡住recognizing/多次请求",
+        "原表单不丢",
+        "取消不作为识别失败污染成功率"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-03",
+      "group": "CAP",
+      "title": "完整本机写入顺序",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "真实medicine-edit及photo-file-lifecycle模块，假FS仅为平台边界。",
+      "steps": [
+        "在fs.open/register/write/close/markReady处依次暂停",
+        "检查归属记录和写入字节",
+        "完成后触发识别"
+      ],
+      "expected": [
+        "独占创建成功才登记",
+        "reserved先持久后写私密字节",
+        "完整bytesWritten与close成功才ready",
+        "ready前不上传识别"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-04",
+      "group": "CAP",
+      "title": "部分写入和close失败",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "与CAP-03相同真实模块。",
+      "steps": [
+        "分别注入open失败、部分写入、write失败、close失败、markReady持久失败",
+        "重启测试宿主再恢复"
+      ],
+      "expected": [
+        "失败不变ready",
+        "不上传未完成照片",
+        "保留可诊断回执",
+        "仅清理本轮证明拥有的文件",
+        "不破坏原有同名文件"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-05",
+      "group": "CAP",
+      "title": "文件路径归属负例",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "只在测试临时目录创建哨兵文件。",
+      "steps": [
+        "注入越界路径/碰撞路径/外来draftId/外来scopeKey",
+        "执行删除与清理",
+        "检查哨兵哈希"
+      ],
+      "expected": [
+        "无广泛unlink/目录清空",
+        "外来文件字节不变",
+        "scope/draft不匹配不写不删"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-06",
+      "group": "CAP",
+      "title": "基础库能力与降级",
+      "priority": "P1",
+      "layer": "AUTOMATED_IDE_DEVICE",
+      "preconditions": "冻结候选最低基础库与当前稳定库；真实设备版本记录。",
+      "steps": [
+        "对2.16.0、2.16.1及缺open/write/close/unlink能力模拟",
+        "再在实际目标微信执行拍照和手录"
+      ],
+      "expected": [
+        "helper对低版本/缺能力fail closed",
+        "手工录入仍可用",
+        "2.16.1仅该helper代码阈值，不代表全应用或后台最低版本通过"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-07",
+      "group": "CAP",
+      "title": "照片各阶段字节对应",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "非私密样本ID固定；允许本机计算哈希。",
+      "steps": [
+        "记录相机原文件可获得时的H0、选择器返回H1、本机owned H2、解码请求H3、服务端保存H4",
+        "记录尺寸和长度"
+      ],
+      "expected": [
+        "当前无服务端变换时H1/H2/H3应一致，保存同图H4一致",
+        "SDK压缩后的H1不要求等于相机原件H0",
+        "不以原文件名判断保真"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "CAP-08",
+      "group": "CAP",
+      "title": "详情补传说明书与识别分开",
+      "priority": "P0",
+      "layer": "DEVICE_API",
+      "preconditions": "已保存合成药品。",
+      "steps": [
+        "详情选择说明书",
+        "拒绝上传",
+        "重新选择并确认",
+        "核照片表和模型调用次数"
+      ],
+      "expected": [
+        "拒绝无上传",
+        "确认只保存家庭私照",
+        "不会自动调用模型",
+        "上传后可带鉴权查看且可删除"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-01",
+      "group": "IMG",
+      "title": "真实JPEG和PNG成功请求",
+      "priority": "P1",
+      "layer": "API_DEVICE",
+      "preconditions": "使用可实际解码、>=128字节、<=4MiB样本。",
+      "steps": [
+        "从两端选择同一样本",
+        "捕获脱敏route/mime/decodedBytes",
+        "调用真实recognitions路由和provider适配器"
+      ],
+      "expected": [
+        "POST /api/v1/recognitions/medicine",
+        "4MiB按4194304字节计算",
+        "返回草稿而非保存",
+        "HTTP200单独不足以算识别正确"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-02",
+      "group": "IMG",
+      "title": "识别图片大小临界值",
+      "priority": "P0",
+      "layer": "API",
+      "preconditions": "通过编码/合法填充生成可解码且精确长度样本。",
+      "steps": [
+        "分别提交4MiB-1、4MiB、4MiB+1字节图像",
+        "核客户端与API分层结果和provider计数"
+      ],
+      "expected": [
+        "前两项通过尺寸门禁但仍需有效图像",
+        "+1拒绝且provider0次",
+        "不能把base64长度当原始字节数"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-03",
+      "group": "IMG",
+      "title": "空数据、小图和非法base64",
+      "priority": "P0",
+      "layer": "API",
+      "preconditions": "真实route与可计数provider。",
+      "steps": [
+        "输入空字符串、127字节、无效字符、错误padding、错误类型及缺字段",
+        "逐次核响应"
+      ],
+      "expected": [
+        "拒绝并不调用provider、不写药品",
+        "不崩溃",
+        "128字节也需格式有效，不自动当可识别真实图"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-04",
+      "group": "IMG",
+      "title": "伪图片和截断文件",
+      "priority": "P0",
+      "layer": "API",
+      "preconditions": "合成数据，含JPEG/PNG头尾但损坏中部。",
+      "steps": [
+        "提交MIME不匹配、截断JPEG、缺IEND、只有魔数的伪图",
+        "观察route及真实/受控provider结果"
+      ],
+      "expected": [
+        "无错误成功草稿或药品写入",
+        "允许在明确解码失败层拒绝",
+        "记录当前仅envelope检查与真正解码的区别"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-05",
+      "group": "IMG",
+      "title": "iPhone格式和方向",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "iPhone授权测试样本；同时准备PNG/JPEG。",
+      "steps": [
+        "选择HEIC/Live Photo/旋转EXIF/透明PNG",
+        "记录选择器实际返回格式",
+        "测试不支持文件"
+      ],
+      "expected": [
+        "识别方向可核验",
+        "不支持格式提示明确、表单保持",
+        "不能因为原文件扩展名HEIC就忽略SDK实际转换结果"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-06",
+      "group": "IMG",
+      "title": "3840×2880约465KB历史样本",
+      "priority": "P1",
+      "layer": "MODEL_DEVICE",
+      "preconditions": "复用获准脱敏历史样本或同尺寸非敏感合成复现；固定当前模型。",
+      "steps": [
+        "记录原尺寸/字节数/模型上下文",
+        "完整走拍照上传回填",
+        "同内容制作较小输入作对照",
+        "各执行冷/热请求"
+      ],
+      "expected": [
+        "不修改/卸载模型",
+        "报告context_limit/invalid_json和耗时",
+        "小文件不被误当低像素",
+        "失败有恢复路径且原可用照片保留"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-07",
+      "group": "IMG",
+      "title": "高像素低字节与并发资源边界",
+      "priority": "P1",
+      "layer": "API_MODEL",
+      "preconditions": "隔离容器内设置内存/CPU上限；不在Owner模型上做破坏压测。",
+      "steps": [
+        "递增测试像素尺寸，记录实际字节数",
+        "以1/2/5并发执行受控provider",
+        "观察RSS与普通查询"
+      ],
+      "expected": [
+        "有界完成或明确拒绝",
+        "无进程失联",
+        "不承诺当前已有像素缩放",
+        "资源异常先止测并记录限制缺口"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-08",
+      "group": "IMG",
+      "title": "JSON请求body超过6MiB",
+      "priority": "P1",
+      "layer": "API",
+      "preconditions": "直接调用真实Fastify实例和真实HTTP入口，分别测试。",
+      "steps": [
+        "构造6MiB上下界JSON请求",
+        "提交到识别路由",
+        "核provider0次与返回状态",
+        "再经Nginx重放"
+      ],
+      "expected": [
+        "过大请求应保留4xx语义如413，而非伪装模型503或INTERNAL_ERROR500",
+        "当前自定义错误处理可疑路径必须实际复现"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-09",
+      "group": "IMG",
+      "title": "持久照片6MiB/8MiB/12MiB边界",
+      "priority": "P1",
+      "layer": "API_DEVICE",
+      "preconditions": "区分录入识别、详情上传及存储接口。",
+      "steps": [
+        "录入测试4MiB",
+        "详情页测试6MiB边界",
+        "API照片测试8MiB边界及12MiB body",
+        "核代理限制"
+      ],
+      "expected": [
+        "明确三层限制差异",
+        "客户端拒绝不冒充API失败",
+        "服务端不接受超限",
+        "不能把图片存储可达8MiB解释成识别也可8MiB"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "IMG-10",
+      "group": "IMG",
+      "title": "请求鉴权、purpose及伪家庭",
+      "priority": "P0",
+      "layer": "API",
+      "preconditions": "A/B/C独立合成身份。",
+      "steps": [
+        "无token/过期token/无家庭访问",
+        "purpose取box_front、leaflet、expiry、任意字符串",
+        "伪造familyId"
+      ],
+      "expected": [
+        "只有授权身份及合法purpose调用provider",
+        "API recognition只接受box_front/leaflet",
+        "页面expiry照片映射box_front且保存用途仍expiry"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/src/app.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/src/routes/leaflet-photos.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-01",
+      "group": "MODEL",
+      "title": "真实适配器注入受控HTTP",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "实例化Ollama/DashScope产品类；只替换外部fetch传输。",
+      "steps": [
+        "捕获实际请求方法、path、JSON、model、purpose",
+        "返回合法供方响应",
+        "检查清洗后草稿"
+      ],
+      "expected": [
+        "用实际适配器而非另写解析器",
+        "requiresConfirmation=true",
+        "药品/批次/照片存储写入0",
+        "合成密钥不公开"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-02",
+      "group": "MODEL",
+      "title": "正常字段清洗与空字段",
+      "priority": "P1",
+      "layer": "AUTOMATED",
+      "preconditions": "受控供方返回字段含空白/null/缺失。",
+      "steps": [
+        "返回带空白名称、品牌厂家、规格、日期",
+        "再返回空对象",
+        "比较清洗结果和warnings"
+      ],
+      "expected": [
+        "字段trim",
+        "未知不补造",
+        "空对象不得被质量统计当有效识别",
+        "保存仍由人操作"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-03",
+      "group": "MODEL",
+      "title": "12小时不是12粒",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "供方样本含12小时、24小时、12 hours、20粒装及混合文本。",
+      "steps": [
+        "逐一调用实际provider",
+        "回填两端表单",
+        "对比数量、单位、规格"
+      ],
+      "expected": [
+        "只有时长的specification清空并警告",
+        "20粒装可作规格",
+        "时长/包装总量都不能自动当实际库存或个人剂量"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-04",
+      "group": "MODEL",
+      "title": "日期精度、非法日期与生产日期",
+      "priority": "P0",
+      "layer": "AUTOMATED_MODEL",
+      "preconditions": "样本有2027-12、闰日、非闰年2/29、生产日期与效期双日期。",
+      "steps": [
+        "实际provider清洗年月与非法日期",
+        "真实图像测试日期位置混淆",
+        "保存后重读"
+      ],
+      "expected": [
+        "YYYY-MM不补某日",
+        "非法日不能伪造有效期",
+        "生产日期不作为效期",
+        "无标签/看不清时保持未知"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-05",
+      "group": "MODEL",
+      "title": "字段类型错误与超长文本",
+      "priority": "P1",
+      "layer": "AUTOMATED",
+      "preconditions": "受控供方返回数字/数组/对象作为文本和>200字符字段。",
+      "steps": [
+        "覆盖所有基础字段",
+        "leaflet.text超过20000字符、摘要超过4000字符",
+        "检查warnings与回填"
+      ],
+      "expected": [
+        "非法类型转空/明确失败",
+        "字段按现实现界限截断",
+        "说明书截断有提示",
+        "不崩溃，不将对象显示为字符串"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-06",
+      "group": "MODEL",
+      "title": "标签白名单和禁止推断",
+      "priority": "P0",
+      "layer": "AUTOMATED_MODEL",
+      "preconditions": "受控populationTags/purposeTags含重复、非法类型、未知标签。",
+      "steps": [
+        "运行实际provider",
+        "图片仅药名不含成人儿童说明",
+        "注入供方建议剂量额外字段"
+      ],
+      "expected": [
+        "仅白名单去重",
+        "未知字段不能变库存/剂量",
+        "人群标签不凭名称推断",
+        "不生成针对个人的用药建议"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-07",
+      "group": "MODEL",
+      "title": "非法JSON和异常响应结构",
+      "priority": "P0",
+      "layer": "AUTOMATED_API_DEVICE",
+      "preconditions": "受控fetch及API代理，数据均为合成。",
+      "steps": [
+        "供方返回非JSON、markdown围栏、数组、null、缺message/choices",
+        "API再返回200 HTML/缺draft/错误warnings类型"
+      ],
+      "expected": [
+        "provider转安全invalid_json/503",
+        "客户端终止loading并保留草稿",
+        "不发生未捕获崩溃，不自动写库"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-08",
+      "group": "MODEL",
+      "title": "上下文、显存、模型与网络失败",
+      "priority": "P1",
+      "layer": "AUTOMATED_API_DEVICE",
+      "preconditions": "供方错误仅使用合成标记。",
+      "steps": [
+        "依次注入context_limit400、image_decode400、model_missing404、OOM500、429、503和连接拒绝",
+        "核服务端与两端显示"
+      ],
+      "expected": [
+        "后端保留安全类别与状态",
+        "UI给可行动信息且不暴露上游原文",
+        "小程序通用RECOGNITION_UNAVAILABLE覆盖分类提示应登记缺陷"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-09",
+      "group": "MODEL",
+      "title": "超时与总等待上限",
+      "priority": "P1",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "不改生产超时；受控测试可通过时钟/传输注入加速。",
+      "steps": [
+        "分别延迟头和响应体",
+        "核DashScope25s、Ollama55s、mini60s实际终止",
+        "观察70s内页面终态"
+      ],
+      "expected": [
+        "达到超时后有终态、草稿可恢复、无无限spinner",
+        "客户端结束后迟到响应不覆盖新状态",
+        "不得盲目延长到几分钟掩盖卡死"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-10",
+      "group": "MODEL",
+      "title": "上游大响应与断流",
+      "priority": "P1",
+      "layer": "AUTOMATED",
+      "preconditions": "仅隔离进程，限制内存；不向真实模型发恶意负载。",
+      "steps": [
+        "供方返回大JSON或长错误体以及中途断流",
+        "记录实际已读字节与内存",
+        "重复一次正常请求"
+      ],
+      "expected": [
+        "无无界内存占用或服务失联",
+        "失败安全",
+        "下次正常识别可用",
+        "当前response.json/text后才截断不是流式上限证据"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-11",
+      "group": "MODEL",
+      "title": "供方选择与未配置降级",
+      "priority": "P1",
+      "layer": "AUTOMATED_API",
+      "preconditions": "使用公开配置类别，不读真实密钥。",
+      "steps": [
+        "显式ollama与默认dashscope分别实例化",
+        "空配置触发识别",
+        "手工填写后保存"
+      ],
+      "expected": [
+        "配置选中provider与实际请求一致",
+        "未配置返回明确不可用",
+        "手录可用",
+        "默认模型名与启动器参数不同需记录实际值"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "MODEL-12",
+      "group": "MODEL",
+      "title": "第三方异常信息不泄漏",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "上游错误植入合成PRIVATE_TOKEN/PHOTO_BODY标记。",
+      "steps": [
+        "触发各类失败",
+        "检查客户端错误、服务端结构日志和报告"
+      ],
+      "expected": [
+        "不出现供方原文/密钥/照片内容",
+        "只保留匿名request_id、error类别、status、耗时",
+        "存在泄漏即停止真实数据测试"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/api/src/routes/recognitions.ts",
+        "apps/api/test/recognitions.test.mjs",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-01",
+      "group": "RACE",
+      "title": "识别等待时修改字段",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "真实页面；暂停识别回包。",
+      "steps": [
+        "填写名称/品牌/厂家/规格/日期",
+        "也测试用户清空已填写字段",
+        "释放旧识别响应"
+      ],
+      "expected": [
+        "手工修改或清空均优先",
+        "只填未触碰的空字段",
+        "不因AI晚到回写覆盖用户决定"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-02",
+      "group": "RACE",
+      "title": "识别等待时增删或调整批次",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "两个不同draftKey批次。",
+      "steps": [
+        "发起识别",
+        "删除第一批次、新增另一批次或变更顺序",
+        "释放响应"
+      ],
+      "expected": [
+        "批次结构改变后不将旧日期/批号写到新批次",
+        "保存归属正确",
+        "不能只按数组下标判同一个批次"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-03",
+      "group": "RACE",
+      "title": "双识别先后回包",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "真实页面recognitionToken与队列。",
+      "steps": [
+        "发请求A并暂停",
+        "触发合法重试/页面更换后请求B",
+        "B先回、A后回",
+        "观察fields和状态"
+      ],
+      "expected": [
+        "只有当前代次可应用",
+        "A不抹B结果或loading",
+        "不重复照片条目"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-04",
+      "group": "RACE",
+      "title": "识别中退出或切账号",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "A/B不同身份，A有照片草稿。",
+      "steps": [
+        "暂停A在readFile/write/HTTP任一阶段",
+        "退出A登录B",
+        "释放回调"
+      ],
+      "expected": [
+        "B无A药名/照片/草稿",
+        "无跨账号写入",
+        "A旧记录保留或隔离按既定策略",
+        "清理只删明确自有文件"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-05",
+      "group": "RACE",
+      "title": "识别中撤销家庭成员资格",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "A管理者、B成员；受控迟到回包。",
+      "steps": [
+        "B发起识别",
+        "A撤销B",
+        "回包后B尝试保存/上传照片"
+      ],
+      "expected": [
+        "保存与图片操作由当前后端权限拒绝",
+        "旧结果不得成为当前合法家庭数据",
+        "不可通过旧familyId绕过"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-06",
+      "group": "RACE",
+      "title": "应用被结束后的照片草稿恢复",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "选择ready草稿与reserved未完成草稿分别测试。",
+      "steps": [
+        "保留实际序列化数据",
+        "结束并重建客户端/测试宿主",
+        "同身份打开录入页",
+        "检查照片字节和草稿字段"
+      ],
+      "expected": [
+        "ready可恢复",
+        "reserved不冒充完成或上传",
+        "未知身份不自动认领",
+        "图片丢失时文字仍可恢复且提示明确"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-07",
+      "group": "RACE",
+      "title": "本地配额耗尽与持久化失败",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "通过平台storage适配层注入set/remove失败，不填满用户手机。",
+      "steps": [
+        "分别在创建操作键、照片reserved/ready、普通表单草稿保存时失败",
+        "尝试返回页面和重启"
+      ],
+      "expected": [
+        "未持久成功不报已保存草稿",
+        "不会静默丢操作键后重复创建",
+        "可保留编辑或给出明确失败"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RACE-08",
+      "group": "RACE",
+      "title": "并行页面恢复与队列合并",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "两个真实页面实例同一身份/同一药品草稿。",
+      "steps": [
+        "旧页持有旧队列",
+        "新页增加照片并持久化",
+        "旧页修改单一文本字段后保存草稿"
+      ],
+      "expected": [
+        "新照片ownership回执不丢",
+        "旧页只应用自己的字段差量",
+        "删除确认不重建已删除草稿"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/auth.ts",
+        "scripts/miniprogram-qa.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-01",
+      "group": "SAVE",
+      "title": "未确认不落药箱",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "新测试家庭，记录药品/批次数量和照片存储初始值。",
+      "steps": [
+        "拍照并识别完成",
+        "浏览/返回但不点保存",
+        "再次读取数据库和B设备"
+      ],
+      "expected": [
+        "无medicines/batches写入",
+        "草稿不作为共享库存",
+        "模型临时传输不等于家庭持久照片保存"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-02",
+      "group": "SAVE",
+      "title": "人工修改保存后全链一致",
+      "priority": "P0",
+      "layer": "DEVICE_PG",
+      "preconditions": "已核对样本真值。",
+      "steps": [
+        "编辑识别结果",
+        "点保存",
+        "读取详情、列表、导出与B设备",
+        "关闭重开再读"
+      ],
+      "expected": [
+        "用户修正值完整持久",
+        "品牌/厂家/规格/数量/日期/位置一致",
+        "source与reviewStatus真实"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-03",
+      "group": "SAVE",
+      "title": "快速连点与显式重试幂等",
+      "priority": "P0",
+      "layer": "AUTOMATED_API_DEVICE",
+      "preconditions": "记录createOperationKey与规范载荷的脱敏哈希。",
+      "steps": [
+        "连点保存",
+        "模拟提交成功但响应丢失",
+        "再点重试",
+        "重开后重试同一意图"
+      ],
+      "expected": [
+        "同意图只有一条药品及对应批次",
+        "操作键和载荷不悄悄变化",
+        "不同内容同键返回冲突而非覆盖"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-04",
+      "group": "SAVE",
+      "title": "药品已存、照片上传失败",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE_PG",
+      "preconditions": "两张合成照片。",
+      "steps": [
+        "让药品保存成功",
+        "照片第1/第2次上传分别失败",
+        "观察photo_pending",
+        "再次保存重试"
+      ],
+      "expected": [
+        "药品不重复创建",
+        "已上传回执不丢",
+        "仅重试剩余步骤",
+        "UI明确药品已保存而照片待补",
+        "当前草稿仍可恢复"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-05",
+      "group": "SAVE",
+      "title": "图片写成功但回包丢失",
+      "priority": "P0",
+      "layer": "API_DEVICE_PG",
+      "preconditions": "专用私照目录与测试药品。",
+      "steps": [
+        "照片POST提交后丢掉响应",
+        "客户端显式重试",
+        "检查照片行数、用途和存储对象"
+      ],
+      "expected": [
+        "不得产生不受控重复私照或覆盖错误图片",
+        "如当前无幂等回执则记录真实缺陷，不用药品幂等通过代替图片幂等"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-06",
+      "group": "SAVE",
+      "title": "封面设置失败与重试",
+      "priority": "P1",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "正面、效期和说明书三种用途图像。",
+      "steps": [
+        "上传照片成功后令cover接口失败",
+        "重试",
+        "检查coverPhotoId与已保存图"
+      ],
+      "expected": [
+        "不重建药品",
+        "只有合格正面图作封面",
+        "错误提示不把整个药品保存回滚或误报全部成功"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-07",
+      "group": "SAVE",
+      "title": "有效期照片绑定具体批次",
+      "priority": "P0",
+      "layer": "DEVICE_PG",
+      "preconditions": "一药两批，不同有效期。",
+      "steps": [
+        "分别选择/补拍第一和第二批效期",
+        "保存",
+        "删除/调整批次后再重试待上传图"
+      ],
+      "expected": [
+        "图片purpose与正确batchId一致",
+        "无batchId时不能冒绑另一批",
+        "页面不支持选择的能力明确记功能缺口"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "SAVE-08",
+      "group": "SAVE",
+      "title": "仅修改一字段保留其他资料",
+      "priority": "P0",
+      "layer": "DEVICE_API",
+      "preconditions": "已保存品牌、用途标签、人群标签、条码和说明书。",
+      "steps": [
+        "分别在详情改低库存阈值、数量、开封信息",
+        "从其他端读全量对象"
+      ],
+      "expected": [
+        "未编辑字段不能因遗漏payload被清空",
+        "数量操作不污染品牌/标签/说明书",
+        "发生变化保留前后快照"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts",
+        "apps/api/src/routes/leaflet-photos.ts",
+        "apps/miniprogram/services/api.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-01",
+      "group": "QUALITY",
+      "title": "人工真值与可辨识性冻结",
+      "priority": "P1",
+      "layer": "MANUAL_PREPARATION",
+      "preconditions": "使用获准无个人信息药盒/说明书样本。",
+      "steps": [
+        "准备30张清晰图、12张困难图、12张边界合成图",
+        "标注每字段可见/未知/不存在",
+        "两次人工核对并冻结样本ID哈希"
+      ],
+      "expected": [
+        "答案独立于模型生成",
+        "名称/品牌/厂家/规格/效期分字段",
+        "无标签的日期不能猜",
+        "样本未覆盖项目保持缺口"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-02",
+      "group": "QUALITY",
+      "title": "两微信设备真实端到端识别",
+      "priority": "P1",
+      "layer": "DEVICE_MODEL",
+      "preconditions": "真实网关同API，Owner批准模型服务，先通过告知与隔离门禁。",
+      "steps": [
+        "Android微信和iPhone各跑30清晰图",
+        "各12困难图观察安全降级",
+        "App另跑10张交叉样本",
+        "记录首次结果不抹除失败"
+      ],
+      "expected": [
+        "每个样本串起采集/请求/回填/人工确认/保存证据",
+        "记录实际model/provider/options",
+        "取消与错误单独计数"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-03",
+      "group": "QUALITY",
+      "title": "冷启动、热模型和历史回归",
+      "priority": "P1",
+      "layer": "DEVICE_MODEL",
+      "preconditions": "不卸载/替换模型；以模型已有运行状态分类。",
+      "steps": [
+        "选药盒/效期/说明书各一例",
+        "分别记录可观测冷态与热态3次",
+        "重复3840×2880与invalid_json历史样本"
+      ],
+      "expected": [
+        "不承诺冷态已由卸载实现",
+        "每次延迟、原始结果类别和重试次数独立保留",
+        "仅一次成功不能覆盖前面失败"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-04",
+      "group": "QUALITY",
+      "title": "识别质量指标与门槛",
+      "priority": "P1",
+      "layer": "ANALYSIS",
+      "preconditions": "样本/阈值在测试前冻结；详见主方案指标定义。",
+      "steps": [
+        "计算有效草稿成功率、非空字段精确率、可见字段覆盖率、p50/p95延迟",
+        "按平台/供方/图像类别分层"
+      ],
+      "expected": [
+        "空草稿不作成功",
+        "不能通过全部null获得高分",
+        "建议清晰图有效草稿≥95%、字段精确率≥98%、覆盖≥90%",
+        "安全硬门槛零违例"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-05",
+      "group": "QUALITY",
+      "title": "难图和非药品图",
+      "priority": "P0",
+      "layer": "DEVICE_MODEL",
+      "preconditions": "模糊/反光/遮挡/非药品/双药盒/无有效期图。",
+      "steps": [
+        "逐一识别",
+        "核看不清/歧义说明",
+        "人工改正确再保存"
+      ],
+      "expected": [
+        "可拒识/要求分开拍/手填",
+        "不将生产日期、保质月数推算成效期",
+        "不把推荐剂量或警示标题当药品事实"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "QUALITY-06",
+      "group": "QUALITY",
+      "title": "原件保留与可复验结果",
+      "priority": "P0",
+      "layer": "DEVICE_LOCAL",
+      "preconditions": "样本可保存在本机受限目录。",
+      "steps": [
+        "验证所选原照片与本机/服务端展示",
+        "留本地真值与AI回包",
+        "GitHub只上传匿名汇总和必要脱敏截图"
+      ],
+      "expected": [
+        "无需公开私照即可定位问题",
+        "不把压缩选择图称为传感器原件",
+        "重复测试可定位同一sample_id"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/api/src/services/medicine-recognition.ts",
+        "apps/flutter/lib/data/medicine_recognition.dart",
+        "apps/api/test/recognitions.test.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BAR-01",
+      "group": "BAR",
+      "title": "条码命中候选",
+      "priority": "P1",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "真实api.findMedicineCandidates调用，合成资料库仅用于自动化。",
+      "steps": [
+        "扫码",
+        "观察候选展示",
+        "点使用前后分别检查表单和数据库",
+        "保存后重读"
+      ],
+      "expected": [
+        "候选不是自动落库",
+        "名称/规格/厂家可核对",
+        "手工已有值不覆盖",
+        "来源随真正采用内容保持一致"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BAR-02",
+      "group": "BAR",
+      "title": "真实资料库零命中",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "真实商品库可能仍0条，先记录provider与条目统计。",
+      "steps": [
+        "扫描真实条码",
+        "保留码值",
+        "走拍照或手录",
+        "保存并重开"
+      ],
+      "expected": [
+        "明确未命中不是网络失败",
+        "条码保留",
+        "不能以合成命中替代真实商品覆盖率",
+        "不得虚构商品资料"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BAR-03",
+      "group": "BAR",
+      "title": "查询失败与未配置区分",
+      "priority": "P1",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "供方分别返回不可用/未配置/空候选。",
+      "steps": [
+        "触发三种结果",
+        "查看提示和重试",
+        "取消重试"
+      ],
+      "expected": [
+        "未命中、服务未配置、网络失败可区分",
+        "只有必要码值发送",
+        "拒绝确认无查询",
+        "表单不丢"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BAR-04",
+      "group": "BAR",
+      "title": "候选冲突和共享来源",
+      "priority": "P0",
+      "layer": "DEVICE_API",
+      "preconditions": "同名不同厂家规格候选，用户已有自填说明书。",
+      "steps": [
+        "选择不同候选",
+        "核人群/说明书/来源",
+        "撤销候选后保存"
+      ],
+      "expected": [
+        "不自动拼成一个确定药品",
+        "用户文字不被误标供应商来源",
+        "规格冲突要求核对，不做用药推荐"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-01",
+      "group": "DATA",
+      "title": "未知数量与零数量",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "同一药分别创建null、0、正数量三批。",
+      "steps": [
+        "两端列表/详情/待处理/导出查看",
+        "重启后再次读取"
+      ],
+      "expected": [
+        "未知不变0",
+        "耗尽与未知分开",
+        "计数和筛选用相同规则"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-02",
+      "group": "DATA",
+      "title": "包装规格与计数单位",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "20g软膏、0.3g×20粒/盒、液体样例。",
+      "steps": [
+        "录入规格与剩余数量",
+        "切换盒/粒/支/ml",
+        "取消/确认切单位",
+        "保存重读"
+      ],
+      "expected": [
+        "规格不等于库存",
+        "切单位不自动换算数字",
+        "支/片等计件整数，ml按既有精度",
+        "未确认换算不自动算总粒数"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-03",
+      "group": "DATA",
+      "title": "效期精度和开封期限",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "固定可控日期时钟。",
+      "steps": [
+        "年月/年月日/未知/非法日期",
+        "月末与闰年",
+        "开封后天/月/截止日期切换",
+        "两端及导出对比"
+      ],
+      "expected": [
+        "保存原精度",
+        "没有非法日期归一成邻日",
+        "包装效期与开封期限按领域规则一致",
+        "过期与耗尽分开"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-04",
+      "group": "DATA",
+      "title": "批次、位置和拆分守恒",
+      "priority": "P0",
+      "layer": "API_DEVICE_PG",
+      "preconditions": "同药多批同/不同存放点；已确认未开封数量。",
+      "steps": [
+        "创建独立批次",
+        "拆分开封部分",
+        "补货盘点",
+        "超量拆分和并发修改"
+      ],
+      "expected": [
+        "批次身份/位置正确",
+        "拆分数量守恒",
+        "无负库存/小数计件",
+        "事务失败不部分落库"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-05",
+      "group": "DATA",
+      "title": "并发编辑冲突",
+      "priority": "P0",
+      "layer": "API_DEVICE_PG",
+      "preconditions": "A/B读取相同medicine.version。",
+      "steps": [
+        "A先改名称/批次保存",
+        "B提交旧version",
+        "B取新版本后恢复本地编辑"
+      ],
+      "expected": [
+        "B得到冲突而非静默覆盖A",
+        "B输入可核对恢复",
+        "重试不创建重复批次"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-06",
+      "group": "DATA",
+      "title": "归档、已处理和回收站",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "过期药含handled与有效未处理批次。",
+      "steps": [
+        "处理旧批次、归档、筛选、删除到回收站和恢复",
+        "两端及导出对照"
+      ],
+      "expected": [
+        "handled不污染当前效期",
+        "归档默认隐藏但可查",
+        "恢复不复活已处理状态",
+        "不丢标签"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-07",
+      "group": "DATA",
+      "title": "个人备注与说明书分离",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "合成备注，A/B不同可见性。",
+      "steps": [
+        "输入包装用法与个人备注",
+        "选择私有/共享",
+        "导出默认和显式包含两种"
+      ],
+      "expected": [
+        "说明书不成为个人剂量",
+        "私有备注不能被无权成员读取",
+        "默认导出不含个人备注"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "DATA-08",
+      "group": "DATA",
+      "title": "未登录、空态和失败态不伪造数据",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "断网、空家庭及请求500三环境。",
+      "steps": [
+        "打开四个主入口",
+        "刷新",
+        "离线重开"
+      ],
+      "expected": [
+        "空态/错误态/缓存态不同",
+        "显示数据来源与同步状态",
+        "未知不能展示0或演示库存作为真实值"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "docs/product/requirements.md",
+        "apps/miniprogram/pages/medicine-detail/medicine-detail.ts"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-01",
+      "group": "UPG",
+      "title": "从旧序列化值恢复合法身份",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "fixture由旧版真实serializer/对应schema产生；仅合成token。",
+      "steps": [
+        "用旧实现生成存储",
+        "重建当前session_identity/SecretStore/LocalAppStore",
+        "注入相同API和已证明身份",
+        "重新读取"
+      ],
+      "expected": [
+        "通过当前项目恢复代码而非自写JSON读取",
+        "合法身份延续",
+        "不靠缓存userId推导信任",
+        "不输出token"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-02",
+      "group": "UPG",
+      "title": "不同API或不同账号旧数据隔离",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "旧存储含家庭库存和计划草稿。",
+      "steps": [
+        "把API origin或真实认证身份变更为B",
+        "执行当前恢复入口",
+        "再切回合法A"
+      ],
+      "expected": [
+        "旧数据不暴露给B",
+        "未知归属不自动认领",
+        "可保留隔离数据而非全删",
+        "避免跨环境同名key污染"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-03",
+      "group": "UPG",
+      "title": "真实SharedPreferences迁移与重载",
+      "priority": "P0",
+      "layer": "AUTOMATED_FLUTTER",
+      "preconditions": "使用SharedPreferences测试平台适配层，模拟持久层而非仅内存缓存。",
+      "steps": [
+        "调用quarantineLegacyFamilyData",
+        "重建实例/reload",
+        "再调用adoptLegacyPlanDrafts(verifiedScope)",
+        "检查原键/隔离键/新键"
+      ],
+      "expected": [
+        "先确认目的副本后删除原值",
+        "只恢复证明scope的已知计划草稿",
+        "值逐字段一致",
+        "未知格式保留"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-04",
+      "group": "UPG",
+      "title": "迁移写失败、删除失败和冲突",
+      "priority": "P0",
+      "layer": "AUTOMATED_FLUTTER",
+      "preconditions": "同UPG-03；在平台写/删/reload处故障注入。",
+      "steps": [
+        "让copy返回false、remove失败、reload持久层与缓存不一致、目标已有不同值",
+        "重新运行迁移"
+      ],
+      "expected": [
+        "原值不丢",
+        "不以cache变更当落盘成功",
+        "冲突不覆盖",
+        "重试幂等且可恢复"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-05",
+      "group": "UPG",
+      "title": "药品/计划普通草稿真实恢复",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "旧版合法药品/计划草稿；真实当前draft读写路径。",
+      "steps": [
+        "重建store和页面/仓库",
+        "恢复名称/品牌/批次/星期/时间/操作键",
+        "用户显式保存"
+      ],
+      "expected": [
+        "原字段及稳定ID保留",
+        "无人操作不自动重放未确认创建",
+        "缺失新字段采用有文档默认值而非猜测"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-06",
+      "group": "UPG",
+      "title": "私照元数据与真实临时文件恢复",
+      "priority": "P0",
+      "layer": "AUTOMATED",
+      "preconditions": "临时磁盘写入非敏感图片；使用项目实际owner journal和恢复入口。",
+      "steps": [
+        "产生ready/reserved/missing/replaced/wrong-scope五类记录",
+        "重启对象或进程再恢复",
+        "核文件哈希与删除记录"
+      ],
+      "expected": [
+        "只恢复当前合法归属且完整字节",
+        "reserved/missing有提示",
+        "外来/替换文件不被误删",
+        "不是同一函数自写自读样例"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-07",
+      "group": "UPG",
+      "title": "数据库旧版本到030",
+      "priority": "P0",
+      "layer": "PG_INTEGRATION",
+      "preconditions": "一次性PG实例；旧迁移和合成字段快照。",
+      "steps": [
+        "用旧schema建立库存/计划/回执/照片元数据",
+        "运行实际applyMigrations到030",
+        "API读取",
+        "再次运行迁移"
+      ],
+      "expected": [
+        "字段值与关系保留",
+        "新字段默认符合定义",
+        "第二次幂等",
+        "校验值异常中止",
+        "不在Owner库做回退"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-08",
+      "group": "UPG",
+      "title": "迁移中断和恢复回滚",
+      "priority": "P0",
+      "layer": "PG_INTEGRATION",
+      "preconditions": "同UPG-07，故障只针对一次性数据库。",
+      "steps": [
+        "在可控迁移事务中制造SQL失败或杀连接",
+        "重启运行迁移",
+        "从成对备份恢复旧版本到新隔离库作对照"
+      ],
+      "expected": [
+        "无半迁移对外ready",
+        "失败可重试或恢复",
+        "不修改已应用SQL的checksum绕过",
+        "备份恢复不是覆盖生产"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-09",
+      "group": "UPG",
+      "title": "Android同证书覆盖升级全状态",
+      "priority": "P0",
+      "layer": "DEVICE",
+      "preconditions": "已有code6试用包；同证书新候选且versionCode不降低；不用卸载。",
+      "steps": [
+        "先建立合法身份/库存/普通草稿/照片ready与失败态/计划重试意图",
+        "记录本机摘要",
+        "adb install -r",
+        "首启在线及离线核对"
+      ],
+      "expected": [
+        "首装时间保留但不单独当PASS",
+        "所有上述状态逐项保留/安全隔离",
+        "无需用户每次导出",
+        "不能动既有配对码或替换用户身份"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UPG-10",
+      "group": "UPG",
+      "title": "微信覆盖更新而非清缓存",
+      "priority": "P0",
+      "layer": "DEVICE",
+      "preconditions": "同AppID旧版测试数据与新体验版本；仅授权测试范围。",
+      "steps": [
+        "保留两类草稿和一张照片",
+        "按微信正常更新流程更新",
+        "重新打开和同身份登录"
+      ],
+      "expected": [
+        "不要求清缓存解决升级",
+        "token合法性由后端判断",
+        "草稿/私照归属明确",
+        "卸载重装不能代替覆盖升级"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/flutter/lib/data/app_stores.dart",
+        "apps/miniprogram/services/api.ts",
+        "apps/miniprogram/services/photo-file-lifecycle.ts",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-01",
+      "group": "PLAN",
+      "title": "计划创建、时间与星期",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "合成照护对象和库存，不使用真实服药指令。",
+      "steps": [
+        "创建一天多时点/指定星期/跨午夜计划",
+        "两端编辑和重读",
+        "测试非法日期/时间"
+      ],
+      "expected": [
+        "时间规则正确且跨端一致",
+        "不自动生成个人剂量",
+        "资料与用药记录不混淆"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-02",
+      "group": "PLAN",
+      "title": "计划创建与确认幂等",
+      "priority": "P0",
+      "layer": "API_PG_DEVICE",
+      "preconditions": "实际plan与dose操作模块。",
+      "steps": [
+        "提交成功丢响应",
+        "重复点创建/确认",
+        "重启再显式重试",
+        "同键不同载荷"
+      ],
+      "expected": [
+        "同意图一份计划/一条事件",
+        "未知结果先核回执不自动重发",
+        "刷新失败不撤销已确认记录"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-03",
+      "group": "PLAN",
+      "title": "历史更正与权限",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "A有权限、B仅收提醒、C无权限。",
+      "steps": [
+        "确认/更正历史",
+        "B/C直接访问历史及药名详情",
+        "A撤销权限"
+      ],
+      "expected": [
+        "历史审计可追溯不伪删",
+        "权限最小化",
+        "旧回调不授新权限"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-04",
+      "group": "PLAN",
+      "title": "微信真实提醒送达与点击",
+      "priority": "P1",
+      "layer": "DEVICE_PLATFORM",
+      "preconditions": "Owner已批准模板和订阅；两真实微信身份。",
+      "steps": [
+        "明确申请订阅",
+        "配置测试时点",
+        "观察实际收件人与到达时间",
+        "点消息回流",
+        "拒绝授权再测试"
+      ],
+      "expected": [
+        "区分queued/send_started/供方accepted/设备received/opened",
+        "模板accepted不等于送达",
+        "拒绝不误报成功"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-05",
+      "group": "PLAN",
+      "title": "发送未知结果不得重复轰炸",
+      "priority": "P0",
+      "layer": "API_PG",
+      "preconditions": "供方mock仅用于失败注入。",
+      "steps": [
+        "越过send_started后断流/杀进程/让DB结算失败",
+        "重启scheduler",
+        "核同一提醒外呼次数"
+      ],
+      "expected": [
+        "不把未知当确定失败无限重发",
+        "保留待核对状态",
+        "撤销/失效任务发送前重检"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "PLAN-06",
+      "group": "PLAN",
+      "title": "Android通知权限与后台恢复",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "设备授权且允许合成提醒；不改其他App系统设置。",
+      "steps": [
+        "允许/拒绝通知和精确闹钟",
+        "前台/锁屏/后台/结束进程/重启设备分别观察"
+      ],
+      "expected": [
+        "降级行为明确",
+        "实际到达和点击有证据",
+        "force-stop系统语义单列，不能承诺所有厂商绝对准点"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        "scripts/run-integration.mjs",
+        "tasks/todo.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-01",
+      "group": "EXPORT",
+      "title": "预览与UTF-8导出一致",
+      "priority": "P0",
+      "layer": "API_DEVICE",
+      "preconditions": "合成家庭含null/0/年月日期/标签/个人备注。",
+      "steps": [
+        "两端预览导出",
+        "读取生成MD",
+        "显式包含个人备注再导出",
+        "核snapshot和编码"
+      ],
+      "expected": [
+        "默认不含个人备注",
+        "数量/日期精度一致",
+        "不输出用药建议",
+        "内容与预览相同而不是后续变更混入"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-02",
+      "group": "EXPORT",
+      "title": "系统分享及取消",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "脱敏合成导出文件。",
+      "steps": [
+        "Android系统分享及两微信端md分享",
+        "取消",
+        "再复制文本"
+      ],
+      "expected": [
+        "文件真实可打开",
+        "不支持md时复制可用且如实标降级",
+        "不分享私照/令牌",
+        "系统已接收副本不声称可远程删除"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-03",
+      "group": "EXPORT",
+      "title": "分享期间切账号与文件租约",
+      "priority": "P0",
+      "layer": "AUTOMATED_DEVICE",
+      "preconditions": "实际export temporary store和ownership journal。",
+      "steps": [
+        "生成文件后停在分享",
+        "切账号/家庭",
+        "释放分享回调",
+        "重启清理"
+      ],
+      "expected": [
+        "不能分享新账号看到的旧私有内容",
+        "只清理自有登记原件",
+        "外来/分享副本不广泛删除"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-04",
+      "group": "EXPORT",
+      "title": "数据库与照片成对备份恢复",
+      "priority": "P0",
+      "layer": "PG_FILESYSTEM",
+      "preconditions": "一次性库/照片目录，固定匿名样本。",
+      "steps": [
+        "备份库+私照+manifest",
+        "恢复到新空环境",
+        "API逐条读取",
+        "比对关系/用途/批次/封面/哈希"
+      ],
+      "expected": [
+        "每个可见照片元数据都对应正确文件",
+        "无dangling引用或跨家庭归属",
+        "不能只凭压缩/解压成功PASS"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-05",
+      "group": "EXPORT",
+      "title": "缺图损坏和版本不兼容恢复",
+      "priority": "P0",
+      "layer": "PG_FILESYSTEM",
+      "preconditions": "只修改备份副本。",
+      "steps": [
+        "删除一图片、篡改一字节、错配旧库新照片、制造schema版本不兼容",
+        "执行实际恢复流程"
+      ],
+      "expected": [
+        "发现不一致并拒绝伪完整恢复",
+        "报告匿名差异",
+        "原备份及当前环境不覆盖",
+        "可回到上一已验快照"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "EXPORT-06",
+      "group": "EXPORT",
+      "title": "恢复后权限与业务保真",
+      "priority": "P0",
+      "layer": "PG_API",
+      "preconditions": "成功恢复环境。",
+      "steps": [
+        "A/B/C重测权限",
+        "查看handled/archived/计划回执/确认历史",
+        "重试已完成操作"
+      ],
+      "expected": [
+        "状态不复活",
+        "幂等回执仍防重复",
+        "不因恢复重发已发送提醒",
+        "只认合法会话"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "docs/architecture/overview.md",
+        ".github/workflows/ci.yml",
+        "scripts/run-integration.mjs"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-01",
+      "group": "UI",
+      "title": "四主入口与实际数据状态",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "当前精确候选、两微信平台及Android App。",
+      "steps": [
+        "逐页走药箱/计划/待处理/我的",
+        "记录空态/加载/正常/错误/离线"
+      ],
+      "expected": [
+        "四主入口实际可达",
+        "计数与内容一致",
+        "不混入demo",
+        "无错误被渲染成真实零值"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-02",
+      "group": "UI",
+      "title": "大小、字体与长文本",
+      "priority": "P1",
+      "layer": "DEVICE_RENDER",
+      "preconditions": "320/360/430逻辑宽与100%/150%/200%字体。",
+      "steps": [
+        "输入长药名/厂家/规格/错误文本",
+        "展开批次和说明书",
+        "滚动到保存"
+      ],
+      "expected": [
+        "无遮挡/溢出/横向截断关键数据",
+        "保存按钮始终可达",
+        "不能简单缩小系统字体绕过问题"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-03",
+      "group": "UI",
+      "title": "键盘、安全区与系统返回",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "真实输入法、iPhone安全区、Android系统Back。",
+      "steps": [
+        "聚焦最底部输入",
+        "返回/侧滑/切后台",
+        "选择保留/丢弃/取消各分支"
+      ],
+      "expected": [
+        "键盘不挡操作",
+        "一次返回一次询问",
+        "保存失败不离页",
+        "取消不丢草稿"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-04",
+      "group": "UI",
+      "title": "识别状态可理解可恢复",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "识别正常/失败/图片待补/草稿恢复四状态。",
+      "steps": [
+        "录屏整个流程",
+        "查看计时、按钮禁用、重试、原图入口与告知"
+      ],
+      "expected": [
+        "不会无限等待",
+        "提示不把保存与识别混淆",
+        "错误可行动",
+        "取消/手录/重新拍照均可走通"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-05",
+      "group": "UI",
+      "title": "日期组件与批次上下文",
+      "priority": "P1",
+      "layer": "DEVICE",
+      "preconditions": "两批不同精度日期。",
+      "steps": [
+        "修改日/月/未知",
+        "清除",
+        "新增删除批次",
+        "打开/关闭期限面板"
+      ],
+      "expected": [
+        "当前批次明确",
+        "手势与提交值一致",
+        "日期清除不被OCR回填覆盖",
+        "中文显示不改变ISO存储语义"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "UI-06",
+      "group": "UI",
+      "title": "截图证据和隐私裁剪",
+      "priority": "P1",
+      "layer": "MANUAL_REVIEW",
+      "preconditions": "证据只含非敏感样本。",
+      "steps": [
+        "分别提供登录/家庭、录入、识别结果、错误态、详情/照片、升级恢复截图或短录屏",
+        "标源SHA/设备/字号"
+      ],
+      "expected": [
+        "图片可定位具体版本与状态",
+        "隐藏微信头像昵称、有效码、域名中的私密参数",
+        "无需提交个人健康照片"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/pages/medicine-edit/medicine-edit.wxml",
+        "apps/miniprogram/pages/family-entry/family-entry.wxml",
+        "docs/architecture/overview.md"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-01",
+      "group": "RELEASE",
+      "title": "上传副本而非源码/QA包",
+      "priority": "P0",
+      "layer": "PACKAGE",
+      "preconditions": "固定SHA，安全公开AppID与HTTPS origin。",
+      "steps": [
+        "用prepare-miniprogram生成staging副本",
+        "执行release package gate",
+        "核无QA标志和私有配置"
+      ],
+      "expected": [
+        "源目录禁止直接上传",
+        "source gate不能代替release gate",
+        "构建包哈希可追溯到SHA及公开配置"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-02",
+      "group": "RELEASE",
+      "title": "IDE基础库与后台最低库分开",
+      "priority": "P0",
+      "layer": "PLATFORM_DEVICE",
+      "preconditions": "Owner人工只读核验后台；不自动访问被禁站点。",
+      "steps": [
+        "记录libVersion解析后实际IDE库版本",
+        "单独记录后台最低库",
+        "运行最低与当前稳定库场景及helper能力负例"
+      ],
+      "expected": [
+        "latest不是后台最低库",
+        "不默认1.0.0适配",
+        "若某能力不支持则明确降级或提高最低要求，由Owner确认后台变更"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-03",
+      "group": "RELEASE",
+      "title": "隐私指引与实际网络用途",
+      "priority": "P0",
+      "layer": "PLATFORM_DEVICE",
+      "preconditions": "Owner审核隐私文本；仅非敏感样本测试。",
+      "steps": [
+        "对照拍照识别、照片持久存储、家庭共享、导出实际流向",
+        "确认授权前后请求",
+        "检查第三方模型实际提供者"
+      ],
+      "expected": [
+        "声明与实际一致",
+        "不替Owner签法律声明",
+        "不把仅有系统相机授权当模型传输充分告知",
+        "拒绝不暗传"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-04",
+      "group": "RELEASE",
+      "title": "域名项按实际调用配置",
+      "priority": "P0",
+      "layer": "PLATFORM_NETWORK",
+      "preconditions": "实际HTTPS生成包；合法域名校验不关闭。",
+      "steps": [
+        "核JSON API走wx.request",
+        "核私照走wx.downloadFile",
+        "只在实际使用uploadFile/web-view等时配置对应类别",
+        "真机重放"
+      ],
+      "expected": [
+        "request/download覆盖真实链路",
+        "没有使用的后台项可附证据N/A",
+        "不要求全填",
+        "不以浏览器200代替微信域名/TLS验证"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-05",
+      "group": "RELEASE",
+      "title": "UGC与内容声明由Owner核对",
+      "priority": "P1",
+      "layer": "PLATFORM",
+      "preconditions": "提供准确数据流：用户照片/文本可在家庭内共享。",
+      "steps": [
+        "读取当前后台问题原文与应用类目",
+        "对照实际功能",
+        "由Owner确认适用项和所需措施"
+      ],
+      "expected": [
+        "不因无公开社区就武断N/A",
+        "不编造订单/医疗咨询/支付页面",
+        "后台访问受限则BLOCKED不绕行"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-06",
+      "group": "RELEASE",
+      "title": "Android分发签名与升级包",
+      "priority": "P0",
+      "layer": "PACKAGE_DEVICE",
+      "preconditions": "Owner提供既有安全签名环境；不得读取/导出keystore口令。",
+      "steps": [
+        "读取APK公开证书指纹、包名、versionCode和哈希",
+        "验证与已装包链一致",
+        "区分debug/unsigned/正式签名"
+      ],
+      "expected": [
+        "unsigned不得安装并声称发布",
+        "正式Release不回退debug",
+        "loopback试用例外仅按既有显式开关且不公开分发"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-07",
+      "group": "RELEASE",
+      "title": "上传体验与提审发布分闸",
+      "priority": "P0",
+      "layer": "HUMAN_GATE",
+      "preconditions": "前序必测通过且Owner分别授权动作。",
+      "steps": [
+        "先冻结体验候选和服务",
+        "完成真机验收",
+        "再由Owner决定提交审核",
+        "平台通过后另行授权发布"
+      ],
+      "expected": [
+        "上传代码≠体验验收≠审核通过≠生产上线",
+        "没有授权只生成包/报告，不代点后台提交"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "RELEASE-08",
+      "group": "RELEASE",
+      "title": "最终账本与开放缺陷复核",
+      "priority": "P0",
+      "layer": "REVIEW",
+      "preconditions": "所有用例均有状态和证据。",
+      "steps": [
+        "汇总pass/fail/skip/blocked/not_run/N_A",
+        "核P0/P1闭环",
+        "核SHA/config/artifact一致",
+        "清理本轮资源"
+      ],
+      "expected": [
+        "必测FAIL/BLOCKED/NOT_RUN不放行",
+        "N/A有证据/责任人",
+        "残余风险与真实门槛列明",
+        "不合并不同SHA结果"
+      ],
+      "evidence": [
+        "脱敏执行记录与退出码/响应状态",
+        "与source SHA绑定的断言或截图引用",
+        "隔离资源清理结果"
+      ],
+      "source_paths": [
+        "apps/miniprogram/project.config.json",
+        "scripts/prepare-miniprogram.mjs",
+        "scripts/check-miniprogram-package.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "NOT_RUN",
+      "actual_result": null,
+      "defect_id": null,
+      "blocked_reason": null
+    }
+  ]
+}

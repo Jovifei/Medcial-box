@@ -1,0 +1,11 @@
+{
+  "owned_container": "medbox-phase1-dc00c29e3d65",
+  "id": "aa5539db35e8f221a60ffe36a8ead89ff9e62b6a67021c04a91acf67d99c710a",
+  "image": "sha256:d013b659d65b19a13b3c367e0e36e12a42b35512d26da464d3db07da5aac459e",
+  "container_removed": true,
+  "fresh_exclusively_owned_volume_removed": true,
+  "other_containers_or_models_modified": false,
+  "docker_daemon_left_running": true,
+  "note": "Docker startup restored existing containers by restart policies; no manual restart/stop of other projects. Ollama CLI read queries auto-started its app/server; no inference, model download or update requested.",
+  "finished_at": "2026-10-08T16:34:32.837143+00:00"
+}

@@ -1,0 +1,49 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "real mini auth/API/session modules + Fastify + isolated PostgreSQL; platform storage and offline request mocked; cold restart uses fresh modules, not OS process restart",
+  "container_id": "aa5539db35e8f221a60ffe36a8ead89ff9e62b6a67021c04a91acf67d99c710a",
+  "hashes": {
+    "apps/miniprogram/services/api.ts": "7c09f74c8d64bd4e565cabe393350617b1f3ab1c8b186b6a6cdaf01ec2fea946",
+    "apps/miniprogram/services/auth.ts": "30e170ed2d863daf47f77f20c3ae9d6ed92e1a615063b05278da3edf94a94a41",
+    "apps/miniprogram/services/session-scope.ts": "3906b9dbc988af426634f9bc3350534bfa757ac74a4ea1405d4ff6c713f92a8c",
+    "apps/miniprogram/test/runtime.mjs": "f8495b01ceca524049ac4ca00fa245d020c86e7405319aa8e6eb9fcd11bea1b1",
+    "apps/api/src/auth/session.ts": "06b4d88682ba6a2a526ce89eec43a02d6271b9d4a473b3e31d5cfe391b34a83c",
+    "apps/api/src/routes/auth.ts": "16f58e2fd9f964911ceefa62983c10647102d6920bc0b6fe1c3a20d2b9fdf741",
+    "apps/api/dist/auth/session.js": "88fa806fd8374ad31e4004b37d33431ee41d438e6ecc5f657f46b52d8b96dfec",
+    "apps/api/dist/routes/auth.js": "e041ac279b04f97f974c9c943bd7185c5964fb8e07b304514c8a282b413ace39",
+    "apps/api/dist/app.js": "b7ff6008d2d4949f64a5468290a97d28550557bce7103bc3664b44796f94697b",
+    "apps/api/dist/db/migrations.js": "f95cdbd75892222ace0f2562fa916de607c87e55eb54d496e04dc979f1d3bbd3",
+    "apps/api/test/helpers/isolated-pg.mjs": "46205375702eaec3ba4a8394ddf44ee6ed7eceb902d7e0794cd1f92f76469d96"
+  },
+  "subcases": [
+    {
+      "id": "offline-revoke-failure-and-storage-removal-failure",
+      "assertion_status": "PASS",
+      "logout_error_code": "NETWORK_ERROR",
+      "server_logout_status": null,
+      "memory_token_cleared": true,
+      "memory_scope_cleared": true,
+      "cold_token_resurrected": true,
+      "cold_scope_resurrected": true,
+      "actual_auth_me_status": 200,
+      "defect_status": "VALID_SESSION_RESURRECTION_REPRODUCED"
+    },
+    {
+      "id": "successful-revoke-and-storage-removal-failure",
+      "assertion_status": "PASS",
+      "logout_error_code": null,
+      "server_logout_status": 200,
+      "memory_token_cleared": true,
+      "memory_scope_cleared": true,
+      "cold_token_resurrected": true,
+      "cold_scope_resurrected": true,
+      "actual_auth_me_status": 401,
+      "defect_status": "REVOKED_TOKEN_REJECTED_CONTROL_PASS"
+    }
+  ],
+  "status": "PASS",
+  "cleanup": {
+    "ownedSchema": "removed"
+  },
+  "finished_at": "2026-10-08T16:10:54.167Z"
+}
