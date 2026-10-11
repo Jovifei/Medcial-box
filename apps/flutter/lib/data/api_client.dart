@@ -62,6 +62,7 @@ class ApiClient {
   /// The authenticated session is valid, but its current family no longer
   /// exists/is accessible. Keep the token so family setup can continue.
   Future<void> Function()? onFamilyUnavailable;
+  Future<void> Function()? onFamilySelectionChanged;
   Future<void> _identityCleanup = Future.value();
   Future<void> Function()? _retryIdentityCleanup;
   int? _cleanupEpoch;
@@ -143,7 +144,10 @@ class ApiClient {
 
   /// Used only after auth/me explicitly and consistently reports no family.
   /// Shares the error-response cleanup barrier with auth/family transitions.
-  Future<int> reportNoCurrentFamily(int expectedEpoch) async {
+  Future<int> reportNoCurrentFamily(
+    int expectedEpoch, {
+    bool selectionChanged = false,
+  }) async {
     if (expectedEpoch != identityEpoch) {
       throw const ApiException(
         statusCode: 401,
@@ -151,7 +155,9 @@ class ApiClient {
         message: '会话已变更，请重新加载。',
       );
     }
-    final handler = onFamilyUnavailable;
+    final handler = selectionChanged
+        ? (onFamilySelectionChanged ?? onFamilyUnavailable)
+        : onFamilyUnavailable;
     final cleanup = handler == null ? null : _beginIdentityCleanup(handler);
     final cleanupEpoch = identityEpoch;
     if (cleanup != null) await cleanup;

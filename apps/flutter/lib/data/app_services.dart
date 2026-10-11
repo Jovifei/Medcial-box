@@ -263,6 +263,8 @@ class AppServices {
         await services.auth!.getCurrentUser();
         return identity.owner;
       };
+      api.onFamilySelectionChanged = () =>
+          clearIdentityData(preserveDrafts: true);
       api.onFamilyUnavailable = () => clearIdentityData(familyMissing: true);
       api.onUnauthorized = () async {
         final intent = identity.beginSignOut();

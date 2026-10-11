@@ -242,6 +242,7 @@ Page({
     try {
       await ensureLoggedIn({ allowInteractive: false });
       const result = await api.previewInvitation(code);
+      if (this.data.inviteInput.trim() !== code) return;
       this.setData({
         preview: {
           code,
@@ -279,13 +280,15 @@ Page({
       "确认加入家庭",
       `将加入「${data.preview.familyName}」。邀请码使用后不能再次使用，确定加入吗？`,
     );
-    if (!confirmed || !isCurrentSession(identity)) return;
+    if (!confirmed || !isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn({ allowInteractive: false });
+      if (!isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
-      setTimeout(() => wx.switchTab({ url: "/pages/index/index" }), 900);
+      const selected = captureSessionIdentity();
+      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 900);
     } catch (error) {
       showError(error);
     } finally {
@@ -297,16 +300,18 @@ Page({
   async onLeaveFamily(): Promise<void> {
     const data = this.data as InvitePageData;
     if (data.leaving) return;
+    const identity = captureSessionIdentity();
     const confirmed = await confirmModal(
       "退出家庭",
       `退出后将立即失去「${data.familyName}」药箱的访问权限，重新加入需要新的邀请。确定退出吗？`,
     );
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity)) return;
     this.setData({ leaving: true });
     try {
       await api.leaveFamily();
       wx.showToast({ title: "已退出家庭", icon: "success" });
-      setTimeout(() => wx.switchTab({ url: "/pages/index/index" }), 900);
+      const selected = captureSessionIdentity();
+      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 900);
     } catch (error) {
       showError(error);
     } finally {

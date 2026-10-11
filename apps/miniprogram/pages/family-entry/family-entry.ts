@@ -1,7 +1,8 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 
 interface InvitationPreview {
+  code: string;
   familyName: string;
   expiresAt: string;
 }
@@ -84,8 +85,9 @@ Page({
     try {
       await ensureLoggedIn({ allowInteractive: false });
       const result = await api.previewInvitation(code);
+      if (this.data.inviteInput.trim() !== code) return;
       this.setData({
-        preview: { familyName: result.family.name, expiresAt: result.expiresAt.slice(0, 16).replace("T", " ") },
+        preview: { code, familyName: result.family.name, expiresAt: result.expiresAt.slice(0, 16).replace("T", " ") },
       });
     } catch (error) {
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
@@ -106,10 +108,11 @@ Page({
       return;
     }
     if (data.submitting) return;
-    if (data.preview === null) {
+    if (data.preview === null || data.preview.code !== code) {
       await this.onPreviewInvitation();
       return;
     }
+    const identity = captureSessionIdentity();
     const confirmed = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "确认加入家庭",
@@ -118,13 +121,15 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
     this.setData({ submitting: true, errorMessage: "" });
     try {
       await ensureLoggedIn({ allowInteractive: false });
+      if (!isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
-      setTimeout(() => wx.switchTab({ url: "/pages/index/index" }), 700);
+      const selected = captureSessionIdentity();
+      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 700);
     } catch (error) {
       showError(this, error);
     } finally {

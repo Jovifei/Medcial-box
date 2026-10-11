@@ -29,7 +29,7 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
   };
   const before = JSON.parse(readArtifact(evidence.before));
   const after = JSON.parse(readArtifact(evidence.after));
-  const tables = ['families','members','medicines','batches','photos','drafts','careProfiles','plans','reminders'];
+  const tables = ['families','members','medicines','batches','photos','drafts','careProfiles','plans','planSlots','doseOccurrences','careGrants','doseReminders','reminders'];
   for (const snapshot of [before,after]) {
     for (const table of tables) assert(Array.isArray(snapshot[table]), `missing ${table}`);
     for (const table of ['families','members','medicines','photos']) assert(snapshot[table].length > 0, `empty ${table}`);

@@ -32,10 +32,11 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
       await pool.query("INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by) VALUES($1,$2,$3,'Synthetic medicine','Owner supplied synthetic text','2099-01-01',$4)",[f[i].id,care.id,medicine.id,u[i].id]);
       await pool.query("INSERT INTO reminder_deliveries(family_id,user_id,medicine_id,batch_id,deadline_date,days_before,template_id) VALUES($1,$2,$3,$4,'2099-12-31',30,'synthetic-unused')",[f[i].id,u[i].id,medicine.id,batch.id]);
     }
+    await pool.query("INSERT INTO plan_time_slots(plan_id,time_of_day) SELECT id,'09:00'::time FROM medication_plans");
     const before=(await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows;
     const beforeMembers=(await pool.query('SELECT row_to_json(m) AS row FROM family_members m ORDER BY id')).rows;
     const readSnapshot=async()=>{
-      const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',careProfiles:'care_profiles',plans:'medication_plans',reminders:'reminder_deliveries'};
+      const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',careProfiles:'care_profiles',plans:'medication_plans',planSlots:'plan_time_slots',doseOccurrences:'dose_occurrences',careGrants:'care_grants',doseReminders:'dose_reminder_deliveries',reminders:'reminder_deliveries'};
       const snapshot={drafts:f.map((family,i)=>({id:`draft-${i}`,family_id:family.id,user_id:u[i].id,fields:{name:`Pending input ${i}`},requestKey:`original-${i}`}))};
       for(const [key,table] of Object.entries(tables)) snapshot[key]=(await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows;
       return snapshot;

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { setImmediate } from 'node:timers';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadApi, loadPage, makePageContext, makeSessionScopeModule } from './runtime.mjs';
@@ -47,4 +48,16 @@ test('batch footer saves original household input and stale submit never moves i
   scope.writeSessionScope({userId:'u',familyId:'b'});await page.onSubmit();assert.equal(writes,0);
   scope.writeSessionScope({userId:'u',familyId:'a'});
   const returned=makePageContext(definition);returned.onLoad({medicineId:'medicine-a'});assert.equal(returned.data.quantity,'7');
+});
+for(const pageName of ['family-entry','invite']) test(`${pageName}: edited code rejects old preview and confirmation identity cannot change`,async()=>{
+  let releasePreview;let modal;let accepted=0;let generation=1;
+  const {definition}=loadPage(`pages/${pageName}/${pageName}.ts`,{modules:{
+    '../../services/api':{captureSessionIdentity:()=>({token:'synthetic',generation}),isCurrentSession:i=>i.generation===generation,api:{previewInvitation:()=>new Promise(resolve=>{releasePreview=resolve;}),acceptInvitation:async()=>{accepted++;}},ApiError:class extends Error{}},
+    '../../services/auth':{ensureLoggedIn:async()=>{},logout:async()=>{}},
+  },wx:{showModal:o=>{modal=o;}}});
+  const page=makePageContext(definition);page.onInviteInput({detail:{value:'a'}});
+  const loading=page.onPreviewInvitation();await new Promise(resolve=>setImmediate(resolve));releasePreview({family:{name:'A'},expiresAt:'2099-01-01'});
+  page.onInviteInput({detail:{value:'b'}});await loading;assert.equal(page.data.preview,null);
+  const next=page.onPreviewInvitation();await new Promise(resolve=>setImmediate(resolve));releasePreview({family:{name:'B'},expiresAt:'2099-01-01'});await next;
+  assert.equal(page.data.preview.code,'b');const accepting=page.onAcceptInvitation();generation++;modal.success({confirm:true});await accepting;assert.equal(accepted,0);
 });

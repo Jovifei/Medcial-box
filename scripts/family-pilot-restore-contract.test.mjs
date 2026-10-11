@@ -8,7 +8,7 @@ function fixture(run) {
   const dir=mkdtempSync(join(tmpdir(),'medbox-pilot-'));
   const put=(name,bytes)=>{writeFileSync(join(dir,name),bytes);return {path:name,sha256:hash(bytes)};};
   const photo=Buffer.from('synthetic-owned-photo-bytes');
-  const snapshot={families:[{id:'f',name:'Household'}],members:[{id:'u',family_id:'f',role:'owner'}],medicines:[{id:'m',family_id:'f',name:'preserve content'}],batches:[{id:'b',medicine_id:'m',quantity:2}],photos:[{id:'p',family_id:'f',medicine_id:'m',storage_key:'leaflets/p.png',size_bytes:photo.length}],drafts:[{id:'d',family_id:'f',payload:{name:'pending input'}}],careProfiles:[{id:'care',family_id:'f',display_name:'Preserve profile'}],plans:[{id:'plan',family_id:'f',status:'active'}],reminders:[{id:'reminder',family_id:'f',status:'pending'}]};
+  const snapshot={families:[{id:'f',name:'Household'}],members:[{id:'u',family_id:'f',role:'owner'}],medicines:[{id:'m',family_id:'f',name:'preserve content'}],batches:[{id:'b',medicine_id:'m',quantity:2}],photos:[{id:'p',family_id:'f',medicine_id:'m',storage_key:'leaflets/p.png',size_bytes:photo.length}],drafts:[{id:'d',family_id:'f',payload:{name:'pending input'}}],careProfiles:[{id:'care',family_id:'f',display_name:'Preserve profile'}],plans:[{id:'plan',family_id:'f',status:'active'}],planSlots:[{id:'slot',plan_id:'plan',time_of_day:'09:00'}],doseOccurrences:[],careGrants:[],doseReminders:[],reminders:[{id:'reminder',family_id:'f',status:'pending'}]};
   const evidence={candidate:candidateAt(),layer:'SYNTHETIC',before:put('before.json',JSON.stringify(snapshot)),after:put('after.json',JSON.stringify(snapshot)),photos:[{id:'p',storageKey:'leaflets/p.png',...put('photo.png',photo)}],backupDatabase:put('database.dump',Buffer.from('synthetic test binary dump')),backupPhotos:put('photos.tar.gz',Buffer.from('synthetic test archive')),buildImage:'sha256:'+'a'.repeat(64)};
   evidence.sourcePhotos=[{id:'p',storageKey:'leaflets/p.png',...put('source-photo.png',photo)}];
   const file=join(dir,'evidence.json');
@@ -25,6 +25,7 @@ for(const [name,mutate] of [
  ['corrupted byte claim',f=>{writeFileSync(join(f.dir,'photo.png'),'corrupt');}],
  ['empty before and after',f=>{f.evidence.before=f.put('before.json','{}');f.evidence.after=f.put('after.json','{}');}],
  ['same IDs with content DATA LOST',f=>{f.snapshot.medicines[0].name='DATA LOST';f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],
+ ['plan time lost with same plan ID',f=>{f.snapshot.planSlots[0].time_of_day='18:00';f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],
  ['care profile DATA LOST',f=>{f.snapshot.careProfiles[0].display_name='DATA LOST';f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],
  ['ownerless original and restored household',f=>{f.snapshot.members[0].role='member';f.evidence.before=f.put('before.json',JSON.stringify(f.snapshot));f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],
  ['owner role changed',f=>{f.snapshot.members[0].role='member';f.evidence.after=f.put('after.json',JSON.stringify(f.snapshot));}],

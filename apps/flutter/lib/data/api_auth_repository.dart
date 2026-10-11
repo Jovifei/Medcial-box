@@ -268,7 +268,10 @@ class ApiAuthRepository {
         (previousOwner.userId != user['id'] ||
             (previousOwner.familyId != null &&
                 previousOwner.familyId != family.id))) {
-      final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
+      final cleanupEpoch = await api.reportNoCurrentFamily(
+        epoch,
+        selectionChanged: previousOwner.userId == user['id'],
+      );
       _requireCurrentIdentity(cleanupEpoch);
       epoch = cleanupEpoch;
     }
@@ -408,7 +411,7 @@ class ApiFamilyRepository {
     final family = FamilyRecord.fromJson(value);
     final oldFamilyId = api.identityState?.owner?.familyId;
     if (oldFamilyId != null && oldFamilyId != family.id) {
-      epoch = await api.reportNoCurrentFamily(epoch);
+      epoch = await api.reportNoCurrentFamily(epoch, selectionChanged: true);
       if (epoch != api.identityEpoch) {
         throw const ApiException(
           statusCode: 401,

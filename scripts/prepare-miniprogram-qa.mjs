@@ -17,6 +17,10 @@ const reviewedSourceTrees = new Set([
   '387487e70af66a8203a91c5225d1701dd4a5c820',
   // Reviewed correction: family chooser uses existing guarded wx.navigateTo, no navigator view capability.
   '9c916f1557d640103c9154d66d3feb2b5302f2fe',
+  // Reviewed invite code/identity binding before confirm and delayed home navigation; existing capability set only.
+  '9a643c3aa1cd3b1fbd6a90dfb4ae46e396c166cd',
+  // Test-only Node timer import; production subtree capabilities unchanged from the preceding reviewed tree.
+  '90256d2471613e19bbf9607f69491079788f0349',
   '3ed0f8e6e410daf7fce1277d0e363caa52be3214',
   'abdef7419cb4abf00c54112456897ae05ebcbaba',
   '7a37461f3b3e3245151a91f3e02e8151d6c849e0',

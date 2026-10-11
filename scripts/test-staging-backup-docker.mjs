@@ -291,6 +291,7 @@ export async function exercise() {
       INSERT INTO care_profiles(family_id,display_name,linked_user_id,created_by) VALUES('${ids.family}','Synthetic A profile','${ids.user}','${ids.user}'),('${ids.family2}','Synthetic B profile','${ids.user2}','${ids.user2}');
       INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by)
         SELECT c.family_id,c.id,m.id,m.name,'Owner supplied synthetic text','2099-01-01',c.created_by FROM care_profiles c JOIN medicines m ON m.family_id=c.family_id;
+      INSERT INTO plan_time_slots(plan_id,time_of_day) SELECT id,'09:00'::time FROM medication_plans;
       INSERT INTO reminder_deliveries(family_id,user_id,medicine_id,batch_id,deadline_date,days_before,template_id)
         SELECT m.family_id,m.created_by,m.id,b.id,'2099-12-31',30,'synthetic-unused' FROM medicines m JOIN medicine_batches b ON b.medicine_id=m.id;
       COMMIT;
@@ -310,6 +311,10 @@ export async function exercise() {
       'drafts', '[]'::json,
       'careProfiles', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_profiles t),
       'plans', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medication_plans t),
+      'planSlots', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM plan_time_slots t),
+      'doseOccurrences', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_occurrences t),
+      'careGrants', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_grants t),
+      'doseReminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_reminder_deliveries t),
       'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t));`;
     const beforeRecords = (await sql(dbId, snapshotSql)).stdout.trim();
     const backup = async (name, expectedError) => {

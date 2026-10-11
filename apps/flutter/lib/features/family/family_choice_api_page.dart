@@ -10,12 +10,17 @@ class FamilyChoiceApiPage extends StatelessWidget {
   final ApiFamilyRepository repository;
 
   Future<void> _create(BuildContext context) async {
+    final epoch = repository.api.identityEpoch;
     final name = await showAppSheet<String>(
       context,
       title: '创建家庭药箱',
       builder: (_) => const _CreateFamilyForm(),
     );
-    if (name == null || !context.mounted) return;
+    if (name == null ||
+        !context.mounted ||
+        epoch != repository.api.identityEpoch) {
+      return;
+    }
     try {
       await repository.createFamily(name);
       if (context.mounted) context.go('/home');
@@ -25,15 +30,20 @@ class FamilyChoiceApiPage extends StatelessWidget {
   }
 
   Future<void> _join(BuildContext context) async {
+    final epoch = repository.api.identityEpoch;
     final code = await showAppSheet<String>(
       context,
       title: '加入家人的药箱',
       builder: (_) => const _JoinFamilyForm(),
     );
-    if (code == null || !context.mounted) return;
+    if (code == null ||
+        !context.mounted ||
+        epoch != repository.api.identityEpoch) {
+      return;
+    }
     try {
       final preview = await repository.previewInvitation(code);
-      if (!context.mounted) return;
+      if (!context.mounted || epoch != repository.api.identityEpoch) return;
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -53,7 +63,11 @@ class FamilyChoiceApiPage extends StatelessWidget {
           ],
         ),
       );
-      if (confirmed != true || !context.mounted) return;
+      if (confirmed != true ||
+          !context.mounted ||
+          epoch != repository.api.identityEpoch) {
+        return;
+      }
       await repository.acceptInvitation(code);
       if (context.mounted) context.go('/home');
     } catch (error) {

@@ -153,6 +153,48 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  test('authoritative family selection after uncertain switch retains original inputs and fences old 401', () async {
+    final entered = Completer<void>();
+    final response = Completer<http.Response>();
+    final services = await serviceWith(
+      (request) async {
+        if (request.url.path == '/api/v1/medicines') return inventory();
+        if (request.url.path == '/synthetic-delayed') {
+          expect(request.headers['x-family-id'], 'family-a');
+          entered.complete();
+          return response.future;
+        }
+        return jsonResponse({
+          'user': {'id': 'synthetic-user', 'hasFamily': true},
+          'family': {'id': 'family-b', 'name': 'B', 'role': 'member'},
+        });
+      },
+      secrets: secrets,
+      local: local,
+    );
+    await seedFamily(services);
+    await services.localStore.saveDraft(
+      'owned-a-original',
+      'original-key-and-payload',
+    );
+    await services.localStore.saveDraft('owned-b-original', 'B pending input');
+    final old = expectLater(
+      services.api!.get('/synthetic-delayed'),
+      throwsA(isA<ApiException>()),
+    );
+    await entered.future;
+    expect((await services.auth!.getCurrentUser()).family!.id, 'family-b');
+    expect(local.inventory, isNull);
+    expect(notifications.pending, isEmpty);
+    response.complete(apiError('UNAUTHORIZED', 401));
+    await old;
+    expect(local.family!.id, 'family-b');
+    expect(local.drafts['owned-a-original'], 'original-key-and-payload');
+    expect(local.drafts['owned-b-original'], 'B pending input');
+    expect(services.api!.identityState!.owner!.familyId, 'family-b');
+    expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
+  });
+
   test('current FAMILY_NOT_FOUND clears stock alarms and private family cache but retains login', () async {
     final methods = <String>[];
     final services = await serviceWith(
