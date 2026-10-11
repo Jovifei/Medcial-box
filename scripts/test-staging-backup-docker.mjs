@@ -1,6 +1,7 @@
 // CI-only synthetic transport check. This is not a staging restore command.
 // No API server, provider request, host port, production data, or saved credentials.
 import assert from "node:assert/strict";
+import { candidateAt, hash, verifyEvidence } from "./family-pilot-evidence.mjs";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -280,6 +281,17 @@ export async function exercise() {
     assert.equal(migrations.length, (await readdir(join(root, "apps/api/db/migrations"))).filter((name) => /^\d+_.*\.sql$/.test(name)).length);
     assert(migrations.length > 0);
 
+    // Source content is read from the actual synthetic database before backup.
+    const snapshotSql = `SELECT json_build_object(
+      'families', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM families t),
+      'members', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM family_members t),
+      'medicines', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicines t),
+      'batches', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_batches t),
+      'photos', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_leaflet_photos t),
+      'drafts', '[]'::json,
+      'plans', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medication_plans t),
+      'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t));`;
+    const beforeRecords = (await sql(dbId, snapshotSql)).stdout.trim();
     const backup = async (name, expectedError) => {
       checkpoint();
       const directory = join(scratch, name);
@@ -350,6 +362,24 @@ export async function exercise() {
         const file = await stat('${uploadRoot}/' + key);
         assert(process.getuid() > 0); assert.equal(file.uid, process.getuid()); assert.equal(file.mode & 0o777, 0o600);
       `]);
+    const evidenceDirectory = join(root, "var", "family-pilot-backup");
+    await mkdir(evidenceDirectory, {recursive:true});
+    const artifact = async (name, bytes) => {
+      await writeFile(join(evidenceDirectory,name),bytes);
+      return {path:name,sha256:hash(bytes)};
+    };
+    const actualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
+      ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey}').toString('base64'))`]);
+    const evidence = {candidate:candidateAt(root),layer:"SYNTHETIC",buildImage:appImage,
+      before:await artifact("before.json",beforeRecords),
+      after:await artifact("after.json",(await sql(restoreId,snapshotSql)).stdout.trim()),
+      backupDatabase:await artifact("database.dump",await readFile(join(complete,"database.dump"))),
+      backupPhotos:await artifact("photos.tar.gz",await readFile(join(complete,"photos.tar.gz"))),
+      photos:[{id:ids.photo,storageKey:photoKey,...await artifact("restored-photo.png",Buffer.from(actualPhotoBase64,"base64"))}],
+    };
+    const evidenceFile=join(evidenceDirectory,"evidence.json");
+    await writeFile(evidenceFile,JSON.stringify(evidence,null,2));
+    console.log(JSON.stringify(verifyEvidence(evidenceFile,{restore:true,root})));
     checkpoint();
     assert.equal((await docker(["inspect", "--format", "{{.State.Status}}", apiId])).stdout.trim(), "created");
     console.log(`PASS: ${migrations.length} actual migrations, restored medicine/photo association, exact PNG bytes, non-root owner + mode0600`);

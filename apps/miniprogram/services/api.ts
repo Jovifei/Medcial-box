@@ -1,8 +1,10 @@
 // 统一网络层：Bearer 令牌注入、统一错误 shape 解析（{ error: { code, message } }）、
 // 401 自动清除本地令牌。所有页面经由本模块访问后端，不直接调用 wx.request。
 import { API_BASE } from "./config";
-import { clearSessionScope } from "./session-scope";
+import { clearSessionScope, readSessionScope } from "./session-scope";
 import type {
+  FamilyListResponse,
+  SwitchFamilyResponse,
   NotificationPreferences,
   AcceptInvitationResponse,
   AppDeviceLinkApproveResponse,
@@ -199,6 +201,8 @@ export function request<T>(options: RequestOptions): Promise<T> {
     const authenticated = options.anonymous !== true;
     const header: Record<string, string> = { "content-type": "application/json" };
     if (authenticated && identity.token !== "") header.authorization = `Bearer ${identity.token}`;
+    const scope = readSessionScope();
+    if (authenticated && scope?.familyId && options.path !== "/api/v1/auth/me" && options.path !== "/api/v1/families" && !options.changesFamily) header["x-family-id"] = scope.familyId;
     wx.request({
       url: `${API_BASE}${options.path}`,
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
@@ -274,7 +278,7 @@ export const api = {
       const token = identity.token;
       wx.downloadFile({
         url: `${API_BASE}/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos/${encodeURIComponent(photoId)}`,
-        header: token === "" ? {} : { authorization: `Bearer ${token}` },
+        header: token === "" ? {} : { authorization: `Bearer ${token}`, ...(readSessionScope()?.familyId ? { "x-family-id": readSessionScope()!.familyId } : {}) },
         success: (response) => {
           if (!isCurrentSession(identity)) { reject(staleSessionError()); return; }
           if (response.statusCode >= 200 && response.statusCode < 300 && response.tempFilePath) {
@@ -331,6 +335,12 @@ export const api = {
     });
   },
 
+  listFamilies(): Promise<FamilyListResponse> {
+    return request({ method: "GET", path: "/api/v1/families" });
+  },
+  switchFamily(familyId: string): Promise<SwitchFamilyResponse> {
+    return request({ method: "POST", path: `/api/v1/families/${encodeURIComponent(familyId)}/switch`, changesFamily: true });
+  },
   getCurrentFamily(): Promise<GetCurrentFamilyResponse> {
     return request<GetCurrentFamilyResponse>({ method: "GET", path: "/api/v1/families/current" });
   },

@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"家庭设置"}
+{
+  "navigationBarTitleText": "家庭设置",
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

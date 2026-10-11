@@ -30,6 +30,7 @@ export function scriptMultiUserSessions(pool, users) {
       id: `session-${user.userId}`,
       user_id: user.userId,
       expires_at: FUTURE_ISO,
+      active_family_id: user.membership?.family_id ?? null,
     });
     userByOpenid.set(user.openid, { id: user.userId, openid: user.openid, nickname: null });
     membershipByUser.set(user.userId, user.membership ?? null);
@@ -44,8 +45,9 @@ export function scriptMultiUserSessions(pool, users) {
   });
   pool.always(/FROM family_members WHERE user_id/, (sql, params) => {
     const row = membershipByUser.get(params[0]);
-    return row ? { rows: [row], rowCount: 1 } : { rows: [], rowCount: 0 };
+    return row && (params.length < 2 || row.family_id === params[1]) ? { rows: [row], rowCount: 1 } : { rows: [], rowCount: 0 };
   });
+  pool.always(/UPDATE sessions SET active_family_id/, [{id: "session-synthetic"}]);
   return {
     removeMembership(userId) {
       membershipByUser.delete(userId);
@@ -89,12 +91,14 @@ export async function login(app, pool, options = {}) {
       ? { rows: [options.membership], rowCount: 1 }
       : { rows: [], rowCount: 0 },
   );
+  pool.always(/FROM family_members fm JOIN families f/, options.membership ? [options.membership] : []);
+  pool.always(/UPDATE sessions SET active_family_id/, [{id: "session-1"}]);
   pool.always(/INSERT INTO sessions/, {
     rows: [{ id: "session-1", expires_at: FUTURE_ISO }],
     rowCount: 1,
   });
   pool.always(/FROM sessions WHERE token_hash/, {
-    rows: [{ id: "session-1", user_id: userId, expires_at: FUTURE_ISO }],
+    rows: [{ id: "session-1", user_id: userId, expires_at: FUTURE_ISO, active_family_id: options.membership?.family_id ?? null }],
     rowCount: 1,
   });
 

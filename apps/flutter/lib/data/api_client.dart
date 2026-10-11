@@ -315,6 +315,10 @@ class ApiClient {
     }
     if (token != null && token.isNotEmpty) {
       headers['authorization'] = 'Bearer $token';
+      final familyId = identityState?.owner?.familyId;
+      if (familyId != null && path != '/api/v1/auth/me' && path != '/api/v1/families' && !path.endsWith('/switch') && path != '/api/v1/families/invitations/accept') {
+        headers['x-family-id'] = familyId;
+      }
     }
     final uri = Uri.parse('$baseUrl${path.startsWith('/') ? path : '/$path'}');
 

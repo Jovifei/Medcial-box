@@ -1,6 +1,5 @@
 // families / family_members 表仓储。
-// 不变量：每账号仅一个家庭（family_members.user_id UNIQUE），
-// 服务端在创建/加入前先显式预检，数据库约束兜底。
+// 不变量：同一家庭每账号一个成员关系；选择由会话管理。
 import type { Database, QueryRunner } from "../types.js";
 
 export type MemberRole = "owner" | "member";
@@ -105,10 +104,11 @@ export async function deleteMemberById(
 export async function deleteMembershipByUserId(
   database: QueryRunner,
   userId: string,
+  familyId: string,
 ): Promise<boolean> {
   const result = await database.query<{ id: string }>(
-    "DELETE FROM family_members WHERE user_id = $1 RETURNING id",
-    [userId],
+    "DELETE FROM family_members WHERE user_id = $1 AND family_id = $2 RETURNING id",
+    [userId, familyId],
   );
   return result.rowCount !== 0;
 }

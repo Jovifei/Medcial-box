@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"库存盘点","enablePullDownRefresh":true}
+{
+  "navigationBarTitleText": "库存盘点",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

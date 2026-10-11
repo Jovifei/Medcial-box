@@ -3,7 +3,7 @@
 //   邀请码参数，家人点卡片直达本页自动填充）+ 复制文本邀请码兜底；
 // - 无家庭用户：点分享卡片进入自动填充邀请码，或手动粘贴加入；
 // - 普通成员：可自助退出家庭（D3）；owner 可先转让所有权再退出。
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn, logout as logoutSession } from "../../services/auth";
 import type { FamilyMemberSummary } from "../../services/api-types";
 
@@ -115,6 +115,12 @@ Page({
         return;
       }
       showError(error);
+      return;
+    }
+    if (this.pendingCode !== "" || this.data.inviteInput !== "") {
+      this.setData({ mode: "join" });
+      if (this.pendingCode !== "") { this.setData({ inviteInput: this.pendingCode }); this.pendingCode = ""; }
+      await this.onPreviewInvitation();
       return;
     }
     try {
@@ -268,26 +274,19 @@ Page({
       await this.onPreviewInvitation();
       return;
     }
+    const identity = captureSessionIdentity();
     const confirmed = await confirmModal(
       "确认加入家庭",
       `将加入「${data.preview.familyName}」。邀请码使用后不能再次使用，确定加入吗？`,
     );
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity)) return;
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn({ allowInteractive: false });
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
-      setTimeout(() => wx.reLaunch({ url: "/pages/index/index" }), 900);
+      setTimeout(() => wx.switchTab({ url: "/pages/index/index" }), 900);
     } catch (error) {
-      if (error instanceof ApiError && error.code === "ALREADY_IN_FAMILY") {
-        wx.showModal({
-          title: "已在家庭中",
-          content: "每个账号只能属于一个家庭。如需更换，可先在邀请页使用“退出家庭”，再使用新邀请码；药品不会自动搬移或合并。",
-          showCancel: false,
-        });
-        return;
-      }
       showError(error);
     } finally {
       this.setData({ submitting: false });
@@ -307,7 +306,7 @@ Page({
     try {
       await api.leaveFamily();
       wx.showToast({ title: "已退出家庭", icon: "success" });
-      setTimeout(() => wx.reLaunch({ url: "/pages/index/index" }), 900);
+      setTimeout(() => wx.switchTab({ url: "/pages/index/index" }), 900);
     } catch (error) {
       showError(error);
     } finally {

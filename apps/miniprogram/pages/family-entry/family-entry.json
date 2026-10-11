@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "选择家庭药箱",
-  "usingComponents": {}
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
 }

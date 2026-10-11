@@ -22,11 +22,13 @@ import {
   deleteMembershipByUserId,
   findFamilyById,
   findMemberById,
-  findMembershipByUserId,
+
   insertFamilyMember,
   updateMemberRole,
   updateMemberRoleByUserId,
 } from "../repositories/families.js";
+import { findMembershipInFamily, selectSessionFamily } from "../repositories/family-context.js";
+import type { FamilyInviteRow } from "../repositories/invites.js";
 import { consumeInvite, findInviteByTokenHash, insertInvite } from "../repositories/invites.js";
 import { cancelDeliveriesForMember } from "../jobs/reminder-scheduler.js";
 import { cancelDoseReminders, cancelDoseRemindersForMember } from "../jobs/dose-reminder-scheduler.js";
@@ -118,51 +120,35 @@ export async function registerInvitationRoutes(
     }
 
     const tokenHash = sha256Hex(code);
-    const invite = await findInviteByTokenHash(database, tokenHash);
-    if (invite === null) {
-      return reply.code(404).send(errorBody("NOT_FOUND", "邀请码无效或已被撤销"));
-    }
-    if (new Date(toIso(invite.expires_at)).getTime() <= Date.now()) {
-      return reply.code(410).send(errorBody("INVITATION_EXPIRED", "邀请码已过期，请向 owner 重新索取"));
-    }
-    if (invite.used_at !== null) {
-      return reply.code(410).send(errorBody("INVITATION_USED", "邀请码已被使用"));
-    }
-
-    // 已有家庭的用户不得加入第二个家庭（不自动搬移/合并药品）。
-    const existingMembership = await findMembershipByUserId(database, auth.userId);
-    if (existingMembership !== null) {
-      return reply
-        .code(409)
-        .send(errorBody("ALREADY_IN_FAMILY", "已属于一个家庭，如需更换请先由 owner 移除"));
-    }
-
-    // 事务绑定同一连接：先建成员关系，再原子消费邀请；消费失败（并发复用）整体回滚。
+    // Lock the invitation and household inside the same transaction. Replays
+    // by its consumer return the membership; another code is never consumed
+    // merely because this user already belongs to the target household.
     try {
       return await database.withTransaction(async (tx) => {
-        const membership = await insertFamilyMember(tx, invite.family_id, auth.userId, "member");
-        const consumed = await consumeInvite(tx, tokenHash, auth.userId);
-        if (consumed === null) {
-          throw new TransactionConflictError(
-            410,
-            errorBody("INVITATION_USED", "邀请码已被使用，请向 owner 重新索取"),
-          );
+        const lookup = await tx.query<FamilyInviteRow>(
+          "SELECT id, family_id, token_hash, created_by, expires_at, used_at, used_by, created_at FROM family_invites WHERE token_hash = $1 FOR UPDATE", [tokenHash]);
+        const invite = lookup.rows[0];
+        if (!invite) throw new TransactionConflictError(404, errorBody("NOT_FOUND", "邀请码无效或已被撤销"));
+        await tx.query("SELECT id FROM families WHERE id = $1 FOR UPDATE", [invite.family_id]);
+        let membership = await findMembershipInFamily(tx, auth.userId, invite.family_id);
+        if (invite.used_at !== null && (invite.used_by !== auth.userId || membership === null)) {
+          throw new TransactionConflictError(410, errorBody("INVITATION_USED", "邀请码已被使用"));
+        }
+        if (invite.used_at === null && new Date(toIso(invite.expires_at)).getTime() <= Date.now()) {
+          throw new TransactionConflictError(410, errorBody("INVITATION_EXPIRED", "邀请码已过期"));
+        }
+        if (membership === null) {
+          membership = await insertFamilyMember(tx, invite.family_id, auth.userId, "member");
+          if (await consumeInvite(tx, tokenHash, auth.userId) === null) {
+            throw new TransactionConflictError(410, errorBody("INVITATION_USED", "邀请码已被使用或过期"));
+          }
         }
         const family = await findFamilyById(tx, invite.family_id);
-        if (family === null) {
-          throw new TransactionConflictError(
-            404,
-            errorBody("NOT_FOUND", "邀请对应的家庭不存在"),
-          );
-        }
-        return {
-          family: { id: family.id, name: family.name },
-          membership: {
-            id: membership.id,
-            role: asMemberRole(membership.role),
-            joinedAt: toIso(membership.joined_at),
-          },
-        };
+        if (!family) throw new TransactionConflictError(404, errorBody("NOT_FOUND", "家庭不存在"));
+        await selectSessionFamily(tx, auth.userId, auth.sessionId, family.id);
+        return { family: { id: family.id, name: family.name }, membership: {
+          id: membership.id, role: asMemberRole(membership.role), joinedAt: toIso(membership.joined_at),
+        } };
       });
     } catch (error) {
       if (error instanceof TransactionConflictError) {
@@ -300,7 +286,7 @@ export async function registerInvitationRoutes(
         }
         const careOwned = await tx.query(`SELECT id FROM care_profiles WHERE family_id=$1 AND linked_user_id IS NULL AND COALESCE(managed_by,created_by)=$2 AND archived_at IS NULL FOR UPDATE`, [ctx.familyId, auth.userId]);
         if ((careOwned.rowCount ?? 0) > 0) throw new TransactionConflictError(409, errorBody("CARE_HANDOVER_REQUIRED", "请先交接或归档本人管理的照护对象，再退出或移除成员"));
-        const deleted = await deleteMembershipByUserId(tx, auth.userId);
+        const deleted = await deleteMembershipByUserId(tx, auth.userId, ctx.familyId);
         if (!deleted) {
           throw new TransactionConflictError(404, NOT_FOUND_BODY);
         }

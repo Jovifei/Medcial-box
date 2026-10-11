@@ -41,21 +41,25 @@ test("creating a family makes the user owner inside one transaction", async () =
   }
 });
 
-test("a user already in a family cannot create a second one (409)", async () => {
+test("explicit creation preserves an existing membership and selects the new household", async () => {
   const pool = createFakePool();
   const gateway = createTestGateway({ "js-code-1": "openid-user-1" });
   const app = await createApp(pool, gateway);
   try {
     await login(app, pool, { membership: membershipRow() });
+    pool.on(/INSERT INTO families/, [familyRow({id: "family-2", name: "另一个家庭"})]);
+    pool.on(/INSERT INTO family_members/, [membershipRow({family_id: "family-2", role: "owner"})]);
+    pool.on(/FROM family_members WHERE user_id.*family_id.*FOR SHARE/, [membershipRow({family_id: "family-2"})]);
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/families",
       ...authHeader(),
       payload: { name: "另一个家庭" },
     });
-    assert.equal(response.statusCode, 409);
-    assert.equal(response.json().error.code, "ALREADY_IN_FAMILY");
-    assert.equal(pool.callsMatching(/INSERT INTO families/).length, 0);
+    assert.equal(response.statusCode, 201, response.body);
+    assert.equal(response.json().family.id, "family-2");
+    assert.equal(pool.callsMatching(/DELETE FROM family_members/).length, 0);
+    assert.deepEqual(pool.callsMatching(/UPDATE sessions SET active_family_id/)[0].params, ["session-1", "user-1", "family-2"]);
   } finally {
     await app.close();
   }

@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "登录JF小药箱",
-  "usingComponents": {}
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
 }

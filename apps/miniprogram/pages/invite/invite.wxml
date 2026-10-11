@@ -20,7 +20,7 @@
   </view>
 
   <!-- 无家庭：点卡片自动填充，或手动粘贴邀请码加入 -->
-  <view class="card" wx:if="{{mode === 'join'}}">
+  <view class="card" wx:if="{{mode !== 'loading'}}">
     <view class="section-title">加入家庭</view>
     <view class="hint">家人通过微信转发邀请卡片进入本页会自动填入邀请码；也可以让管理员复制邀请码发给你，粘贴到下方。</view>
     <view class="field">
@@ -43,9 +43,11 @@
   <!-- 普通成员：可自助退出（D3） -->
   <view class="card" wx:if="{{mode === 'member'}}">
     <view class="section-title">已在家庭（{{familyName}}）</view>
-    <view class="hint">邀请与移除成员由家庭管理员管理。每个账号只属于一个家庭；退出后立即失去本药箱的访问权限，重新加入需要新的邀请（药品不会自动搬移或合并）。</view>
+    <view class="hint">邀请与移除成员由家庭管理员管理。你可保留自己的家庭并加入其他家庭；退出后立即失去本药箱的访问权限，重新加入需要新的邀请（药品不会自动搬移或合并）。</view>
     <view class="btn btn-ghost" bindtap="onOpenFamily">打开我的家庭</view>
   </view>
 
   <view class="hint footnote">家庭共享仅同步库存管理信息；个人剂量备注默认仅本人可见，主动选择"全家可见"后其他成员只读。</view>
 </view>
+
+<business-nav />

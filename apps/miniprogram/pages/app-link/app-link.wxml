@@ -11,3 +11,5 @@
   </view>
   <view class="safety-note">只输入你自己正在使用的 App 显示的连接码。连接码不会在本页预览家庭药品数据。</view>
 </view>
+
+<business-nav />

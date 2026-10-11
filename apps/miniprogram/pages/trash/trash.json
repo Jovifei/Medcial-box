@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"最近删除","enablePullDownRefresh":true}
+{
+  "navigationBarTitleText": "最近删除",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

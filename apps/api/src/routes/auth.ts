@@ -18,6 +18,7 @@ import {
   findFamilyById,
   findMembershipByUserId,
 } from "../repositories/families.js";
+import { findMembershipInFamily } from "../repositories/family-context.js";
 import { clientAddress, createRateLimiter } from "../rate-limit.js";
 
 const MAX_NICKNAME_LENGTH = 40;
@@ -128,11 +129,11 @@ export async function registerAuthRoutes(
         [link.id],
       );
       if (consumed.rowCount === 0) return { state: "expired" as const };
-      const membership = await findMembershipByUserId(tx, link.user_id);
+      const membership = link.family_id === null ? null : await findMembershipInFamily(tx, link.user_id, link.family_id);
       if (membership === null || membership.family_id !== link.family_id) return { state: "expired" as const };
       await tx.query(
-        "INSERT INTO sessions (user_id, token_hash, expires_at, client_kind) VALUES ($1, $2, $3, 'android')",
-        [link.user_id, sha256Hex(token), expiresAt],
+        "INSERT INTO sessions (user_id, token_hash, expires_at, client_kind, active_family_id) VALUES ($1, $2, $3, 'android', $4)",
+        [link.user_id, sha256Hex(token), expiresAt, link.family_id],
       );
       return {
         state: "approved" as const,

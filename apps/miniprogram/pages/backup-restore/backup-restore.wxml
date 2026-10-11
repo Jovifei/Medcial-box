@@ -23,3 +23,5 @@
   </view>
   <view class="safety-note">数据库和说明书照片仍需通过服务器备份单独恢复。JSON 文件请保存在可信位置。</view>
 </view>
+
+<business-nav />

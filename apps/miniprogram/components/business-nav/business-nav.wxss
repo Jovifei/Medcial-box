@@ -1,0 +1,2 @@
+.business-nav { display:flex; flex-wrap:wrap; gap:8rpx; padding:24rpx 8rpx; padding-bottom:calc(24rpx + env(safe-area-inset-bottom)); background:#fff; border-top:1rpx solid #dce5de; }
+.business-nav button { flex:1 1 40%; font-size:28rpx; white-space:normal; color:#3f7d5c; margin:0; }

@@ -68,6 +68,7 @@ class FamilyChoiceApiPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('家庭药箱')),
+    bottomNavigationBar: SafeArea(child: TextButton(onPressed: () => context.go('/home'), child: const Text('返回药箱首页'))),
     body: AppPage(
       child: Center(
         child: ConstrainedBox(
@@ -79,6 +80,20 @@ class FamilyChoiceApiPage extends StatelessWidget {
               const SizedBox(height: 8),
               const Text('家庭成员共享药品库存。加入前会先显示家庭名称供你核对。'),
               const SizedBox(height: 24),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: repository.listFamilies(),
+                builder: (context, snapshot) => Column(children: [
+                  if (snapshot.hasError) TextButton(onPressed: () => _showError(context, snapshot.error!), child: const Text('家庭列表暂不可用')),
+                  for (final family in snapshot.data ?? <Map<String, dynamic>>[]) ListTile(
+                    title: Text(family['name'] as String),
+                    subtitle: Text(family['isCurrent'] == true ? '当前家庭' : family['role'] == 'owner' ? '管理员' : '成员'),
+                    onTap: () async {
+                      try { await repository.switchFamily(family['familyId'] as String); if (context.mounted) context.go('/home'); }
+                      catch (error) { if (context.mounted) _showError(context, error); }
+                    },
+                  ),
+                ]),
+              ),
               choiceTile(
                 context,
                 icon: Icons.add_home_rounded,

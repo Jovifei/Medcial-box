@@ -8,8 +8,10 @@ import type { AuthContext, Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
 import {
   asMemberRole,
-  findMembershipByUserId,
+
 } from "../repositories/families.js";
+
+import { findMembershipInFamily, listFamilyContextsByUserId } from "../repositories/family-context.js";
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
 
@@ -39,9 +41,11 @@ export async function issueSessionToken(
 ): Promise<IssuedSession> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+  const memberships = await listFamilyContextsByUserId(database, userId);
+  const familyId = memberships.length === 1 ? memberships[0].family_id : null;
   await database.query(
-    "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-    [userId, sha256Hex(token), expiresAt],
+    "INSERT INTO sessions (user_id, token_hash, expires_at, active_family_id) VALUES ($1, $2, $3, $4)",
+    [userId, sha256Hex(token), expiresAt, familyId],
   );
   return { token, expiresAt };
 }
@@ -76,6 +80,7 @@ interface SessionLookupRow {
   id: string;
   user_id: string;
   expires_at: Date | string;
+  active_family_id: string | null;
 }
 
 export async function registerAuth(
@@ -108,7 +113,7 @@ export async function authenticateRequest(
   }
 
   const sessions = await database.query<SessionLookupRow>(
-    "SELECT id, user_id, expires_at FROM sessions WHERE token_hash = $1",
+    "SELECT id, user_id, expires_at, active_family_id FROM sessions WHERE token_hash = $1",
     [sha256Hex(token)],
   );
   const session = sessions.rows[0];
@@ -122,7 +127,17 @@ export async function authenticateRequest(
   }
 
   // 成员关系每次请求都查库：owner 移除成员后其会话立即失去家庭数据访问。
-  const membership = await findMembershipByUserId(database, session.user_id);
+  const requestedFamily = request.headers["x-family-id"];
+  if (requestedFamily !== undefined && (typeof requestedFamily !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedFamily))) {
+    reply.code(400).send(errorBody("VALIDATION_ERROR", "家庭标识格式不正确")); return;
+  }
+  // Explicit request scope freezes in-flight writes to their original family.
+  // Selection remains session-scoped; every supplied scope is reauthorized.
+  const familyId = requestedFamily ?? session.active_family_id;
+  const membership = familyId ? await findMembershipInFamily(database, session.user_id, familyId) : null;
+  if (requestedFamily && membership === null) {
+    reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "当前成员关系不存在")); return;
+  }
   request.auth = {
     userId: session.user_id,
     sessionId: session.id,

@@ -2,6 +2,7 @@
   "navigationBarTitleText": "药品录入 / 编辑",
   "navigationStyle": "custom",
   "usingComponents": {
-    "medicine-date-field": "../../components/medicine-date-field/index"
+    "medicine-date-field": "../../components/medicine-date-field/index",
+    "business-nav": "../../components/business-nav/business-nav"
   }
 }

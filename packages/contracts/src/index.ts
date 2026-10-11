@@ -633,3 +633,7 @@ export interface DoseReminderScheduleResponse {
   timezone: "Asia/Shanghai";
   entries: DoseReminderScheduleEntry[];
 }
+
+/** Explicit per-session household selection; inventory ownership never moves. */
+export interface FamilyListResponse { families: { familyId: string; name: string; role: "owner" | "member"; isCurrent: boolean }[] }
+export interface SwitchFamilyResponse { familyId: string; role: "owner" | "member" }

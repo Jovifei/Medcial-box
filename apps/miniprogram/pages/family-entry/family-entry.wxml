@@ -1,3 +1,4 @@
+<view class="card" wx:if="{{families.length}}"><view class="section-title">选择当前家庭</view><button wx:for="{{families}}" wx:key="familyId" data-family-id="{{item.familyId}}" bindtap="onSwitchFamily" disabled="{{submitting}}">{{item.name}} · {{item.role === "owner" ? "管理员" : "成员"}}{{item.isCurrent ? "（当前）" : ""}}</button></view>
 <view class="page">
   <view class="hero">
     <view class="eyebrow">欢迎使用家庭药箱</view>
@@ -33,3 +34,5 @@
 
   <view class="safety-note hint">家庭药箱仅用于库存管理，库存存在不代表适合任何人服用。</view>
 </view>
+
+<business-nav />

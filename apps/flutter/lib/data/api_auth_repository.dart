@@ -445,6 +445,17 @@ class ApiFamilyRepository {
     return family;
   }
 
+  Future<List<Map<String, dynamic>>> listFamilies() async {
+    final json = await api.get('/api/v1/families') as Map<String, dynamic>;
+    return (json['families'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<FamilyRecord> switchFamily(String id) => api.transitionIdentity(() async {
+    await api.post('/api/v1/families/${Uri.encodeComponent(id)}/switch');
+    await _clearPreviousFamilySnapshot();
+    return getCurrentFamily();
+  });
+
   Future<FamilyRecord> createFamily(String name) =>
       api.transitionIdentity(() => _createFamily(name));
 

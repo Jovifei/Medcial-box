@@ -196,3 +196,5 @@
     <view class="btn btn-ghost" data-choice="continue" bindtap="onLeaveChoice">继续编辑</view>
   </view>
 </view>
+
+<business-nav />

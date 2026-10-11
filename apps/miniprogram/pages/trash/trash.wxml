@@ -9,3 +9,5 @@
     <view class="btn btn-ghost" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="onRestore">{{restoringId === item.id ? "恢复中…" : "恢复记录"}}</view>
   </view>
 </view>
+
+<business-nav />

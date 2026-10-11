@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'app_stores.dart';
 
 class MedicineDraftQueue {
-  MedicineDraftQueue(this.store, {this.isCurrent, this.scope});
+  MedicineDraftQueue(this.store, {this.isCurrent, this.scope, this.ownerKey});
   final LocalAppStore store;
+  final String? ownerKey;
+  String get scopedKey => ownerKey == null ? storageKey : "$storageKey.$ownerKey";
   // A page may bind this queue to the identity that owns its draft intent.
   // Recheck after reads: store-level write fencing cannot reject a stale
   // callback that only enqueues its write after identity cleanup completed.
@@ -40,7 +42,7 @@ class MedicineDraftQueue {
 
   static const storageKey = 'medicine-entry-queue.v1';
   Future<List<Map<String, dynamic>>> list() async {
-    final raw = await store.readDraft(storageKey);
+    final raw = await store.readDraft(scopedKey);
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
         .whereType<Map<String, dynamic>>()
@@ -62,12 +64,12 @@ class MedicineDraftQueue {
           entries.removeAt(index);
           entries.add(draft);
         }
-        await store.saveDraft(storageKey, jsonEncode(entries));
+        await store.saveDraft(scopedKey, jsonEncode(entries));
       });
   Future<void> remove(String id) => _mutate(() async {
     final entries = await list();
     if (!(isCurrent?.call() ?? true)) return;
     entries.removeWhere((item) => item['id'] == id);
-    await store.saveDraft(storageKey, jsonEncode(entries));
+    await store.saveDraft(scopedKey, jsonEncode(entries));
   });
 }

@@ -20,3 +20,5 @@
     <view class="btn btn-ghost" bindtap="onOpenPending">打开待处理列表</view>
   </view>
 </view>
+
+<business-nav />

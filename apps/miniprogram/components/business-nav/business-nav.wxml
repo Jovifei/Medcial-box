@@ -1,0 +1,6 @@
+<view class="business-nav">
+<button data-url="/pages/index/index" bindtap="go" disabled="{{busy}}">药箱首页</button>
+<button data-url="/pages/medication-plans/medication-plans" bindtap="go" disabled="{{busy}}">用药计划</button>
+<button data-url="/pages/pending/pending" bindtap="go" disabled="{{busy}}">待处理</button>
+<button data-url="/pages/mine/mine" bindtap="go" disabled="{{busy}}">我的</button>
+</view>

@@ -179,3 +179,4 @@
 </view>
 
 <view class="quantity-mask" wx:if="{{quantityPanelId}}"><view class="quantity-sheet"><view class="section-title">修改这份库存的余量</view><input class="input" type="digit" value="{{quantityPanelInput}}" bindinput="onQuantityPanelInput" placeholder="留空表示未知，0表示已用完" /><view class="btn btn-primary" bindtap="onSaveQuantityPanel">{{quantityPanelBusy ? "保存中…" : "保存余量"}}</view><view class="btn btn-ghost" bindtap="onCancelQuantityPanel">取消</view></view></view>
+<business-nav />

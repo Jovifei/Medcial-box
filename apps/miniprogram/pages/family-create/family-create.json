@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "创建家庭",
-  "usingComponents": {}
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
 }

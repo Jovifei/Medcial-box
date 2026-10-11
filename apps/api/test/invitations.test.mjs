@@ -343,26 +343,27 @@ test("an unknown invitation code is a 404 that leaks nothing; blank code is 400"
   }
 });
 
-test("a user already in a family cannot accept another invitation (409, invite not consumed)", async () => {
+test("existing membership in the target returns idempotently without consuming a new invitation", async () => {
   const pool = createFakePool();
   const { app } = await twoUserApp(pool);
   try {
     const code = "any-valid-code";
     pool.always(/FROM family_invites WHERE token_hash/, (sql, params) => {
       return params[0] === sha256hex(code)
-        ? { rows: [{ id: "invite-1", family_id: "family-2", token_hash: params[0], created_by: "user-3", expires_at: new Date(Date.now() + 3600_000).toISOString(), used_at: null, used_by: null, created_at: new Date().toISOString() }], rowCount: 1 }
+        ? { rows: [{ id: "invite-1", family_id: "family-1", token_hash: params[0], created_by: "user-3", expires_at: new Date(Date.now() + 3600_000).toISOString(), used_at: null, used_by: null, created_at: new Date().toISOString() }], rowCount: 1 }
         : { rows: [], rowCount: 0 };
     });
 
     // user-2 已在 family-1（twoUserApp 脚本）。
+    pool.always(/FROM families WHERE id/, [familyRow()]);
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/families/invitations/accept",
       ...memberHeader(),
       payload: { code },
     });
-    assert.equal(response.statusCode, 409);
-    assert.equal(response.json().error.code, "ALREADY_IN_FAMILY");
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.json().membership.role, "member");
     assert.equal(pool.callsMatching(/INSERT INTO family_members/).length, 0);
     assert.equal(pool.callsMatching(/UPDATE family_invites SET/).length, 0);
   } finally {

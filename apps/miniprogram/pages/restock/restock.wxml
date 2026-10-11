@@ -17,3 +17,5 @@
     <view class="restock-actions" wx:else><view class="btn btn-ghost action-button" data-id="{{item.id}}" bindtap="onDelete">移除记录</view></view>
   </view>
 </view>
+
+<business-nav />
