@@ -207,3 +207,38 @@ test("AUD-06 durable share receipt: failed delete remains for original family, c
   assert.equal(files.has(path),false);
   assert.deepEqual(store.get("temporary-shared-files:A"),[]);
 });
+
+test("AUD-06 same-family share and native cancel both clean registered originals",async()=>{
+  for (const cancel of [false,true]) {
+    const files=new Set(),storage=new Map();
+    let dispatched=0;
+    const wx={
+      env:{USER_DATA_PATH:"/qa-owned"},
+      getStorageSync:k=>storage.get(k),
+      setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),
+      getFileSystemManager:()=>({
+        writeFile:opts=>{files.add(opts.filePath);opts.success();},
+        unlink:opts=>{files.delete(opts.filePath);opts.success();}
+      }),
+      shareFileMessage:opts=>{dispatched++;cancel?opts.fail({errMsg:"cancel"}):opts.success();}
+    };
+    const scopes={scopedStorageKey:kind=>kind+":A"};
+    const helpers=loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
+    const {definition}=loadPage("pages/backup-restore/backup-restore.ts",{wx,modules:{
+      "../../services/api":{
+        ApiError:class ApiError extends Error {},
+        captureSessionIdentity:()=>({token:"A",generation:1}),
+        isCurrentSession:id=>id.token==="A"&&id.generation===1,
+        api:{createJsonBackup:async()=>({backupId:"synthetic",exportedAt:"2026-10-10",medicines:[]})}
+      },
+      "../../services/auth":{ensureLoggedIn:async()=>{}},
+      "../../services/temporary-share-files":helpers,
+    }});
+    const page=makePageContext(definition);
+    await page.onCreateBackup();
+    assert.equal(dispatched,1);
+    assert.equal(files.size,0);
+    assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
+    assert.equal(Boolean(page.data.errorMessage),cancel);
+  }
+});
