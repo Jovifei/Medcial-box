@@ -34,6 +34,8 @@ const reviewedSourceTrees = new Set([
   '8efdcc18a60ab592b0a4b3345b25be34ec6d92ef',
   // Same reviewed business implementation; synthetic AUD06 test fixture additions only.
   'e2e9acec0a1ec9e36921397f2c57fb986870846d',
+  // AUD06 fallback clipboard lease, reviewed with its exact synthetic scenario fixture.
+  'c78f12661af44c8c2cf58a9d07e6e144fce33f1a',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
