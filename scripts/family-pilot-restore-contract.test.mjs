@@ -10,6 +10,7 @@ function fixture(run) {
   const photo=Buffer.from('synthetic-owned-photo-bytes');
   const snapshot={families:[{id:'f',name:'Household'}],members:[{id:'u',family_id:'f',role:'owner'}],medicines:[{id:'m',family_id:'f',name:'preserve content'}],batches:[{id:'b',medicine_id:'m',quantity:2}],photos:[{id:'p',family_id:'f',medicine_id:'m',storage_key:'leaflets/p.png',size_bytes:photo.length}],drafts:[{id:'d',family_id:'f',payload:{name:'pending input'}}],plans:[{id:'plan',family_id:'f',status:'active'}],reminders:[{id:'reminder',family_id:'f',status:'pending'}]};
   const evidence={candidate:candidateAt(),layer:'SYNTHETIC',before:put('before.json',JSON.stringify(snapshot)),after:put('after.json',JSON.stringify(snapshot)),photos:[{id:'p',storageKey:'leaflets/p.png',...put('photo.png',photo)}],backupDatabase:put('database.dump',Buffer.from('synthetic test binary dump')),backupPhotos:put('photos.tar.gz',Buffer.from('synthetic test archive')),buildImage:'sha256:'+'a'.repeat(64)};
+  evidence.sourcePhotos=[{id:'p',storageKey:'leaflets/p.png',...put('source-photo.png',photo)}];
   const file=join(dir,'evidence.json');
   const save=()=>writeFileSync(file,JSON.stringify(evidence));save();
   try {run({dir,put,evidence,snapshot,file,save});} finally {rmSync(dir,{recursive:true});}
@@ -19,6 +20,7 @@ test('actual artifact checks pass and recover after corrupt-photo repair',()=>fi
 }));
 for(const [name,mutate] of [
  ['empty photo hashes',f=>{f.evidence.photos=[];}],
+ ['same-size corrupt bytes with forged hash',f=>{f.evidence.photos[0]={...f.evidence.photos[0],...f.put('photo.png','z'.repeat(27))};}],
  ['absent photo file',f=>{f.evidence.photos[0].path='missing.png';}],
  ['corrupted byte claim',f=>{writeFileSync(join(f.dir,'photo.png'),'corrupt');}],
  ['empty before and after',f=>{f.evidence.before=f.put('before.json','{}');f.evidence.after=f.put('after.json','{}');}],

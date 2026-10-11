@@ -8,7 +8,7 @@ import { dispatchDueReminderMessages } from "../dist/jobs/reminder-scheduler.js"
 import { cleanupExpiredTrashedMedicinePhotos } from "../dist/jobs/leaflet-photo-cleanup.js";
 import { createReminderTemplateConfig } from "../dist/services/subscribe-messages.js";
 import { createTestGateway } from "./helpers/fake-wechat.mjs";
-import { isolatedPostgres, contend, bounded, signal } from "./helpers/isolated-pg.mjs";
+import { isolatedPostgres, contend } from "./helpers/isolated-pg.mjs";
 
 const url = process.env.TEST_DATABASE_URL?.trim() ?? "";
 
@@ -716,22 +716,9 @@ test("real PostgreSQL: isolated migrations, CRUD, privacy and deterministic cont
       const group = await family();
       const candidates = [await user(), await user()];
       const invite = status(await request(group.owner, "POST", "/families/invitations"), 201);
-      const both = signal();
-      let arrived = 0;
-      fixture.observe = async ({ sql, run }) => {
-        if (/UPDATE family_invites SET used_at/.test(sql)) {
-          if (++arrived === 2) both.resolve();
-          await bounded(both.promise, "both invite transactions inserted memberships");
-        }
-        return run();
-      };
-      let responses;
-      try {
-        const outcomes = await Promise.allSettled(candidates.map((candidate) => request(candidate, "POST", "/families/invitations/accept", { code: invite.invitationCode })));
-        assert.ok(outcomes.every((outcome) => outcome.status === "fulfilled"), "both HTTP requests must fulfill");
-        responses = outcomes.map((outcome) => outcome.value);
-      } finally { both.resolve(); fixture.observe = null; }
-      assert.equal(arrived, 2);
+      const responses = await contend(fixture, /FROM family_invites WHERE token_hash = \$1 FOR UPDATE/,
+        () => request(candidates[0], "POST", "/families/invitations/accept", {code:invite.invitationCode}),
+        () => request(candidates[1], "POST", "/families/invitations/accept", {code:invite.invitationCode}));
       assert.deepEqual(responses.map((response) => response.statusCode).sort(), [200, 410]);
       const winner = candidates[responses.findIndex((response) => response.statusCode === 200)];
       const loser = candidates[responses.findIndex((response) => response.statusCode === 410)];

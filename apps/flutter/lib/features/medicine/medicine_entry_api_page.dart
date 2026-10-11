@@ -82,7 +82,17 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     widget.localStore,
     isCurrent: () => mounted && _isDraftIdentityCurrent,
     scope: entryIdentity,
-    ownerKey: widget.repository.api.identityState?.owner == null ? null : base64Url.encode(utf8.encode(jsonEncode([widget.repository.api.baseUrl, entryIdentity.$6, entryIdentity.$7]))),
+    ownerKey: widget.repository.api.identityState?.owner == null
+        ? null
+        : base64Url.encode(
+            utf8.encode(
+              jsonEncode([
+                widget.repository.api.baseUrl,
+                entryIdentity.$6,
+                entryIdentity.$7,
+              ]),
+            ),
+          ),
   );
   late final (ApiClient, LocalAppStore, String, int, String?, String?, String?)
   entryIdentity;
@@ -144,7 +154,18 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Object? recognitionFailure;
   List<String> recognitionWarnings = const [];
 
-  String get _draftKey => 'medicine-entry.' + base64Url.encode(utf8.encode(jsonEncode([entryIdentity.$3, entryIdentity.$6, entryIdentity.$7])));
+  String get _draftKey => entryIdentity.$6 == null || entryIdentity.$7 == null
+      ? 'medicine-entry'
+      : 'medicine-entry.' +
+            base64Url.encode(
+              utf8.encode(
+                jsonEncode([
+                  entryIdentity.$3,
+                  entryIdentity.$6,
+                  entryIdentity.$7,
+                ]),
+              ),
+            );
   bool restoredDraft = false;
 
   @override

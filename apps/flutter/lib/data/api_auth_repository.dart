@@ -7,8 +7,7 @@ import 'session_identity_state.dart';
 
 const apiBaseUrlFromBuild = String.fromEnvironment('API_BASE_URL');
 const localAppTrialFromBuild = bool.fromEnvironment('LOCAL_APP_TRIAL');
-const missingApiConfigurationMessage =
-    '当前安装包未配置可用的药箱服务。请安装正式发布包，或联系维护者检查服务配置。';
+const missingApiConfigurationMessage = '当前安装包未配置可用的药箱服务。请安装正式发布包，或联系维护者检查服务配置。';
 
 class DeviceLink {
   const DeviceLink({
@@ -450,11 +449,12 @@ class ApiFamilyRepository {
     return (json['families'] as List).cast<Map<String, dynamic>>();
   }
 
-  Future<FamilyRecord> switchFamily(String id) => api.transitionIdentity(() async {
-    await api.post('/api/v1/families/${Uri.encodeComponent(id)}/switch');
-    await _clearPreviousFamilySnapshot();
-    return getCurrentFamily();
-  });
+  Future<FamilyRecord> switchFamily(String id) =>
+      api.transitionIdentity(() async {
+        await api.post('/api/v1/families/${Uri.encodeComponent(id)}/switch');
+        await _clearPreviousFamilySnapshot();
+        return getCurrentFamily();
+      });
 
   Future<FamilyRecord> createFamily(String name) =>
       api.transitionIdentity(() => _createFamily(name));

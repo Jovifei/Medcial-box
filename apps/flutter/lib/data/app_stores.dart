@@ -459,7 +459,9 @@ class MemoryInventoryLocalStore implements LocalAppStore {
 
   @override
   Future<void> clearFamilySnapshot() async {
-    inventory = null; family = null; lastSyncedAt = null;
+    inventory = null;
+    family = null;
+    lastSyncedAt = null;
   }
 
   @override

@@ -1,4 +1,6 @@
 import { api, ApiError, isCurrentSession } from "../../services/api";
+import { registerDirtyDraft, clearDirtyDraft } from "../../services/draft-guard";
+import type { DirtyDraft } from "../../services/draft-guard";
 import { ensureLoggedIn } from "../../services/auth";
 import { closeOwnedPhotoFile, PhotoFileWriteError, writeOwnedPhotoFile } from "../../services/photo-file-lifecycle";
 import type { OwnedPhotoFile } from "../../services/photo-file-lifecycle";
@@ -662,6 +664,8 @@ Page({
     }
   },
 
+  navigationDraftGuard: null as DirtyDraft | null,
+
   captureInitialSnapshot(): void {
     this.initialDraftSnapshot = formFingerprint(this.data as MedicineEditPageData);
   },
@@ -669,11 +673,26 @@ Page({
   updateDirtyState(): void {
     const changed = this.initialDraftSnapshot !== formFingerprint(this.data as MedicineEditPageData);
     this.setData({ isDirty: changed });
+    if (changed) {
+      if (this.navigationDraftGuard === null) this.navigationDraftGuard = {
+        label: "药品录入草稿",
+        save: async () => {
+          if (this.data.submitting || this.data.recognizing || this.data.medicineLoading) throw new Error("操作尚未完成");
+          if (!this.persistCurrentDraft()) throw new Error("草稿保存失败");
+          if (this.data.photoDrafts.length > 0 && !this.persistPhotoDrafts()) throw new Error("照片草稿保存失败");
+        },
+      };
+      registerDirtyDraft(this.navigationDraftGuard);
+    }
     this.setNativeLeaveWarning(changed);
     this.persistPhotoDrafts();
   },
 
   setNativeLeaveWarning(enabled: boolean): void {
+    if (!enabled && this.navigationDraftGuard !== null) {
+      clearDirtyDraft(this.navigationDraftGuard);
+      this.navigationDraftGuard = null;
+    }
     try {
       if (enabled) wx.enableAlertBeforeUnload({ message: NATIVE_LEAVE_WARNING });
       else wx.disableAlertBeforeUnload();

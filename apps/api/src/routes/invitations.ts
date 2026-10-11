@@ -86,10 +86,12 @@ export async function registerInvitationRoutes(
     if (invite === null) {
       return reply.code(404).send(errorBody("NOT_FOUND", "邀请码无效或已被撤销"));
     }
-    if (new Date(toIso(invite.expires_at)).getTime() <= Date.now()) {
+    const existing = await findMembershipInFamily(database, auth.userId, invite.family_id);
+    const consumerRetry = invite.used_at !== null && invite.used_by === auth.userId && existing !== null;
+    if (!consumerRetry && new Date(toIso(invite.expires_at)).getTime() <= Date.now()) {
       return reply.code(410).send(errorBody("INVITATION_EXPIRED", "邀请码已过期，请向 owner 重新索取"));
     }
-    if (invite.used_at !== null) {
+    if (invite.used_at !== null && !consumerRetry) {
       return reply.code(410).send(errorBody("INVITATION_USED", "邀请码已被使用"));
     }
 

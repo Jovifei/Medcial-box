@@ -18,8 +18,13 @@ const ids = {
   family: "22222222-2222-4222-8222-222222222222",
   medicine: "33333333-3333-4333-8333-333333333333",
   photo: "44444444-4444-4444-8444-444444444444",
+  user2: "55555555-5555-4555-8555-555555555555",
+  family2: "66666666-6666-4666-8666-666666666666",
+  medicine2: "77777777-7777-4777-8777-777777777777",
+  photo2: "88888888-8888-4888-8888-888888888888",
 };
 const photoBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaDjwHwAEhAJgikCezQAAAABJRU5ErkJggg==";
+const photoKey2 = `leaflets/${ids.family2}/${ids.medicine2}/${ids.photo2}.png`;
 const photoKey = `leaflets/${ids.family}/${ids.medicine}/${ids.photo}.png`;
 
 export function requireHostedCI(env) {
@@ -261,6 +266,7 @@ export async function exercise() {
         const key = await new PrivatePhotoStore().save({familyId:'${ids.family}',medicineId:'${ids.medicine}',photoId:'${ids.photo}',contentType:'image/png',bytes:Buffer.from('${photoBase64}','base64')});
         const file = await stat('${uploadRoot}/' + key);
         assert(process.getuid() > 0); assert.equal(file.uid, process.getuid()); assert.equal(file.mode & 0o777, 0o600);
+        await new PrivatePhotoStore().save({familyId:'${ids.family2}',medicineId:'${ids.medicine2}',photoId:'${ids.photo2}',contentType:'image/png',bytes:Buffer.from('${photoBase64}','base64')});
         console.log(key);
       `]);
     assert.equal(storedKey, photoKey);
@@ -274,6 +280,14 @@ export async function exercise() {
       INSERT INTO medicine_leaflet_photos(id,family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at)
         VALUES('${ids.photo}','${ids.family}','${ids.medicine}','${photoKey}','image/png',${Buffer.from(photoBase64, "base64").length},'${ids.user}','box_front',now());
       UPDATE medicines SET cover_photo_id='${ids.photo}' WHERE id='${ids.medicine}';
+      INSERT INTO users(id,openid) VALUES('${ids.user2}','ci-synthetic-user-two');
+      INSERT INTO families(id,name,created_by) VALUES('${ids.family2}','CI synthetic second household','${ids.user2}');
+      INSERT INTO family_members(family_id,user_id,role) VALUES('${ids.family2}','${ids.user2}','owner'),('${ids.family2}','${ids.user}','member');
+      INSERT INTO medicines(id,family_id,name,created_by,updated_by) VALUES('${ids.medicine2}','${ids.family2}','Second household preserved content','${ids.user2}','${ids.user2}');
+      INSERT INTO medicine_leaflet_photos(id,family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at)
+        VALUES('${ids.photo2}','${ids.family2}','${ids.medicine2}','${photoKey2}','image/png',${Buffer.from(photoBase64, "base64").length},'${ids.user2}','box_front',now());
+      UPDATE medicines SET cover_photo_id='${ids.photo2}' WHERE id='${ids.medicine2}';
+      INSERT INTO medicine_batches(medicine_id,quantity,unit,expiry_value,expiry_precision) VALUES('${ids.medicine}',2,'box','2099-12','month'),('${ids.medicine2}',3,'box','2099-12','month');
       COMMIT;
     `);
     const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum FROM schema_migrations) t;";
@@ -370,12 +384,15 @@ export async function exercise() {
     };
     const actualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
       ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey}').toString('base64'))`]);
+    const secondActualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
+      ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey2}').toString('base64'))`]);
     const evidence = {candidate:candidateAt(root),layer:"SYNTHETIC",buildImage:appImage,
       before:await artifact("before.json",beforeRecords),
       after:await artifact("after.json",(await sql(restoreId,snapshotSql)).stdout.trim()),
       backupDatabase:await artifact("database.dump",await readFile(join(complete,"database.dump"))),
       backupPhotos:await artifact("photos.tar.gz",await readFile(join(complete,"photos.tar.gz"))),
-      photos:[{id:ids.photo,storageKey:photoKey,...await artifact("restored-photo.png",Buffer.from(actualPhotoBase64,"base64"))}],
+      sourcePhotos:[{id:ids.photo,storageKey:photoKey,...await artifact("source-photo.png",Buffer.from(photoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("source-photo2.png",Buffer.from(photoBase64,"base64"))}],
+      photos:[{id:ids.photo,storageKey:photoKey,...await artifact("restored-photo.png",Buffer.from(actualPhotoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("restored-photo2.png",Buffer.from(secondActualPhotoBase64,"base64"))}],
     };
     const evidenceFile=join(evidenceDirectory,"evidence.json");
     await writeFile(evidenceFile,JSON.stringify(evidence,null,2));

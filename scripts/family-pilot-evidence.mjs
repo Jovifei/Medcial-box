@@ -44,9 +44,13 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
     assert(after.medicines.some(m=>m.id===photo.medicine_id && m.family_id===photo.family_id), 'photo household/medicine association mismatch');
     const artifact = evidence.photos?.find(item=>item.id===photo.id && item.storageKey===photo.storage_key);
     assert(artifact, 'missing restored photo artifact');
+    const source = evidence.sourcePhotos?.find(item=>item.id===photo.id && item.storageKey===photo.storage_key);
+    assert(source, 'missing source photo byte artifact');
+    assert.deepEqual(readArtifact(artifact),readArtifact(source),'restored photo differs from source bytes');
     assert.equal(readArtifact(artifact).length, photo.size_bytes, 'photo size mismatch');
   }
   assert.equal(evidence.photos?.length,after.photos.length,'photo cardinality mismatch');
+  assert.equal(evidence.sourcePhotos?.length,before.photos.length,'source photo cardinality mismatch');
   if (restore) {
     readArtifact(evidence.backupDatabase); readArtifact(evidence.backupPhotos);
     assert(/^sha256:[a-f0-9]{64}$/.test(evidence.buildImage), 'missing actual build image digest');

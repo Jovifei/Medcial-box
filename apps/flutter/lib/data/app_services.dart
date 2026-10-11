@@ -154,7 +154,10 @@ class AppServices {
       // 统一的身份切换清理：内存快照 + 本机家庭数据一起作废，
       // 保证换账号/换家庭后看不到上一个家庭的库存（A03）。
       late final AppServices services;
-      Future<void> clearIdentityData({bool familyMissing = false, bool preserveDrafts = false}) async {
+      Future<void> clearIdentityData({
+        bool familyMissing = false,
+        bool preserveDrafts = false,
+      }) async {
         api.invalidateIdentity();
         final clearOwner = identity.clearFamily();
         services.offlineCacheMatchesOwner = false;
@@ -169,7 +172,9 @@ class AppServices {
             ? local.quarantineLegacyFamilyData().then(
                 (_) => identity.finishLegacyQuarantine(),
               )
-            : preserveDrafts ? local.clearFamilySnapshot() : local.clearFamilyData();
+            : preserveDrafts
+            ? local.clearFamilySnapshot()
+            : local.clearFamilyData();
         await Future.wait([
           reminders.resetForIdentity(),
           clearStorage,

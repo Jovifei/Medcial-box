@@ -3,7 +3,7 @@
 import { api, beginSessionTransition, captureSessionIdentity, clearToken, isCurrentSession, staleSessionError, storeToken } from "./api";
 import type { SessionIdentity } from "./api";
 import { ApiError } from "./api";
-import { writeSessionScope } from "./session-scope";
+import { writeSessionScope, readSessionScope } from "./session-scope";
 
 export interface LoginResult {
   token: string;
@@ -58,7 +58,10 @@ export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {
       // auth/me 同时用于固化本机身份命名空间（草稿按 userId+familyId 隔离）。
       const me = await api.getAuthMe();
       if (!isCurrentSession(identity)) throw staleSessionError();
-      writeSessionScope({ userId: me.user.id, familyId: me.family?.id ?? "" });
+      const previous = readSessionScope();
+      const next = { userId: me.user.id, familyId: me.family?.id ?? "" };
+      if (previous !== null && (previous.userId !== next.userId || previous.familyId !== next.familyId)) beginSessionTransition();
+      writeSessionScope(next);
       return existing;
     } catch (error) {
       if (!(error instanceof ApiError) || (error.statusCode !== 401 && error.code !== "UNAUTHORIZED" && error.code !== "SESSION_EXPIRED")) {

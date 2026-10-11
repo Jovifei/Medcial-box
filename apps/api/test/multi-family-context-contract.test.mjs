@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readdir, copyFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { candidateAt, hash, verifyEvidence } from '../../../scripts/family-pilot-evidence.mjs';
 import { tmpdir } from 'node:os';
 import { applyMigrations } from '../dist/db/migrations.js';
 import { isolatedPostgres } from './helpers/isolated-pg.mjs';
@@ -19,15 +20,41 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
     await applyMigrations(pool,oldDir);
     const u=(await pool.query("INSERT INTO users(openid) VALUES('synthetic-a'),('synthetic-b') RETURNING *")).rows;
     const f=[];
+    const photoBytes=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaDjwHwAEhAJgikCezQAAAABJRU5ErkJggg==","base64");
     for(let i=0;i<2;i++) {
       f.push((await pool.query('INSERT INTO families(name,created_by) VALUES($1,$2) RETURNING *',[`Household ${i}`,u[i].id])).rows[0]);
       await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,'owner')",[f[i].id,u[i].id]);
-      await pool.query('INSERT INTO medicines(family_id,name,created_by,updated_by) VALUES($1,$2,$3,$3)',[f[i].id,`Preserved content ${i}`,u[i].id]);
+      const medicine=(await pool.query('INSERT INTO medicines(family_id,name,created_by,updated_by) VALUES($1,$2,$3,$3) RETURNING *',[f[i].id,`Preserved content ${i}`,u[i].id])).rows[0];
+      const batch=(await pool.query("INSERT INTO medicine_batches(medicine_id,quantity,unit,expiry_value,expiry_precision) VALUES($1,2,'box','2099-12','month') RETURNING id",[medicine.id])).rows[0];
+      await pool.query("INSERT INTO medicine_leaflet_photos(family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at) VALUES($1,$2,$3,'image/png',$5,$4,'box_front',now())",[f[i].id,medicine.id,`leaflets/fixture-${i}.png`,u[i].id,photoBytes.length]);
+      const care=(await pool.query("INSERT INTO care_profiles(family_id,display_name,linked_user_id,created_by) VALUES($1,'Synthetic profile',$2,$2) RETURNING id",[f[i].id,u[i].id])).rows[0];
+      await pool.query("INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by) VALUES($1,$2,$3,'Synthetic medicine','Owner supplied synthetic text','2099-01-01',$4)",[f[i].id,care.id,medicine.id,u[i].id]);
+      await pool.query("INSERT INTO reminder_deliveries(family_id,user_id,medicine_id,batch_id,deadline_date,days_before,template_id) VALUES($1,$2,$3,$4,'2099-12-31',30,'synthetic-unused')",[f[i].id,u[i].id,medicine.id,batch.id]);
     }
     const before=(await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows;
     const beforeMembers=(await pool.query('SELECT row_to_json(m) AS row FROM family_members m ORDER BY id')).rows;
+    const readSnapshot=async()=>{
+      const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',plans:'medication_plans',reminders:'reminder_deliveries'};
+      const snapshot={drafts:f.map((family,i)=>({id:`draft-${i}`,family_id:family.id,user_id:u[i].id,fields:{name:`Pending input ${i}`},requestKey:`original-${i}`}))};
+      for(const [key,table] of Object.entries(tables)) snapshot[key]=(await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows;
+      return snapshot;
+    };
+    const originalSnapshot=await readSnapshot();
     await applyMigrations(pool);
     assert.deepEqual(await applyMigrations(pool),[]);
+    const upgradedSnapshot=await readSnapshot();
+    assert.deepEqual(upgradedSnapshot,originalSnapshot);
+    // Artifacts are emitted from real SQL results plus scoped synthetic client input.
+    const artifactDir=await mkdtemp(join(tmpdir(),'medbox-upgrade-evidence-'));
+    try {
+      const put=async(name,bytes)=>{await writeFile(join(artifactDir,name),bytes);return {path:name,sha256:hash(bytes)};};
+      const sourcePhotos=[];
+      for(const photo of originalSnapshot.photos) sourcePhotos.push({id:photo.id,storageKey:photo.storage_key,...await put(`source-${photo.id}.png`,photoBytes)});
+      const evidence={candidate:candidateAt('../../'),layer:'SYNTHETIC',before:await put('before.json',JSON.stringify(originalSnapshot)),after:await put('after.json',JSON.stringify(upgradedSnapshot)),photos:[],sourcePhotos};
+      for(const photo of upgradedSnapshot.photos) evidence.photos.push({id:photo.id,storageKey:photo.storage_key,...await put(`after-${photo.id}.png`,photoBytes)});
+      const evidenceFile=join(artifactDir,'evidence.json');await writeFile(evidenceFile,JSON.stringify(evidence));
+      verifyEvidence(evidenceFile,{root:'../../'});
+    } finally {await rm(artifactDir,{recursive:true});}
     assert.deepEqual((await pool.query('SELECT row_to_json(m) AS row FROM medicines m ORDER BY id')).rows,before);
     assert.deepEqual((await pool.query('SELECT row_to_json(m) AS row FROM family_members m ORDER BY id')).rows,beforeMembers);
     const gateway=createTestGateway({a:'synthetic-a',b:'synthetic-b'});

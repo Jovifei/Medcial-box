@@ -6,7 +6,8 @@ class MedicineDraftQueue {
   MedicineDraftQueue(this.store, {this.isCurrent, this.scope, this.ownerKey});
   final LocalAppStore store;
   final String? ownerKey;
-  String get scopedKey => ownerKey == null ? storageKey : "$storageKey.$ownerKey";
+  String get scopedKey =>
+      ownerKey == null ? storageKey : "$storageKey.$ownerKey";
   // A page may bind this queue to the identity that owns its draft intent.
   // Recheck after reads: store-level write fencing cannot reject a stale
   // callback that only enqueues its write after identity cleanup completed.
