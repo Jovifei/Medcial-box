@@ -1,0 +1,16 @@
+{
+  "candidate": {
+    "sha": "a7f8edd757444ccbcd5a8c313bb343fba9323c68",
+    "rootTree": "synthetic-tree"
+  },
+  "environment": "synthetic-ci",
+  "records": [
+    {
+      "medicineId": "medicine-1",
+      "batchId": "batch-1",
+      "photoIds": ["photo-1", "photo-2"],
+      "receiptIds": ["receipt-1"],
+      "photoHashes": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    }
+  ]
+}
