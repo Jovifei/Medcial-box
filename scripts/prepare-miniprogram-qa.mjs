@@ -38,6 +38,8 @@ const reviewedSourceTrees = new Set([
   'c78f12661af44c8c2cf58a9d07e6e144fce33f1a',
   // AUD06 independently reviewed scoped-only recovery reporting; no new wx/fs/component capabilities.
   'f625aa0f3445b686a5a9a434a30649c020723bbe',
+  // Reviewed failed native write and onUnload coverage (test-only delta, no new native permissions).
+  'fd8a8b5cd94fc2ba2ae1f401f2c206641cbfccbd',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
