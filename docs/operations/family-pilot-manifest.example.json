@@ -1,0 +1,25 @@
+{
+  "stage": "family-pilot",
+  "release": {
+    "mergeAllowed": false,
+    "productionDeployment": false
+  },
+  "requiredChecks": {
+    "healthLive": true,
+    "healthReady": true,
+    "wechatOAuth": "owner_environment",
+    "recognitionProvider": "owner_environment",
+    "databaseBackupRestore": true,
+    "privatePhotoRestorePairing": true
+  },
+  "secrets": {
+    "valuesIncluded": false,
+    "source": "deployment_environment"
+  },
+  "ownerGates": [
+    "real WeChat OAuth",
+    "HTTPS domain verification",
+    "signed Android package",
+    "real family devices"
+  ]
+}
