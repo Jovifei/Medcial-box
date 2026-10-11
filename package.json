@@ -26,7 +26,8 @@
     "check:release-hardening": "node scripts/release-candidate-hardening.mjs",
     "check:upgrade-matrix": "node scripts/upgrade-persistence-matrix.mjs",
     "check:lifecycle-audit": "node scripts/lifecycle-delivery-audit.mjs",
-    "check:family-pilot-restore": "node scripts/check-family-pilot-restore-contract.mjs"
+    "check:family-pilot-restore": "node scripts/check-family-pilot-restore-contract.mjs",
+    "check:family-pilot-upgrade": "node scripts/check-family-pilot-upgrade-evidence.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
