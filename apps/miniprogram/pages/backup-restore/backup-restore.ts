@@ -24,8 +24,18 @@ Page({
   pendingImportPayload: null as FamilyMedicineBackup | null,
   pendingConfirmationToken: null as string | null,
   backupLifecycleEpoch: 0,
+  backupCopyScope: null as string | null,
+  backupCopyIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onUnload(): void { this.backupLifecycleEpoch += 1; },
-  onShow(): void { if (!this.data.busy) void recoverTemporaryShareFiles(); },
+  onShow(): void {
+    if (this.backupCopyScope !== null &&
+        (this.backupCopyScope !== temporaryShareScope() || !this.backupCopyIdentity || !isCurrentSession(this.backupCopyIdentity))) {
+      this.backupCopyScope = null;
+      this.backupCopyIdentity = null;
+      this.setData({ backupJson: "", backupCreatedAt: "", statusText: "" });
+    }
+    if (!this.data.busy) void recoverTemporaryShareFiles();
+  },
   data: {
     busy: false,
     errorMessage: "",
@@ -78,6 +88,8 @@ Page({
         this.setData({ backupCreatedAt: backup.exportedAt, backupJson: "", statusText: "JSON 备份文件已交给微信分享。" });
       } else {
         ensureCurrent();
+        this.backupCopyScope = scope;
+        this.backupCopyIdentity = identity;
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
@@ -94,8 +106,18 @@ Page({
   onCopyBackup(): void {
     const json = this.data.backupJson as string;
     if (json === "") return;
-    wx.setClipboardData({ data: json, success: () => this.setData({ statusText: "JSON 已复制，请粘贴保存为 .json 文件。" }),
-      fail: () => this.setData({ errorMessage: "复制失败，请重试" }) });
+    if (!this.backupCopyIdentity || !isCurrentSession(this.backupCopyIdentity) ||
+        this.backupCopyScope !== temporaryShareScope()) {
+      this.backupCopyIdentity = null;
+      this.backupCopyScope = null;
+      this.setData({ backupJson: "", backupCreatedAt: "", statusText: "", errorMessage: "登录或家庭已变化，请重新生成备份。" });
+      return;
+    }
+    const identity = this.backupCopyIdentity;
+    const scope = this.backupCopyScope;
+    wx.setClipboardData({ data: json,
+      success: () => { if (isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ statusText: "JSON 已复制，请粘贴保存为 .json 文件。" }); },
+      fail: () => { if (isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ errorMessage: "复制失败，请重试" }); } });
   },
 
   async onChooseImport(): Promise<void> {
