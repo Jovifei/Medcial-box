@@ -19,7 +19,7 @@ function readList(storageKey: string): string[] {
   return [...new Set(value as string[])];
 }
 export function registerTemporaryShareFile(path: string, scopeKey?: string | null): boolean {
-  const storageKey = scopeKey ?? temporaryShareScope();
+  const storageKey = scopeKey === undefined ? temporaryShareScope() : scopeKey;
   if (!storageKey || !owned(path)) return false;
   try {
     const files = readList(storageKey);
@@ -30,7 +30,7 @@ export function registerTemporaryShareFile(path: string, scopeKey?: string | nul
   } catch { return false; }
 }
 export async function cleanupTemporaryShareFile(path: string, scopeKey?: string | null): Promise<boolean> {
-  const storageKey = scopeKey ?? temporaryShareScope();
+  const storageKey = scopeKey === undefined ? temporaryShareScope() : scopeKey;
   if (!storageKey || !owned(path)) return false;
   let files: string[];
   try { files = readList(storageKey); } catch { return false; }
@@ -49,11 +49,26 @@ export async function cleanupTemporaryShareFile(path: string, scopeKey?: string 
     return !readList(storageKey).includes(path);
   } catch { return false; }
 }
-export async function recoverTemporaryShareFiles(): Promise<boolean> {
+/**
+ * A cold-start sweep is intentionally scoped to the *currently authenticated*
+ * household. It cannot inspect another household's receipts, and MUST NOT
+ * report a global cleanup success just because this household has no files.
+ */
+export interface TemporaryShareRecovery {
+  scopeStatus: "clean" | "pending" | "no_identity";
+  inspectedCount: number;
+  allHouseholds: "not_verified";
+}
+export async function recoverTemporaryShareFiles(): Promise<TemporaryShareRecovery> {
+  const pending = (inspectedCount: number): TemporaryShareRecovery =>
+    ({ scopeStatus: "pending", inspectedCount, allHouseholds: "not_verified" });
   const storageKey = temporaryShareScope();
-  if (!storageKey) return false;
+  if (!storageKey) return { scopeStatus: "no_identity", inspectedCount: 0, allHouseholds: "not_verified" };
   let files: string[];
-  try { files = readList(storageKey); } catch { return false; }
+  try { files = readList(storageKey); } catch { return pending(0); }
   const results = await Promise.all(files.map(path => cleanupTemporaryShareFile(path, storageKey)));
-  return temporaryShareScope() === storageKey && results.every(Boolean);
+  if (temporaryShareScope() !== storageKey || !results.every(Boolean)) return pending(files.length);
+  // "clean" applies solely to this household. Other scoped receipts remain
+  // untouched and unverified, even if the caller cold-starts under a new login.
+  return { scopeStatus: "clean", inspectedCount: files.length, allHouseholds: "not_verified" };
 }
