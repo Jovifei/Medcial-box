@@ -42,6 +42,8 @@ const reviewedSourceTrees = new Set([
   'fd8a8b5cd94fc2ba2ae1f401f2c206641cbfccbd',
   // Pure test assertion change for cross-VM result shape, all runtime capabilities unchanged.
   '2924595aa226c2f809fff54498bfa22afcf7cb36',
+  // Scoped receipt rebase and two independent synthetic concurrency cases, same native capability set.
+  'e368588172f65e9e07cde1bba6ef2d09abe44b0e',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
