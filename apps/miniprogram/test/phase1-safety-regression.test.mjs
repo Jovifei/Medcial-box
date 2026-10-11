@@ -242,3 +242,31 @@ test("AUD-06 same-family share and native cancel both clean registered originals
     assert.equal(Boolean(page.data.errorMessage),cancel);
   }
 });
+
+test("AUD-06 backup JSON clipboard fallback cannot copy A after switching to B",async()=>{
+  let actor="A",generation=1,copies=0;
+  const wx={env:{USER_DATA_PATH:"/qa-owned"},setClipboardData:opts=>{copies++;opts.success();}};
+  const modules={
+    "../../services/api":{
+      ApiError:class ApiError extends Error{},
+      captureSessionIdentity:()=>({token:actor,generation}),
+      isCurrentSession:id=>id.token===actor&&id.generation===generation,
+      api:{createJsonBackup:async()=>({backupId:"synthetic",exportedAt:"2026-10-10",medicines:[]})}
+    },
+    "../../services/auth":{ensureLoggedIn:async()=>{}},
+    "../../services/temporary-share-files":{
+      temporaryShareScope:()=> "temporary-shared-files:"+actor,
+      recoverTemporaryShareFiles:async()=>true,
+      registerTemporaryShareFile:()=>false,
+      cleanupTemporaryShareFile:async()=>false,
+    }
+  };
+  const {definition}=loadPage("pages/backup-restore/backup-restore.ts",{wx,modules});
+  const page=makePageContext(definition);
+  await page.onCreateBackup();
+  assert.ok(page.data.backupJson.includes("synthetic"));
+  actor="B";generation++;
+  page.onCopyBackup();
+  assert.equal(copies,0);
+  assert.equal(page.data.backupJson,"");
+});
