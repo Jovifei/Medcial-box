@@ -54,7 +54,15 @@ async function upstreamFailure(response: Response): Promise<RecognitionUnavailab
     const detail = payload?.error;
     if (typeof detail === "string") diagnostic = detail;
     else if (typeof detail === "object" && detail !== null && "message" in detail && typeof detail.message === "string") diagnostic = detail.message;
-  } catch { /* An unreadable error response is classified by status only. */ }
+  } catch (error) {
+    // A failed HTTP response may itself time out while its diagnostic body streams.
+    // Preserve the transport classification; malformed or oversized diagnostic
+    // bodies alone fall back to HTTP status without exposing upstream text.
+    if (error instanceof RecognitionUnavailableError &&
+        (error.reason === "timeout" || error.reason === "provider_unavailable")) {
+      return new RecognitionUnavailableError(`vision provider returned ${response.status}`, error.reason, response.status);
+    }
+  }
   let reason: RecognitionFailureReason = "unknown";
   if (/out of memory|not enough (?:system )?memory|unable to allocate|cuda.*memory/i.test(diagnostic)) reason = "model_memory";
   else if (/model.*(?:not found|does not exist)|pull.*model/i.test(diagnostic)) reason = "model_missing";
