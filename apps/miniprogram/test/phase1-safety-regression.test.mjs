@@ -355,3 +355,25 @@ test("AUD-06 page unload invalidates pending original backup write before share"
   assert.equal(removed.length,1);
   assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
 });
+
+test("AUD-06 concurrent scoped recovery retains every other receipt",async()=>{
+  const disk=new Map(),pending=[];
+  const wx={env:{USER_DATA_PATH:"/synthetic"},
+    getStorageSync:key=>disk.get(key),
+    setStorageSync:(key,value)=>disk.set(key,structuredClone(value)),
+    getFileSystemManager:()=>({unlink:request=>pending.push(request)})
+  };
+  const helper=loadService("services/temporary-share-files.ts",{
+    wx,modules:{"./session-scope":{scopedStorageKey:kind=>kind+":sandbox"}}
+  });
+  const first="/synthetic/home-medicine-share-123456789012-first.json";
+  const second="/synthetic/home-medicine-share-123456789012-second.json";
+  assert.equal(helper.registerTemporaryShareFile(first),true);
+  assert.equal(helper.registerTemporaryShareFile(second),true);
+  const execution=helper.recoverTemporaryShareFiles();
+  assert.equal(pending.length,2);
+  pending[1].success();
+  pending[0].success();
+  assert.equal((await execution).scopeStatus,"clean");
+  assert.deepEqual(disk.get("temporary-shared-files:sandbox"),[]);
+});
