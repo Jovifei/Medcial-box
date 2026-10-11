@@ -40,6 +40,8 @@ const reviewedSourceTrees = new Set([
   'f625aa0f3445b686a5a9a434a30649c020723bbe',
   // Reviewed failed native write and onUnload coverage (test-only delta, no new native permissions).
   'fd8a8b5cd94fc2ba2ae1f401f2c206641cbfccbd',
+  // Pure test assertion change for cross-VM result shape, all runtime capabilities unchanged.
+  '2924595aa226c2f809fff54498bfa22afcf7cb36',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
