@@ -32,6 +32,8 @@ const reviewedSourceTrees = new Set([
   'f376be5f9502caffe5d7e83bb039941a2069169e',
   // AUD06 lease/ownership audit: no added native APIs or filesystem operations.
   '8efdcc18a60ab592b0a4b3345b25be34ec6d92ef',
+  // Same reviewed business implementation; synthetic AUD06 test fixture additions only.
+  'e2e9acec0a1ec9e36921397f2c57fb986870846d',
 ]);
 const reviewedComponents = new Map([
   ['medicine-date-field', 'components/medicine-date-field/index'],
