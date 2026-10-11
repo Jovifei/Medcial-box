@@ -141,3 +141,69 @@ test("AUD-04 account switch while export file is being written prevents stale na
   await work;
   assert.equal(shared,0);
 });
+
+test("AUD-06 real backup page: switch household during pending write never shares A JSON; original owner cleanup",async()=>{
+  let actor="A",generation=1,writeDone,shared=0;
+  const storage=new Map(),files=new Set();
+  const wx={
+    env:{USER_DATA_PATH:"/qa-owned"},
+    getStorageSync:key=>storage.get(key),
+    setStorageSync:(key,value)=>storage.set(key,structuredClone(value)),
+    getFileSystemManager:()=>({
+      writeFile:opts=>{files.add(opts.filePath);writeDone=opts.success;},
+      unlink:opts=>{files.delete(opts.filePath);opts.success();}
+    }),
+    shareFileMessage:opts=>{shared++;opts.success();}
+  };
+  const scopes={scopedStorageKey:kind=>kind+":"+actor};
+  const helpers=loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
+  const modules={
+    "../../services/api":{
+      ApiError:class ApiError extends Error {},
+      captureSessionIdentity:()=>({token:actor,generation}),
+      isCurrentSession:id=>id.token===actor&&id.generation===generation,
+      api:{createJsonBackup:async()=>({backupId:"synthetic-only",exportedAt:"2026-10-10",medicines:[]})}
+    },
+    "../../services/auth":{ensureLoggedIn:async()=>{}},
+    "../../services/temporary-share-files":helpers
+  };
+  const {definition}=loadPage("pages/backup-restore/backup-restore.ts",{wx,modules});
+  const page=makePageContext(definition);
+  const pending=page.onCreateBackup();
+  for(let i=0;i<40&&!writeDone;i++)await Promise.resolve();
+  assert.equal(typeof writeDone,"function");
+  const path=[...files][0];
+  assert.ok(storage.get("temporary-shared-files:A").includes(path));
+  actor="B";generation++;
+  writeDone();
+  await pending;
+  assert.equal(shared,0);
+  assert.equal(files.has(path),false);
+  assert.deepEqual(storage.get("temporary-shared-files:A"),[]);
+  assert.equal(await helpers.recoverTemporaryShareFiles(),true);
+});
+
+test("AUD-06 durable share receipt: failed delete remains for original family, cold restart retries only own paths",async()=>{
+  let actor="A", failDelete=true;
+  const store=new Map(), files=new Set();
+  const wx={env:{USER_DATA_PATH:"/qa-owned"},getStorageSync:k=>store.get(k),
+    setStorageSync:(k,v)=>store.set(k,structuredClone(v)),
+    getFileSystemManager:()=>({unlink:opts=>{
+      if(failDelete){opts.fail({errMsg:"EACCES"});return;}
+      files.delete(opts.filePath);opts.success();
+    }})};
+  const scopes={scopedStorageKey:kind=>kind+":"+actor};
+  const helper=()=>loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
+  const path="/qa-owned/home-medicine-share-123456789012-failure.json";
+  files.add(path);
+  assert.equal(helper().registerTemporaryShareFile(path),true);
+  assert.equal(await helper().cleanupTemporaryShareFile(path),false);
+  actor="B";
+  assert.equal(await helper().recoverTemporaryShareFiles(),true);
+  assert.equal(files.has(path),true);
+  assert.equal(await helper().cleanupTemporaryShareFile(path),false);
+  actor="A";failDelete=false;
+  assert.equal(await helper().recoverTemporaryShareFiles(),true);
+  assert.equal(files.has(path),false);
+  assert.deepEqual(store.get("temporary-shared-files:A"),[]);
+});
