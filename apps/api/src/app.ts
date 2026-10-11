@@ -50,8 +50,9 @@ export async function buildServer(options: BuildServerOptions) {
   });
 
   await registerHealthRoutes(app, options.database);
-  await registerPilotReadinessRoutes(app);
   await registerAuth(app, options.database);
+  // Non-health pilot evidence remains behind the auth lifecycle boundary.
+  await registerPilotReadinessRoutes(app);
 
   const deps = {
     database: options.database,
