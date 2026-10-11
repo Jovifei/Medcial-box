@@ -220,7 +220,7 @@ test("AUD-06 same-family share and native cancel both clean registered originals
         writeFile:opts=>{files.add(opts.filePath);opts.success();},
         unlink:opts=>{files.delete(opts.filePath);opts.success();}
       }),
-      shareFileMessage:opts=>{dispatched++;cancel?opts.fail({errMsg:"cancel"}):opts.success();}
+      shareFileMessage:opts=>{dispatched++;if(cancel)opts.fail({errMsg:"cancel"});else opts.success();}
     };
     const scopes={scopedStorageKey:kind=>kind+":A"};
     const helpers=loadService("services/temporary-share-files.ts",{wx,modules:{"./session-scope":scopes}});
