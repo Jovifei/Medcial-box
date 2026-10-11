@@ -6,6 +6,20 @@ export interface FamilyContextRow {
   role: string;
 }
 
+export async function listFamilyContextsByUserId(
+  database: QueryRunner,
+  userId: string,
+): Promise<FamilyContextRow[]> {
+  const result = await database.query<FamilyContextRow>(
+    `SELECT family_id, user_id, role
+       FROM family_members
+      WHERE user_id = $1
+      ORDER BY joined_at, id`,
+    [userId],
+  );
+  return result.rows;
+}
+
 export async function findActiveFamilyContext(
   database: QueryRunner,
   userId: string,
@@ -17,6 +31,20 @@ export async function findActiveFamilyContext(
       ORDER BY joined_at, id
       LIMIT 1`,
     [userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function findMembershipInFamily(
+  database: QueryRunner,
+  userId: string,
+  familyId: string,
+): Promise<FamilyContextRow | null> {
+  const result = await database.query<FamilyContextRow>(
+    `SELECT family_id, user_id, role
+       FROM family_members
+      WHERE user_id = $1 AND family_id = $2`,
+    [userId, familyId],
   );
   return result.rows[0] ?? null;
 }
