@@ -55,5 +55,5 @@ export async function recoverTemporaryShareFiles(): Promise<boolean> {
   let files: string[];
   try { files = readList(storageKey); } catch { return false; }
   const results = await Promise.all(files.map(path => cleanupTemporaryShareFile(path, storageKey)));
-  return results.every(Boolean);
+  return temporaryShareScope() === storageKey && results.every(Boolean);
 }
