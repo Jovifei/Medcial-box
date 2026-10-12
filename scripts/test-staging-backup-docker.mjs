@@ -296,7 +296,7 @@ export async function exercise() {
         SELECT m.family_id,m.created_by,m.id,b.id,'2099-12-31',30,'synthetic-unused' FROM medicines m JOIN medicine_batches b ON b.medicine_id=m.id;
       COMMIT;
     `);
-    const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum FROM schema_migrations) t;";
+    const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum,applied_at FROM schema_migrations) t;";
     const migrations = JSON.parse((await sql(dbId, migrationsSql)).stdout);
     assert.equal(migrations.length, (await readdir(join(root, "apps/api/db/migrations"))).filter((name) => /^\d+_.*\.sql$/.test(name)).length);
     assert(migrations.length > 0);
@@ -315,8 +315,15 @@ export async function exercise() {
       'doseOccurrences', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_occurrences t),
       'careGrants', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_grants t),
       'doseReminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_reminder_deliveries t),
-      'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t));`;
+      'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t),
+      'schemaMigrations', (SELECT coalesce(json_agg(t ORDER BY name),'[]'::json) FROM schema_migrations t));`;
     const beforeRecords = (await sql(dbId, snapshotSql)).stdout.trim();
+    const beforeSnapshot = JSON.parse(beforeRecords);
+    const expectedEmptySnapshotTables = ['doseOccurrences', 'careGrants', 'doseReminders'];
+    for (const table of expectedEmptySnapshotTables) {
+      assert.deepEqual(beforeSnapshot[table], [], `${table} synthetic fixture must be explicitly empty before backup`);
+    }
+    assert.deepEqual(beforeSnapshot.schemaMigrations, migrations, 'applied upgrade receipts must be read from the source database');
     const backup = async (name, expectedError) => {
       checkpoint();
       const directory = join(scratch, name);
@@ -374,6 +381,13 @@ export async function exercise() {
     assert.deepEqual(metadata, { name: "CI synthetic medicine", storage_key: photoKey, content_type: "image/png",
       size_bytes: Buffer.from(photoBase64, "base64").length, purpose: "box_front", family_id: ids.family,
       medicine_id: ids.medicine, cover_photo_id: ids.photo });
+    const secondQuery = `SELECT row_to_json(t) FROM (SELECT m.name,p.storage_key,p.content_type,p.size_bytes,p.purpose,p.family_id,p.medicine_id,m.cover_photo_id
+      FROM medicines m JOIN medicine_leaflet_photos p ON p.id=m.cover_photo_id AND p.medicine_id=m.id AND p.family_id=m.family_id
+      WHERE m.id='${ids.medicine2}' AND p.deleted_at IS NULL AND p.storage_removed_at IS NULL AND p.upload_completed_at IS NOT NULL) t;`;
+    const secondMetadata = JSON.parse((await sql(restoreId, secondQuery)).stdout);
+    assert.deepEqual(secondMetadata, { name: "Second household preserved content", storage_key: photoKey2, content_type: "image/png",
+      size_bytes: Buffer.from(photoBase64, "base64").length, purpose: "box_front", family_id: ids.family2,
+      medicine_id: ids.medicine2, cover_photo_id: ids.photo2 });
     await helper(["--network", "none", ...mount(volumes.restore_photos), "--entrypoint", "tar"], appImage,
       ["-xzf", "-", "-C", uploadRoot], { input: await readFile(join(complete, "photos.tar.gz")) });
     await helper(["--network", "none", ...mount(volumes.restore_photos, true), "--entrypoint", "node"], appImage,
@@ -382,10 +396,15 @@ export async function exercise() {
         import { stat } from 'node:fs/promises';
         import { PrivatePhotoStore } from './apps/api/dist/services/private-photo-store.js';
         const key = ${JSON.stringify(metadata.storage_key)};
+        const secondKey = ${JSON.stringify(secondMetadata.storage_key)};
         const bytes = await new PrivatePhotoStore().read(key);
-        assert(bytes.equals(Buffer.from('${photoBase64}', 'base64')));
+        const secondBytes = await new PrivatePhotoStore().read(secondKey);
+        const fixtureBytes = Buffer.from('${photoBase64}', 'base64');
+        assert(bytes.equals(fixtureBytes)); assert(secondBytes.equals(fixtureBytes)); assert(bytes.equals(secondBytes));
         const file = await stat('${uploadRoot}/' + key);
-        assert(process.getuid() > 0); assert.equal(file.uid, process.getuid()); assert.equal(file.mode & 0o777, 0o600);
+        const secondFile = await stat('${uploadRoot}/' + secondKey);
+        assert(process.getuid() > 0);
+        for (const entry of [file, secondFile]) { assert.equal(entry.uid, process.getuid()); assert.equal(entry.mode & 0o777, 0o600); }
       `]);
     const evidenceDirectory = join(root, "var", "family-pilot-backup");
     await mkdir(evidenceDirectory, {recursive:true});
@@ -397,9 +416,18 @@ export async function exercise() {
       ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey}').toString('base64'))`]);
     const secondActualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
       ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey2}').toString('base64'))`]);
+    assert.notEqual(photoKey, photoKey2, 'each household fixture must retain its own storage key');
+    assert.notEqual(ids.photo, ids.photo2, 'each household fixture must retain its own photo identity');
+    assert.equal(actualPhotoBase64, secondActualPhotoBase64, 'identical synthetic PNG fixtures must retain equal restored bytes');
+    const afterRecords = (await sql(restoreId,snapshotSql)).stdout.trim();
+    const afterSnapshot = JSON.parse(afterRecords);
+    for (const table of expectedEmptySnapshotTables) {
+      assert.deepEqual(afterSnapshot[table], [], `${table} must remain explicitly empty after restore`);
+    }
+    assert.deepEqual(afterSnapshot.schemaMigrations, migrations, 'restored database must persist each upgrade receipt and checksum');
     const evidence = {candidate:candidateAt(root),layer:"SYNTHETIC",buildImage:appImage,
       before:await artifact("before.json",beforeRecords),
-      after:await artifact("after.json",(await sql(restoreId,snapshotSql)).stdout.trim()),
+      after:await artifact("after.json",afterRecords),
       backupDatabase:await artifact("database.dump",await readFile(join(complete,"database.dump"))),
       backupPhotos:await artifact("photos.tar.gz",await readFile(join(complete,"photos.tar.gz"))),
       sourcePhotos:[{id:ids.photo,storageKey:photoKey,...await artifact("source-photo.png",Buffer.from(photoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("source-photo2.png",Buffer.from(photoBase64,"base64"))}],
@@ -410,7 +438,7 @@ export async function exercise() {
     console.log(JSON.stringify(verifyEvidence(evidenceFile,{restore:true,root})));
     checkpoint();
     assert.equal((await docker(["inspect", "--format", "{{.State.Status}}", apiId])).stdout.trim(), "created");
-    console.log(`PASS: ${migrations.length} actual migrations, restored medicine/photo association, exact PNG bytes, non-root owner + mode0600`);
+    console.log(`PASS: ${migrations.length} actual schema_migrations receipts persisted, exact empty dose arrays retained, two household photo pairs restored (identical PNG bytes), non-root owner + mode0600`);
     console.log(`Synthetic images: app=${appImage} postgres=${pgImage}; API server was never started`);
   } catch (error) { failure = error; }
   finally {

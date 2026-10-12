@@ -29,16 +29,26 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
   };
   const before = JSON.parse(readArtifact(evidence.before));
   const after = JSON.parse(readArtifact(evidence.after));
-  const tables = ['families','members','medicines','batches','photos','drafts','careProfiles','plans','planSlots','doseOccurrences','careGrants','doseReminders','reminders'];
+  const tables = ['families','members','medicines','batches','photos','drafts','careProfiles','plans','planSlots','doseOccurrences','careGrants','doseReminders','reminders','schemaMigrations'];
   for (const snapshot of [before,after]) {
     for (const table of tables) assert(Array.isArray(snapshot[table]), `missing ${table}`);
     for (const table of ['families','members','medicines','photos']) assert(snapshot[table].length > 0, `empty ${table}`);
   }
   // Compare every field, including ownership/content, rather than IDs alone.
   for (const table of tables) {
-    const sorted = rows => [...rows].sort((a,b) => String(a.id).localeCompare(String(b.id)));
+    const key = table === 'schemaMigrations' ? 'name' : 'id';
+    const sorted = rows => [...rows].sort((a,b) => String(a[key]).localeCompare(String(b[key])));
     assert.deepEqual(sorted(after[table]),sorted(before[table]), `${table} content or ownership lost`);
-    assert.equal(new Set(after[table].map(row=>row.id)).size, after[table].length, `duplicate ${table} id`);
+    const keys = after[table].map(row => row[key]);
+    assert(keys.every(value => typeof value === 'string' && value.length > 0), `${table} row missing ${key}`);
+    assert.equal(new Set(keys).size, after[table].length, `duplicate ${table} ${key}`);
+  }
+  for (const snapshot of [before,after]) {
+    assert(snapshot.schemaMigrations.length > 0, 'missing persisted schema migration receipts');
+    for (const receipt of snapshot.schemaMigrations) {
+      assert.match(receipt.name, /^\d+_[a-z0-9_-]+\.sql$/i, 'invalid schema migration receipt name');
+      assert.match(receipt.checksum, /^[a-f0-9]{64}$/i, 'invalid schema migration receipt checksum');
+    }
   }
   const familyIds = new Set(after.families.map(row => row.id));
   for (const member of after.members) {
@@ -65,5 +75,6 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
     readArtifact(evidence.backupDatabase); readArtifact(evidence.backupPhotos);
     assert(/^sha256:[a-f0-9]{64}$/.test(evidence.buildImage), 'missing actual build image digest');
   }
-  return {candidate:evidence.candidate, layer:evidence.layer, records:after.medicines.length, photos:after.photos.length, device:'NOT_RUN', production:'NOT_RUN'};
+  return {candidate:evidence.candidate, layer:evidence.layer, records:after.medicines.length, photos:after.photos.length,
+    schemaMigrations:after.schemaMigrations.length, device:'NOT_RUN', production:'NOT_RUN'};
 }
