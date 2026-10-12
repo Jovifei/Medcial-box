@@ -38,7 +38,14 @@ export function verifyEvidence(file, {restore = false, root = process.cwd()} = {
   for (const table of tables) {
     const key = table === 'schemaMigrations' ? 'name' : 'id';
     const sorted = rows => [...rows].sort((a,b) => String(a[key]).localeCompare(String(b[key])));
-    assert.deepEqual(sorted(after[table]),sorted(before[table]), `${table} content or ownership lost`);
+    if (table === 'schemaMigrations') {
+      const restoredByName = new Map(after[table].map(receipt => [receipt.name,receipt]));
+      for (const receipt of before[table]) {
+        assert.deepEqual(restoredByName.get(receipt.name), receipt, 'existing schema migration receipt changed or was lost');
+      }
+      assert(after[table].length >= before[table].length, 'schema migration receipts were lost');
+      if (restore) assert.deepEqual(sorted(after[table]),sorted(before[table]), 'schema migration receipts changed during backup restore');
+    } else assert.deepEqual(sorted(after[table]),sorted(before[table]), `${table} content or ownership lost`);
     const keys = after[table].map(row => row[key]);
     assert(keys.every(value => typeof value === 'string' && value.length > 0), `${table} row missing ${key}`);
     assert.equal(new Set(keys).size, after[table].length, `duplicate ${table} ${key}`);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, copyFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readdir, copyFile, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { candidateAt, hash, verifyEvidence } from '../../../scripts/family-pilot-evidence.mjs';
 import { execFileSync } from 'node:child_process';
@@ -39,13 +40,27 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
       const tables={families:'families',members:'family_members',medicines:'medicines',batches:'medicine_batches',photos:'medicine_leaflet_photos',careProfiles:'care_profiles',plans:'medication_plans',planSlots:'plan_time_slots',doseOccurrences:'dose_occurrences',careGrants:'care_grants',doseReminders:'dose_reminder_deliveries',reminders:'reminder_deliveries'};
       const snapshot={drafts:f.map((family,i)=>({id:`draft-${i}`,family_id:family.id,user_id:u[i].id,fields:{name:`Pending input ${i}`},requestKey:`original-${i}`}))};
       for(const [key,table] of Object.entries(tables)) snapshot[key]=(await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows;
+      snapshot.schemaMigrations=(await pool.query('SELECT name,checksum,applied_at FROM schema_migrations ORDER BY name')).rows;
       return snapshot;
     };
     const originalSnapshot=await readSnapshot();
-    await applyMigrations(pool);
+    const migrationNames=(await readdir('db/migrations')).filter(name=>/^\d+_[a-z0-9_-]+\.sql$/i.test(name)).sort((a,b)=>a.localeCompare(b));
+    const expectedReceipts=[];
+    for(const name of migrationNames){
+      const sql=await readFile(join('db/migrations',name),'utf8');
+      expectedReceipts.push({name,checksum:createHash('sha256').update(sql.replace(/\r\n/g,'\n')).digest('hex')});
+    }
+    const previousReceiptNames=new Set(originalSnapshot.schemaMigrations.map(receipt=>receipt.name));
+    const firstRun=await applyMigrations(pool);
+    assert.deepEqual([...firstRun].sort((a,b)=>a.localeCompare(b)),migrationNames.filter(name=>!previousReceiptNames.has(name)).sort((a,b)=>a.localeCompare(b)));
     assert.deepEqual(await applyMigrations(pool),[]);
     const upgradedSnapshot=await readSnapshot();
-    assert.deepEqual(upgradedSnapshot,originalSnapshot);
+    const withoutReceipts=snapshot=>{const content={...snapshot};delete content.schemaMigrations;return content;};
+    assert.deepEqual(withoutReceipts(upgradedSnapshot),withoutReceipts(originalSnapshot));
+    assert.deepEqual(upgradedSnapshot.schemaMigrations.map(({name,checksum})=>({name,checksum})),expectedReceipts,
+      'the upgraded database must persist every migration name and checksum');
+    const receiptsAfterRerun=(await pool.query('SELECT name,checksum,applied_at FROM schema_migrations ORDER BY name')).rows;
+    assert.deepEqual(receiptsAfterRerun,upgradedSnapshot.schemaMigrations,'migration receipts must survive an idempotent rerun unchanged');
     // Artifacts are emitted from real SQL results plus scoped synthetic client input.
     const artifactDir=resolve('../../var/family-pilot-upgrade',candidateAt('../../').sha);
     await mkdir(artifactDir,{recursive:true});

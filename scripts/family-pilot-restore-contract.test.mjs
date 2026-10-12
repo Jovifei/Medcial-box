@@ -24,6 +24,13 @@ test('explicit empty dose collections and applied schema migration receipts surv
   assert.equal(snapshot.schemaMigrations.length,1);
   verifyEvidence(file,{restore:true});
 }));
+test('upgrade evidence retains prior receipts and records a newly applied migration',()=>fixture(f=>{
+  const upgraded=structuredClone(f.snapshot);
+  upgraded.schemaMigrations.push({name:'002_add_household_scope.sql',checksum:'b'.repeat(64),applied_at:'2026-10-12T00:01:00.000Z'});
+  f.evidence.after=f.put('upgraded-after.json',JSON.stringify(upgraded));f.save();
+  assert.equal(verifyEvidence(f.file).schemaMigrations,2);
+  assert.throws(()=>verifyEvidence(f.file,{restore:true}),'backup restore must preserve the exact receipt set');
+}));
 test('identical synthetic photo bytes remain paired by household, medicine, photo id, and storage key',()=>fixture(f=>{
   const photo=Buffer.from('synthetic-owned-photo-bytes');
   const secondKey='leaflets/f2/m2/p2.png';
