@@ -181,6 +181,7 @@
   <view wx:if="{{attemptedPayload !== null}}" class="hint">本次提交内容已锁定，重试仅确认原请求和补传照片；成功后可在药品详情继续修改。</view><view class="save-bar"><view class="btn btn-primary save-action {{submitting || recognizing ? 'disabled' : ''}}" bindtap="onSubmit">
     {{submitting ? "保存中…" : (isEdit ? "保存修改" : "保存药品")}}
   </view>
+  <business-nav embedded="{{true}}" />
   </view>
   <view class="hint footnote">药品资料用于家庭库存管理；识别内容须人工核对，不代表适合服用。</view>
 </view>
@@ -196,5 +197,3 @@
     <view class="btn btn-ghost" data-choice="continue" bindtap="onLeaveChoice">继续编辑</view>
   </view>
 </view>
-
-<business-nav />

@@ -28,9 +28,21 @@ test('all non-tab product pages register shared bottom navigation; four primary 
   const root=new URL('../',import.meta.url);const cfg=JSON.parse(fs.readFileSync(new URL('app.json',root)));const tabs=cfg.tabBar.list.map(x=>x.pagePath);
   assert.equal(tabs.length,4);
   for(const page of cfg.pages.filter(p=>!tabs.includes(p))) {
-    assert(fs.readFileSync(new URL(page+'.wxml',root),'utf8').includes('<business-nav />'),page);
+    assert.match(fs.readFileSync(new URL(page+'.wxml',root),'utf8'), /<business-nav(?:\s[^>]*)?\s*\/>/, page);
     assert.equal(JSON.parse(fs.readFileSync(new URL(page+'.json',root))).usingComponents['business-nav'],'../../components/business-nav/business-nav');
   }
+});
+test('business footer stays fixed with native disabled buttons; editor shares its save bar',()=>{
+  const root=new URL('../',import.meta.url);
+  const nav=fs.readFileSync(new URL('components/business-nav/business-nav.wxml',root),'utf8');
+  assert.equal((nav.match(/<button\b/g)||[]).length,4);
+  assert.equal((nav.match(/disabled="\{\{busy\}\}"/g)||[]).length,4);
+  assert.match(nav,/business-nav-spacer/);
+  const css=fs.readFileSync(new URL('components/business-nav/business-nav.wxss',root),'utf8');
+  assert.match(css,/position:\s*fixed/);
+  assert.match(css,/\.business-nav-wrapper\.embedded\s*\{\s*position:\s*static/);
+  const editor=fs.readFileSync(new URL('pages/medicine-edit/medicine-edit.wxml',root),'utf8');
+  assert.match(editor,/<view class="save-bar">[\s\S]*?<business-nav embedded="\{\{true\}\}"\s*\/>\s*<\/view>/);
 });
 test('batch footer saves original household input and stale submit never moves it to B',async()=>{
   const scope=makeSessionScopeModule({userId:'u',familyId:'a'});

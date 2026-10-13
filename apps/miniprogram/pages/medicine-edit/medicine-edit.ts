@@ -1012,10 +1012,10 @@ Page({
         candidateWarnings: response.warnings,
         recognitionHint: response.candidates.length > 0
           ? "找到资料候选，请核对名称、规格和厂家；确认后才会填入表单。"
-          : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
+          : "暂未找到条码候选资料；商品码已保留，可拍药盒尝试生成待核对草稿，或手动录入。",
         barcodeLookupStatus: response.candidates.length > 0
           ? `已读取商品码 ${scannedBarcode}，请核对候选。`
-          : `未找到候选；商品码 ${scannedBarcode} 已保留。`,
+          : `商品码 ${scannedBarcode} 已填入表单；可拍药盒尝试生成待核对草稿，或手动填写。`,
         canRetryBarcode: false,
       });
     } catch (error) {
@@ -1198,6 +1198,7 @@ Page({
     let photo: PhotoEntryDraft["photos"][number] | undefined;
     let registered = false;
     let operationDraftId = initialData.activePhotoDraftId;
+    let existingDraftId = initialData.activePhotoDraftId;
     const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope) &&
       (!registered || this.currentPhotoDraftQueue(operationDraftId, photo?.path) !== null);
     try {
@@ -1209,7 +1210,23 @@ Page({
       if (!operationCurrent()) return;
       const file = selection.tempFiles[0];
       if (!file) return;
-      if (!this.data.activePhotoDraftId && this.data.photoDrafts.some((item) => item.status !== "saved" && item.status !== "cleanup_pending")) { wx.showToast({ title: "请先保存或恢复已有药品草稿", icon: "none" }); return; }
+      const unhandledDraft = this.data.photoDrafts.find((item) => item.status !== "saved" && item.status !== "cleanup_pending");
+      if (!this.data.activePhotoDraftId && unhandledDraft) {
+        if (unhandledDraft.status === "failed") {
+          const queue = this.currentPhotoDraftQueue(unhandledDraft.id);
+          const failed = queue?.find((item) => item.id === unhandledDraft.id);
+          if (!failed || failed.photos.some((photo) => photo.ownedLocal?.state === "reserved")) {
+            wx.showToast({ title: "请先恢复或删除未完成的照片草稿", icon: "none" });
+            return;
+          }
+          existingDraftId = failed.id;
+          operationDraftId = unhandledDraft.id;
+          this.setData({ activePhotoDraftId: unhandledDraft.id });
+        } else {
+          wx.showToast({ title: "请先保存或恢复已有药品草稿", icon: "none" });
+          return;
+        }
+      }
       if (file.size > 4 * 1024 * 1024) {
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
@@ -1233,7 +1250,7 @@ Page({
       const requestedPurpose = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.purpose : "";
       const purpose = requestedPurpose === "leaflet" ? "leaflet" : requestedPurpose === "expiry" ? "expiry" : "box_front";
       this.startRecognitionClock(purpose === "leaflet" ? "说明书" : "药品包装");
-      const id = this.data.activePhotoDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = existingDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       operationDraftId = id;
       const fs = wx.getFileSystemManager();
       let sdkVersion = "";
@@ -1247,11 +1264,12 @@ Page({
         isCurrent: operationCurrent,
         register: (owner) => {
           if (!operationCurrent()) return false;
-          const entries = initialData.activePhotoDraftId
+          if (existingDraftId && this.data.activePhotoDraftId !== id) return false;
+          const entries = existingDraftId
             ? this.currentPhotoDraftQueue(id) : this.photoDraftQueueForWrite();
           if (!entries) return false;
           let entry = entries.find((item) => item.id === id);
-          if (entry && !initialData.activePhotoDraftId) return false;
+          if (entry && !existingDraftId) return false;
           if (!entry) {
             if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) return false;
             entry = { id, thumbnail: owner.path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
@@ -1308,6 +1326,7 @@ Page({
       if (untouched("purposeTags") && current.purposeTags.length === 0 && draft.purposeTags?.length) {
         fields.purposeTags = draft.purposeTags;
         fields.purposeChips = buildPurposeChips(draft.purposeTags);
+        fields.classificationExpanded = true;
       }
       if (untouched("populationTags") && current.populationTags.length === 0 && draft.populationTags?.length) {
         fields.populationTags = draft.populationTags;

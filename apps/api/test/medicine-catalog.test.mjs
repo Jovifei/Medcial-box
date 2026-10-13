@@ -87,3 +87,76 @@ test("catalog provider errors become a safe unavailable result", async () => {
     (error) => error instanceof MedicineCatalogUnavailableError && error.reason === "unavailable",
   );
 });
+
+const emptyCatalog = { candidates: [], warnings: [] };
+const query = { barcode: "6900000000012", consentToShare: true };
+const localStub = (search) => ({ kind: "local", search });
+
+test("default catalog does not silently load an unconfigured local data file", async () => {
+  const keys = ["MEDICINE_CATALOG_PROVIDER", "MEDICINE_CATALOG_LOCAL_FILE", "JISU_MEDICINE_API_KEY"];
+  const saved = keys.map(key => process.env[key]);
+  try {
+    keys.forEach(key => { delete process.env[key]; });
+    await assert.rejects(catalogModule.createDefaultMedicineCatalogProvider().search(query),
+      error => error.reason === "not_configured");
+  } finally {
+    keys.forEach((key, index) => {
+      if (saved[index] === undefined) delete process.env[key];
+      else process.env[key] = saved[index];
+    });
+  }
+});
+
+test("composite keeps local priority and never sends identifiers externally without consent", async () => {
+  const { CompositeMedicineCatalogProvider } = catalogModule;
+  let externalCalls = 0;
+  const external = { async search() { externalCalls++; return emptyCatalog; } };
+  const match = { candidates: [{ name: "合成药品" }], warnings: [] };
+  const first = new CompositeMedicineCatalogProvider(localStub(async () => match), external);
+  assert.deepEqual(await first.search(query), match);
+  assert.equal(externalCalls, 0);
+  const fallback = new CompositeMedicineCatalogProvider(localStub(async () => emptyCatalog), external);
+  const result = await fallback.search({ ...query, consentToShare: false });
+  assert.equal(externalCalls, 0);
+  assert.equal(result.candidates.length, 0);
+  assert.match(result.warnings.join(" "), /未进行外部资料查询/);
+  assert.doesNotMatch(result.warnings.join(" "), /显卡|GPU|成功读取|保留在表单/);
+  await fallback.search(query);
+  assert.equal(externalCalls, 1);
+});
+
+test("composite distinguishes healthy no-match, missing configuration and unavailable providers", async () => {
+  const { CompositeMedicineCatalogProvider, MedicineCatalogUnavailableError } = catalogModule;
+  const healthy = localStub(async () => emptyCatalog);
+  const errorProvider = (reason) => ({ async search() { throw new MedicineCatalogUnavailableError("synthetic failure", reason); } });
+  const missing = new CompositeMedicineCatalogProvider();
+  await assert.rejects(missing.search(query), error => error.reason === "not_configured");
+  const normal = await new CompositeMedicineCatalogProvider(healthy).search(query);
+  assert.equal(normal.candidates.length, 0);
+  assert.match(normal.warnings.join(" "), /未检索到匹配/);
+  for (const reason of ["not_configured", "unavailable"]) {
+    await assert.rejects(new CompositeMedicineCatalogProvider(healthy, errorProvider(reason)).search(query),
+      error => error instanceof MedicineCatalogUnavailableError && error.reason === reason);
+    await assert.rejects(new CompositeMedicineCatalogProvider(localStub(errorProvider(reason).search)).search(query),
+      error => error instanceof MedicineCatalogUnavailableError && error.reason === reason);
+  }
+  await assert.rejects(new CompositeMedicineCatalogProvider(healthy, { async search() { throw new Error("synthetic unexpected failure"); } }).search(query),
+    error => error instanceof MedicineCatalogUnavailableError && error.reason === "unavailable");
+});
+
+test("composite can recover local failure with a consented external match but never hides partial failure as no-match", async () => {
+  const { CompositeMedicineCatalogProvider, MedicineCatalogUnavailableError } = catalogModule;
+  const brokenLocal = localStub(async () => { throw new MedicineCatalogUnavailableError("synthetic local failure"); });
+  const match = { candidates: [{ name: "合成外部候选" }], warnings: ["待核验"] };
+  let calls = 0;
+  const external = { async search() { calls++; return match; } };
+  const provider = new CompositeMedicineCatalogProvider(brokenLocal, external);
+  await assert.rejects(provider.search({ ...query, consentToShare: false }), error => error.reason === "unavailable");
+  assert.equal(calls, 0);
+  assert.deepEqual(await provider.search(query), match);
+  assert.equal(calls, 1);
+  await assert.rejects(new CompositeMedicineCatalogProvider(brokenLocal, { async search() { return emptyCatalog; } }).search(query),
+    error => error.reason === "unavailable");
+  await assert.rejects(new CompositeMedicineCatalogProvider(brokenLocal, { async search() { throw new MedicineCatalogUnavailableError("synthetic missing external", "not_configured"); } }).search(query),
+    error => error.reason === "unavailable");
+});

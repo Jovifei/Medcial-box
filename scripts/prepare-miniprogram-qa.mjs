@@ -54,6 +54,9 @@ const reviewedSourceTrees = new Set([
   '2924595aa226c2f809fff54498bfa22afcf7cb36',
   // Scoped receipt rebase and two independent synthetic concurrency cases, same native capability set.
   'e368588172f65e9e07cde1bba6ef2d09abe44b0e',
+  // 2026-10-13 independent review: fixed footer, explicit purpose review, owned failed-photo retake.
+  // No new wx/fs/native network/component kinds; read-only getCurrentPages reads route only.
+  'c4a34d6bcd0d63796cd1e4da10fb75d2d245d60a',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

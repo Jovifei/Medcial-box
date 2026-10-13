@@ -124,9 +124,11 @@ function quantityText(batch: MedicationBatchSummary): string {
 
 function toBatchView(batch: MedicationBatchSummary): BatchView {
   const opened = batch.openedState === "opened";
+  const isOpenedPrioritized = batch.managementExpirySource === "opened" && Boolean(batch.openedExpiryDate);
+  const openingBasis = isOpenedPrioritized ? batch.expiry.value === null ? "（按已记录的开封期限）" : "（开封期优先，早于包装）" : "";
   const openingText = !opened ? "开封状态未记录" : batch.openedAt === null || batch.openedAt === undefined
     ? "已开封 · 日期待补充"
-    : `已开封 · ${batch.openedAt}${batch.openedExpiryDate ? ` · 开封期限至 ${batch.openedExpiryDate}` : ""}`;
+    : `已开封 · ${batch.openedAt}${batch.openedExpiryDate ? ` · 开封期限至 ${batch.openedExpiryDate}` : ""}${openingBasis}`;
   return {
     id: batch.id,
     quantity: batch.quantity,

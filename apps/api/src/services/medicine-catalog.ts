@@ -183,7 +183,68 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
   }
 }
 
+export class CompositeMedicineCatalogProvider implements MedicineCatalogProvider {
+  readonly kind = "local" as const;
+  constructor(
+    private readonly localProvider?: MedicineCatalogProvider & { readonly kind: "local" },
+    private readonly externalProvider?: MedicineCatalogProvider,
+  ) {}
+
+  async search(query: MedicineCatalogQuery): Promise<MedicineCandidatesResponse> {
+    let failure: MedicineCatalogUnavailableError | undefined;
+    let searched = false;
+    const warnings: string[] = [];
+    if (this.localProvider) {
+      try {
+        const localResult = await this.localProvider.search(query);
+        searched = true;
+        if (localResult.candidates.length > 0) {
+          return localResult;
+        }
+        warnings.push(...localResult.warnings);
+      } catch (error) {
+        failure = error instanceof MedicineCatalogUnavailableError
+          ? error : new MedicineCatalogUnavailableError("local catalog request failed");
+      }
+    }
+
+    // The composite allows local queries without consent; its external branch
+    // must enforce consent itself, including for providers without a kind.
+    if (this.externalProvider && query.consentToShare) {
+      try {
+        const extResult = await this.externalProvider.search(query);
+        searched = true;
+        if (extResult.candidates.length > 0) {
+          return extResult;
+        }
+        warnings.push(...extResult.warnings);
+      } catch (error) {
+        const externalFailure = error instanceof MedicineCatalogUnavailableError
+          ? error : new MedicineCatalogUnavailableError("external catalog request failed");
+        if (!failure || externalFailure.reason === "unavailable") failure = externalFailure;
+      }
+    }
+
+    if (failure) throw failure;
+    if (!searched) {
+      throw new MedicineCatalogUnavailableError("medicine catalog is not configured for this query", "not_configured");
+    }
+    return {
+      candidates: [],
+      warnings: [
+        ...warnings,
+        "未检索到匹配的药品资料，请核对包装手动填写，或使用拍照识别后核验。",
+        ...(!query.consentToShare && this.externalProvider ? ["未进行外部资料查询；联网查询需要先确认允许发送药品标识。"] : []),
+      ],
+    };
+  }
+}
+
 export function createDefaultMedicineCatalogProvider(): MedicineCatalogProvider {
   if (process.env.MEDICINE_CATALOG_PROVIDER === "local") return new LocalMedicineCatalogProvider(process.env.MEDICINE_CATALOG_LOCAL_FILE ?? "");
-  return new JisuMedicineCatalogProvider(process.env.JISU_MEDICINE_API_KEY ?? "");
+  const localFile = process.env.MEDICINE_CATALOG_LOCAL_FILE?.trim();
+  const local = localFile ? new LocalMedicineCatalogProvider(localFile) : undefined;
+  const jisuKey = process.env.JISU_MEDICINE_API_KEY ?? "";
+  const external = jisuKey.trim() ? new JisuMedicineCatalogProvider(jisuKey) : undefined;
+  return new CompositeMedicineCatalogProvider(local, external);
 }
