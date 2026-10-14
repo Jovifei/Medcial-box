@@ -16,6 +16,7 @@ import '../../data/api_workflow_repository.dart';
 import '../../data/medicine_recognition.dart';
 import '../../data/app_stores.dart';
 import '../../data/medicine_draft_queue.dart';
+import '../../data/medicine_owned_photo.dart';
 import '../../domain/ingredient_match.dart';
 import '../../models/medicine_models.dart';
 
@@ -73,6 +74,19 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   XFile? image;
   final photoDrafts = <Map<String, dynamic>>[];
   bool usePhotoAsCover = true;
+  bool cleanupPending = false;
+  bool get _isCleanupDraft =>
+      cleanupPending ||
+      photoDrafts.any((photo) => photo['cleanupState'] != null);
+  void _showCleanupHint() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('此草稿仅待本机清理，请从“导入草稿”的删除入口重试；不会再次入库或上传。')),
+      );
+    }
+  }
+
+  String cleanupMessage = "本机照片清理未完成，草稿已保留，请稍后重试。";
   bool openingExpanded = false;
   bool categoryExpanded = true;
   bool locationExpanded = false;
@@ -269,6 +283,18 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ),
       );
     usePhotoAsCover = json['usePhotoAsCover'] != false;
+    cleanupPending = json['cleanupPending'] == true;
+    if (photoDrafts.any(
+      (photo) => photo['path'] == image?.path && photo['cleanupState'] != null,
+    )) {
+      image = null;
+    }
+    if (photoDrafts.any(
+      (photo) =>
+          photo['path'] == expiryImage?.path && photo['cleanupState'] != null,
+    )) {
+      expiryImage = null;
+    }
     _syncPhotoDrafts();
     touchedName = false;
     restoredDraft = true;
@@ -336,6 +362,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           .map((photo) => Map<String, dynamic>.from(photo))
           .toList(),
       'usePhotoAsCover': usePhotoAsCover,
+      'cleanupPending': cleanupPending,
       'imagePath': image?.path,
       'expiryImagePath': expiryImage?.path,
       'status': savedMedicineId != null
@@ -369,6 +396,83 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
     });
     return acknowledged;
+  }
+
+  String _editableSnapshot() {
+    final fields = _draftFields()
+      ..remove('cleanupPending')
+      ..remove('status');
+    for (final photo in (fields['photos'] as List)) {
+      (photo as Map).remove('cleanupState');
+    }
+    return jsonEncode(fields);
+  }
+
+  Future<bool> _cleanupDraftPhotos(
+    String id,
+    Map<String, dynamic> fields,
+  ) async {
+    final photos = (fields['photos'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final owned = photos.where((photo) => photo['ownedLocal'] != null).toList();
+    if (photos.isEmpty) return true;
+    var unknown = false;
+    cleanupMessage = "本机照片清理未完成，草稿已保留，请稍后重试。";
+    bool current() => mounted && _isDraftIdentityCurrent;
+    if (!current()) return false;
+    if (id == draftId) {
+      recognitionRequest++;
+      recognitionTimer?.cancel();
+      setState(() {
+        cleanupPending = true;
+        recognizing = false;
+      });
+    }
+    void sync(Map<String, dynamic> photo) {
+      if (id != draftId) return;
+      for (final local in photoDrafts.where(
+        (local) => local['path'] == photo['path'],
+      )) {
+        local['cleanupState'] = photo['cleanupState'];
+      }
+    }
+
+    Future<bool> persist() => draftQueue.save(id, {
+      ...fields,
+      'photos': photos,
+      'cleanupPending': true,
+    });
+    final support = owned.isEmpty
+        ? null
+        : await getApplicationSupportDirectory();
+    if (!current()) return false;
+    for (final photo in photos) {
+      if (photo['ownedLocal'] == null) {
+        unknown = true;
+        photo['cleanupState'] = 'unknown';
+        sync(photo);
+        cleanupMessage = '旧照片归属未确认，已保留照片和草稿，未执行删除。';
+        if (!await persist() || !current()) return false;
+        continue;
+      }
+      if (photo['cleanupState'] == 'done') continue;
+      photo['cleanupState'] = 'pending';
+      sync(photo);
+      if (!await persist() || !current()) return false;
+      if (!await cleanupMedicinePhoto(
+        supportPath: support!.path,
+        draftId: id,
+        photo: photo,
+        isCurrent: current,
+      )) {
+        return false;
+      }
+      photo['cleanupState'] = 'done';
+      sync(photo);
+      if (!await persist() || !current()) return false;
+    }
+    return current() && !unknown;
   }
 
   Future<void> _deleteOwnLegacyDraft(String id) async {
@@ -432,9 +536,33 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                   tooltip: '删除草稿',
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {
+                    if (!await _cleanupDraftPhotos(
+                      draft['id'] as String,
+                      draft,
+                    )) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(
+                          this.context,
+                        ).showSnackBar(SnackBar(content: Text(cleanupMessage)));
+                      }
+                      return;
+                    }
                     await draftQueue.remove(draft['id'] as String);
                     if (mounted && _isDraftIdentityCurrent) {
                       await _deleteOwnLegacyDraft(draft['id'] as String);
+                      if (mounted &&
+                          _isDraftIdentityCurrent &&
+                          draftId == draft['id']) {
+                        recognitionRequest++;
+                        setState(() {
+                          _applyDraft({
+                            'id': DateTime.now().microsecondsSinceEpoch
+                                .toString(),
+                          });
+                          dirty = false;
+                          restoredDraft = false;
+                        });
+                      }
                     }
                     if (context.mounted) Navigator.pop(context);
                   },
@@ -540,7 +668,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           if (!isCurrentIntent()) return;
         } while (snapshot != jsonEncode(_draftFields()));
       } else {
-        final snapshot = jsonEncode(_draftFields());
+        final snapshot = _editableSnapshot();
+        if (!await _cleanupDraftPhotos(id, _draftFields())) {
+          throw StateError('本机照片清理未完成，草稿已保留。');
+        }
+        if (!isCurrentIntent()) return;
         await _persistDraft(() async {
           if (!isCurrentIntent()) return;
           await _deleteOwnLegacyDraft(id);
@@ -548,7 +680,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           await draftQueue.remove(id);
         });
         if (!isCurrentIntent()) return;
-        if (snapshot != jsonEncode(_draftFields())) {
+        if (snapshot != _editableSnapshot()) {
           // The discard decision did not cover edits entered while deleting.
           await _saveDraft();
           return;
@@ -565,7 +697,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            action == _DraftExitAction.discard
+            action == _DraftExitAction.discard && cleanupPending
+                ? cleanupMessage
+                : action == _DraftExitAction.discard
                 ? '草稿删除失败，内容仍在当前页面。请重试。'
                 : '草稿保存失败，内容仍在当前页面。请重试。',
           ),
@@ -614,6 +748,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     bool expiryPhoto = false,
     bool leafletPhoto = false,
   }) async {
+    if (_isCleanupDraft) {
+      _showCleanupHint();
+      return;
+    }
+    if (!_isDraftIdentityCurrent) return;
     action ??= await showAppSheet<_ImageAction>(
       context,
       title: '拍药盒',
@@ -639,6 +778,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ),
     );
     if (action == null || !mounted) return;
+    if (_isCleanupDraft) {
+      _showCleanupHint();
+      return;
+    }
     Directory? unregisteredDirectory;
     final previousPhotos = (image, expiryImage, frontPhotoId, expiryPhotoId);
     void restorePreviousPhotos() {
@@ -657,6 +800,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         maxWidth: 1800,
       );
       if (selected == null || !mounted) return;
+      if (_isCleanupDraft) {
+        _showCleanupHint();
+        return;
+      }
       final request = ++recognitionRequest;
       final support = await getApplicationSupportDirectory();
       final directory = Directory('${support.path}/medicine-draft-images');
@@ -690,12 +837,24 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         'path': path,
         'purpose': purpose,
         'state': 'reserved',
+        'ownedLocal': {
+          'supportPath': support.path,
+          'directory': ownedDirectory.path,
+          'draftId': draftId,
+          'purpose': purpose,
+          'path': path,
+        },
       };
       _syncPhotoDrafts();
       photoDrafts.add(pendingPhoto);
       final reserved = await _saveDraft(legacy: false);
       if (!reserved) {
         photoDrafts.remove(pendingPhoto);
+        if (mounted && _isDraftIdentityCurrent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('本机照片草稿保存失败，未复制或发送照片，请重试。')),
+          );
+        }
         return;
       }
       // Durable ownership must precede private bytes, including process death.
@@ -794,7 +953,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         purpose: leafletPhoto ? 'leaflet' : 'box_front',
                       )
                     : recognition)
-                .recognize(selected);
+                .recognize(XFile(durable.path));
         if (!mounted ||
             request != recognitionRequest ||
             !_isDraftIdentityCurrent) {
@@ -896,7 +1055,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         // createTemp returned this new, exclusive directory in this attempt.
         // Its only possible contents are our unfinished copy, never old photos.
         try {
-          await abandoned.delete(recursive: true);
+          await abandoned.delete();
         } on FileSystemException {
           // Retain an unremovable original rather than broaden cleanup scope.
         }
@@ -905,10 +1064,22 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Future<void> _scanCode() async {
+    if (_isCleanupDraft) {
+      _showCleanupHint();
+      return;
+    }
+    if (!_isDraftIdentityCurrent) return;
+    final request = recognitionRequest;
     final code = await Navigator.of(
       context,
     ).push<String>(MaterialPageRoute(builder: (_) => const _BarcodeScanPage()));
-    if (!mounted || code == null) return;
+    if (!mounted ||
+        code == null ||
+        _isCleanupDraft ||
+        !_isDraftIdentityCurrent ||
+        request != recognitionRequest) {
+      return;
+    }
     setState(() => scannedCode = code);
     _markDirty();
     await _searchCatalog(barcode: code);
@@ -1075,6 +1246,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   Future<void> _save() async {
     if (saving || handlingBack || !_isDraftIdentityCurrent) return;
+    if (_isCleanupDraft) {
+      _showCleanupHint();
+      return;
+    }
     final route = ModalRoute.of(context);
     if (route == null || !route.isCurrent) return;
     final navigator = Navigator.of(context);
@@ -1364,6 +1539,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         navigator.pop(medicine.id);
         return;
       }
+      if (!await _cleanupDraftPhotos(id, _draftFields())) {
+        if (mounted && isCurrentIntent()) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(cleanupMessage)));
+        }
+        return;
+      }
       await _persistDraft(() async {
         requireCurrentIntent();
         await _deleteOwnLegacyDraft(id);
@@ -1573,7 +1755,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       body: Stack(
         children: [
           AbsorbPointer(
-            absorbing: attemptedPayload != null || saving || recognizing,
+            absorbing:
+                attemptedPayload != null ||
+                saving ||
+                recognizing ||
+                _isCleanupDraft,
             child: AppPage(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
               child: ListView(
@@ -1646,6 +1832,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           ),
                         ],
                         if (photoDrafts.isNotEmpty) ...[
+                          if (cleanupPending)
+                            const Text(
+                              '本机照片清理未完成；原图归属回执已保留，请从“导入草稿”的删除入口重试清理，不会再次入库或上传。',
+                            ),
                           Text(
                             '已保留 ${photoDrafts.length} 张照片；补拍会追加，确认后完整照片入库。',
                           ),

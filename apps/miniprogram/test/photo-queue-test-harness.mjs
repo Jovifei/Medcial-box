@@ -17,7 +17,7 @@ function harness(behavior = {}) {
   };
   const {definition}=loadPage('pages/medicine-edit/medicine-edit.ts',{
     setTimeoutFn:()=>{},
-    modules:{'session-scope':scope,'../../services/auth':{ensureLoggedIn:async()=>{}},'../../services/api':{ApiError:class extends Error{},api:{
+    modules:{'session-scope':scope,'../../services/auth':{ensureLoggedIn:async()=>{}},'../../services/api':{ApiError:class extends Error{},...behavior.identity,api:{
       recognizeMedicine:async()=>{calls.recognize++;const result={warnings:[],draft:{name:null,specification:null,manufacturer:null,approvalNumber:null,purposeCategory:null}};return behavior.recognize?behavior.recognize(result):result;},
       createMedicine:async()=>{calls.create++;const result={id:'synthetic-created',batches:[{id:'synthetic-batch'}]};return behavior.create?behavior.create(result):result;},
       getMedicine:async()=>{calls.get++;return {id:'synthetic-created',batches:[{id:'synthetic-batch'}]};},

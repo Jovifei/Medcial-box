@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_medicine_flutter/core/widgets/app_surfaces.dart';
 // Test adapter for the interface provided by the existing image_picker dependency.
 // ignore: depend_on_referenced_packages
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
@@ -23,11 +24,15 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 class _Picker extends ImagePickerPlatform {
   _Picker(this.files);
   final List<File> files;
+  int calls = 0;
   @override
   Future<XFile?> getImageFromSource({
     required ImageSource source,
     ImagePickerOptions options = const ImagePickerOptions(),
-  }) async => XFile(files.removeAt(0).path);
+  }) async {
+    calls++;
+    return XFile(files.removeAt(0).path);
+  }
 }
 
 class _Paths extends PathProviderPlatform {
@@ -78,6 +83,10 @@ void main() {
     'partial-restart',
     'inventory-restart',
     'reserved-restart',
+    'picker-gone',
+    'delete',
+    'discard',
+    'cleanup-blocked',
   ]) {
     testWidgets(
       '$mode: same-format retake preserves originals, receipts and cover choice',
@@ -114,6 +123,7 @@ void main() {
           PathProviderPlatform.instance = _Paths(root);
           final store = MemoryInventoryLocalStore();
           final uploads = <Map<String, dynamic>>[];
+          final recognitionRequests = <String>[];
           final remote = <String, String>{};
           final covers = <String>[];
           var creates = 0;
@@ -149,6 +159,9 @@ void main() {
             tokenProvider: () async => 'synthetic',
             client: MockClient((request) async {
               if (request.url.path == '/api/v1/recognitions/medicine') {
+                recognitionRequests.add(
+                  (jsonDecode(request.body) as Map)['imageBase64'] as String,
+                );
                 return json({
                   'error': {
                     'code': 'RECOGNITION_UNAVAILABLE',
@@ -249,7 +262,9 @@ void main() {
             await importDraft();
           }
 
+          var captures = 0;
           Future<void> capture() async {
+            captures++;
             await tester.ensureVisible(find.text('从相册选择'));
             await tester.tap(find.text('从相册选择'));
             for (
@@ -261,6 +276,9 @@ void main() {
               await tester.pump();
             }
             await tester.pump(const Duration(milliseconds: 500));
+            if (mode == 'picker-gone') {
+              await (captures == 1 ? first : second).delete();
+            }
             await tester.tap(find.text('AI 识别').last);
             for (var i = 0; i < 20; i++) {
               await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -293,6 +311,54 @@ void main() {
           expect(state.photoDrafts.length, 2);
           state.nameController.text = 'Synthetic medicine';
           state.usePhotoAsCover = mode != 'no-cover';
+          File? sibling;
+          if (mode == 'cleanup-blocked') {
+            sibling = await File('${File(retakePath).parent.path}/unknown.txt')
+                .writeAsString('keep');
+          }
+
+          if (mode == 'delete' || mode == 'discard') {
+            if (mode == 'delete') {
+              await tester.tap(find.byTooltip('导入草稿'));
+              await tester.pumpAndSettle();
+              await tester.tap(find.byTooltip('删除草稿'));
+              for (var i = 0; i < 100 && state.nameController.text != ''; i++) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+                await tester.pump();
+              }
+              await tester.pumpAndSettle();
+              expect(state.nameController.text, '');
+              expect(state.photoDrafts, isEmpty);
+            } else {
+              await tester.binding.handlePopRoute();
+              await tester.pumpAndSettle();
+              expect(find.text('保留这次录入？'), findsOneWidget);
+              await tester.tap(find.text('放弃修改'));
+              for (
+                var i = 0;
+                i < 100 &&
+                    (jsonDecode(
+                      store.drafts['medicine-entry-queue.v1'] ?? '[]',
+                    ) as List).isNotEmpty;
+                i++
+              ) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+                await tester.pump();
+              }
+              await tester.pumpAndSettle();
+            }
+            expect(await File(originalPath).exists(), false);
+            expect(await File(retakePath).exists(), false);
+            expect(
+              jsonDecode(store.drafts['medicine-entry-queue.v1']!),
+              isEmpty,
+            );
+            expect(uploads, isEmpty);
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpAndSettle();
+            return;
+          }
+
           var inventoryOnly = mode == "inventory-restart";
           Future<void> save() async {
             final label = state.attemptedPayload == null ? '核对后保存' : '重试原提交';
@@ -308,7 +374,51 @@ void main() {
             }
           }
 
+          Future<void> blockedSave() async {
+            final before = [creates, uploads.length, covers.length];
+            ScaffoldMessenger.of(
+              tester.element(find.byType(MedicineEntryApiPage)),
+            ).clearSnackBars();
+            await tester.pumpAndSettle();
+            await tester.ensureVisible(
+              find.widgetWithText(FilledButton, '重试原提交'),
+            );
+            await tester.tap(find.widgetWithText(FilledButton, '重试原提交'));
+            await tester.pumpAndSettle();
+            expect([creates, uploads.length, covers.length], before);
+            expect(
+              find.text('此草稿仅待本机清理，请从“导入草稿”的删除入口重试；不会再次入库或上传。'),
+              findsOneWidget,
+            );
+          }
+
           await save();
+          if (mode == 'cleanup-blocked') {
+            expect(await sibling!.readAsString(), 'keep');
+            final pending = (jsonDecode(
+              store.drafts['medicine-entry-queue.v1']!,
+            ) as List).single;
+            expect(pending['photos'][0]['cleanupState'], 'done');
+            expect(pending['photos'][1]['cleanupState'], 'pending');
+            await blockedSave();
+            await sibling.delete();
+            await tester.tap(find.byTooltip('导入草稿'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byTooltip('删除草稿'));
+            for (var i = 0; i < 100 && state.nameController.text != ''; i++) {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+              await tester.pump();
+            }
+            await tester.pumpAndSettle();
+          }
+          if (mode == 'legacy') {
+            final pending = (jsonDecode(
+              store.drafts['medicine-entry-queue.v1']!,
+            ) as List).single;
+            expect(pending['photos'][0]['cleanupState'], 'unknown');
+            expect(pending['photos'][1]['cleanupState'], 'done');
+            await blockedSave();
+          }
           if (mode == 'inventory-restart') {
             expect(uploads, isEmpty);
             expect(
@@ -356,14 +466,28 @@ void main() {
             covers,
             mode == 'no-cover'
                 ? isEmpty
-                : [
-                    (mode == 'legacy' || mode == 'reserved-restart')
-                        ? 'photo-1'
-                        : 'photo-2',
-                  ],
+                : mode == 'legacy'
+                ? ['photo-1']
+                : mode == 'cleanup-blocked'
+                ? ['photo-2']
+                : [mode == 'reserved-restart' ? 'photo-1' : 'photo-2'],
           );
-          expect(await File(originalPath).readAsBytes(), originalBytes);
-          expect(await File(retakePath).readAsBytes(), nextBytes);
+          if (mode == 'legacy' || mode == 'reserved-restart') {
+            expect(await File(originalPath).readAsBytes(), originalBytes);
+          } else {
+            expect(await File(originalPath).exists(), false);
+          }
+          if (mode == 'reserved-restart') {
+            expect(await File(retakePath).readAsBytes(), nextBytes);
+          } else {
+            expect(await File(retakePath).exists(), false);
+          }
+          if (mode == 'picker-gone') {
+            expect(recognitionRequests, [
+              base64Encode(bytes),
+              base64Encode(nextBytes),
+            ]);
+          }
           await tester.pumpWidget(const SizedBox());
           await tester.pumpAndSettle();
         });
@@ -463,6 +587,7 @@ void main() {
           expect(await ownerDirectory.exists(), true);
           if (mode == 'no-ack') {
             expect(store.drafts['medicine-entry-queue.v1'], isNull);
+            expect(find.text('本机照片草稿保存失败，未复制或发送照片，请重试。'), findsOneWidget);
           } else {
             final queue =
                 jsonDecode(store.drafts['medicine-entry-queue.v1']!) as List;
@@ -524,4 +649,92 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+  for (final saved in [false, true]) {
+    testWidgets(
+      'cleanup pending saved=$saved cannot create inventory or upload',
+      (tester) async {
+        final previousPicker = ImagePickerPlatform.instance;
+        final picker = _Picker([]);
+        ImagePickerPlatform.instance = picker;
+        addTearDown(() {
+          ImagePickerPlatform.instance = previousPicker;
+        });
+        final store = MemoryInventoryLocalStore();
+        await store.saveDraft(
+          'medicine-entry',
+          jsonEncode({
+            'id': 'pending-draft',
+            'name': 'Cleanup record',
+            'cleanupPending': true,
+            'savedMedicineId': saved ? 'created' : null,
+            'photos': [
+              {
+                'path': 'unverified-old-file',
+                'purpose': 'box_front',
+                'cleanupState': 'pending',
+              },
+            ],
+          }),
+        );
+        var requests = 0;
+        final api = ApiClient(
+          baseUrl: 'https://synthetic.invalid',
+          tokenProvider: () async => 'synthetic',
+          client: MockClient((request) async {
+            requests++;
+            return http.Response('{}', 500);
+          }),
+        );
+        addTearDown(api.close);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MedicineEntryApiPage(
+              repository: ApiMedicineRepository(api: api, localStore: store),
+              workflow: ApiWorkflowRepository(api: api),
+              localStore: store,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('导入草稿'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cleanup record'));
+        await tester.pumpAndSettle();
+        final queueBefore = store.drafts['medicine-entry-queue.v1'];
+        tester
+            .widget<PrimaryButton>(find.widgetWithText(PrimaryButton, '拍药盒'))
+            .onPressed
+            ?.call();
+        await tester.pumpAndSettle();
+        tester
+            .widget<SoftButton>(find.widgetWithText(SoftButton, '扫码读取药盒编码'))
+            .onPressed
+            ?.call();
+        await tester.pumpAndSettle();
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '从相册选择'))
+            .onPressed
+            ?.call();
+        await tester.pumpAndSettle();
+        expect(picker.calls, 0);
+        expect(store.drafts['medicine-entry-queue.v1'], queueBefore);
+        await tester.ensureVisible(find.widgetWithText(FilledButton, '核对后保存'));
+        await tester.tap(find.widgetWithText(FilledButton, '核对后保存'));
+        await tester.pumpAndSettle();
+        expect(requests, 0);
+        expect(
+          find.text('此草稿仅待本机清理，请从“导入草稿”的删除入口重试；不会再次入库或上传。'),
+          findsOneWidget,
+        );
+        expect(
+          (jsonDecode(
+            store.drafts['medicine-entry-queue.v1']!,
+          ) as List).single['photos'].single['path'],
+          'unverified-old-file',
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 }

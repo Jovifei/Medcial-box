@@ -66,6 +66,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-15 independent review: blank entry, explicit import, total cap, scan and fixed failure categories.
   // Same wx/fs/network/component capabilities; owned photo lifecycle helper unchanged.
   '45e9cc2880ecc4fc9ed28d1774c256aab77a9824',
+  // 2026-10-15 independent review: draft-import confirmation rechecks captured scope and session, including ABA.
+  // Existing identity helpers only; native/filesystem/component capability sets unchanged.
+  'de0efda35f23cc746e45b44c3e2d8f6e19597b9e',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

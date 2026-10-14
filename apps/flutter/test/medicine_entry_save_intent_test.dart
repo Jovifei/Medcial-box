@@ -476,7 +476,7 @@ void main() {
   });
 
   testWidgets(
-    'current inventory plus synthetic photo completes and clears its own draft',
+    'uploaded legacy photo keeps its unknown local ownership receipt without duplicate inventory',
     (tester) async {
       final f = _Fixture();
       await f.open(tester);
@@ -488,9 +488,17 @@ void main() {
       photo.release.complete(Uint8List.fromList([137, 80, 78, 71]));
       await tester.pumpAndSettle();
       expect(f.requests, hasLength(2));
-      expect(find.byType(MedicineEntryApiPage), findsNothing);
+      expect(find.byType(MedicineEntryApiPage), findsOneWidget);
       expect(f.raw.drafts[_legacy], isNull);
-      expect(jsonDecode(f.raw.drafts[MedicineDraftQueue.storageKey]!), isEmpty);
+      final retained =
+          (jsonDecode(
+                f.raw.drafts[MedicineDraftQueue.storageKey]!,
+              ) as List).single
+              as Map;
+      expect(retained['savedMedicineId'], 'created');
+      expect((retained['photos'] as List).single['uploadedId'], 'photo');
+      expect((retained['photos'] as List).single['cleanupState'], 'unknown');
+      expect(find.text('旧照片归属未确认，已保留照片和草稿，未执行删除。'), findsOneWidget);
     },
   );
   for (final initiallyVerified in [false, true]) {

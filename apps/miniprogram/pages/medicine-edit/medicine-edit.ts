@@ -1,4 +1,4 @@
-import { api, ApiError, isCurrentSession } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { registerDirtyDraft, clearDirtyDraft } from "../../services/draft-guard";
 import type { DirtyDraft } from "../../services/draft-guard";
 import { ensureLoggedIn } from "../../services/auth";
@@ -801,7 +801,9 @@ Page({
 
   async onRestoreDraft(): Promise<void> {
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
-    if (!this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) return;
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    const originalSession = captureSessionIdentity();
+    if (!this.entryScopeIsCurrent(originalScope)) return;
     const fields = this.pendingStoredDraft;
     if (fields === null) {
       this.photoDraftsImported = true;
@@ -816,6 +818,7 @@ Page({
       }));
       if (!confirmed) return;
     }
+    if (!this.entryScopeIsCurrent(originalScope) || !isCurrentSession(originalSession)) return;
     this.photoDraftsImported = true;
     this.loadPhotoDrafts();
     this.setData({
