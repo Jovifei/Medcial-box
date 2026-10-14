@@ -1363,6 +1363,10 @@ Page({
       }
       const latest = this.currentPhotoDraftQueue(id, photo?.path);
       if (!latest) return;
+      const recognizedDraft = latest.find((entry) => entry.id === id);
+      if (recognizedDraft && photo?.purpose === "box_front" && photo.ownedLocal?.state === "ready") {
+        recognizedDraft.thumbnail = photo.path;
+      }
       this.setData({ photoDrafts: latest });
       this.setData(fields);
       this.setPhotoDraftStatus("review");
@@ -1904,7 +1908,7 @@ Page({
             // original activePhoto object captured at submit start.
             const acknowledgedDraft = this.currentPhotoDraftQueue(activePhoto.id)
               ?.find(entry => entry.id === activePhoto.id);
-            const front = acknowledgedDraft?.photos.find(photo => photo.purpose === "box_front" && photo.uploadedId);
+            const front = acknowledgedDraft?.photos.filter(photo => photo.purpose === "box_front" && photo.uploadedId).slice(-1)[0];
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
           if (!this.entryScopeIsCurrent(originalScope)) return;

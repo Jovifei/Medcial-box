@@ -130,9 +130,19 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
     if (identifiers.length === 0) throw new Error("请先提供药品名称、厂家、批准文号或条码");
 
     try {
-      const searchItems = await this.findItems(query);
-      const selectedItems = searchItems.slice(0, 5);
-      const details = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
+      let selectedItems: JisuSearchItem[];
+      let details: JisuMedicineDetail[];
+      if (query.approvalNumber || query.barcode) {
+        const detail = await this.fetchJson<JisuMedicineDetail>("detail", {
+          ...(query.approvalNumber ? { approval_num: query.approvalNumber.trim() } : {}),
+          ...(query.barcode ? { barcode: query.barcode.trim() } : {}),
+        });
+        selectedItems = [detail];
+        details = [detail];
+      } else {
+        selectedItems = (await this.findItems(query)).slice(0, 5);
+        details = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
+      }
       const candidates = details
         .map((detail, index) => candidateFromDetail(selectedItems[index], detail, query))
         .filter((candidate): candidate is MedicineCandidate => candidate !== null)
@@ -151,13 +161,6 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
   }
 
   private async findItems(query: MedicineCatalogQuery): Promise<JisuSearchItem[]> {
-    if (query.approvalNumber || query.barcode) {
-      const detail = await this.fetchJson<JisuMedicineDetail>("detail", {
-        ...(query.approvalNumber ? { approval_num: query.approvalNumber.trim() } : {}),
-        ...(query.barcode ? { barcode: query.barcode.trim() } : {}),
-      });
-      return [{ medicine_id: detail.medicine_id, name: detail.name, manufacturer: detail.manufacturer }];
-    }
     return this.fetchJson<{ list?: JisuSearchItem[] }>("query", {
       ...(query.name ? { name: query.name.trim() } : {}),
       ...(query.manufacturer ? { manufacturer: query.manufacturer.trim() } : {}),

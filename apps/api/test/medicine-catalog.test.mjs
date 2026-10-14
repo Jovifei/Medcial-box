@@ -88,6 +88,71 @@ test("catalog provider errors become a safe unavailable result", async () => {
   );
 });
 
+for (const [identifier, parameter, value, reason] of [
+  ["barcode", "barcode", "6900000000012", "条码一致"],
+  ["approvalNumber", "approval_num", "国药准字H00000001", "批准文号一致"],
+]) {
+  for (const includeId of [false, true]) {
+    test(`direct ${identifier} lookup reuses the first detail, medicine id present=${includeId}`, async () => {
+      const calls = [];
+      const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async input => {
+        const url = new URL(String(input)); calls.push(url);
+        assert.equal(url.pathname, "/medicine/detail");
+        assert.equal(url.searchParams.get(parameter), value);
+        assert.equal(url.searchParams.has("medicine_id"), false);
+        return jsonResponse({ status: 0, result: {
+          ...(includeId ? { medicine_id: 12 } : {}),
+          name: "合成药品", barcode: "6900000000012", approval_num: "国药准字H00000001",
+          desc: "〖用法用量〗合成候选文字，待核验。",
+        } });
+      });
+      const result = await provider.search({ [identifier]: value, consentToShare: true });
+      assert.equal(calls.length, 1);
+      assert.equal(result.candidates.length, 1);
+      assert.ok(result.candidates[0].matchReasons.includes(reason));
+      assert.equal(result.candidates[0].leaflet.reviewStatus, "unverified");
+    });
+  }
+}
+
+test("direct lookup keeps absent identity unconfirmed and empty detail is a normal no-match", async () => {
+  for (const detail of [{}, { name: "合成候选", barcode: "6900000000999" }]) {
+    let calls = 0;
+    const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async () => {
+      calls++; return jsonResponse({ status: 0, result: detail });
+    });
+    const result = await provider.search({ barcode: "6900000000012", consentToShare: true });
+    assert.equal(calls, 1);
+    assert.equal(result.candidates.length, detail.name ? 1 : 0);
+    assert.ok(result.candidates.every(candidate => !candidate.matchReasons.includes("条码一致")));
+  }
+});
+
+test("name lookup with no matches does not request details", async () => {
+  let calls = 0;
+  const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async input => {
+    calls++; assert.equal(new URL(String(input)).pathname, "/medicine/query");
+    return jsonResponse({ status: 0, result: { list: [] } });
+  });
+  assert.deepEqual((await provider.search({ name: "合成无匹配", consentToShare: true })).candidates, []);
+  assert.equal(calls, 1);
+});
+
+for (const [name, respond] of [
+  ["timeout", async (_input, options) => { assert.ok(options.signal instanceof globalThis.AbortSignal); throw new globalThis.DOMException("synthetic timeout", "TimeoutError"); }],
+  ["invalid JSON", async () => new globalThis.Response("invalid synthetic JSON")],
+  ["HTTP failure", async () => jsonResponse({}, 503)],
+  ["invalid envelope", async () => jsonResponse({ status: 0 })],
+]) {
+  test(`direct catalog ${name} remains unavailable and never retries a detail`, async () => {
+    let calls = 0;
+    const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async (...args) => { calls++; return respond(...args); });
+    await assert.rejects(provider.search({ barcode: "6900000000012", consentToShare: true }),
+      error => error instanceof catalogModule.MedicineCatalogUnavailableError && error.reason === "unavailable");
+    assert.equal(calls, 1);
+  });
+}
+
 const emptyCatalog = { candidates: [], warnings: [] };
 const query = { barcode: "6900000000012", consentToShare: true };
 const localStub = (search) => ({ kind: "local", search });
