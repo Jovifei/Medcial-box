@@ -30,3 +30,13 @@ Jovi已明确授权功能合并到main并处理冗余分支、旧文件。本轮
 5. 旧原ChatGPT集中复审结论此前未确认；本次代码和主线合并授权来自Jovi，不把已送达请求当作独立批准。
 
 本次完成标准是代码主线归一及确证冗余清理，项目仍PARTIAL；main合并不等于正式上线或完整家庭试用交付。
+
+
+## 已执行结果
+- 固定候选`2a4f047cfe1099b1a9cd024f2a92e686101fd1f7`；[CI38578731818](https://github.com/Jovifei/Medcial-box/actions/runs/38578731818)三job SUCCESS。
+- 本机npm test exit0：mini424PASS、API269PASS/16SKIP、tooling112PASS/24SKIP；lint/typecheck/buildPASS。本机额外精确QA准备命令曾在会话运行状态丢失后未得到产物，不能记本机PASS；GitHub该候选的精确生成QA和artifact步骤实际SUCCESS。
+- PR5以merge方式产生`ebe3df2c44778bbdcc815bfc4045c098fce1f631`，Git tree与候选相同。E原目录已switch main、ff到origin/main，合并未产生源码冲突。
+- PR3 merged；PR4内容已包含、留说明后closed；PR5 merged。远端4个旧分支已验证main祖先后原子删除，只剩main。
+- 本地8个已包含分支删除；4个干净的命名worktree仅detached到原HEAD、文件/ignored资料未删。2个本地archive分支保留：flutter-ui-prototype（旧C盘dirty）及local-delivery-handoff-20261008（9个独有提交）。其他dirty/detached旧工作区未强删。
+- 本机回执/参考资料/GPU runner原文件保留，未因ignore而称其已审核或已完成运维；新主线无待处理产品源码。备份含所有原始dirty文件和refs，变更/删除列表留在consolidate-20261014目录。
+- 上述合并完成后仅补记本节及当前任务/状态，没有进一步改变业务源码、部署、运行数据或安全门禁。
