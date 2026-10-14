@@ -215,6 +215,11 @@ void main() {
         final store = _ControlledStore();
         await _openEntry(tester, store);
         await _edit(tester, '删除失败合成药品');
+        final dynamic state = tester.state(find.byType(MedicineEntryApiPage));
+        store.drafts[_legacyKey] = jsonEncode({
+          'id': state.draftId,
+          'name': '删除失败合成药品',
+        });
         store.failDelete = !failQueue;
         store.failWriteKey = failQueue ? MedicineDraftQueue.storageKey : null;
         final errors = await _leave(tester, '放弃修改');
@@ -255,7 +260,7 @@ void main() {
           tester
               .widget<IconButton>(
                 find.byWidgetPredicate(
-                  (widget) => widget is IconButton && widget.tooltip == '恢复未完成录入',
+                  (widget) => widget is IconButton && widget.tooltip == '导入草稿',
                 ),
               )
               .onPressed !=
@@ -375,6 +380,11 @@ void main() {
       final store = _ControlledStore();
       await _openEntry(tester, store);
       await _edit(tester, '确认放弃的内容');
+      final dynamic state = tester.state(find.byType(MedicineEntryApiPage));
+      store.drafts[_legacyKey] = jsonEncode({
+        'id': state.draftId,
+        'name': 'Current owned draft',
+      });
       final gate = store.deleteGate = Completer<void>();
       await _leave(tester, '放弃修改');
       await _edit(tester, '删除期间的新编辑');

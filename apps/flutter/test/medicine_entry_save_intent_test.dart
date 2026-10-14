@@ -518,6 +518,16 @@ void main() {
         }
         final posts = f.requests.where((r) => r.method == 'POST').toList();
         expect(posts, hasLength(1));
+        final retained =
+            (jsonDecode(
+                  f.raw.drafts[MedicineDraftQueue.storageKey]!,
+                ) as List).single
+                as Map;
+        expect(retained['savedMedicineId'], 'created');
+        expect(
+          (retained['photos'] as List).single['path'],
+          'synthetic-expiry.png',
+        );
         final body = jsonDecode(posts.single.body) as Map;
         expect(body['activeIngredients'], ['synthetic-compound']);
         expect(

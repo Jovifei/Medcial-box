@@ -6,7 +6,7 @@
   "engines": {"node": ">=22"},
   "workspaces": ["packages/contracts", "apps/miniprogram", "apps/api"],
   "scripts": {
-    "lint": "eslint apps packages scripts --ext .ts,.mjs --max-warnings=0 && node scripts/check-json.mjs",
+    "lint": "eslint apps packages scripts --ext .ts,.mjs --max-warnings=0 && node scripts/check-json.mjs && node scripts/check-client-versions.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:tooling",
     "test:tooling": "node --test scripts/*.test.mjs",

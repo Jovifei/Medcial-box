@@ -72,6 +72,7 @@ class ApiWorkflowRepository {
     String source = 'package_leaflet',
     String purpose = 'leaflet',
     String? batchId,
+    String? uploadIntentKey,
     bool Function()? isCurrent,
   }) async {
     if (bytes.isEmpty || bytes.length > 8 * 1024 * 1024) {
@@ -90,6 +91,7 @@ class ApiWorkflowRepository {
         'source': source,
         'purpose': purpose,
         'batchId': ?batchId,
+        'uploadIntentKey': ?uploadIntentKey,
       },
     ) as Map<String, dynamic>;
     return LeafletPhotoRecord.fromJson(result['photo'] as Map<String, dynamic>);

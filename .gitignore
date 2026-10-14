@@ -28,6 +28,7 @@ apps/miniprogram/private.config.json
 # Runtime photos, local QA copies and Flutter tool state
 /var/
 /.flutter_tool_state
+/apps/flutter/android/.kotlin/
 
 # Machine-local operational receipts and unverified catalog; retained, never published
 /reports/

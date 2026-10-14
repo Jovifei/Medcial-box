@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.0.4";
+export const APP_VERSION = "1.0.5";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,15 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.0.5",
+    date: "2026-10-15",
+    items: [
+      "补拍保留原照片，保存全部图片，可选择最新正面作为封面。",
+      "扫码保留原码，区分不支持的码与无匹配资料，联网查询前明确提示。",
+      "加强资料查询重试、照片草稿恢复和上线前回归验证。",
+    ],
+  },
   {
     version: "1.0.4",
     date: "2026-10-13",

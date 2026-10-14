@@ -50,23 +50,31 @@ class MedicineDraftQueue {
         .toList();
   }
 
-  Future<void> save(String id, Map<String, dynamic> fields) =>
-      _mutate(() async {
-        final entries = await list();
-        if (!(isCurrent?.call() ?? true)) return;
-        final index = entries.indexWhere((item) => item['id'] == id);
-        if (index < 0 && entries.length >= 10) {
-          throw StateError('最多保留10份草稿，请先保存或删除一份。');
-        }
-        final draft = {...fields, 'id': id};
-        if (index < 0) {
-          entries.add(draft);
-        } else {
-          entries.removeAt(index);
-          entries.add(draft);
-        }
-        await store.saveDraft(scopedKey, jsonEncode(entries));
-      });
+  Future<bool> save(String id, Map<String, dynamic> fields) async {
+    var acknowledged = false;
+    await _mutate(() async {
+      final entries = await list();
+      if (!(isCurrent?.call() ?? true)) return;
+      final index = entries.indexWhere((item) => item['id'] == id);
+      if (index < 0 && entries.length >= 10) {
+        throw StateError('最多保留10份草稿，请先保存或删除一份。');
+      }
+      final draft = {...fields, 'id': id};
+      if (index < 0) {
+        entries.add(draft);
+      } else {
+        entries.removeAt(index);
+        entries.add(draft);
+      }
+      await store.saveDraft(scopedKey, jsonEncode(entries));
+      final persisted = await list();
+      acknowledged = persisted.any(
+        (item) => item['id'] == id && jsonEncode(item) == jsonEncode(draft),
+      );
+    });
+    return acknowledged;
+  }
+
   Future<void> remove(String id) => _mutate(() async {
     final entries = await list();
     if (!(isCurrent?.call() ?? true)) return;

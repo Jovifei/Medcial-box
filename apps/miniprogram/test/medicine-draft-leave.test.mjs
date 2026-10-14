@@ -198,7 +198,7 @@ function photoDraft(page, id = "current") {
   return { id, thumbnail: "/photo.jpg", status: "review", fields: {}, medicineId: "", photos: [] };
 }
 
-test("a fresh entry hides completed photo drafts but keeps older unfinished work", async () => {
+test("a fresh entry keeps all older photo drafts in storage until explicit import", async () => {
   const f = fixture();
   f.storage.set(PHOTO_KEY, [
     { ...photoDraft(f.page, "done"), status: "saved" },
@@ -206,8 +206,8 @@ test("a fresh entry hides completed photo drafts but keeps older unfinished work
   ]);
   f.page.loadPhotoDrafts();
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(f.page.data.photoDrafts.map(item => item.id), ["unfinished"]);
-  assert.equal(f.storage.get(PHOTO_KEY).length, 1, "completed metadata is removed; unfinished work stays recoverable");
+  assert.deepEqual(f.page.data.photoDrafts, []);
+  assert.equal(f.storage.get(PHOTO_KEY).length, 2, "opening a fresh entry does not clean up or import prior drafts");
 });
 
 test("next medicine cannot reset an unsaved current form or start a parallel photo draft", () => {

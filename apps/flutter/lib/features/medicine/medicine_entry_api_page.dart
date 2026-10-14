@@ -71,6 +71,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   String? openedAt;
   String? scannedCode;
   XFile? image;
+  final photoDrafts = <Map<String, dynamic>>[];
+  bool usePhotoAsCover = true;
   bool openingExpanded = false;
   bool categoryExpanded = true;
   bool locationExpanded = false;
@@ -147,7 +149,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Object? inventorySaveIntent;
   bool dirty = false;
   bool handlingBack = false;
-  bool restoringDraft = true;
+  bool restoringDraft = false;
   bool touchedName = false;
   bool touchedExpiry = false;
   Map<String, dynamic>? attemptedPayload;
@@ -164,7 +166,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     super.initState();
     entryIdentity = _identitySnapshot();
     ingredientController.addListener(_ingredientsChanged);
-    unawaited(_restoreDraft());
   }
 
   (ApiClient, LocalAppStore, String, int, String?, String?, String?)
@@ -192,33 +193,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     });
     draftPersistence = next.catchError((Object _) {});
     return next;
-  }
-
-  Future<void> _restoreDraft() async {
-    try {
-      if (!mounted || !_isDraftIdentityCurrent) return;
-      final legacy = await widget.localStore.readDraft(_draftKey);
-      final raw = legacy;
-      if (raw == null ||
-          raw.isEmpty ||
-          !mounted ||
-          dirty ||
-          !_isDraftIdentityCurrent) {
-        return;
-      }
-      final json = jsonDecode(raw);
-      if (json is! Map<String, dynamic>) {
-        throw const FormatException('本地录入草稿格式无效');
-      }
-      _applyDraft(json);
-    } catch (_) {
-      if (mounted && _isDraftIdentityCurrent) {
-        await _persistDraft(() => widget.localStore.deleteDraft(_draftKey))
-            .catchError((Object _) {});
-      }
-    } finally {
-      if (mounted) setState(() => restoringDraft = false);
-    }
   }
 
   void _applyDraft(Map<String, dynamic> json) {
@@ -287,71 +261,129 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     expiryImage = json['expiryImagePath'] is String
         ? XFile(json['expiryImagePath'] as String)
         : null;
+    photoDrafts
+      ..clear()
+      ..addAll(
+        (json['photos'] as List? ?? []).whereType<Map<String, dynamic>>().map(
+          (photo) => Map<String, dynamic>.from(photo),
+        ),
+      );
+    usePhotoAsCover = json['usePhotoAsCover'] != false;
+    _syncPhotoDrafts();
     touchedName = false;
     restoredDraft = true;
   }
 
-  Map<String, dynamic> _draftFields() => {
-    'name': nameController.text,
-    'brand': brandController.text,
-    'leaflet': {
-      for (final entry in leafletControllers.entries)
-        entry.key: entry.value.text,
-    },
-    'specification': specificationController.text,
-    'quantity': quantityController.text,
-    'expiry': expiryController.text,
-    'location': locationController.text,
-    'manufacturer': manufacturerController.text,
-    'approval': approvalController.text,
-    'ingredients': ingredientController.text,
-    'purpose': purposeController.text,
-    'populationTags': populationTags.toList(),
-    'purposeTags': purposeTags.toList(),
-    'ingredientsVerified': ingredientsVerified,
-    'verifiedIngredientContent': ingredientsVerified
-        ? _verifiedIngredientContent
-        : null,
-    'afterOpenValue': afterOpenValueController.text,
-    'afterOpenDate': afterOpenDateController.text,
-    'unit': unit,
-    'expiryPrecision': expiryPrecision,
-    'openedState': openedState,
-    'afterOpenKind': afterOpenKind,
-    'afterOpenUnit': afterOpenUnit,
-    'openedAt': openedAt,
-    'scannedCode': scannedCode,
-    'openingExpanded': openingExpanded,
-    'moreExpanded': moreExpanded,
-    'savedMedicineId': savedMedicineId,
-    'attemptedPayload': attemptedPayload,
-    'touchedExpiry': touchedExpiry,
-    'savedBatchId': savedBatchId,
-    'frontPhotoId': frontPhotoId,
-    'expiryPhotoId': expiryPhotoId,
-    'imagePath': image?.path,
-    'expiryImagePath': expiryImage?.path,
-    'status': savedMedicineId != null
-        ? 'photos_pending'
-        : recognizing
-        ? 'recognizing'
-        : recognitionFailure != null
-        ? 'failed'
-        : 'review',
-  };
-  Future<void> _saveDraft({bool legacy = true}) async {
-    if (!mounted || !_isDraftIdentityCurrent) return;
+  void _syncPhotoDrafts([List<Map<String, dynamic>>? target]) {
+    final photos = target ?? photoDrafts;
+    for (final item in [
+      (image, 'box_front', frontPhotoId),
+      (expiryImage, 'expiry', expiryPhotoId),
+    ]) {
+      final file = item.$1;
+      if (file != null && !photos.any((photo) => photo['path'] == file.path)) {
+        photos.add({
+          'path': file.path,
+          'purpose': item.$2,
+          'uploadedId': item.$3,
+        });
+      }
+    }
+  }
+
+  Map<String, dynamic> _draftFields() {
+    final photos = List<Map<String, dynamic>>.of(photoDrafts);
+    _syncPhotoDrafts(photos);
+    return {
+      'name': nameController.text,
+      'brand': brandController.text,
+      'leaflet': {
+        for (final entry in leafletControllers.entries)
+          entry.key: entry.value.text,
+      },
+      'specification': specificationController.text,
+      'quantity': quantityController.text,
+      'expiry': expiryController.text,
+      'location': locationController.text,
+      'manufacturer': manufacturerController.text,
+      'approval': approvalController.text,
+      'ingredients': ingredientController.text,
+      'purpose': purposeController.text,
+      'populationTags': populationTags.toList(),
+      'purposeTags': purposeTags.toList(),
+      'ingredientsVerified': ingredientsVerified,
+      'verifiedIngredientContent': ingredientsVerified
+          ? _verifiedIngredientContent
+          : null,
+      'afterOpenValue': afterOpenValueController.text,
+      'afterOpenDate': afterOpenDateController.text,
+      'unit': unit,
+      'expiryPrecision': expiryPrecision,
+      'openedState': openedState,
+      'afterOpenKind': afterOpenKind,
+      'afterOpenUnit': afterOpenUnit,
+      'openedAt': openedAt,
+      'scannedCode': scannedCode,
+      'openingExpanded': openingExpanded,
+      'moreExpanded': moreExpanded,
+      'savedMedicineId': savedMedicineId,
+      'attemptedPayload': attemptedPayload,
+      'touchedExpiry': touchedExpiry,
+      'savedBatchId': savedBatchId,
+      'frontPhotoId': frontPhotoId,
+      'expiryPhotoId': expiryPhotoId,
+      'photos': photos
+          .map((photo) => Map<String, dynamic>.from(photo))
+          .toList(),
+      'usePhotoAsCover': usePhotoAsCover,
+      'imagePath': image?.path,
+      'expiryImagePath': expiryImage?.path,
+      'status': savedMedicineId != null
+          ? 'photos_pending'
+          : recognizing
+          ? 'recognizing'
+          : recognitionFailure != null
+          ? 'failed'
+          : 'review',
+    };
+  }
+
+  Future<bool> _saveDraft({bool legacy = true}) async {
+    if (!mounted || !_isDraftIdentityCurrent) return false;
     final id = draftId;
     final fields = _draftFields();
+    var acknowledged = false;
     await _persistDraft(() async {
-      await draftQueue.save(id, fields);
+      acknowledged = await draftQueue.save(id, fields);
       if (legacy && mounted && _isDraftIdentityCurrent) {
+        final previous = await widget.localStore.readDraft(_draftKey);
+        if (!mounted || !_isDraftIdentityCurrent) return;
+        if (previous != null && previous.isNotEmpty) {
+          final value = jsonDecode(previous);
+          if (value is! Map || value['id'] != id) return;
+        }
         await widget.localStore.saveDraft(
           _draftKey,
           jsonEncode({...fields, 'id': id}),
         );
       }
     });
+    return acknowledged;
+  }
+
+  Future<void> _deleteOwnLegacyDraft(String id) async {
+    final raw = await widget.localStore.readDraft(_draftKey);
+    if (!mounted || !_isDraftIdentityCurrent || raw == null || raw.isEmpty) {
+      return;
+    }
+    try {
+      final value = jsonDecode(raw);
+      if (value is Map && value['id'] == id) {
+        await widget.localStore.deleteDraft(_draftKey);
+      }
+    } on FormatException {
+      /* Unknown legacy content is preserved. */
+    }
   }
 
   Future<void> _chooseDraft() async {
@@ -360,6 +392,19 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     if (dirty) await _saveDraft(legacy: false);
     if (!mounted || !_isDraftIdentityCurrent || handlingBack) return;
     final drafts = await draftQueue.list();
+    final legacy = await widget.localStore.readDraft(_draftKey);
+    if (legacy != null && legacy.isNotEmpty) {
+      try {
+        final value = jsonDecode(legacy);
+        if (value is Map<String, dynamic> &&
+            value['id'] is String &&
+            !drafts.any((draft) => draft['id'] == value['id'])) {
+          drafts.add(value);
+        }
+      } on FormatException {
+        /* Keep unrecognized legacy drafts untouched. */
+      }
+    }
     if (!mounted ||
         !_isDraftIdentityCurrent ||
         handlingBack ||
@@ -388,6 +433,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {
                     await draftQueue.remove(draft['id'] as String);
+                    if (mounted && _isDraftIdentityCurrent) {
+                      await _deleteOwnLegacyDraft(draft['id'] as String);
+                    }
                     if (context.mounted) Navigator.pop(context);
                   },
                 ),
@@ -413,7 +461,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       restoredDraft = selected.isNotEmpty;
     });
     final selectedId = draftId;
-    await _persistDraft(() => widget.localStore.deleteDraft(_draftKey));
+
     if (selected.isNotEmpty &&
         mounted &&
         _isDraftIdentityCurrent &&
@@ -429,7 +477,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     if (handlingBack || !_isDraftIdentityCurrent) return;
     autoSave = Timer(const Duration(milliseconds: 200), () {
       if (mounted) {
-        unawaited(_saveDraft(legacy: false).catchError((Object _) {}));
+        unawaited(_saveDraft(legacy: false).catchError((Object _) => false));
       }
     });
   }
@@ -495,7 +543,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         final snapshot = jsonEncode(_draftFields());
         await _persistDraft(() async {
           if (!isCurrentIntent()) return;
-          await widget.localStore.deleteDraft(_draftKey);
+          await _deleteOwnLegacyDraft(id);
           if (!isCurrentIntent()) return;
           await draftQueue.remove(id);
         });
@@ -591,6 +639,15 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ),
     );
     if (action == null || !mounted) return;
+    Directory? unregisteredDirectory;
+    final previousPhotos = (image, expiryImage, frontPhotoId, expiryPhotoId);
+    void restorePreviousPhotos() {
+      image = previousPhotos.$1;
+      expiryImage = previousPhotos.$2;
+      frontPhotoId = previousPhotos.$3;
+      expiryPhotoId = previousPhotos.$4;
+    }
+
     try {
       final selected = await imagePicker.pickImage(
         source: action == _ImageAction.camera
@@ -611,19 +668,80 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               originalBytes[1] == 80
           ? 'png'
           : 'jpg';
-      final durable = leafletPhoto
-          ? File(selected.path)
-          : await File(selected.path).copy(
-              '${directory.path}/$draftId-${expiryPhoto ? 'expiry' : 'front'}.$extension',
-            );
-      if (!mounted || request != recognitionRequest) return;
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
+      final purpose = leafletPhoto
+          ? 'leaflet'
+          : expiryPhoto
+          ? 'expiry'
+          : 'box_front';
+      final ownedDirectory = await directory.createTemp('$draftId-$purpose-');
+      unregisteredDirectory = ownedDirectory;
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
+      final path = '${ownedDirectory.path}/original.$extension';
+      final pendingPhoto = <String, dynamic>{
+        'path': path,
+        'purpose': purpose,
+        'state': 'reserved',
+      };
+      _syncPhotoDrafts();
+      photoDrafts.add(pendingPhoto);
+      final reserved = await _saveDraft(legacy: false);
+      if (!reserved) {
+        photoDrafts.remove(pendingPhoto);
+        return;
+      }
+      // Durable ownership must precede private bytes, including process death.
+      unregisteredDirectory = null;
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
+      final durable = await File(selected.path).copy(path);
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
+      pendingPhoto['state'] = 'ready';
+      try {
+        if (!await _saveDraft(legacy: false)) {
+          throw StateError('照片完成回执未确认，请保留草稿后重试。');
+        }
+      } catch (_) {
+        pendingPhoto['state'] = 'reserved';
+        rethrow;
+      }
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
       if (expiryPhoto) {
         expiryImage = XFile(durable.path);
+        expiryPhotoId = null;
       } else if (!leafletPhoto) {
         image = XFile(durable.path);
+        frontPhotoId = null;
       }
       _markDirty();
-      await _saveDraft(legacy: false);
+      if (!await _saveDraft(legacy: false)) {
+        restorePreviousPhotos();
+        return;
+      }
+      if (!mounted ||
+          request != recognitionRequest ||
+          !_isDraftIdentityCurrent) {
+        return;
+      }
       setState(() {
         recognizing = true;
         recognitionFailure = null;
@@ -735,6 +853,35 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         await _saveDraft(legacy: false);
       }
     } catch (error) {
+      final pending = unregisteredDirectory;
+      if (pending != null &&
+          photoDrafts.any(
+            (photo) => (photo['path'] as String).startsWith('${pending.path}/'),
+          )) {
+        try {
+          final persisted = await draftQueue.list();
+          if (persisted.any(
+            (draft) => (draft['photos'] as List? ?? []).any(
+              (photo) =>
+                  photo is Map &&
+                  (photo['path'] as String? ?? '').startsWith(
+                    '${pending.path}/',
+                  ),
+            ),
+          )) {
+            unregisteredDirectory = null;
+          } else {
+            photoDrafts.removeWhere(
+              (photo) =>
+                  (photo['path'] as String).startsWith('${pending.path}/'),
+            );
+            restorePreviousPhotos();
+          }
+        } catch (_) {
+          // An unknown storage ACK must never cause deletion of a referenced original.
+          unregisteredDirectory = null;
+        }
+      }
       if (!mounted) return;
       final value = error.toString().toLowerCase();
       final denied = value.contains('permission') || value.contains('denied');
@@ -743,6 +890,17 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           content: Text(denied ? '相机或相册权限未开启，请在系统设置中允许访问。' : '无法打开相机或相册，请重试。'),
         ),
       );
+    } finally {
+      final abandoned = unregisteredDirectory;
+      if (abandoned != null) {
+        // createTemp returned this new, exclusive directory in this attempt.
+        // Its only possible contents are our unfinished copy, never old photos.
+        try {
+          await abandoned.delete(recursive: true);
+        } on FileSystemException {
+          // Retain an unremovable original rather than broaden cleanup scope.
+        }
+      }
     }
   }
 
@@ -1027,20 +1185,23 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       },
       'batches': [batch],
     };
-    final front = image;
-    final expiryPhoto = expiryImage;
+    final photos = List<Map<String, dynamic>>.of(photoDrafts);
+    _syncPhotoDrafts(photos);
+    final setCover = usePhotoAsCover;
     inventorySaveIntent = intent;
     autoSave?.cancel();
     FocusScope.of(context).unfocus();
     setState(() => saving = true);
     try {
       bool uploadPhotos = false;
-      if (front != null || expiryPhoto != null) {
+      if (photos.isNotEmpty) {
         final consent = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: const Text('保存药盒照片？'),
-            content: const Text('照片将上传并保存在此家庭的私有药品资料中，用于核对药盒和有效期。'),
+            content: Text(
+              '已保留 ${photos.length} 张照片。确认后完整照片上传到此家庭的私有药品资料中；未完成照片保留在本机，可补拍。',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
@@ -1099,7 +1260,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
       requireCurrentIntent();
       attemptedPayload ??= candidatePayload;
-      await _saveDraft(legacy: false);
+      for (final photo in photos) {
+        if (!photoDrafts.any((existing) => existing['path'] == photo['path'])) {
+          photoDrafts.add(photo);
+        }
+      }
+      if (!await _saveDraft(legacy: false)) throw StateError('本机保存回执未确认，请重试。');
       requireCurrentIntent();
       final medicine = savedMedicineId == null
           ? await repository.createMedicine(
@@ -1115,51 +1281,92 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       savedBatchId ??= medicine.batches.isEmpty
           ? null
           : medicine.batches.first.id;
-      await _saveDraft(legacy: false);
+      if (!await _saveDraft(legacy: false)) throw StateError('本机保存回执未确认，请重试。');
       requireCurrentIntent();
       if (uploadPhotos) {
-        Future<String> upload(XFile file, String purpose) async {
+        for (final photo in photos) {
+          if (photo['state'] != null && photo['state'] != 'ready') continue;
+          if (photo['uploadedId'] != null) continue;
+          final path = photo['path'] as String;
+          final purpose = photo['purpose'] as String;
+          final file = image?.path == path
+              ? image!
+              : expiryImage?.path == path
+              ? expiryImage!
+              : XFile(path);
+          photo['uploadIntentKey'] ??=
+              'photo-${DateTime.now().microsecondsSinceEpoch}-${photos.indexOf(photo)}';
+          if (!await _saveDraft(legacy: false)) {
+            throw StateError('本机保存回执未确认，请重试。');
+          }
+          requireCurrentIntent();
           final bytes = await file.readAsBytes();
           requireCurrentIntent();
-          final photo = await workflow.uploadLeafletPhoto(
+          final uploaded = await workflow.uploadLeafletPhoto(
             medicine.id,
             bytes,
-            mimeType: file.path.toLowerCase().endsWith('.png')
+            mimeType: path.toLowerCase().endsWith('.png')
                 ? 'image/png'
                 : 'image/jpeg',
             source: 'user_capture',
             purpose: purpose,
-            batchId: savedBatchId,
+            batchId: purpose == 'expiry' ? savedBatchId : null,
+            uploadIntentKey: photo['uploadIntentKey'] as String,
             isCurrent: isCurrentIntent,
           );
           requireCurrentIntent();
-          return photo.id;
+          photo['uploadedId'] = uploaded.id;
+          if (image?.path == path) frontPhotoId = uploaded.id;
+          if (expiryImage?.path == path) expiryPhotoId = uploaded.id;
+          if (!await _saveDraft(legacy: false)) {
+            throw StateError('本机保存回执未确认，请重试。');
+          }
+          requireCurrentIntent();
         }
-
-        if (front != null) {
-          final photoId = frontPhotoId ?? await upload(front, 'box_front');
-          requireCurrentIntent();
-          frontPhotoId = photoId;
-          await _saveDraft(legacy: false);
-          requireCurrentIntent();
+        final fronts = photos.where(
+          (photo) =>
+              photo['purpose'] == 'box_front' &&
+              photo['uploadedId'] != null &&
+              (photo['state'] == null || photo['state'] == 'ready'),
+        );
+        if (setCover && fronts.isNotEmpty) {
           await workflow.setCoverPhoto(
             medicine.id,
-            photoId,
+            fronts.last['uploadedId'] as String,
             isCurrent: isCurrentIntent,
           );
-          requireCurrentIntent();
-        }
-        if (expiryPhoto != null) {
-          final photoId = expiryPhotoId ?? await upload(expiryPhoto, 'expiry');
-          requireCurrentIntent();
-          expiryPhotoId = photoId;
-          await _saveDraft(legacy: false);
           requireCurrentIntent();
         }
       }
+      final incomplete = photos.any(
+        (photo) => photo['state'] != null && photo['state'] != 'ready',
+      );
+      if (photos.isNotEmpty && (!uploadPhotos || incomplete)) {
+        if (!await _saveDraft(legacy: false)) {
+          throw StateError('本机保存回执未确认，请重试。');
+        }
+        requireCurrentIntent();
+        setState(() {
+          dirty = false;
+          restoredDraft = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                incomplete
+                    ? '库存已保存；未完成照片未上传，已保留本机草稿，可导入后补拍。'
+                    : '库存已保存；照片保留在本机，可通过导入草稿继续上传。',
+              ),
+            ),
+          );
+        }
+        navigator.pop(medicine.id);
+        return;
+      }
       await _persistDraft(() async {
         requireCurrentIntent();
-        await localStore.deleteDraft(_draftKey);
+        await _deleteOwnLegacyDraft(id);
         requireCurrentIntent();
         await draftQueue.remove(id);
       });
@@ -1182,7 +1389,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           error is ApiException &&
           error.statusCode == 400) {
         attemptedPayload = null;
-        await _saveDraft(legacy: false).catchError((Object _) {});
+        await _saveDraft(legacy: false).catchError((Object _) => false);
         if (!isCurrentIntent()) return;
       }
       if (!mounted) return;
@@ -1340,7 +1547,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         title: const Text('添加药品'),
         actions: [
           IconButton(
-            tooltip: '恢复未完成录入',
+            tooltip: '导入草稿',
             onPressed: saving || handlingBack ? null : _chooseDraft,
             icon: const Icon(Icons.layers_outlined),
           ),
@@ -1436,6 +1643,26 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                               width: double.infinity,
                               fit: BoxFit.cover,
                             ),
+                          ),
+                        ],
+                        if (photoDrafts.isNotEmpty) ...[
+                          Text(
+                            '已保留 ${photoDrafts.length} 张照片；补拍会追加，确认后完整照片入库。',
+                          ),
+                          if (photoDrafts.any(
+                            (photo) => photo['state'] == 'reserved',
+                          ))
+                            const Text('有未完成照片未上传，原图回执已保留，可继续补拍。'),
+                          SwitchListTile(
+                            title: const Text('用最近上传的药盒正面作封面'),
+                            subtitle: const Text('关闭不会修改现有封面。'),
+                            value: usePhotoAsCover,
+                            onChanged: attemptedPayload != null || saving
+                                ? null
+                                : (value) {
+                                    setState(() => usePhotoAsCover = value);
+                                    _markDirty();
+                                  },
                           ),
                         ],
                         if (scannedCode != null) ...[

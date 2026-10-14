@@ -63,6 +63,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-14 independent review: retained retake photos, explicit latest acknowledged cover.
   // No new wx/fs/network/component capabilities; durable ownership helper unchanged.
   'a8e2fff68da6dc96d2d39a9e8dfdc46c38f9d6b5',
+  // 2026-10-15 independent review: blank entry, explicit import, total cap, scan and fixed failure categories.
+  // Same wx/fs/network/component capabilities; owned photo lifecycle helper unchanged.
+  '45e9cc2880ecc4fc9ed28d1774c256aab77a9824',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

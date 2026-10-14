@@ -196,7 +196,7 @@ class _Fixture {
           .save('replacement', {'id': 'replacement', 'name': 'New Synthetic'});
       name = 'New Synthetic';
     }
-    await tester.tap(find.byTooltip('恢复未完成录入'));
+    await tester.tap(find.byTooltip('导入草稿'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(name));
     await tester.pumpAndSettle();
@@ -330,6 +330,16 @@ void main() {
           }),
         );
         await f.open(tester);
+        await tester.tap(find.byTooltip('导入草稿'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Synthetic').last);
+        await tester.pumpAndSettle();
+        await f.expand(tester);
+        await tester.scrollUntilVisible(
+          find.text(_verificationLabel),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         final verified = binding == '["compound-B"]';
         expect(f.checked(tester), verified);
         f.expectStatus(await f.save(tester), 'compound-B', verified);
@@ -516,6 +526,10 @@ void main() {
         }),
       );
       await f.open(tester);
+      await tester.tap(find.byTooltip('导入草稿'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Synthetic').last);
+      await tester.pumpAndSettle();
       expect(f.state(tester).ingredientsVerified, isFalse);
       // A request may already have committed. Reusing its key with new contents
       // would change the user's original intent rather than resolve its result.

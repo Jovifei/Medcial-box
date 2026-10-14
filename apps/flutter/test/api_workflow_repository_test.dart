@@ -115,6 +115,7 @@ void main() {
             expect(base64Decode(body['imageBase64'] as String), png);
             expect(body['mimeType'], 'image/png');
             expect(body['source'], 'package_leaflet');
+            expect(body.containsKey('uploadIntentKey'), false);
             return http.Response.bytes(
               utf8.encode(jsonEncode({'photo': _leafletPhotoJson()})),
               201,
@@ -164,6 +165,29 @@ void main() {
       'DELETE',
     ]);
   });
+  test(
+    'explicit upload intent is sent without changing caller identity guards',
+    () async {
+      final api = ApiClient(
+        baseUrl: 'https://synthetic.invalid',
+        tokenProvider: () async => 'synthetic',
+        client: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['uploadIntentKey'], 'photo-synthetic-intent-123');
+          expect(request.headers['authorization'], 'Bearer synthetic');
+          return http.Response(jsonEncode({'photo': _leafletPhotoJson()}), 201);
+        }),
+      );
+      addTearDown(api.close);
+      await ApiWorkflowRepository(api: api).uploadLeafletPhoto(
+        'medicine-1',
+        Uint8List.fromList([1]),
+        mimeType: 'image/png',
+        uploadIntentKey: 'photo-synthetic-intent-123',
+        isCurrent: () => true,
+      );
+    },
+  );
 }
 
 Map<String, dynamic> _leafletPhotoJson() => {

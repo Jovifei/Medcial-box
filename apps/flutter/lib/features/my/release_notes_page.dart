@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '1.0.3';
+const String appVersion = '1.0.5';
 
 class ReleaseNote {
   const ReleaseNote({
@@ -18,6 +18,15 @@ class ReleaseNote {
 }
 
 const List<ReleaseNote> releaseNotes = [
+  ReleaseNote(
+    version: '1.0.5',
+    date: '2026-10-15',
+    items: [
+      '补拍保留原照片，保存全部图片，可选择最新正面作为封面。',
+      '照片上传失败按原请求重试，旧草稿和家庭归属继续保留。',
+      '统一版本记录并加强上线前回归，识别资料仍需本人核对。',
+    ],
+  ),
   ReleaseNote(
     version: '1.0.3',
     date: '2026-10-07',

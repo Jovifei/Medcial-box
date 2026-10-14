@@ -245,8 +245,7 @@ Future<void> selectSegment(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    final loader = FontLoader('sans')
-      ..addFont(loadChineseFontFixture());
+    final loader = FontLoader('sans')..addFont(loadChineseFontFixture());
     await loader.load();
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
@@ -571,6 +570,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(await store.readDraft('medicine-entry'), isNotNull);
       await tester.tap(find.text('打开录入页（合成测试入口）'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(name).controller!.text, '');
+      await tester.tap(find.byTooltip('导入草稿'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('合成草稿药品').last);
       await tester.pumpAndSettle();
       await showField(tester, name);
       expect(tester.widget<TextField>(name).controller!.text, '合成草稿药品');

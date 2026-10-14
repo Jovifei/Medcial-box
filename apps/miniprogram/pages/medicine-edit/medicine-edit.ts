@@ -139,6 +139,7 @@ interface PhotoEntryDraft {
   id: string;
   thumbnail: string;
   status: "review" | "recognizing" | "failed" | "saved" | "photo_pending" | "cleanup_pending";
+  failureCode?: "local_read" | "local_storage" | "network" | "recognition_service" | "unknown" | null;
   fields: MedicineDraftValues;
   medicineId: string;
   photos: Array<{
@@ -194,6 +195,8 @@ function rebasePhotoValue(current: unknown, baseline: unknown, latest: unknown, 
 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
 const NATIVE_LEAVE_WARNING = "此表单有未保存修改。离开后会保留本机草稿；如要放弃修改，请使用页面左上角返回按钮。";
+const PHOTO_DRAFT_LIMIT_HINT = "本机已有10份未完成照片草稿，请通过“导入草稿”管理旧草稿后再拍照；原照片和文字仍保留。";
+const UNSUPPORTED_CATALOG_CODE = "此码可能是追溯码或其他标识；当前资料服务仅支持8–14位数字商品条码。原码已保留，可拍药盒尝试生成待核对草稿，或手动填写。";
 
 /**
  * 草稿键必须绑定当前 userId + familyId；没有可用身份时返回 null，
@@ -555,12 +558,16 @@ Page({
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
   leaveNavigationPending: false,
+  isolateNewEntry: false,
+  photoDraftsImported: false,
 
   onLoad(options: { id?: string; capture?: string; scan?: string }): void {
     this.entryDisposed = false;
     this.photoQueueBaseline = null;
     this.photoFormBaseline = null;
     const medicineId = options.id ?? "";
+    this.isolateNewEntry = medicineId === "";
+    this.photoDraftsImported = false;
     this.setData({ createOperationKey: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 12)}` });
     this.draftStorageKey = draftStorageKey(medicineId);
     try {
@@ -794,8 +801,13 @@ Page({
 
   async onRestoreDraft(): Promise<void> {
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    if (!this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) return;
     const fields = this.pendingStoredDraft;
-    if (fields === null) return;
+    if (fields === null) {
+      this.photoDraftsImported = true;
+      this.loadPhotoDrafts();
+      return;
+    }
     if (this.data.isDirty) {
       const confirmed = await new Promise<boolean>((resolve) => wx.showModal({
         title: "恢复本机草稿",
@@ -804,6 +816,8 @@ Page({
       }));
       if (!confirmed) return;
     }
+    this.photoDraftsImported = true;
+    this.loadPhotoDrafts();
     this.setData({
       ...fields,
       brand: fields.brand ?? "",
@@ -983,7 +997,7 @@ Page({
     try {
       const shareConsent = await new Promise<boolean>((resolve) => wx.showModal({
         title: "查询药品资料候选",
-        content: "扫描读到的码值会发送给家庭药箱资料服务查询候选；不上传药盒照片。是否继续？",
+        content: "扫描读到的商品码会发送给家庭药箱资料服务；若启用联网资料库，会将码值发送给外部资料供应商查询候选。不上传药盒照片。是否继续？",
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       }));
@@ -1001,6 +1015,10 @@ Page({
       this.setData({ scannedBarcode, barcodeValue: scannedBarcode, canRetryBarcode: false,
         barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
       this.updateDirtyState();
+      if (!/^[0-9]{8,14}$/.test(scannedBarcode)) {
+        this.setData({ barcodeLookupStatus: UNSUPPORTED_CATALOG_CODE, recognitionHint: UNSUPPORTED_CATALOG_CODE });
+        return;
+      }
       this.startRecognitionClock("商品资料");
       await ensureLoggedIn();
       if (!this.entryScopeIsCurrent(originalScope)) return;
@@ -1040,12 +1058,16 @@ Page({
     if (this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
+    if (!/^[0-9]{8,14}$/.test(data.scannedBarcode.trim())) {
+      this.setData({ barcodeLookupStatus: UNSUPPORTED_CATALOG_CODE, recognitionHint: UNSUPPORTED_CATALOG_CODE, canRetryBarcode: false });
+      return;
+    }
     const originalScope = scopedStorageKey("medicine-photo-drafts");
     if (!this.entryScopeIsCurrent(originalScope)) return;
     this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0 });
     const consent = await new Promise<boolean>((resolve) => wx.showModal({
       title: "重新查询商品码",
-      content: `商品码 ${data.scannedBarcode} 将再次发送到家庭药箱资料服务查询候选，不上传照片。是否继续？`,
+      content: `商品码 ${data.scannedBarcode} 将再次发送到家庭药箱资料服务；若启用联网资料库，会将码值发送给外部资料供应商查询候选。不上传照片。是否继续？`,
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
@@ -1181,6 +1203,10 @@ Page({
     // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
     // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
     if (this.data.attemptedPayload) return;
+    if (!initialData.activePhotoDraftId && (this.photoDraftQueueForWrite()?.filter(item => item.status !== "saved" && item.status !== "cleanup_pending").length ?? 0) >= 10) {
+      this.setData({ recognitionHint: PHOTO_DRAFT_LIMIT_HINT, draftAvailable: true });
+      return;
+    }
     const active = initialData.photoDrafts.find((item) => item.id === initialData.activePhotoDraftId);
     if (active?.photos.some((photo) => photo.ownedLocal?.state === "reserved")) {
       this.setData({ recognitionHint: "照片写入尚未完成，请先删除这份照片草稿再重拍；药品文字仍可手动保存。" });
@@ -1271,14 +1297,19 @@ Page({
           let entry = entries.find((item) => item.id === id);
           if (entry && !existingDraftId) return false;
           if (!entry) {
-            if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) return false;
+            if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) {
+              this.setData({ recognitionHint: PHOTO_DRAFT_LIMIT_HINT, draftAvailable: true });
+              return false;
+            }
             entry = { id, thumbnail: owner.path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
             entries.push(entry);
           }
+          entry.failureCode = null;
           photo = { path: owner.path, mimeType, purpose, batchIndex: 0, ownedLocal: owner };
           entry.photos.push(photo);
           entry.status = "recognizing";
-          this.setData({ photoDrafts: entries, activePhotoDraftId: id, recognitionHint: "正在安全保存本机照片草稿…" });
+          this.setData({ activePhotoDraftId: id });
+          this.setData({ photoDrafts: this.visiblePhotoDrafts(entries), recognitionHint: "正在安全保存本机照片草稿…" });
           registered = this.persistPhotoDrafts();
           return registered;
         },
@@ -1290,7 +1321,7 @@ Page({
           const reserved = currentPhoto.ownedLocal;
           currentPhoto.ownedLocal = owner;
           photo = currentPhoto;
-          this.setData({ photoDrafts: entries });
+          this.setData({ photoDrafts: this.visiblePhotoDrafts(entries) });
           if (this.persistPhotoDrafts()) return true;
           currentPhoto.ownedLocal = reserved;
           return false;
@@ -1367,7 +1398,7 @@ Page({
       if (recognizedDraft && photo?.purpose === "box_front" && photo.ownedLocal?.state === "ready") {
         recognizedDraft.thumbnail = photo.path;
       }
-      this.setData({ photoDrafts: latest });
+      this.setData({ photoDrafts: this.visiblePhotoDrafts(latest) });
       this.setData(fields);
       this.setPhotoDraftStatus("review");
       this.updateDirtyState();
@@ -1378,8 +1409,11 @@ Page({
       if (registered) {
         const latest = this.currentPhotoDraftQueue(operationDraftId, photo?.path);
         if (!latest) return;
-        this.setData({ photoDrafts: latest });
-        this.setPhotoDraftStatus("failed");
+        this.setData({ photoDrafts: this.visiblePhotoDrafts(latest) });
+        const failureCode = error instanceof PhotoFileWriteError ? "local_storage"
+          : error instanceof ApiError && error.code === "NETWORK_ERROR" ? "network"
+          : error instanceof ApiError && error.code === "RECOGNITION_UNAVAILABLE" ? "recognition_service" : "unknown";
+        this.setPhotoDraftStatus("failed", failureCode);
       } else if (photo) {
         // Registration did not acknowledge: show a local failure without replaying an old queue.
         this.setData({ photoDrafts: this.data.photoDrafts.map((item) => item.id === operationDraftId ? { ...item, status: "failed" as const } : item) });
@@ -1556,17 +1590,24 @@ Page({
     if (this.entryDisposed) return;
     const key = this.data.medicineId ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : scopedStorageKey("medicine-photo-drafts");
     if (!key) return;
+    if (this.isolateNewEntry && this.photoScopeKey !== null && this.photoScopeKey !== key) return;
     if (this.photoScopeKey === key && (this.data.recognizing || this.data.submitting)) return;
     if (this.photoScopeKey !== key) this.setData({ photoDrafts: [], activePhotoDraftId: "" });
     this.photoScopeKey = key;
     try {
       const drafts = wx.getStorageSync(key) as PhotoEntryDraft[] | undefined;
       if (!Array.isArray(drafts)) return;
-      const recovered = drafts.map((draft) => draft.status === "recognizing" &&
-        draft.photos?.some((photo) => photo.ownedLocal?.state === "reserved")
-        ? { ...draft, status: "failed" as const } : draft);
+      if (this.isolateNewEntry && !this.photoDraftsImported && drafts.some(draft => draft.status !== "saved" && draft.status !== "cleanup_pending")) {
+        this.setData({ draftAvailable: true });
+      }
+      const recovered = drafts.map((draft) => {
+        const failureCode = ["local_read", "local_storage", "network", "recognition_service", "unknown"].includes(draft.failureCode ?? "")
+          ? draft.failureCode : null;
+        return draft.status === "recognizing" && draft.photos?.some((photo) => photo.ownedLocal?.state === "reserved")
+          ? { ...draft, status: "failed" as const, failureCode: "local_storage" as const } : { ...draft, failureCode };
+      });
       this.applyPhotoDraftQueue(recovered);
-      void this.cleanupPhotoDrafts();
+      if (!this.isolateNewEntry || this.photoDraftsImported) void this.cleanupPhotoDrafts();
       this.photoDraftStorageWarningShown = false;
     } catch {
       if (!this.photoDraftStorageWarningShown) {
@@ -1603,7 +1644,15 @@ Page({
   },
 
   /** Refresh queue and visible form together; keep the form's acknowledgement separate. */
+  visiblePhotoDrafts(drafts: PhotoEntryDraft[]): PhotoEntryDraft[] {
+    if (!this.isolateNewEntry || this.photoDraftsImported) return drafts;
+    const ids = new Set(this.data.photoDrafts.map(draft => draft.id));
+    if (this.data.activePhotoDraftId) ids.add(this.data.activePhotoDraftId);
+    return drafts.filter(draft => ids.has(draft.id));
+  },
+
   applyPhotoDraftQueue(drafts: PhotoEntryDraft[]): void {
+    drafts = this.visiblePhotoDrafts(drafts);
     const id = this.data.activePhotoDraftId;
     const old = this.data.photoDrafts.find((item) => item.id === id);
     const active = drafts.find((item) => item.id === id && item.status !== "saved" && item.status !== "cleanup_pending");
@@ -1707,8 +1756,8 @@ Page({
       this.photoCleanupRunning = false;
     }
   },
-  setPhotoDraftStatus(status: PhotoEntryDraft["status"]): void {
-    const drafts = this.data.photoDrafts.map((item) => item.id === this.data.activePhotoDraftId ? { ...item, status } : item);
+  setPhotoDraftStatus(status: PhotoEntryDraft["status"], failureCode: PhotoEntryDraft["failureCode"] = null): void {
+    const drafts = this.data.photoDrafts.map((item) => item.id === this.data.activePhotoDraftId ? { ...item, status, failureCode } : item);
     this.setData({ photoDrafts: drafts });
     this.persistPhotoDrafts();
   },
@@ -1866,7 +1915,7 @@ Page({
         const linked = linkedQueue?.find(item => item.id === activePhoto.id);
         if (!linkedQueue || !linked) return;
         linked.medicineId = saved.id;
-        this.setData({ photoDrafts: linkedQueue });
+        this.setData({ photoDrafts: this.visiblePhotoDrafts(linkedQueue) });
         if (!this.persistPhotoDrafts()) {
           wx.showToast({ title: "药品已保存，但照片关联暂未安全落盘；请重试保存", icon: "none" });
           return;
@@ -1880,7 +1929,7 @@ Page({
             if (livePhoto.uploadedId) continue;
             if (!livePhoto.uploadIntentKey) {
               livePhoto.uploadIntentKey = `photo-upload-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-              this.setData({ photoDrafts: queue });
+              this.setData({ photoDrafts: this.visiblePhotoDrafts(queue) });
               if (!this.persistPhotoDrafts()) throw new Error("照片上传回执标识保存失败");
             }
             // If persistence is unavailable, never dispatch an unrepeatable upload.
@@ -1900,7 +1949,7 @@ Page({
             const acknowledged = after?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
             if (!after || !acknowledged || acknowledged.uploadIntentKey !== confirmed.uploadIntentKey) return;
             acknowledged.uploadedId = result.photo.id;
-            this.setData({ photoDrafts: after });
+            this.setData({ photoDrafts: this.visiblePhotoDrafts(after) });
             if (!this.persistPhotoDrafts()) throw new Error("照片上传成功但本机回执保存失败");
           }
           if (data.usePhotoAsCover) {
@@ -1917,7 +1966,7 @@ Page({
           if (!finishedQueue || !finishedDraft) return;
           finishedDraft.status = "saved";
           if (!this.writePhotoDraftQueue(finishedQueue)) return;
-          this.setData({ photoDrafts: finishedQueue, activePhotoDraftId: "" });
+          this.setData({ photoDrafts: this.visiblePhotoDrafts(finishedQueue), activePhotoDraftId: "" });
           await this.cleanupPhotoDrafts();
           if (!this.entryScopeIsCurrent(originalScope)) return;
         } catch {

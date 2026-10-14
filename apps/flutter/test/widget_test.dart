@@ -254,6 +254,14 @@ void main() {
 
     await tester.tap(find.text('打开真实录入页'));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      '',
+    );
+    await tester.tap(find.byTooltip('导入草稿'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('草稿测试药').last);
+    await tester.pumpAndSettle();
     expect(find.text('已恢复这份未完成录入，核对后保存再添加下一种。'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,
@@ -273,7 +281,7 @@ void main() {
     );
   });
 
-  testWidgets('entry back can discard edits and clear a kept local draft', (
+  testWidgets('discarding a new entry preserves an unimported legacy draft', (
     tester,
   ) async {
     final localStore = MemoryInventoryLocalStore();
@@ -294,7 +302,7 @@ void main() {
     await tester.tap(find.text('放弃修改'));
     await tester.pumpAndSettle();
 
-    expect(await localStore.readDraft('medicine-entry'), isNull);
+    expect(await localStore.readDraft('medicine-entry'), '{"name":"previous"}');
     expect(find.text('打开真实录入页'), findsOneWidget);
   });
 

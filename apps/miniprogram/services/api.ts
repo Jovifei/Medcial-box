@@ -554,6 +554,7 @@ export const api = {
       method: "POST",
       path: "/api/v1/medicine-catalog/candidates",
       payload: { [field]: query, consentToShare: true },
+      timeoutMs: 30000,
     });
   },
 

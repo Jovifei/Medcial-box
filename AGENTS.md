@@ -11,3 +11,9 @@
 - Full contract/commands: `E:\project\codex-project-hub\reports\medcial-box-INTEGRATION.md`. Reporting does not expand the project's execution permissions or start/continue another Agent session.
 - This block applies after the Agent actually reads this file; old sessions are not assumed to reload it. Independent worktree copies must be checked separately.
 <!-- END:codex-project-hub:medcial-box:v1 -->
+
+## 提交与版本管理（Jovi，2026-10-15）
+- 新提交标题使用中文，或中文在前、英文在后；不改写已发布历史提交。
+- 用户版本以根目录 VERSION.json 为基准；微信 APP_VERSION、Flutter pubspec 和版本说明必须一致，Android build number 单调递增。
+- 每个候选记录固定 Git SHA、源码树、CI、镜像/包摘要、API 地址和迁移清单；源码、部署和手机验收分别记录。
+- 未通过真实服务、数据保全、签名和设备门槛时仅标候选，不创建正式发布或声称上线。保留原部署及额外实验的安全阻断。
