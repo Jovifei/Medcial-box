@@ -1,5 +1,37 @@
 import { peekDirtyDraft } from "../../services/draft-guard";
 
+type Tab = "index" | "plans" | "pending" | "mine";
+const PRIMARY_TABS: Record<string, Tab> = {
+  "pages/index/index": "index",
+  "pages/medication-plans/medication-plans": "plans",
+  "pages/pending/pending": "pending",
+  "pages/mine/mine": "mine",
+};
+const ROUTE_TABS: Record<string, Tab> = {
+  ...PRIMARY_TABS,
+  "pages/login/login": "mine",
+  "pages/family-entry/family-entry": "mine",
+  "pages/family-create/family-create": "mine",
+  "pages/medicine-edit/medicine-edit": "index",
+  "pages/medicine-detail/medicine-detail": "index",
+  "pages/batch-edit/batch-edit": "index",
+  "pages/export-preview/export-preview": "mine",
+  "pages/invite/invite": "mine",
+  "pages/plan-detail/plan-detail": "plans",
+  "pages/plan-create/plan-create": "plans",
+  "pages/release-notes/release-notes": "mine",
+  "pages/care-profiles/care-profiles": "mine",
+  "pages/family-settings/family-settings": "mine",
+  "pages/app-link/app-link": "mine",
+  "pages/stocktake/stocktake": "index",
+  "pages/restock/restock": "mine",
+  "pages/trash/trash": "mine",
+  "pages/audit/audit": "mine",
+  "pages/backup-restore/backup-restore": "mine",
+  "pages/notification-settings/notification-settings": "mine",
+  "pages/account-settings/account-settings": "mine",
+};
+
 Component({
   properties: { embedded: { type: Boolean, value: false } },
   data: {
@@ -8,25 +40,31 @@ Component({
   },
   lifetimes: {
     attached() {
+      this.updateActiveTab();
+    },
+  },
+  pageLifetimes: {
+    show() {
+      this.updateActiveTab();
+    },
+  },
+  methods: {
+    updateActiveTab(): void {
       try {
         const pages = getCurrentPages();
-        const current = pages[pages.length - 1];
-        const route = current ? current.route : "";
-        if (route.includes("plan")) {
-          this.setData({ activeTab: "plans" });
-        } else if (route.includes("pending")) {
-          this.setData({ activeTab: "pending" });
-        } else if (route.includes("mine") || route.includes("setting") || route.includes("care-profile") || route.includes("family")) {
-          this.setData({ activeTab: "mine" });
-        } else {
-          this.setData({ activeTab: "index" });
+        for (let index = pages.length - 1; index >= 0; index--) {
+          const tab = PRIMARY_TABS[pages[index]?.route ?? ""];
+          if (tab) {
+            this.setData({ activeTab: tab });
+            return;
+          }
         }
+        const route = pages[pages.length - 1]?.route ?? "";
+        this.setData({ activeTab: ROUTE_TABS[route] ?? "index" });
       } catch {
         this.setData({ activeTab: "index" });
       }
     },
-  },
-  methods: {
     async navigate(url: string, tab: boolean): Promise<void> {
       if (this.data.busy) return;
       this.setData({ busy: true });

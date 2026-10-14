@@ -57,6 +57,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-13 independent review: fixed footer, explicit purpose review, owned failed-photo retake.
   // No new wx/fs/native network/component kinds; read-only getCurrentPages reads route only.
   'c4a34d6bcd0d63796cd1e4da10fb75d2d245d60a',
+  // 2026-10-14 independent review: explicit route/tab-stack highlight, readable equal-width footer.
+  // Same read-only getCurrentPages and unchanged wx/fs/component/photo lifecycle capabilities.
+  '47da77d6837a751426aa81cbf29b77646c2f2896',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

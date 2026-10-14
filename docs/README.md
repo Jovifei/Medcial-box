@@ -2,6 +2,7 @@
 
 本文档指向家庭药箱的当前实现说明与操作资料。产品边界和验收状态以仓库代码、当前状态台账和带版本的验证报告为准；旧日期文档保留其原始决策背景。
 
+- [当前状态](../tasks/status.md)与[主线整合及剩余卡点](operations/24-RECEIPT-main-consolidation-20261014.md)：最新入口；旧日期报告仅作历史依据。
 - [项目 README](../README.md)：模块、当前门槛和常用开发命令。
 - [产品需求](product/requirements.md)：首版用户目标和健康信息边界。
 - [技术架构与运行边界](architecture/overview.md)：微信小程序、Flutter、API、数据库和重试/提醒/导出责任。
@@ -11,6 +12,7 @@
 - [Android 实体机安装与启动验证](operations/03-RPT-Android实体机安装与启动验证.md)：2026-10-03 首次数据保留安装与构建尝试的历史记录。
 - [Android 识药、库存单位、日期与 Release 验证](operations/04-RPT-Android识药单位日期与Release验证.md)：2026-10-04 本机修复、迁移 029、Release R8 与真机本地 API/中文日期验证。
 - [独立测试环境部署](operations/staging-deployment.md)：HTTPS 测试服务、部署前检查与恢复演练。服务器操作需按该文档的外部准备门槛执行。
+- [域名DNS与国内部署决策](operations/17-ARC-域名DNS与国内部署决策.md)：国内用户路线、当前Cloudflare权威DNS、历史阿里云迁移方案与尚未执行的边界；域名操作前先读此记录。
 - [收尾矩阵](../tasks/reports/closeout/2026-10-03-current-closeout-matrix.md)：当前代码门槛和独立真实环境验收。
 - [识别服务路线](architecture/recognition-provider-decision-2026-09-27.md)：识别适配器与故障边界。
 - [外部接口与开源来源](references/)：来源登记和依赖核查。
@@ -32,3 +34,5 @@
 
 
 - [微信后台设置与真实验收清单](operations/16-SOP-微信后台设置与真实验收清单.md)：main合并后隐私/UGC/版本配置边界与真实平台验收。
+
+历史授权、限流和部署接力见 operations/18–23；其中“不合 main”等当时限制已由本轮明确合并授权更新，部署与数据保护边界继续有效。本机 reports/、未经核验的本地 catalog 和独立 GPU runner 保留在本机且排除版本控制，不混入产品源码。
