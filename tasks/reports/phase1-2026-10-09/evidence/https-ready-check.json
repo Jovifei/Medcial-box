@@ -1,0 +1,16 @@
+{
+  "origin": "https://medbox-test.joviluma.com",
+  "path": "/api/v1/health/ready",
+  "curl": {
+    "exit_code": 35,
+    "http_status": 0,
+    "message": "schannel TLS handshake failed"
+  },
+  "python_default_certificate_validation": true,
+  "python": {
+    "error_type": "URLError",
+    "error": "<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1081)>"
+  },
+  "checked_at": "2026-10-08T16:58:38.237332+00:00",
+  "scope": "Unauthenticated HTTPS health only; no real login, no TLS validation bypass, no global proxy/DNS changes"
+}

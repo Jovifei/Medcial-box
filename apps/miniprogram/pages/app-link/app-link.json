@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"连接 Android App"}
+{
+  "navigationBarTitleText": "连接 Android App",
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

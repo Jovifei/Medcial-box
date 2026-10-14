@@ -11,6 +11,16 @@ export const DEFAULT_SOURCE_SHA = '9de6d99137262e21142025a941094b7764209228';
 // Trusted frozen-source instrumentation, NOT an arbitrary/malicious JavaScript sandbox.
 // Accept only the independently reviewed baseline tree or the exact frozen writer-patch tree.
 const reviewedSourceTrees = new Set([
+  // 2026-10-11 review: session headers, invite priority and document-flow footer; no added wx/fs APIs.
+  '5c4b56c62c50c46f2bd9a02d7804ad36cfc8ecab',
+  // Follow-up review: footer chooser saves drafts, batch form persists original family/route; capabilities unchanged.
+  '387487e70af66a8203a91c5225d1701dd4a5c820',
+  // Reviewed correction: family chooser uses existing guarded wx.navigateTo, no navigator view capability.
+  '9c916f1557d640103c9154d66d3feb2b5302f2fe',
+  // Reviewed invite code/identity binding before confirm and delayed home navigation; existing capability set only.
+  '9a643c3aa1cd3b1fbd6a90dfb4ae46e396c166cd',
+  // Test-only Node timer import; production subtree capabilities unchanged from the preceding reviewed tree.
+  '90256d2471613e19bbf9607f69491079788f0349',
   '3ed0f8e6e410daf7fce1277d0e363caa52be3214',
   'abdef7419cb4abf00c54112456897ae05ebcbaba',
   '7a37461f3b3e3245151a91f3e02e8151d6c849e0',
@@ -18,8 +28,41 @@ const reviewedSourceTrees = new Set([
   '8ad38a705d6cbdbc7ffd4dbad9b32a83e081adc5',
   'bc5bc86d76e9f2be34ce2b793d6e2294337a5e8a',
   '17dbc684f86008de4e387b40a36097606907d9ef',
+  // Reviewed 2026-10-09: scoped export/photo intent, session fences, accurate disclosure; no new wx/fs permissions.
+  '660359aed38af8285229dc106a58f69095d4e12e',
+  // Additional review: plan draft owner captured before asynchronous page load, unchanged wx/fs capabilities.
+  '9992a7cbdb802344f496790fb0f1a6177b98ad9c',
+  // Final review: backup onShow avoids unlink while sharing; no new native capability.
+  '92a89f61d2ef1b06eb4e7760b60c3b436538b246',
+  // Reviewed 2026-10-09: durable photo ACK recovery plus updated synthetic page tests; no new native APIs.
+  'bbdd1af3d8285f897ebc15ef2bec221a251028ad',
+  // Reviewed synthetic regression fixtures now carry durable photo receipts; capability set unchanged.
+  '77c5ddde4c710709322cfdc73ef9f5095ef40cb8',
+  // 2026-10-09: native wx.request uses SDK-supported POST; no new wx/fs/component capabilities.
+  'f376be5f9502caffe5d7e83bb039941a2069169e',
+  // AUD06 lease/ownership audit: no added native APIs or filesystem operations.
+  '8efdcc18a60ab592b0a4b3345b25be34ec6d92ef',
+  // Same reviewed business implementation; synthetic AUD06 test fixture additions only.
+  'e2e9acec0a1ec9e36921397f2c57fb986870846d',
+  // AUD06 fallback clipboard lease, reviewed with its exact synthetic scenario fixture.
+  'c78f12661af44c8c2cf58a9d07e6e144fce33f1a',
+  // AUD06 independently reviewed scoped-only recovery reporting; no new wx/fs/component capabilities.
+  'f625aa0f3445b686a5a9a434a30649c020723bbe',
+  // Reviewed failed native write and onUnload coverage (test-only delta, no new native permissions).
+  'fd8a8b5cd94fc2ba2ae1f401f2c206641cbfccbd',
+  // Pure test assertion change for cross-VM result shape, all runtime capabilities unchanged.
+  '2924595aa226c2f809fff54498bfa22afcf7cb36',
+  // Scoped receipt rebase and two independent synthetic concurrency cases, same native capability set.
+  'e368588172f65e9e07cde1bba6ef2d09abe44b0e',
+  // 2026-10-13 independent review: fixed footer, explicit purpose review, owned failed-photo retake.
+  // No new wx/fs/native network/component kinds; read-only getCurrentPages reads route only.
+  'c4a34d6bcd0d63796cd1e4da10fb75d2d245d60a',
+  // 2026-10-14 independent review: explicit route/tab-stack highlight, readable equal-width footer.
+  // Same read-only getCurrentPages and unchanged wx/fs/component/photo lifecycle capabilities.
+  '47da77d6837a751426aa81cbf29b77646c2f2896',
 ]);
 const reviewedComponents = new Map([
+  ['business-nav', 'components/business-nav/business-nav'],
   ['medicine-date-field', 'components/medicine-date-field/index'],
   ['medicine-time-field', 'components/medicine-time-field/index'],
 ]);

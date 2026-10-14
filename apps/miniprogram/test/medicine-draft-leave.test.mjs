@@ -251,7 +251,8 @@ test("failed photo upload retains the saved medicine id and retries without crea
     uploadLeafletPhoto: async () => { uploads++; if (uploads === 1) throw new Error("upload failed"); return { photo: { id: "photo" } }; },
   }, wxOverrides: { getFileSystemManager: () => ({ readFile: options => options.success({ data: "/9j/data" }) }), switchTab() {} } });
   const current = photoDraft(f.page);
-  current.photos = [{ path: "/photo.jpg", mimeType: "image/jpeg", purpose: "box_front", batchIndex: 0 }];
+  current.photos = [{ path: "/photo.jpg", mimeType: "image/jpeg", purpose: "box_front", batchIndex: 0,
+    ownedLocal: { path: "/photo.jpg", scopeKey: PHOTO_KEY, draftId: current.id, state: "ready", byteLength: 200 } }];
   await f.page.checkEntrySession();
   f.page.setData({ photoDrafts: [current], activePhotoDraftId: "current", usePhotoAsCover: false });
   await f.page.onSubmit();

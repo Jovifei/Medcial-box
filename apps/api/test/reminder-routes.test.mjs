@@ -9,7 +9,7 @@ import { batchRow, medicineRow } from "./helpers/app.mjs";
 async function createReminderApp({ configured = false } = {}) {
   const pool = createFakePool();
   pool.always(/FROM sessions WHERE token_hash/, {
-    rows: [{ id: "session-1", user_id: "user-1", expires_at: new Date(Date.now() + 86_400_000).toISOString() }],
+    rows: [{ id: "session-1", user_id: "user-1", active_family_id: "family-1", expires_at: new Date(Date.now() + 86_400_000).toISOString() }],
     rowCount: 1,
   });
   pool.always(/FROM family_members WHERE user_id/, {

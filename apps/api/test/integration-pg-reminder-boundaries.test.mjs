@@ -123,6 +123,7 @@ test("real PostgreSQL: reminder consent, cancellation and send ownership", {
       await pool.query("INSERT INTO families (id, name, created_by) VALUES ($1, '发送边界测试家庭', $2)", [id, users[0].id]);
       for (const [index, user] of users.entries()) {
         await pool.query("INSERT INTO family_members (family_id, user_id, role) VALUES ($1, $2, $3)", [id, user.id, index === 0 ? "owner" : "member"]);
+        status(await app.inject({ method: "POST", url: `/api/v1/families/${id}/switch`, headers: { authorization: `Bearer ${user.token}` } }), 200);
         await pool.query("INSERT INTO notification_preferences (user_id, stock_reminder_time, channels) VALUES ($1, '09:00', ARRAY['wechat','android']::text[])", [user.id]);
       }
       return { id, owner: users[0], members: users.slice(1) };

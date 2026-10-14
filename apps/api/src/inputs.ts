@@ -367,6 +367,25 @@ export function validateBatchSplitInput(raw: unknown): ValidationResult<Validate
   }
 }
 
+/** Quantity-only edit: never interpret omitted metadata as replacements. */
+export function validateBatchQuantityChange(
+  raw: unknown,
+  unit: QuantityUnit,
+): ValidationResult<{ quantity: number | null; version: number }> {
+  try {
+    if (!isRecord(raw) || Object.keys(raw).some((key) => key !== "quantity" && key !== "version") ||
+        !Object.prototype.hasOwnProperty.call(raw, "quantity")) {
+      throw new InputError("只允许修改 quantity 和 version，数量不能为空缺省");
+    }
+    return { ok: true, value: {
+      quantity: quantityOrNull(raw.quantity, "quantity", unit),
+      version: requireInt(raw.version, "version", 1),
+    } };
+  } catch (error) {
+    return { ok: false, message: error instanceof InputError ? error.message : "请求体不合法" };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 药品
 // ---------------------------------------------------------------------------
@@ -468,6 +487,24 @@ function parseMedicine(raw: Record<string, unknown>): ValidatedMedicineFields {
     lowStockThresholdProvided: raw.lowStockThreshold !== undefined,
     batches,
   };
+}
+
+/** Threshold-only edit never enters whole-medicine batch synchronization. */
+export function validateMedicineThresholdChange(
+  raw: unknown,
+): ValidationResult<{ lowStockThreshold: ValidatedMedicineFields["lowStockThreshold"]; version: number }> {
+  try {
+    if (!isRecord(raw) || Object.keys(raw).some((key) => key !== "lowStockThreshold" && key !== "version") ||
+        !Object.prototype.hasOwnProperty.call(raw, "lowStockThreshold")) {
+      throw new InputError("只允许修改 lowStockThreshold 和 version");
+    }
+    return { ok: true, value: {
+      lowStockThreshold: parseLowStockThreshold(raw.lowStockThreshold),
+      version: requireInt(raw.version, "version", 1),
+    } };
+  } catch (error) {
+    return { ok: false, message: error instanceof InputError ? error.message : "请求体不合法" };
+  }
 }
 
 export function validateMedicineInput(raw: unknown): ValidationResult<ValidatedMedicineFields> {

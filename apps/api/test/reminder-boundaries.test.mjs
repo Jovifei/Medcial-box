@@ -29,7 +29,7 @@ function preferences(pool, state) {
   pool.always(/SELECT .*FROM notification_preferences WHERE user_id\s*=\s*\$1/, () => row({ ...state.preference, channels: [...state.preference.channels] }));
 }
 async function appFor(pool) {
-  pool.always(/FROM sessions WHERE token_hash/, row({ id: "session-1", user_id: "user-1", expires_at: new Date(Date.now() + 86_400_000) }));
+  pool.always(/FROM sessions WHERE token_hash/, row({ id: "session-1", user_id: "user-1", active_family_id: "family-1", expires_at: new Date(Date.now() + 86_400_000) }));
   pool.always(/FROM family_members WHERE user_id/, row({ id: "member-1", family_id: "family-1", user_id: "user-1", role: "owner" }));
   return buildServer({ database: pool, wechatGateway: new FakeWechatGateway(), reminderTemplateConfig: config, logger: false });
 }

@@ -9,3 +9,5 @@
     <view class="change-text">{{item.changeText}}</view>
   </view>
 </view>
+
+<business-nav />

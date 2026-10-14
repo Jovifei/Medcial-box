@@ -95,6 +95,19 @@ function loadDetailPage({ batches, openSplitBatch } = {}) {
   return { definition, load, splits, toasts };
 }
 
+test("opening deadline only claims earlier packaging when packaging is known", async () => {
+  const opening = { openedState: "opened", openedAt: "2026-10-01", openedExpiryDate: "2026-11-01", managementExpirySource: "opened" };
+  const { load } = loadDetailPage({ batches: [
+    batch({ ...opening, id: "unknown", expiry: { value: null, precision: "unknown" } }),
+    batch({ ...opening, id: "known", expiry: { value: "2027-06-30", precision: "day" } }),
+  ] });
+  const page = load();
+  await page.refresh();
+  assert.match(page.data.batches[0].openingText, /按已记录的开封期限/);
+  assert.doesNotMatch(page.data.batches[0].openingText, /早于包装/);
+  assert.match(page.data.batches[1].openingText, /早于包装/);
+});
+
 test("R08: 毫升批次拆分预览允许小数并守恒", async () => {
   const { load } = loadDetailPage();
   const page = load();

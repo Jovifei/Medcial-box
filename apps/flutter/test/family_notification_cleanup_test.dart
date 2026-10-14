@@ -153,6 +153,48 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  test('authoritative family selection after uncertain switch retains original inputs and fences old 401', () async {
+    final entered = Completer<void>();
+    final response = Completer<http.Response>();
+    final services = await serviceWith(
+      (request) async {
+        if (request.url.path == '/api/v1/medicines') return inventory();
+        if (request.url.path == '/synthetic-delayed') {
+          expect(request.headers['x-family-id'], 'family-a');
+          entered.complete();
+          return response.future;
+        }
+        return jsonResponse({
+          'user': {'id': 'synthetic-user', 'hasFamily': true},
+          'family': {'id': 'family-b', 'name': 'B', 'role': 'member'},
+        });
+      },
+      secrets: secrets,
+      local: local,
+    );
+    await seedFamily(services);
+    await services.localStore.saveDraft(
+      'owned-a-original',
+      'original-key-and-payload',
+    );
+    await services.localStore.saveDraft('owned-b-original', 'B pending input');
+    final old = expectLater(
+      services.api!.get('/synthetic-delayed'),
+      throwsA(isA<ApiException>()),
+    );
+    await entered.future;
+    expect((await services.auth!.getCurrentUser()).family!.id, 'family-b');
+    expect(local.inventory, isNull);
+    expect(notifications.pending, isEmpty);
+    response.complete(apiError('UNAUTHORIZED', 401));
+    await old;
+    expect(local.family!.id, 'family-b');
+    expect(local.drafts['owned-a-original'], 'original-key-and-payload');
+    expect(local.drafts['owned-b-original'], 'B pending input');
+    expect(services.api!.identityState!.owner!.familyId, 'family-b');
+    expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
+  });
+
   test('current FAMILY_NOT_FOUND clears stock alarms and private family cache but retains login', () async {
     final methods = <String>[];
     final services = await serviceWith(
@@ -359,7 +401,10 @@ void main() {
           expect(notifications.pending.keys.toSet(), ids);
           expect(local.family!.id, 'family-b');
           expect(local.inventory!.single.id, 'medicine-b');
-          expect(local.drafts, {'new': 'synthetic-family-b-draft'});
+          expect(local.drafts, {
+            'medicine-new': 'synthetic-private-draft',
+            'new': 'synthetic-family-b-draft',
+          });
           expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
           expect(services.sessionInvalidated.value, isFalse);
           expect(services.familyInvalidated.value, isFalse);
@@ -671,7 +716,10 @@ void main() {
     release.complete();
     await rejected;
     expect(local.family!.id, 'family-b');
-    expect(local.drafts, {'new': 'synthetic-family-b'});
+    expect(local.drafts, {
+      'medicine-new': 'synthetic-private-draft',
+      'new': 'synthetic-family-b',
+    });
     expect(services.familyInvalidated.value, isFalse);
     expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
   });
@@ -730,7 +778,7 @@ void main() {
       );
       await local.saveDraft('old', 'synthetic-private-draft');
       notifications.pending[12] = {'id': 12, 'payload': 'pending'};
-      final methods = <String>[];
+      final paths = <String>[];
       await http.runWithClient(
         () async {
           await tester.pumpWidget(
@@ -744,7 +792,10 @@ void main() {
           await tester.pumpAndSettle();
         },
         () => MockClient((request) async {
-          methods.add(request.method);
+          paths.add('${request.method} ${request.url.path}');
+          if (request.url.path == '/api/v1/families') {
+            return jsonResponse({'families': []});
+          }
           return jsonResponse({
             'user': {'id': 'synthetic-user', 'hasFamily': false},
             'family': null,
@@ -756,7 +807,7 @@ void main() {
       expect(local.drafts, isEmpty);
       expect(notifications.pending, isEmpty);
       expect(storedSyntheticToken(secrets), 'synthetic-session-a');
-      expect(methods, ['GET']);
+      expect(paths, ['GET /api/v1/auth/me', 'GET /api/v1/families']);
       await tester.pumpWidget(const SizedBox.shrink());
       debugDefaultTargetPlatformOverride = null;
     },

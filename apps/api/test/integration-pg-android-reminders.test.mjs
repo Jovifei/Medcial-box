@@ -31,7 +31,10 @@ test("real PostgreSQL: receive-only Android projection preserves all private bou
     async function user(){const id=randomUUID();await pool.query("INSERT INTO users(id,openid) VALUES($1,$2)",[id,`synthetic-${id}`]);return{id,...await issueSessionToken(database,id)};}
     const owner=await user(),receiver=await user(),viewer=await user(),manager=await user(),stranger=await user();
     const group=status(await request(owner,"POST","/families",{name:"Synthetic reminder family"}),201);
-    for(const member of [receiver,viewer,manager])await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,'member')",[group.family.id,member.id]);
+    for(const member of [receiver,viewer,manager]) {
+      await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,'member')",[group.family.id,member.id]);
+      status(await request(member,"POST",`/families/${group.family.id}/switch`));
+    }
     status(await request(stranger,"POST","/families",{name:"Other synthetic family"}),201);
     async function preferences(who,channels=["android"]){status(await request(who,"PUT","/notification-preferences",{stockReminderTime:"09:00",channels}));}
     for(const member of [owner,receiver,viewer,manager,stranger])await preferences(member);

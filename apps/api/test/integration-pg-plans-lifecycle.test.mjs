@@ -267,6 +267,7 @@ test("real PostgreSQL: plan edit preserves explicit medicine identity and curren
       const [owner, member] = users;
       await pool.query("INSERT INTO families(id,name,created_by) VALUES($1,'Synthetic binding family',$2)", [id, owner.id]);
       for (const [who, role] of [[owner, "owner"], [member, "member"]]) await pool.query("INSERT INTO family_members(family_id,user_id,role) VALUES($1,$2,$3)", [id, who.id, role]);
+      for (const who of [owner, member]) status(await request(who, "POST", `/families/${id}/switch`), 200);
       const profileId = randomUUID();
       await pool.query("INSERT INTO care_profiles(id,family_id,display_name,created_by) VALUES($1,$2,'Synthetic profile',$3)", [profileId, id, owner.id]);
       await pool.query("INSERT INTO care_grants(family_id,care_profile_id,member_user_id,can_manage,created_by) VALUES($1,$2,$3,true,$4)", [id, profileId, member.id, owner.id]);

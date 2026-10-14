@@ -1,0 +1,17 @@
+<view wx:if="{{!embedded}}" class="business-nav-spacer" aria-hidden="true"></view>
+<view class="business-nav-wrapper {{embedded ? 'embedded' : ''}}">
+  <view class="business-nav-bar">
+    <button class="business-nav-tab {{activeTab === 'index' ? 'active' : ''}}" data-url="/pages/index/index" bindtap="go" disabled="{{busy}}">
+      <text class="business-nav-text">药箱</text>
+    </button>
+    <button class="business-nav-tab {{activeTab === 'plans' ? 'active' : ''}}" data-url="/pages/medication-plans/medication-plans" bindtap="go" disabled="{{busy}}">
+      <text class="business-nav-text">用药计划</text>
+    </button>
+    <button class="business-nav-tab {{activeTab === 'pending' ? 'active' : ''}}" data-url="/pages/pending/pending" bindtap="go" disabled="{{busy}}">
+      <text class="business-nav-text">待处理</text>
+    </button>
+    <button class="business-nav-tab {{activeTab === 'mine' ? 'active' : ''}}" data-url="/pages/mine/mine" bindtap="go" disabled="{{busy}}">
+      <text class="business-nav-text">我的</text>
+    </button>
+  </view>
+</view>

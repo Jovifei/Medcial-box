@@ -11,7 +11,16 @@ async function readJson(path) {
   return JSON.parse(await readFile(resolve(root, path), "utf8"));
 }
 
+import { verifyEvidence } from './family-pilot-evidence.mjs';
 const checks = [];
+let syntheticEvidence = null;
+const evidenceIndex = process.argv.indexOf('--evidence');
+if (evidenceIndex >= 0) {
+  try {
+    if (!process.argv[evidenceIndex + 1]) throw new Error('candidate evidence file required');
+    syntheticEvidence = verifyEvidence(process.argv[evidenceIndex + 1], { root });
+  } catch (error) { checks.push({name:'candidate-artifacts',ok:false,detail:error.message}); }
+}
 function check(name, ok, detail) {
   checks.push({ name, ok, detail });
 }
@@ -33,6 +42,7 @@ const result = {
   ok: checks.every((item) => item.ok),
   generatedAt: new Date().toISOString(),
   checks,
+  syntheticEvidence,
   limitations: [
     "Does not access WeChat backend configuration.",
     "Does not prove two-device acceptance, notification delivery, signing, HTTPS or production restore.",

@@ -94,7 +94,8 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
   const dateRecords = inCabinet.map((batch) => ({
     date: batch.managementExpiryDate ?? batch.expiry.value,
     label: batch.managementExpiryState?.label ?? batch.expiryState.label,
-  })).filter((item): item is { date: string; label: string } => item.date !== null);
+    source: batch.managementExpirySource ?? null,
+  })).filter((item): item is { date: string; label: string; source: "package" | "opened" | null } => item.date !== null);
   dateRecords.sort((left, right) => left.date.localeCompare(right.date));
   const stateLabels: Record<ExpiryState, string> = {
     expired: "已过期或开封期限已到",
@@ -124,7 +125,9 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     specification: medicine.specification ?? "规格未记录",
     purpose: purposeText(medicine),
     quantityText: quantitySummary(medicine),
-    expiryText: dateRecords.length > 0 ? `最早需处理：${dateRecords[0].date}` : medicine.expiryState?.label ?? "有效期未知",
+    expiryText: dateRecords.length > 0
+      ? (dateRecords[0].source === "opened" ? `截止：${dateRecords[0].date}（开封期优先）` : `截止：${dateRecords[0].date}`)
+      : medicine.expiryState?.label ?? "有效期未知",
     state,
     stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
     stateLabel: stateLabels[state],

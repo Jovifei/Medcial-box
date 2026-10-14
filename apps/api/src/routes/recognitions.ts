@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { requireFamily } from "../auth/session.js";
 import { errorBody } from "../types.js";
 import { RecognitionUnavailableError, recognitionFailureMessages, type MedicineRecognitionProvider } from "../services/medicine-recognition.js";
+import { isCanonicalBase64 } from "../services/base64-validation.js";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MIN_IMAGE_BYTES = 128;
@@ -27,7 +28,7 @@ export async function registerRecognitionRoutes(app: FastifyInstance, provider: 
     const { imageBase64, mimeType, purpose } = input as Record<string, unknown>;
     if ((mimeType !== "image/jpeg" && mimeType !== "image/png") || typeof imageBase64 !== "string" ||
         imageBase64.length === 0 || imageBase64.length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 4 ||
-        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(imageBase64)) {
+        !isCanonicalBase64(imageBase64)) {
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "仅支持不超过 4 MB 的 JPEG 或 PNG 照片"));
     }
     if (purpose !== undefined && purpose !== "box_front" && purpose !== "leaflet") {

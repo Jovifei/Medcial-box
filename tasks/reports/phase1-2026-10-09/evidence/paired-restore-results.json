@@ -1,0 +1,34 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "actual API+PG+PrivatePhotoStore seed, pg_dump/pg_restore and copied synthetic file hashes; not production staging-backup.sh nor production restore",
+  "status": "BLOCKED",
+  "table_results": [
+    {
+      "table": "families",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    },
+    {
+      "table": "medicines",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    },
+    {
+      "table": "medicine_batches",
+      "before_count": 2,
+      "after_count": 2,
+      "identical": true
+    },
+    {
+      "table": "medicine_leaflet_photos",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    }
+  ],
+  "error": "Target already exists: cp returned EEXIST (E:/Claude_allow/Download/medcial_box/phase1-20261008/paired-restore-target already exists) E:/Claude_allow/Download/medcial_box/phase1-20261008/paired-restore-target",
+  "owned_restore_removed": true,
+  "finished_at": "2026-10-08T16:22:12.628Z"
+}

@@ -83,6 +83,7 @@ export type ApiErrorCode =
   | "WECHAT_GATEWAY_ERROR"
   | "RATE_LIMITED"
   | "RECOGNITION_UNAVAILABLE"
+  | "PHOTO_UPLOAD_PENDING"
   | "MEDICINE_CATALOG_UNAVAILABLE"
   | "MEDICINE_CATALOG_NOT_CONFIGURED"
   | "NOTIFICATION_UNAVAILABLE"
@@ -632,3 +633,7 @@ export interface DoseReminderScheduleResponse {
   timezone: "Asia/Shanghai";
   entries: DoseReminderScheduleEntry[];
 }
+
+/** Explicit per-session household selection; inventory ownership never moves. */
+export interface FamilyListResponse { families: { familyId: string; name: string; role: "owner" | "member"; isCurrent: boolean }[] }
+export interface SwitchFamilyResponse { familyId: string; role: "owner" | "member" }

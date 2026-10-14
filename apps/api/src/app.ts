@@ -6,6 +6,7 @@ import type { WechatGateway } from "./auth/wechat.js";
 import { createDefaultWechatGateway } from "./auth/wechat.js";
 import { registerAuth } from "./auth/session.js";
 import { registerHealthRoutes } from "./routes/health.js";
+import { registerPilotReadinessRoutes } from "./routes/pilot-readiness.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerFamilyRoutes } from "./routes/families.js";
 import { registerMedicineRoutes } from "./routes/medicines.js";
@@ -27,7 +28,6 @@ import { PrivatePhotoStore } from "./services/private-photo-store.js";
 
 export interface BuildServerOptions {
   database: Database;
-  /** Defaults to the real HTTP gateway (env credentials); tests inject a fake. */
   wechatGateway?: WechatGateway;
   medicineRecognitionProvider?: MedicineRecognitionProvider;
   medicineCatalogProvider?: MedicineCatalogProvider;
@@ -38,9 +38,10 @@ export interface BuildServerOptions {
 
 export async function buildServer(options: BuildServerOptions) {
   const app = Fastify({ logger: options.logger ?? true });
-
-  // 统一错误 shape：{ error: { code, message } }；内部细节只进服务端日志。
   app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+    if (error.statusCode === 413 || error.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      return reply.code(413).send(errorBody("VALIDATION_ERROR", "图片或请求体过大，请缩小后重试"));
+    }
     if (error.validation !== undefined || error.statusCode === 400 || error.statusCode === 415) {
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "请求格式不正确"));
     }
@@ -50,6 +51,8 @@ export async function buildServer(options: BuildServerOptions) {
 
   await registerHealthRoutes(app, options.database);
   await registerAuth(app, options.database);
+  // Non-health pilot evidence remains behind the auth lifecycle boundary.
+  await registerPilotReadinessRoutes(app);
 
   const deps = {
     database: options.database,
@@ -67,12 +70,7 @@ export async function buildServer(options: BuildServerOptions) {
   await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider(), options.database);
   await registerReminderRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());
   await registerLeafletPhotoRoutes(app, options.database, options.privatePhotoStore ?? new PrivatePhotoStore());
-  await registerMedicationPlanRoutes(
-    app,
-    options.database,
-    options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig(),
-  );
+  await registerMedicationPlanRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());
   await registerBackupRoutes(app, options.database);
-
   return app;
 }

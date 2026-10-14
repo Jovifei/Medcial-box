@@ -1,15 +1,21 @@
-// 家庭端点：创建（创建即 owner，一账号一家庭）与当前家庭查询。
+// 家庭端点：多家庭列表、显式切换和当前家庭查询。
 import type { FastifyInstance } from "fastify";
 import type { Database } from "../types.js";
 import { errorBody, toIso } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import {
   asMemberRole,
-  createFamilyWithOwner,
+  insertFamily,
+  insertFamilyMember,
   findFamilyById,
-  findMembershipByUserId,
+
   listMembersWithIdentity,
 } from "../repositories/families.js";
+import {
+  activateFamilyContext,
+  selectSessionFamily,
+  listFamilyContextsByUserId,
+} from "../repositories/family-context.js";
 
 export async function registerFamilyRoutes(
   app: FastifyInstance,
@@ -26,15 +32,13 @@ export async function registerFamilyRoutes(
       return reply.code(400).send(errorBody("VALIDATION_ERROR", "家庭名称不能为空"));
     }
 
-    // 每账号仅一个家庭：预检 + 数据库 user_id 唯一约束兜底。
-    const existing = await findMembershipByUserId(database, auth.userId);
-    if (existing !== null) {
-      return reply
-        .code(409)
-        .send(errorBody("ALREADY_IN_FAMILY", "已属于一个家庭，如需更换请先由 owner 移除"));
-    }
-
-    const { family, membership } = await createFamilyWithOwner(database, name, auth.userId);
+    // 多家庭阶段：允许同一账号拥有多个 membership，不再用旧单家庭预检阻断。
+    const { family, membership } = await database.withTransaction(async tx => {
+      const family = await insertFamily(tx, name, auth.userId);
+      const membership = await insertFamilyMember(tx, family.id, auth.userId, "owner");
+      await selectSessionFamily(tx, auth.userId, auth.sessionId, family.id);
+      return { family, membership };
+    });
     return reply.code(201).send({
       family: { id: family.id, name: family.name },
       membership: {
@@ -43,6 +47,42 @@ export async function registerFamilyRoutes(
         joinedAt: toIso(membership.joined_at),
       },
     });
+  });
+
+  app.get("/api/v1/families", async (request, reply) => {
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+
+    const families = await listFamilyContextsByUserId(database, auth.userId);
+    return {
+      families: families.map((family) => ({
+        familyId: family.family_id,
+        name: family.name,
+        role: asMemberRole(family.role),
+        isCurrent: auth.familyId === family.family_id,
+      })),
+    };
+  });
+
+  app.post("/api/v1/families/:familyId/switch", async (request, reply) => {
+    const auth = request.auth;
+    if (auth === null) {
+      return reply.code(401).send(errorBody("UNAUTHORIZED", "请先登录"));
+    }
+    const { familyId } = request.params as { familyId: string };
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familyId)) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "家庭标识格式不正确"));
+    }
+    const switched = await activateFamilyContext(database, auth.userId, auth.sessionId, familyId);
+    if (switched === null) {
+      return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "不是该家庭成员"));
+    }
+    return {
+      familyId: switched.family_id,
+      role: asMemberRole(switched.role),
+    };
   });
 
   app.get("/api/v1/families/current", async (request, reply) => {
@@ -54,8 +94,6 @@ export async function registerFamilyRoutes(
     if (family === null) {
       return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "家庭不存在"));
     }
-    // 成员身份展示（审核修复 #6）：关联昵称，未设置时按加入顺序生成
-    // 稳定标签（成员 1、成员 2…）；isSelf 供界面标注"我"。
     const members = await listMembersWithIdentity(database, ctx.familyId);
     return {
       family: {
@@ -64,7 +102,6 @@ export async function registerFamilyRoutes(
         role: asMemberRole(auth?.role ?? "member"),
         members: members.map((member, index) => ({
           id: member.id,
-          // 家庭成员的账号标识：照护授权需要按 memberUserId 指定被授权人。
           userId: member.user_id,
           role: asMemberRole(member.role),
           displayName: member.nickname ?? `成员 ${index + 1}`,

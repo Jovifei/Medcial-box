@@ -56,6 +56,7 @@ abstract interface class LocalAppStore {
   Future<void> savePlanCreationMarker(String scope, String key);
   Future<void> deletePlanCreationMarker(String scope);
   Future<void> clearFamilyData();
+  Future<void> clearFamilySnapshot();
   // Legacy bytes are not an identity claim. Quarantine before reconnecting;
   // adopt only a scope proved by the current authenticated server context.
   Future<void> quarantineLegacyFamilyData({String? preserveVerifiedPlanScope});
@@ -324,6 +325,14 @@ class SharedPreferencesAppStore implements LocalAppStore {
   }
 
   @override
+  Future<void> clearFamilySnapshot() async {
+    await _preferences.reload();
+    for (final key in [_inventoryKey, _familyKey, _lastSyncedKey]) {
+      if (!await _preferences.remove(key)) throw StateError('无法清理家庭快照，请重试。');
+    }
+  }
+
+  @override
   Future<void> clearFamilyData() async {
     // A failed remove can already have changed the plugin's memory cache.
     // Reload before every cleanup/retry so persisted private keys are retried.
@@ -449,6 +458,13 @@ class MemoryInventoryLocalStore implements LocalAppStore {
       planCreationMarkers.remove(scope);
 
   @override
+  Future<void> clearFamilySnapshot() async {
+    inventory = null;
+    family = null;
+    lastSyncedAt = null;
+  }
+
+  @override
   Future<void> clearFamilyData() async {
     inventory = null;
     family = null;
@@ -469,6 +485,14 @@ class IdentityLocalStore implements LocalAppStore {
     final next = _tail.then((_) async {
       if (epoch == _epoch) await action();
     });
+    _tail = next.catchError((Object _) {});
+    return next;
+  }
+
+  @override
+  Future<void> clearFamilySnapshot() {
+    _epoch++;
+    final next = _tail.then((_) => delegate.clearFamilySnapshot());
     _tail = next.catchError((Object _) {});
     return next;
   }

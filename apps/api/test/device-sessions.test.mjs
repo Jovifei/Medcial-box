@@ -10,7 +10,7 @@ test("current user lists sessions and can revoke only their other Android sessio
   try {
     await login(app, pool, { membership: membershipRow() });
     pool.always(/FROM sessions WHERE token_hash/, {
-      rows: [{ id: "10000000-0000-4000-8000-000000000001", user_id: "user-1", expires_at: "2099-01-01T00:00:00Z" }],
+      rows: [{ id: "10000000-0000-4000-8000-000000000001", user_id: "user-1", active_family_id: "family-1", expires_at: "2099-01-01T00:00:00Z" }],
       rowCount: 1,
     });
     pool.always(/FROM sessions WHERE user_id =/, {
@@ -48,7 +48,7 @@ test("a session cannot revoke another user's App session", async () => {
   try {
     await login(app, pool, { membership: membershipRow() });
     pool.always(/FROM sessions WHERE token_hash/, {
-      rows: [{ id: "10000000-0000-4000-8000-000000000001", user_id: "user-1", expires_at: "2099-01-01T00:00:00Z" }],
+      rows: [{ id: "10000000-0000-4000-8000-000000000001", user_id: "user-1", active_family_id: "family-1", expires_at: "2099-01-01T00:00:00Z" }],
       rowCount: 1,
     });
     pool.on(/DELETE FROM sessions WHERE id =/, { rows: [], rowCount: 0 });

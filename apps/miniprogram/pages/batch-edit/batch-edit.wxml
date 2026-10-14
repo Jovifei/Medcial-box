@@ -85,3 +85,5 @@
   <view class="btn btn-danger" wx:if="{{isEdit && !batchLoading && !loadFailed}}" bindtap="onDelete">移入最近删除</view>
   <view class="hint footnote">批次数值为空表示"未知"，0 表示"确定耗尽"；导出时会显式标注。</view>
 </view>
+
+<business-nav />

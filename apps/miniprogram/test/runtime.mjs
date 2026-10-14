@@ -65,11 +65,27 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
     }
     if (id.endsWith("photo-file-lifecycle")) return loadService("services/photo-file-lifecycle.ts", { wx: pageWx });
     if (id.endsWith("medicine-tags")) return loadService("services/medicine-tags.ts", { wx: pageWx });
+    if (id.endsWith("/services/api") && Object.hasOwn(modules, id)) {
+      // Legacy page unit tests mock network methods but not identity transport.
+      // Provide stable synthetic identity only for those tests; explicit injected
+      // identity actors always override this default (see phase1 regressions).
+      return {
+        captureSessionIdentity: () => ({ token: "synthetic-page-session", generation: 1 }),
+        isCurrentSession: identity => identity.token === "synthetic-page-session" && identity.generation === 1,
+        ...modules[id],
+      };
+    }
     if (Object.hasOwn(modules, id)) return modules[id];
     if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
     if (id.endsWith("app-update")) return loadService("services/app-update.ts", { wx: pageWx });
     if (id.endsWith("draft-guard")) return loadService("services/draft-guard.ts", { wx: pageWx });
+    if (id.endsWith("temporary-share-files")) {
+      const scope = modules["../../services/session-scope"] ?? modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
+      return loadService("services/temporary-share-files.ts", {
+        wx: pageWx, modules: { "./session-scope": scope },
+      });
+    }
     throw new Error(`Unexpected module import in test: ${id}`);
   };
   const sandbox = {

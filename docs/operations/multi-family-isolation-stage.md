@@ -1,0 +1,28 @@
+# Family pilot integration — remote execution 2026-10-11
+
+Baseline: 0fdacc0138f5bac6bc8476eb3f1f54c88908385c, including PR4 work. No main merge/deployment/device operations.
+
+Selection is scoped to sessions.active_family_id. A single-membership new session inherits that household; multiple memberships require explicit choice. Create and confirmed invitation acceptance select the target only for that session. Requests freeze x-family-id at dispatch and validate membership each time. Other devices keep their selection. No household count limit is introduced.
+
+Legacy 032/033 filenames and checksums are retained because a synthetic upgrade may have applied them. 032_repair removes the UNIQUE constraint before the historical index drop; 034 retires the global flag, initializes unambiguous sessions and enforces unique (family,user). Rerun uses migration receipts. No household/health rows are moved or removed.
+
+Invite consumption and acceptance lock the invitation and household in one transaction. Consumer retry returns its membership; an already-member acceptance never consumes a different unused code. Expired/consumed by another user is rejected. Leave/removal preserve other households; existing owner transfer and care handover rules remain.
+
+Mini request epochs and household namespaces preserve drafts and fence delayed photo/recognition/401 results. All non-tab pages use shared document-flow navigation and existing dirty-draft save guard. Four native tabs remain. Invitation target takes priority over owner UI. Flutter selection reuses identity cleanup, cancels reminders/exports, clears current snapshots and retains household-keyed input.
+
+Delivery integration reuses CI verify, strict isolated PostgreSQL, existing exact mini QA, lifecycle tests and test-staging-backup-docker. Artifact verification reads actual files/hashes, compares complete database content/ownership and restored photo bytes, and binds current SHA/root/mini trees and build image. Empty/missing/corrupt evidence fails. It qualifies SYNTHETIC only, never production restoration.
+
+Execution before final freeze: lint/typecheck/build and mini tests ran. Flutter SDK 3.47.7 / Dart 3.13.5 was installed in an isolated cloud directory; analyze and 723 tests passed on the implementation tree. Exact commit verification is recorded on the Draft PR. Strict PostgreSQL tests failed closed without TEST_DATABASE_URL; downloaded PostgreSQL initdb refused root and the executor cannot switch UID. Isolated Docker runner refused the non-hosted environment and no Docker binary is available. These are NOT_RUN resource gates, never synthetic PASS claims. Android SDK setup is being attempted for technical builds. GitHub pull_request CI exists but has not yet allocated runners. Windows bound_report.py was actually attempted and is NOT_RUN (path absent). No other agent identity or revision was used.
+
+Remaining real environment gates: true OAuth/two accounts and devices; actual private photos/model accuracy; notifications, native capability/UI acceptance; formal signing/API compatibility and data-preserving install; production paired restoration. Plan-revocation race group remains BLOCKED/NOT_RUN and is not bypassed.
+
+Independent implementation review: fixed obsolete global selection, targeted leave, composite uniqueness, modal identity guard, binary photo request scope, and full-file verifier failure cases. Final CI and exact receipt are recorded separately at the frozen PR SHA.
+
+
+Review method and findings: a separate fixed-SHA worktree exposed the exact mini QA allowlist rejection and an unreviewed navigator tag. The chooser was rewritten using existing view + wx.navigateTo instead of expanding view/native capability permissions. Only the exact reviewed mini trees and exact business-nav component path are registered; unknown component/native tests remain. Review also corrected a footer chooser bypass, batch form scope/retention, fallback Flutter snapshot cleanup, obsolete cleanup assertions, and missing care-profile/ownerless evidence checks. No independent human/subagent approval is claimed.
+
+The next coherent delivery stage was implemented in this execution: exact PR-head checkouts, strict fresh/legacy/partial-upgrade synthetic PostgreSQL product tests, household-scoped draft/recognition regressions, source-pinned generated mini QA, actual two-household backup/restore records/photos, shared evidence verifier and retained CI artifacts. Existing release-candidate-hardening and upgrade-persistence-matrix consume generated artifact files; lifecycle-delivery-audit stays STATIC_SYNTAX and actual Linux lifecycle behavior has its executable API test. No parallel static PASS receipt is treated as restoration evidence.
+
+Pattern/license review: PostgreSQL row-lock documentation https://www.postgresql.org/docs/17/explicit-locking.html ; WeChat switchTab SDK contract via existing @types/wechat-miniprogram and https://github.com/wechat-miniprogram/api-typings (MIT). Android SDK command tools downloaded from the official Android developer distribution, with published SHA-256 verified. No third-party product code copied and no new application dependency introduced.
+
+Final follow-up review binds invitation preview/confirmation to the exact code and identity across both mini entry paths and Flutter sheets. Same-user authoritative selection recovery after a lost switch response clears snapshots/reminders/exports but retains original scoped draft keys/payloads. Plan time slots, care grants, dose occurrences/deliveries and care profiles are compared in generated persistence evidence. Actual hosted PostgreSQL/backup artifacts remain unavailable until CI runners execute.

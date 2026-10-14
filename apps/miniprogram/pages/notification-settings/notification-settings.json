@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "提醒设置",
   "usingComponents": {
-    "medicine-time-field": "../../components/medicine-time-field/index"
+    "medicine-time-field": "../../components/medicine-time-field/index",
+    "business-nav": "../../components/business-nav/business-nav"
   }
 }

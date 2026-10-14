@@ -1,0 +1,15 @@
+{
+  "id": "F07-real-http",
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "executed_date": "2026-10-09",
+  "ownEphemeralLoopbackOnly": true,
+  "status": 500,
+  "body": {
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "服务暂时不可用，请稍后重试"
+    }
+  },
+  "requestBodyBytes": 6291501,
+  "providerCalls": 0
+}

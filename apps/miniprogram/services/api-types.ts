@@ -563,3 +563,7 @@ export interface CareGrantListResponse {
 }
 
 export interface NotificationPreferences { stockReminderTime: string; timezone: "Asia/Shanghai"; channels: Array<"wechat" | "android">; }
+
+/** Explicit per-session household selection; inventory ownership never moves. */
+export interface FamilyListResponse { families: { familyId: string; name: string; role: "owner" | "member"; isCurrent: boolean }[] }
+export interface SwitchFamilyResponse { familyId: string; role: "owner" | "member" }

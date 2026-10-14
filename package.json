@@ -3,14 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "A shared WeChat mini program for a household medicine cabinet.",
-  "engines": {
-    "node": ">=22"
-  },
-  "workspaces": [
-    "packages/contracts",
-    "apps/miniprogram",
-    "apps/api"
-  ],
+  "engines": {"node": ">=22"},
+  "workspaces": ["packages/contracts", "apps/miniprogram", "apps/api"],
   "scripts": {
     "lint": "eslint apps packages scripts --ext .ts,.mjs --max-warnings=0 && node scripts/check-json.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -31,7 +25,9 @@
     "check:miniprogram:source": "node scripts/check-miniprogram-package.mjs apps/miniprogram --source",
     "check:release-hardening": "node scripts/release-candidate-hardening.mjs",
     "check:upgrade-matrix": "node scripts/upgrade-persistence-matrix.mjs",
-    "check:lifecycle-audit": "node scripts/lifecycle-delivery-audit.mjs"
+    "check:lifecycle-audit": "node scripts/lifecycle-delivery-audit.mjs",
+    "check:family-pilot-restore": "node scripts/check-family-pilot-restore-contract.mjs",
+    "check:family-pilot-upgrade": "node scripts/check-family-pilot-upgrade-evidence.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

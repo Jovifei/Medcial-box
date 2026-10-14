@@ -77,6 +77,35 @@ const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve();
 const callback = invoke => new Promise((resolve, reject) => invoke({ success: resolve, fail: reject }));
 function assertNoOriginals(h) { assert.deepEqual(h.counts, {}); }
 
+test('reviewed QA backend enforces WeChat-supported POST stock routes and stable photo ACK replay', () => {
+  const synthetic = { module: { exports: {} } };
+  vm.runInNewContext(mockText, synthetic);
+  const backend = synthetic.module.exports.createMock();
+  const options = { header: { authorization: 'Bearer qa-token-A' } };
+  const base = 'http://127.0.0.1:43187/api/v1/medicines/qa-medicine-1';
+  const threshold = backend.dispatch({ ...options, url: base + '/low-stock-threshold',
+    method: 'POST', data: { lowStockThreshold: { quantity: 2, unit: 'box' }, version: 1 } });
+  assert.equal(threshold.statusCode, 200);
+  assert.equal(threshold.data.version, 2);
+  assert.equal(threshold.data.lowStockThreshold.quantity, 2);
+  assert.equal(backend.dispatch({ ...options, url: base + '/low-stock-threshold', method: 'POST',
+    data: { lowStockThreshold: null, version: 1 } }).statusCode, 409);
+  assert.throws(() => backend.dispatch({ ...options, url: base + '/unsupported',
+    method: 'POST', data: {} }), /route denied/);
+  assert.throws(() => backend.dispatch({ ...options, url: base + '/low-stock-threshold',
+    method: 'PATCH', data: {lowStockThreshold: null, version: 1} }), /route denied/);
+  const photoPayload = { imageBase64: synthetic.module.exports.PNG, mimeType: 'image/png',
+    source: 'medicine_entry', purpose: 'box_front', uploadIntentKey: 'photo-upload-synthetic-one' };
+  const first = backend.dispatch({ ...options, method: 'POST', url: base + '/leaflet-photos', data: photoPayload });
+  const replay = backend.dispatch({ ...options, method: 'POST', url: base + '/leaflet-photos', data: photoPayload });
+  assert.equal(first.statusCode, 201);
+  assert.equal(replay.statusCode, 200);
+  assert.equal(replay.data.photo.id, first.data.photo.id);
+  assert.equal(backend.dispatch({ ...options, method: 'POST', url: base + '/leaflet-photos',
+    data: { ...photoPayload, purpose: 'leaflet' } }).statusCode, 409);
+  assert.equal(backend.dispatch({ ...options, method: 'GET', url: base + '/leaflet-photos' }).data.photos.length, 1);
+});
+
 test('memory storage APIs, fake auth/files/media never invoke throwing original-method sentinels', async () => {
   const h = harness(); h.install(); const wx = h.runtime.bindings().wx;
   wx.setStorageSync('key', { a: 1 }); const value = wx.getStorageSync('key'); value.a = 7; assert.equal(wx.getStorageSync('key').a, 1);
@@ -515,5 +544,22 @@ test('revision5 ordinary input retains a newer durable photo ownership receipt',
   assert.equal(merged.fields.manufacturer, 'Current manufacturer');
   assert.equal(merged.photos.some(photo => photo.ownedLocal?.path === newerPath), true);
   assert.equal(h.app.qa.summary().syntheticFiles.includes(newerPath), true);
+  assertNoOriginals(h);
+});
+
+test('exact generated business footer guards tab home and family chooser without original native access', async()=>{
+  assert(integrated,'exact committed source required');
+  const h=harness({project:integrated.projectRoot});h.load(join(integrated.projectRoot,'app.js'));
+  h.load(join(integrated.projectRoot,'components/business-nav/business-nav.js'));
+  const footer={...h.component.methods,data:structuredClone(h.component.data),setData(patch){Object.assign(this.data,patch);}};
+  const guard=h.load(join(integrated.projectRoot,'services/draft-guard.js'));
+  let saves=0;guard.registerDirtyDraft({label:'synthetic form',save:async()=>{saves++;}});
+  await footer.go({currentTarget:{dataset:{url:'/pages/index/index'}}});
+  await footer.choose();assert.equal(saves,2);
+  assert(h.uiCalls.some(call=>call.name==='switchTab' && call.options.url==='/pages/index/index'));
+  assert(h.uiCalls.some(call=>call.name==='navigateTo' && call.options.url==='/pages/family-entry/family-entry'));
+  const navCount=h.uiCalls.filter(call=>['switchTab','navigateTo'].includes(call.name)).length;
+  guard.registerDirtyDraft({label:'failed form',save:async()=>{throw new Error('synthetic storage unavailable');}});
+  await footer.choose();assert.equal(h.uiCalls.filter(call=>['switchTab','navigateTo'].includes(call.name)).length,navCount);
   assertNoOriginals(h);
 });

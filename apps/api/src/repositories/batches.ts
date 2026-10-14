@@ -296,6 +296,27 @@ export async function updateBatch(
   return result.rows[0] ?? null;
 }
 
+/** Quantity-only compare-and-swap. All non-target inventory metadata stays unchanged. */
+export async function updateBatchQuantity(
+  database: QueryRunner,
+  batchId: string,
+  medicineId: string,
+  familyId: string,
+  userId: string,
+  version: number,
+  quantity: number | null,
+): Promise<MedicineBatchRow | null> {
+  const result = await database.query<MedicineBatchRow>(
+    `UPDATE medicine_batches SET quantity=$5, updated_by=$6,
+       version=version+1, updated_at=now()
+     WHERE id=$1 AND medicine_id=$2 AND family_id=$3
+       AND deleted_at IS NULL AND disposition_status='active' AND version=$4
+     RETURNING ${BATCH_COLUMNS}`,
+    [batchId, medicineId, familyId, version, quantity, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
 /** Batches are physically deleted (mistyped entries, no references). */
 export async function deleteBatch(
   database: QueryRunner,

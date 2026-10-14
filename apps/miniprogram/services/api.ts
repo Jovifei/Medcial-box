@@ -1,8 +1,10 @@
 // 统一网络层：Bearer 令牌注入、统一错误 shape 解析（{ error: { code, message } }）、
 // 401 自动清除本地令牌。所有页面经由本模块访问后端，不直接调用 wx.request。
 import { API_BASE } from "./config";
-import { clearSessionScope } from "./session-scope";
+import { clearSessionScope, readSessionScope } from "./session-scope";
 import type {
+  FamilyListResponse,
+  SwitchFamilyResponse,
   NotificationPreferences,
   AcceptInvitationResponse,
   AppDeviceLinkApproveResponse,
@@ -126,8 +128,18 @@ export function storeToken(token: string): void {
   }
 }
 
-export function clearToken(): void {
+/** Report whether the old token was durably erased, not just forgotten in RAM. */
+export function clearToken(): boolean {
   storeToken("");
+  try {
+    const stored = wx.getStorageSync(TOKEN_STORAGE_KEY);
+    if (stored === "" || stored === undefined || stored === null) return true;
+    // Some hosts reject removal but allow replacement with an empty string.
+    wx.setStorageSync(TOKEN_STORAGE_KEY, "");
+    return wx.getStorageSync(TOKEN_STORAGE_KEY) === "";
+  } catch {
+    return false;
+  }
 }
 
 /** 仅供测试使用：重置内存与持久令牌，模拟冷启动。 */
@@ -189,6 +201,8 @@ export function request<T>(options: RequestOptions): Promise<T> {
     const authenticated = options.anonymous !== true;
     const header: Record<string, string> = { "content-type": "application/json" };
     if (authenticated && identity.token !== "") header.authorization = `Bearer ${identity.token}`;
+    const scope = readSessionScope();
+    if (authenticated && scope?.familyId && options.path !== "/api/v1/auth/me" && options.path !== "/api/v1/families" && !options.changesFamily) header["x-family-id"] = scope.familyId;
     wx.request({
       url: `${API_BASE}${options.path}`,
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
@@ -244,11 +258,13 @@ export const api = {
     mimeType: "image/jpeg" | "image/png",
     source = "package_leaflet",
     association?: { purpose: "box_front" | "expiry" | "leaflet"; batchId?: string | null },
+    uploadIntentKey?: string,
   ): Promise<{ photo: LeafletPhotoSummary }> {
     return request({
       method: "POST",
       path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos`,
-      payload: { imageBase64, mimeType, source, ...association },
+      payload: { imageBase64, mimeType, source, ...association,
+        ...(uploadIntentKey ? { uploadIntentKey } : {}) },
       timeoutMs: 60000,
     });
   },
@@ -262,7 +278,7 @@ export const api = {
       const token = identity.token;
       wx.downloadFile({
         url: `${API_BASE}/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos/${encodeURIComponent(photoId)}`,
-        header: token === "" ? {} : { authorization: `Bearer ${token}` },
+        header: token === "" ? {} : { authorization: `Bearer ${token}`, ...(readSessionScope()?.familyId ? { "x-family-id": readSessionScope()!.familyId } : {}) },
         success: (response) => {
           if (!isCurrentSession(identity)) { reject(staleSessionError()); return; }
           if (response.statusCode >= 200 && response.statusCode < 300 && response.tempFilePath) {
@@ -319,6 +335,12 @@ export const api = {
     });
   },
 
+  listFamilies(): Promise<FamilyListResponse> {
+    return request({ method: "GET", path: "/api/v1/families" });
+  },
+  switchFamily(familyId: string): Promise<SwitchFamilyResponse> {
+    return request({ method: "POST", path: `/api/v1/families/${encodeURIComponent(familyId)}/switch`, changesFamily: true });
+  },
   getCurrentFamily(): Promise<GetCurrentFamilyResponse> {
     return request<GetCurrentFamilyResponse>({ method: "GET", path: "/api/v1/families/current" });
   },
@@ -407,6 +429,17 @@ export const api = {
     });
   },
 
+  updateLowStockThreshold(medicineId: string, payload: {
+    lowStockThreshold: { quantity: number; unit: QuantityUnit } | null;
+    version: number;
+  }): Promise<MedicationSummary> {
+    return request<MedicationSummary>({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/low-stock-threshold`,
+      payload,
+    });
+  },
+
   /** 删除药品：进入回收站，30 天内可恢复；与“归档”是两条不同生命周期。 */
   deleteMedicine(medicineId: string): Promise<null> {
     return request({
@@ -440,6 +473,17 @@ export const api = {
       method: "PUT",
       path: `/api/v1/medicines/${medicineId}/batches/${batchId}`,
       payload: toPayload(payload),
+    });
+  },
+
+  updateBatchQuantity(medicineId: string, batchId: string, payload: {
+    quantity: number | null;
+    version: number;
+  }): Promise<MedicationSummary["batches"][number]> {
+    return request<MedicationSummary["batches"][number]>({
+      method: "POST",
+      path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/batches/${encodeURIComponent(batchId)}/quantity`,
+      payload,
     });
   },
 

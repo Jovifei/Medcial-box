@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "导出 Markdown",
-  "usingComponents": {}
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
 }

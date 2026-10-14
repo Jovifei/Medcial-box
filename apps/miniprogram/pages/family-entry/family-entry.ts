@@ -1,7 +1,8 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 
 interface InvitationPreview {
+  code: string;
   familyName: string;
   expiresAt: string;
 }
@@ -12,6 +13,7 @@ interface FamilyEntryPageData {
   previewing: boolean;
   submitting: boolean;
   errorMessage: string;
+  families: { familyId: string; name: string; role: string; isCurrent: boolean }[];
 }
 
 function decode(value: string | undefined): string {
@@ -40,6 +42,7 @@ Page({
     previewing: false,
     submitting: false,
     errorMessage: "",
+    families: [] as { familyId: string; name: string; role: string; isCurrent: boolean }[],
   },
 
   onLoad(options: Record<string, string | undefined>): void {
@@ -54,8 +57,9 @@ Page({
   async refresh(): Promise<void> {
     try {
       await ensureLoggedIn({ allowInteractive: false });
-      const result = await api.getCurrentFamily();
-      if (result.family !== undefined) wx.reLaunch({ url: "/pages/index/index" });
+      const result = await api.listFamilies();
+      this.setData({ families: result.families });
+      if (this.data.inviteInput !== "") await this.onPreviewInvitation();
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
@@ -81,8 +85,9 @@ Page({
     try {
       await ensureLoggedIn({ allowInteractive: false });
       const result = await api.previewInvitation(code);
+      if (this.data.inviteInput.trim() !== code) return;
       this.setData({
-        preview: { familyName: result.family.name, expiresAt: result.expiresAt.slice(0, 16).replace("T", " ") },
+        preview: { code, familyName: result.family.name, expiresAt: result.expiresAt.slice(0, 16).replace("T", " ") },
       });
     } catch (error) {
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
@@ -103,10 +108,11 @@ Page({
       return;
     }
     if (data.submitting) return;
-    if (data.preview === null) {
+    if (data.preview === null || data.preview.code !== code) {
       await this.onPreviewInvitation();
       return;
     }
+    const identity = captureSessionIdentity();
     const confirmed = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "确认加入家庭",
@@ -115,13 +121,15 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
     this.setData({ submitting: true, errorMessage: "" });
     try {
       await ensureLoggedIn({ allowInteractive: false });
+      if (!isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
-      setTimeout(() => wx.reLaunch({ url: "/pages/index/index" }), 700);
+      const selected = captureSessionIdentity();
+      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 700);
     } catch (error) {
       showError(this, error);
     } finally {
@@ -129,6 +137,16 @@ Page({
     }
   },
 
+  async onSwitchFamily(event: { currentTarget: { dataset: { familyId: string } } }): Promise<void> {
+    if (this.data.submitting) return;
+    this.setData({ submitting: true });
+    try {
+      await api.switchFamily(event.currentTarget.dataset.familyId);
+      await ensureLoggedIn({ allowInteractive: false });
+      wx.switchTab({ url: "/pages/index/index" });
+    } catch (error) { showError(this, error); }
+    finally { this.setData({ submitting: false }); }
+  },
   onCreateFamily(): void {
     wx.navigateTo({ url: "/pages/family-create/family-create" });
   },

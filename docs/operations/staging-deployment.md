@@ -2,7 +2,9 @@
 
 本流程使用阿里云 ECS `120.55.64.11`、域名 `medbox-test.joviluma.com` 和当前小程序 AppID。服务器地址、SSH 登录用户名和访问域名是不同信息。部署放在药箱独立目录和容器中，访问 API 使用独立 HTTPS 域名。
 
-### 域名解析：改用阿里云 DNS
+### 域名解析：阿里云迁移历史方案（尚未生效）
+
+**2026-10-11核对：公共NS仍是Cloudflare，medbox-test公共查询返回NXDOMAIN；以下是历史迁移方案，不是已执行状态，也不是立即切换整站DNS的指令。** 当前决策、国内部署解释和迁移边界见[域名DNS与国内部署决策](17-ARC-域名DNS与国内部署决策.md)。执行前完整盘点所有项目的解析记录并确认具体方案；历史截图中的7条A记录与NS分配值不能替代当前控制台核对。
 
 `joviluma.com` 当前委托的权威 DNS 是 Cloudflare（截图显示 `burt.ns.cloudflare.com` / `leia.ns.cloudflare.com`），因此阿里云 DNS 页面即使已经有记录，公网也仍由 Cloudflare 应答。可以继续用阿里云；无需把 ECS 搬到别处。
 
@@ -67,3 +69,59 @@ bash scripts/verify-photo-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PI
 ## 证据边界
 
 本仓库的真实 PostgreSQL 验收只使用一次性隔离容器与临时 schema；本地试用栈和其他项目容器不作为测试目标。Compose 私有图片卷与成对备份脚本已加入代码，但本轮没有对 ECS 执行部署或备份。正式 AppID 对应关系、微信订阅模板与类目、目录授权、HTTPS 和两台手机共享仍须在实际微信账号及设备上验收；未完成前记为 `BLOCKED` 或 `NOT_RUN`。
+
+## 2026-10-11 最新小程序真实 SDK 接收
+- 来源 HEAD：17f0854863bdac8abc56a563d5a799bf09d141b2（PR3）；PR4中间候选不纳入本次。
+- 隔离项目：E:\project\medcial_box\.local-data\mini-staging-bd85946f-43c1-4eae-9930-c955be225c82。
+- 公开客户端配置：AppID wx1f6dd99d28aab8e5，API https://medbox.joviluma.com；urlCheck=true，无服务端密钥。
+- 微信工具0.3.11登录状态有效，开窗成功，auto_preview成功503870字节；模拟器实际显示登录页。
+- 实际点击微信登录：FAIL。受控 wx.request 健康探针明确返回 request:fail url not in domain list，未到服务端。不能以公网curl健康200替代SDK登录验收。
+- 待Owner在微信后台补齐request/uploadFile/downloadFile合法域名；保留旧域名，不关闭校验。保存后重新编译再验证OAuth、相机、识别与双账号同步。
+- 拍照识别、双手机同步：NOT_RUN，登录门槛未通过。预览成功不等于登录或整体验收通过。
+- 服务器独占部署仍为1867792，31迁移含031已核；客户端17f0854新增改动与服务端契约兼容需在登录通路后实测，不能声称服务端也已升级到17f0854。
+
+### Owner保存域名后的复验
+Jovi确认已配置request/uploadFile/downloadFile。执行simulator_refresh并关闭/重开本次独立项目后，真实wx.request健康探针仍返回request:fail url not in domain list。当前等待核对后台AppID wx1f6dd99d28aab8e5及开发者工具服务器域名刷新结果；未关闭校验，未清缓存，登录/拍照/双机仍未通过。
+
+### 首台手机预览结果
+Owner扫码新503870字节预览包后，登录仍显示无法连接药箱服务：FAIL。公网health/ready同轮200数据库connected；API最近10分钟脱敏日志未检出auth/login请求（仅作为日志观察，不能断言绝对没有请求）。模拟器同轮wx.request明确域名列表拒绝。必须核微信后台实际域名值及生效配置，未进入拍照/双机验收。
+
+### 域名配置截图与新项目复验
+Owner截图确认AppID和三个合法域名正确，原缺项归因撤回。新独立项目mini-staging-70261f15-d267-4a5a-8998-055191e688f3真实wx.request返回200/status ok/database connected，域名网络门槛通过。模拟器实际点击登录仍提示登录没有完成：OAuth未通过，不能标登录PASS。新项目手机二维码已请求生成，手机OAuth/拍照/同步待验证。
+
+### OAuth定位（非网络停机）
+服务端收到POST /api/v1/auth/wechat；两次换取微信身份失败均为WechatCodeError，微信errcode40125。服务器私有检查仅输出布尔值：AppID匹配、Owner输入与运行容器Secret一致、存在且无空白或外层引号。无密钥值输出。需Owner核对当前小程序有效Secret并更新原私有配置；不自动重置、不修改业务代码。真实登录仍FAIL，拍照与同步NOT_RUN。
+
+### Secret更新后的实际OAuth验收
+Owner更新私有配置后，经SCP仅同步药箱服务器；保留原数据库密码，compose --no-deps仅重建api服务。公网health/ready恢复200/connected。新独立项目真实点击微信登录后，当前页面pages/family-entry/family-entry，标题选择家庭药箱，errorMessage为空：开发者工具真实OAuth登录PASS。手机OAuth仍待确认，相机/识别/双机同步NOT_RUN；不计整体验收完成。
+
+### 手机仍失败：独立门槛未通过
+Owner在服务端Secret更新后手机登录仍提示连接失败，手机OAuth为FAIL，不能沿用IDE OAuth PASS。公网A解析120.55.64.11，无AAAA；源站443监听IPv4/IPv6，SNI域名HTTPS健康正常，证书SAN对应medbox，有效期2026-10-11至2027-01-09。最近API日志只观察到先前IDE登录请求，未确定手机请求到达。等待同台手机浏览器health/ready与网络类型，对比手机TLS/连接和微信预览配置；未要求关闭校验或改系统网络。
+
+### 手机浏览器对照
+Owner确认同台手机浏览器health/ready返回ok/connected，手机HTTPS基础通路PASS；不等价微信wx.request或OAuth PASS。预览源配置复核为medbox HTTPS，仅config.ts无旧config.js。MCP automation_viewport_action remote自动连接返回timeout waiting for automator response，未取得手机调试会话；请求Owner建立原生真机调试后采集原始失败，不能直接归因TLS或缓存。
+
+### 双账号隔离及新增需求
+Owner实机第二微信账号进入选择家庭药箱，未进入123：邀请前隔离观察PASS（Owner报告）。Owner已为第二账号创建家庭。当前API已有家庭accept邀请返回409，UI写明一个账号一个家庭；不能宣称支持多家庭。新增需求：保留自建家庭仍可接受其他家庭邀请，显式切换当前家庭，权限/请求/草稿/照片/导出/提醒按家庭隔离，需远端独立完整阶段实现，本地不代改。不得为测试删除Owner家庭或绕过membership约束。
+识别服务器只读配置核实：provider=dashscope，dashscopeKeyConfigured=false，ollamaEndpointConfigured=false。当前云端未接本机GPU，识别功能NOT_READY，不能标准确率失败或通路成功。拍照/扫码识别错误类别待分别采集；条码资料库不等于OCR模型。
+
+### 本机GPU识别路线（Owner确认）
+Jovi选择优先本机GPU。只读检测：RTX4070 SUPER 12GB，Ollama 127.0.0.1:11434可读取模型列表，已有qwen3.5:9b和qwen3.5:4b；尚未验证图像推理与实际GPU使用。方案优先复用现有Ollama API及已有SSH认证，建立药箱专属非公网反向通路，API容器到该通路必须有限定访问边界；不开放公网11434，不改其他项目。当前仅准备，尚未连接或切换云端provider。需验证合成图像、超时/断连、GPU利用率再做手机识别。
+
+### 2026-10-11 本机GPU实际接通
+- 服务端仍部署1867792，业务源码未改。配置覆盖选择ollama/qwen3.5:4b，内部地址medbox-ollama-bridge:11434。
+- SSH使用既有密钥和严格hostkey，将本机11434映射至药箱0700目录中的Unix socket；socket600。独占代理以1001用户、只读文件系统、drop ALL capabilities、no-new-privileges、48MiB/0.15CPU运行，仅药箱Docker网络，无公网端口，未挂载Docker socket或其他项目目录。
+- API容器访问本机模型tags HTTP200。现有真实Ollama adapter合成图片探针PASS，14617ms：规格20粒装、效期2027-12/月，药名null并人工补充提示，requiresConfirmation=true。仅连通与受限回填证据，不是药品识别准确率验收。
+- 实际观察Ollama llama-server进程、GPU显存约6398MiB；未将其他桌面进程显存归因为模型。
+- 切换仅重建api；health/ready200/connected。两个家庭及持久数据库/照片卷未清理，其他服务未重建。
+- 本机SSH进程PID记录gpu-ssh.pid；电脑关机/休眠或连接断开会使识别暂不可用。当前连接未做开机自动恢复，长期运维/断线恢复另列；不要把临时接通标为无人值守部署完成。
+- 手机读取：OnePlus GM1910显示邀请家人(jjj)。invite refresh已有owner优先覆盖待接受邀请码，现版本一个账号一家；不得删除jjj绕过。远端完整契约PR3评论6107539610，原会话已派发；已有多家庭阶段分支但只中间改动，不接收、不合main，等待最终完整提交/CI。
+- 下一门槛：Owner手机真实药盒正面无个人信息拍照，读取手机结果及脱敏服务日志；照片留待核对而非自动保存/推断用途剂量。双家庭加入同步待远端实现。
+
+### 邀请深链返回阻断（Owner严重问题）
+Owner报告邀请链接进入后无法退出邀请页，要求保留底部导航。当前invite不在tabBar，owner视图无显式首页出口，member仅navigateTo家庭设置；冷启动无栈必须switchTab业务兜底。缺陷已追加GitHub PR3多家庭完整契约，等待远端修复，不本地代改或改真实家庭。手机当前页面截图已本地采集；模型tags200，但最近未收到手机recognition请求，拍照验收仍NOT_RUN/Owner失败报告待具体提示。
+
+### 协调职责收口（2026-10-11）
+收到规划家庭药箱小程序3协调消息：远端完整阶段、PR4收尾/多家庭/邀请导航整合及最终SHA接收由其统一推进。本会话停止远端发提示及自动催办，仅现有HTTPS/API/GPU部署健康维护；不部署中间多家庭候选，不代改业务，保留两个家庭及数据。automation-2已改为健康维护；既有证据仅绑定原SHA，不能代替新候选验收。协调来源为任务消息，未向其他会话发送回复。
+
+更正：automation-2更新调用返回 Automation does not exist；该监测已不存在，未成功更新，也未新建替代监测。上段已改为健康维护仅代表拟定职责与提交请求，不代表自动化保存成功。本会话停止远端提示仍立即生效。

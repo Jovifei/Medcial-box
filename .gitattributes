@@ -2,3 +2,10 @@
 # Migration checksums and Linux shell execution must not depend on checkout OS.
 *.sql text eol=lf
 *.sh text eol=lf
+
+# Preserve reviewed audit attachments byte-for-byte for provenance hashes.
+tasks/plans/2026-10-08-two-stage-audit/sources/** -text
+
+# Preserve audit evidence and reproduction-driver bytes for checksum review.
+tasks/reports/phase1-2026-10-09/evidence/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+tasks/reports/phase1-2026-10-09/drivers/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

@@ -41,3 +41,5 @@
   <view class="btn btn-ghost" bindtap="onRefreshSnapshot">重新生成最新快照</view>
   <view class="hint footnote">三个格式使用同一只读库存快照。分享不可用时复制文本；PDF 回退为同一快照的 Markdown。导出内容仅供家庭管理参考，以说明书和医嘱为准。</view>
 </view>
+
+<business-nav />

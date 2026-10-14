@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"家庭变更记录","enablePullDownRefresh":true}
+{
+  "navigationBarTitleText": "家庭变更记录",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

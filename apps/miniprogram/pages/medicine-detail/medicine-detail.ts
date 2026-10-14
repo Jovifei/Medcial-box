@@ -124,9 +124,11 @@ function quantityText(batch: MedicationBatchSummary): string {
 
 function toBatchView(batch: MedicationBatchSummary): BatchView {
   const opened = batch.openedState === "opened";
+  const isOpenedPrioritized = batch.managementExpirySource === "opened" && Boolean(batch.openedExpiryDate);
+  const openingBasis = isOpenedPrioritized ? batch.expiry.value === null ? "（按已记录的开封期限）" : "（开封期优先，早于包装）" : "";
   const openingText = !opened ? "开封状态未记录" : batch.openedAt === null || batch.openedAt === undefined
     ? "已开封 · 日期待补充"
-    : `已开封 · ${batch.openedAt}${batch.openedExpiryDate ? ` · 开封期限至 ${batch.openedExpiryDate}` : ""}`;
+    : `已开封 · ${batch.openedAt}${batch.openedExpiryDate ? ` · 开封期限至 ${batch.openedExpiryDate}` : ""}${openingBasis}`;
   return {
     id: batch.id,
     quantity: batch.quantity,
@@ -559,17 +561,7 @@ Page({
     this.setData({ savingThreshold: true });
     try {
       await ensureLoggedIn();
-      await api.updateMedicine(medicine.id, {
-        name: medicine.name,
-        specification: medicine.specification,
-        manufacturer: medicine.manufacturer,
-        approvalNumber: medicine.approvalNumber,
-        activeIngredients: medicine.activeIngredients,
-        purposeCategory: medicine.purposeCategory,
-        leaflet: medicine.leaflet,
-        lowStockThreshold,
-        version: medicine.version,
-      });
+      await api.updateLowStockThreshold(medicine.id, { lowStockThreshold, version: medicine.version });
       wx.showToast({ title: "库存提醒已保存", icon: "success" });
       await this.refresh();
     } catch (error) {
@@ -836,7 +828,7 @@ Page({
     const quantity = raw === "" ? null : parseQuantityByUnit(raw, batch.unit);
     if (raw !== "" && quantity === null) { wx.showToast({ title: batch.unit === "ml" ? "毫升允许最多3位小数" : "计件数量需为非负整数", icon: "none" }); return; }
     this.setData({ quantityPanelBusy: true });
-    try { await ensureLoggedIn(); await api.updateBatch(this.data.medicineId, batch.id, { quantity, version: batch.version }); this.setData({ quantityPanelId: "", quantityPanelInput: "" }); await this.refresh(); }
+    try { await ensureLoggedIn(); await api.updateBatchQuantity(this.data.medicineId, batch.id, { quantity, version: batch.version }); this.setData({ quantityPanelId: "", quantityPanelInput: "" }); await this.refresh(); }
     catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "余量未保存，请重试", icon: "none" }); }
     finally { this.setData({ quantityPanelBusy: false }); }
   },

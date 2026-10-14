@@ -1,6 +1,7 @@
 // CI-only synthetic transport check. This is not a staging restore command.
 // No API server, provider request, host port, production data, or saved credentials.
 import assert from "node:assert/strict";
+import { candidateAt, hash, verifyEvidence } from "./family-pilot-evidence.mjs";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -17,8 +18,13 @@ const ids = {
   family: "22222222-2222-4222-8222-222222222222",
   medicine: "33333333-3333-4333-8333-333333333333",
   photo: "44444444-4444-4444-8444-444444444444",
+  user2: "55555555-5555-4555-8555-555555555555",
+  family2: "66666666-6666-4666-8666-666666666666",
+  medicine2: "77777777-7777-4777-8777-777777777777",
+  photo2: "88888888-8888-4888-8888-888888888888",
 };
 const photoBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaDjwHwAEhAJgikCezQAAAABJRU5ErkJggg==";
+const photoKey2 = `leaflets/${ids.family2}/${ids.medicine2}/${ids.photo2}.png`;
 const photoKey = `leaflets/${ids.family}/${ids.medicine}/${ids.photo}.png`;
 
 export function requireHostedCI(env) {
@@ -260,6 +266,7 @@ export async function exercise() {
         const key = await new PrivatePhotoStore().save({familyId:'${ids.family}',medicineId:'${ids.medicine}',photoId:'${ids.photo}',contentType:'image/png',bytes:Buffer.from('${photoBase64}','base64')});
         const file = await stat('${uploadRoot}/' + key);
         assert(process.getuid() > 0); assert.equal(file.uid, process.getuid()); assert.equal(file.mode & 0o777, 0o600);
+        await new PrivatePhotoStore().save({familyId:'${ids.family2}',medicineId:'${ids.medicine2}',photoId:'${ids.photo2}',contentType:'image/png',bytes:Buffer.from('${photoBase64}','base64')});
         console.log(key);
       `]);
     assert.equal(storedKey, photoKey);
@@ -273,13 +280,50 @@ export async function exercise() {
       INSERT INTO medicine_leaflet_photos(id,family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at)
         VALUES('${ids.photo}','${ids.family}','${ids.medicine}','${photoKey}','image/png',${Buffer.from(photoBase64, "base64").length},'${ids.user}','box_front',now());
       UPDATE medicines SET cover_photo_id='${ids.photo}' WHERE id='${ids.medicine}';
+      INSERT INTO users(id,openid) VALUES('${ids.user2}','ci-synthetic-user-two');
+      INSERT INTO families(id,name,created_by) VALUES('${ids.family2}','CI synthetic second household','${ids.user2}');
+      INSERT INTO family_members(family_id,user_id,role) VALUES('${ids.family2}','${ids.user2}','owner'),('${ids.family2}','${ids.user}','member');
+      INSERT INTO medicines(id,family_id,name,created_by,updated_by) VALUES('${ids.medicine2}','${ids.family2}','Second household preserved content','${ids.user2}','${ids.user2}');
+      INSERT INTO medicine_leaflet_photos(id,family_id,medicine_id,storage_key,content_type,size_bytes,created_by,purpose,upload_completed_at)
+        VALUES('${ids.photo2}','${ids.family2}','${ids.medicine2}','${photoKey2}','image/png',${Buffer.from(photoBase64, "base64").length},'${ids.user2}','box_front',now());
+      UPDATE medicines SET cover_photo_id='${ids.photo2}' WHERE id='${ids.medicine2}';
+      INSERT INTO medicine_batches(family_id,medicine_id,quantity,unit,expiry_value,expiry_precision,created_by,updated_by) VALUES('${ids.family}','${ids.medicine}',2,'box','2099-12','month','${ids.user}','${ids.user}'),('${ids.family2}','${ids.medicine2}',3,'box','2099-12','month','${ids.user2}','${ids.user2}');
+      INSERT INTO care_profiles(family_id,display_name,linked_user_id,created_by) VALUES('${ids.family}','Synthetic A profile','${ids.user}','${ids.user}'),('${ids.family2}','Synthetic B profile','${ids.user2}','${ids.user2}');
+      INSERT INTO medication_plans(family_id,care_profile_id,medicine_id,medicine_name,dosage_text,start_date,created_by)
+        SELECT c.family_id,c.id,m.id,m.name,'Owner supplied synthetic text','2099-01-01',c.created_by FROM care_profiles c JOIN medicines m ON m.family_id=c.family_id;
+      INSERT INTO plan_time_slots(plan_id,time_of_day) SELECT id,'09:00'::time FROM medication_plans;
+      INSERT INTO reminder_deliveries(family_id,user_id,medicine_id,batch_id,deadline_date,days_before,template_id)
+        SELECT m.family_id,m.created_by,m.id,b.id,'2099-12-31',30,'synthetic-unused' FROM medicines m JOIN medicine_batches b ON b.medicine_id=m.id;
       COMMIT;
     `);
-    const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum FROM schema_migrations) t;";
+    const migrationsSql = "SELECT json_agg(t ORDER BY name) FROM (SELECT name,checksum,applied_at FROM schema_migrations) t;";
     const migrations = JSON.parse((await sql(dbId, migrationsSql)).stdout);
     assert.equal(migrations.length, (await readdir(join(root, "apps/api/db/migrations"))).filter((name) => /^\d+_.*\.sql$/.test(name)).length);
     assert(migrations.length > 0);
 
+    // Source content is read from the actual synthetic database before backup.
+    const snapshotSql = `SELECT json_build_object(
+      'families', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM families t),
+      'members', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM family_members t),
+      'medicines', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicines t),
+      'batches', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_batches t),
+      'photos', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medicine_leaflet_photos t),
+      'drafts', '[]'::json,
+      'careProfiles', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_profiles t),
+      'plans', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM medication_plans t),
+      'planSlots', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM plan_time_slots t),
+      'doseOccurrences', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_occurrences t),
+      'careGrants', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM care_grants t),
+      'doseReminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM dose_reminder_deliveries t),
+      'reminders', (SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM reminder_deliveries t),
+      'schemaMigrations', (SELECT coalesce(json_agg(t ORDER BY name),'[]'::json) FROM schema_migrations t));`;
+    const beforeRecords = (await sql(dbId, snapshotSql)).stdout.trim();
+    const beforeSnapshot = JSON.parse(beforeRecords);
+    const expectedEmptySnapshotTables = ['doseOccurrences', 'careGrants', 'doseReminders'];
+    for (const table of expectedEmptySnapshotTables) {
+      assert.deepEqual(beforeSnapshot[table], [], `${table} synthetic fixture must be explicitly empty before backup`);
+    }
+    assert.deepEqual(beforeSnapshot.schemaMigrations, migrations, 'applied upgrade receipts must be read from the source database');
     const backup = async (name, expectedError) => {
       checkpoint();
       const directory = join(scratch, name);
@@ -337,6 +381,13 @@ export async function exercise() {
     assert.deepEqual(metadata, { name: "CI synthetic medicine", storage_key: photoKey, content_type: "image/png",
       size_bytes: Buffer.from(photoBase64, "base64").length, purpose: "box_front", family_id: ids.family,
       medicine_id: ids.medicine, cover_photo_id: ids.photo });
+    const secondQuery = `SELECT row_to_json(t) FROM (SELECT m.name,p.storage_key,p.content_type,p.size_bytes,p.purpose,p.family_id,p.medicine_id,m.cover_photo_id
+      FROM medicines m JOIN medicine_leaflet_photos p ON p.id=m.cover_photo_id AND p.medicine_id=m.id AND p.family_id=m.family_id
+      WHERE m.id='${ids.medicine2}' AND p.deleted_at IS NULL AND p.storage_removed_at IS NULL AND p.upload_completed_at IS NOT NULL) t;`;
+    const secondMetadata = JSON.parse((await sql(restoreId, secondQuery)).stdout);
+    assert.deepEqual(secondMetadata, { name: "Second household preserved content", storage_key: photoKey2, content_type: "image/png",
+      size_bytes: Buffer.from(photoBase64, "base64").length, purpose: "box_front", family_id: ids.family2,
+      medicine_id: ids.medicine2, cover_photo_id: ids.photo2 });
     await helper(["--network", "none", ...mount(volumes.restore_photos), "--entrypoint", "tar"], appImage,
       ["-xzf", "-", "-C", uploadRoot], { input: await readFile(join(complete, "photos.tar.gz")) });
     await helper(["--network", "none", ...mount(volumes.restore_photos, true), "--entrypoint", "node"], appImage,
@@ -345,14 +396,49 @@ export async function exercise() {
         import { stat } from 'node:fs/promises';
         import { PrivatePhotoStore } from './apps/api/dist/services/private-photo-store.js';
         const key = ${JSON.stringify(metadata.storage_key)};
+        const secondKey = ${JSON.stringify(secondMetadata.storage_key)};
         const bytes = await new PrivatePhotoStore().read(key);
-        assert(bytes.equals(Buffer.from('${photoBase64}', 'base64')));
+        const secondBytes = await new PrivatePhotoStore().read(secondKey);
+        const fixtureBytes = Buffer.from('${photoBase64}', 'base64');
+        assert(bytes.equals(fixtureBytes)); assert(secondBytes.equals(fixtureBytes)); assert(bytes.equals(secondBytes));
         const file = await stat('${uploadRoot}/' + key);
-        assert(process.getuid() > 0); assert.equal(file.uid, process.getuid()); assert.equal(file.mode & 0o777, 0o600);
+        const secondFile = await stat('${uploadRoot}/' + secondKey);
+        assert(process.getuid() > 0);
+        for (const entry of [file, secondFile]) { assert.equal(entry.uid, process.getuid()); assert.equal(entry.mode & 0o777, 0o600); }
       `]);
+    const evidenceDirectory = join(root, "var", "family-pilot-backup");
+    await mkdir(evidenceDirectory, {recursive:true});
+    const artifact = async (name, bytes) => {
+      await writeFile(join(evidenceDirectory,name),bytes);
+      return {path:name,sha256:hash(bytes)};
+    };
+    const actualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
+      ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey}').toString('base64'))`]);
+    const secondActualPhotoBase64 = await helper(["--network", "none", ...mount(volumes.restore_photos,true), "--entrypoint", "node"], appImage,
+      ["-e", `process.stdout.write(require('node:fs').readFileSync('${uploadRoot}/${photoKey2}').toString('base64'))`]);
+    assert.notEqual(photoKey, photoKey2, 'each household fixture must retain its own storage key');
+    assert.notEqual(ids.photo, ids.photo2, 'each household fixture must retain its own photo identity');
+    assert.equal(actualPhotoBase64, secondActualPhotoBase64, 'identical synthetic PNG fixtures must retain equal restored bytes');
+    const afterRecords = (await sql(restoreId,snapshotSql)).stdout.trim();
+    const afterSnapshot = JSON.parse(afterRecords);
+    for (const table of expectedEmptySnapshotTables) {
+      assert.deepEqual(afterSnapshot[table], [], `${table} must remain explicitly empty after restore`);
+    }
+    assert.deepEqual(afterSnapshot.schemaMigrations, migrations, 'restored database must persist each upgrade receipt and checksum');
+    const evidence = {candidate:candidateAt(root),layer:"SYNTHETIC",buildImage:appImage,
+      before:await artifact("before.json",beforeRecords),
+      after:await artifact("after.json",afterRecords),
+      backupDatabase:await artifact("database.dump",await readFile(join(complete,"database.dump"))),
+      backupPhotos:await artifact("photos.tar.gz",await readFile(join(complete,"photos.tar.gz"))),
+      sourcePhotos:[{id:ids.photo,storageKey:photoKey,...await artifact("source-photo.png",Buffer.from(photoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("source-photo2.png",Buffer.from(photoBase64,"base64"))}],
+      photos:[{id:ids.photo,storageKey:photoKey,...await artifact("restored-photo.png",Buffer.from(actualPhotoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("restored-photo2.png",Buffer.from(secondActualPhotoBase64,"base64"))}],
+    };
+    const evidenceFile=join(evidenceDirectory,"evidence.json");
+    await writeFile(evidenceFile,JSON.stringify(evidence,null,2));
+    console.log(JSON.stringify(verifyEvidence(evidenceFile,{restore:true,root})));
     checkpoint();
     assert.equal((await docker(["inspect", "--format", "{{.State.Status}}", apiId])).stdout.trim(), "created");
-    console.log(`PASS: ${migrations.length} actual migrations, restored medicine/photo association, exact PNG bytes, non-root owner + mode0600`);
+    console.log(`PASS: ${migrations.length} actual schema_migrations receipts persisted, exact empty dose arrays retained, two household photo pairs restored (identical PNG bytes), non-root owner + mode0600`);
     console.log(`Synthetic images: app=${appImage} postgres=${pgImage}; API server was never started`);
   } catch (error) { failure = error; }
   finally {

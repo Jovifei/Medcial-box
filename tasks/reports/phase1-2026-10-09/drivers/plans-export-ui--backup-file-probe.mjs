@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {loadPage,makePageContext} from 'file:///E:/project/medcial_box/apps/miniprogram/test/runtime.mjs';
+let writes=[],unlinks=[],shares=[];
+const backup={backupId:'synthetic-a',exportedAt:'2026-10-08T00:00:00Z',medicines:[{name:'SYNTHETIC_PRIVATE_SENTINEL'}]};
+const {definition}=loadPage('pages/backup-restore/backup-restore.ts',{modules:{'../../services/api':{api:{createJsonBackup:async()=>backup},ApiError:class extends Error{}},'../../services/auth':{ensureLoggedIn:async()=>{}}},wx:{env:{USER_DATA_PATH:'/synthetic'},getFileSystemManager:()=>({writeFile(o){writes.push(o);o.success();},unlink(o){unlinks.push(o);o.success();}}),shareFileMessage(o){shares.push(o);o.success();}}});
+const page=makePageContext(definition);
+await page.onCreateBackup();
+assert.equal(writes.length,1);assert.equal(shares.length,1);assert.equal(unlinks.length,0);
+assert.ok(writes[0].data.includes('SYNTHETIC_PRIVATE_SENTINEL'));
+console.log(JSON.stringify({finding:'BACKUP_JSON_RETAINED_AFTER_NATIVE_SHARE',writes:writes.length,shares:shares.length,unlinks:unlinks.length,statusText:page.data.statusText}));

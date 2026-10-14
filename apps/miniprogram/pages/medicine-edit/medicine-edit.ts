@@ -1,4 +1,6 @@
 import { api, ApiError, isCurrentSession } from "../../services/api";
+import { registerDirtyDraft, clearDirtyDraft } from "../../services/draft-guard";
+import type { DirtyDraft } from "../../services/draft-guard";
 import { ensureLoggedIn } from "../../services/auth";
 import { closeOwnedPhotoFile, PhotoFileWriteError, writeOwnedPhotoFile } from "../../services/photo-file-lifecycle";
 import type { OwnedPhotoFile } from "../../services/photo-file-lifecycle";
@@ -141,7 +143,7 @@ interface PhotoEntryDraft {
   medicineId: string;
   photos: Array<{
     path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry" | "leaflet";
-    batchIndex: number; uploadedId?: string;
+    batchIndex: number; uploadedId?: string; uploadIntentKey?: string;
     ownedLocal?: OwnedPhotoFile;
     localFileRemoved?: boolean;
   }>;
@@ -662,6 +664,8 @@ Page({
     }
   },
 
+  navigationDraftGuard: null as DirtyDraft | null,
+
   captureInitialSnapshot(): void {
     this.initialDraftSnapshot = formFingerprint(this.data as MedicineEditPageData);
   },
@@ -669,11 +673,26 @@ Page({
   updateDirtyState(): void {
     const changed = this.initialDraftSnapshot !== formFingerprint(this.data as MedicineEditPageData);
     this.setData({ isDirty: changed });
+    if (changed) {
+      if (this.navigationDraftGuard === null) this.navigationDraftGuard = {
+        label: "药品录入草稿",
+        save: async () => {
+          if (this.data.submitting || this.data.recognizing || this.data.medicineLoading) throw new Error("操作尚未完成");
+          if (!this.persistCurrentDraft()) throw new Error("草稿保存失败");
+          if (this.data.photoDrafts.length > 0 && !this.persistPhotoDrafts()) throw new Error("照片草稿保存失败");
+        },
+      };
+      registerDirtyDraft(this.navigationDraftGuard);
+    }
     this.setNativeLeaveWarning(changed);
     this.persistPhotoDrafts();
   },
 
   setNativeLeaveWarning(enabled: boolean): void {
+    if (!enabled && this.navigationDraftGuard !== null) {
+      clearDirtyDraft(this.navigationDraftGuard);
+      this.navigationDraftGuard = null;
+    }
     try {
       if (enabled) wx.enableAlertBeforeUnload({ message: NATIVE_LEAVE_WARNING });
       else wx.disableAlertBeforeUnload();
@@ -993,10 +1012,10 @@ Page({
         candidateWarnings: response.warnings,
         recognitionHint: response.candidates.length > 0
           ? "找到资料候选，请核对名称、规格和厂家；确认后才会填入表单。"
-          : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
+          : "暂未找到条码候选资料；商品码已保留，可拍药盒尝试生成待核对草稿，或手动录入。",
         barcodeLookupStatus: response.candidates.length > 0
           ? `已读取商品码 ${scannedBarcode}，请核对候选。`
-          : `未找到候选；商品码 ${scannedBarcode} 已保留。`,
+          : `商品码 ${scannedBarcode} 已填入表单；可拍药盒尝试生成待核对草稿，或手动填写。`,
         canRetryBarcode: false,
       });
     } catch (error) {
@@ -1179,6 +1198,7 @@ Page({
     let photo: PhotoEntryDraft["photos"][number] | undefined;
     let registered = false;
     let operationDraftId = initialData.activePhotoDraftId;
+    let existingDraftId = initialData.activePhotoDraftId;
     const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope) &&
       (!registered || this.currentPhotoDraftQueue(operationDraftId, photo?.path) !== null);
     try {
@@ -1190,7 +1210,23 @@ Page({
       if (!operationCurrent()) return;
       const file = selection.tempFiles[0];
       if (!file) return;
-      if (!this.data.activePhotoDraftId && this.data.photoDrafts.some((item) => item.status !== "saved" && item.status !== "cleanup_pending")) { wx.showToast({ title: "请先保存或恢复已有药品草稿", icon: "none" }); return; }
+      const unhandledDraft = this.data.photoDrafts.find((item) => item.status !== "saved" && item.status !== "cleanup_pending");
+      if (!this.data.activePhotoDraftId && unhandledDraft) {
+        if (unhandledDraft.status === "failed") {
+          const queue = this.currentPhotoDraftQueue(unhandledDraft.id);
+          const failed = queue?.find((item) => item.id === unhandledDraft.id);
+          if (!failed || failed.photos.some((photo) => photo.ownedLocal?.state === "reserved")) {
+            wx.showToast({ title: "请先恢复或删除未完成的照片草稿", icon: "none" });
+            return;
+          }
+          existingDraftId = failed.id;
+          operationDraftId = unhandledDraft.id;
+          this.setData({ activePhotoDraftId: unhandledDraft.id });
+        } else {
+          wx.showToast({ title: "请先保存或恢复已有药品草稿", icon: "none" });
+          return;
+        }
+      }
       if (file.size > 4 * 1024 * 1024) {
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
@@ -1214,7 +1250,7 @@ Page({
       const requestedPurpose = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.purpose : "";
       const purpose = requestedPurpose === "leaflet" ? "leaflet" : requestedPurpose === "expiry" ? "expiry" : "box_front";
       this.startRecognitionClock(purpose === "leaflet" ? "说明书" : "药品包装");
-      const id = this.data.activePhotoDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = existingDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       operationDraftId = id;
       const fs = wx.getFileSystemManager();
       let sdkVersion = "";
@@ -1228,11 +1264,12 @@ Page({
         isCurrent: operationCurrent,
         register: (owner) => {
           if (!operationCurrent()) return false;
-          const entries = initialData.activePhotoDraftId
+          if (existingDraftId && this.data.activePhotoDraftId !== id) return false;
+          const entries = existingDraftId
             ? this.currentPhotoDraftQueue(id) : this.photoDraftQueueForWrite();
           if (!entries) return false;
           let entry = entries.find((item) => item.id === id);
-          if (entry && !initialData.activePhotoDraftId) return false;
+          if (entry && !existingDraftId) return false;
           if (!entry) {
             if (entries.filter((item) => item.status !== "saved" && item.status !== "cleanup_pending").length >= 10) return false;
             entry = { id, thumbnail: owner.path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
@@ -1289,6 +1326,7 @@ Page({
       if (untouched("purposeTags") && current.purposeTags.length === 0 && draft.purposeTags?.length) {
         fields.purposeTags = draft.purposeTags;
         fields.purposeChips = buildPurposeChips(draft.purposeTags);
+        fields.classificationExpanded = true;
       }
       if (untouched("populationTags") && current.populationTags.length === 0 && draft.populationTags?.length) {
         fields.populationTags = draft.populationTags;
@@ -1351,7 +1389,10 @@ Page({
       }
       const code = error instanceof ApiError ? error.code : "";
       if (code === "RECOGNITION_UNAVAILABLE") {
-        this.setData({ recognitionHint: "拍照识别暂不可用，请先填写药品名称保存。" });
+        // The API already maps model/context/timeout failures to safe, actionable
+        // messages. Do not erase that category into a generic unavailable toast.
+        const detail = error instanceof ApiError ? error.message.slice(0, 180) : "";
+        this.setData({ recognitionHint: detail || "拍照识别暂不可用，可重新拍照或先手动录入。" });
       } else if (code !== "") {
         this.setData({ recognitionHint: `识别失败：${error instanceof ApiError ? error.message : "请重试或手动录入"}` });
         showError(error);
@@ -1809,26 +1850,70 @@ Page({
       }
       if (!this.entryScopeIsCurrent(originalScope)) return;
       if (activePhoto && saved?.id) {
-        activePhoto.medicineId = saved.id;
+        // Persist the medicine association before the first upload: a process restart
+        // or lost ACK must resume photos under the already-created medicine.
+        // Older in-memory/legacy drafts may not yet have a durable queue receipt.
+        // Write the current draft first and proceed only after it is persisted.
+        if (!this.currentPhotoDraftQueue(activePhoto.id) && !this.persistPhotoDrafts()) {
+          wx.showToast({ title: "照片草稿尚未安全保存，请重试保存后再补传", icon: "none" });
+          return;
+        }
+        const linkedQueue = this.currentPhotoDraftQueue(activePhoto.id);
+        const linked = linkedQueue?.find(item => item.id === activePhoto.id);
+        if (!linkedQueue || !linked) return;
+        linked.medicineId = saved.id;
+        this.setData({ photoDrafts: linkedQueue });
+        if (!this.persistPhotoDrafts()) {
+          wx.showToast({ title: "药品已保存，但照片关联暂未安全落盘；请重试保存", icon: "none" });
+          return;
+        }
         try {
-          for (const photo of activePhoto.photos) {
-            if (photo.uploadedId) continue;
-            const imageBase64 = await new Promise<string>((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: photo.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject }));
+          for (const snapshotPhoto of activePhoto.photos) {
+            // Always derive the live photo from the durable queue, not a stale page snapshot.
+            const queue = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path);
+            const livePhoto = queue?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!queue || !livePhoto) return;
+            if (livePhoto.uploadedId) continue;
+            if (!livePhoto.uploadIntentKey) {
+              livePhoto.uploadIntentKey = `photo-upload-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+              this.setData({ photoDrafts: queue });
+              if (!this.persistPhotoDrafts()) throw new Error("照片上传回执标识保存失败");
+            }
+            // If persistence is unavailable, never dispatch an unrepeatable upload.
+            const confirmed = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path)
+              ?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!confirmed?.uploadIntentKey) throw new Error("照片上传标识未能持久保存");
+            const imageBase64 = await new Promise<string>((resolve, reject) => wx.getFileSystemManager().readFile({
+              filePath: snapshotPhoto.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject,
+            }));
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            const batchId = saved.batches[photo.batchIndex]?.id;
-            if (photo.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
-            const result = await api.uploadLeafletPhoto(saved.id, imageBase64, photo.mimeType, "medicine_entry", { purpose: photo.purpose, ...(batchId ? { batchId } : {}) });
+            const batchId = saved.batches[confirmed.batchIndex]?.id;
+            if (confirmed.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
+            const result = await api.uploadLeafletPhoto(saved.id, imageBase64, confirmed.mimeType, "medicine_entry",
+              { purpose: confirmed.purpose, ...(batchId ? { batchId } : {}) }, confirmed.uploadIntentKey);
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            photo.uploadedId = result.photo.id;
+            const after = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path);
+            const acknowledged = after?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
+            if (!after || !acknowledged || acknowledged.uploadIntentKey !== confirmed.uploadIntentKey) return;
+            acknowledged.uploadedId = result.photo.id;
+            this.setData({ photoDrafts: after });
+            if (!this.persistPhotoDrafts()) throw new Error("照片上传成功但本机回执保存失败");
           }
           if (data.usePhotoAsCover) {
-            const front = activePhoto.photos.find((photo) => photo.purpose === "box_front" && photo.uploadedId);
+            // ACKs were committed to a freshly loaded durable queue, not the
+            // original activePhoto object captured at submit start.
+            const acknowledgedDraft = this.currentPhotoDraftQueue(activePhoto.id)
+              ?.find(entry => entry.id === activePhoto.id);
+            const front = acknowledgedDraft?.photos.find(photo => photo.purpose === "box_front" && photo.uploadedId);
             if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
           }
           if (!this.entryScopeIsCurrent(originalScope)) return;
-          activePhoto.status = "saved";
-          this.setData({ activePhotoDraftId: "" });
-          if (!this.persistPhotoDrafts()) return;
+          const finishedQueue = this.currentPhotoDraftQueue(activePhoto.id);
+          const finishedDraft = finishedQueue?.find(item => item.id === activePhoto.id);
+          if (!finishedQueue || !finishedDraft) return;
+          finishedDraft.status = "saved";
+          if (!this.writePhotoDraftQueue(finishedQueue)) return;
+          this.setData({ photoDrafts: finishedQueue, activePhotoDraftId: "" });
           await this.cleanupPhotoDrafts();
           if (!this.entryScopeIsCurrent(originalScope)) return;
         } catch {

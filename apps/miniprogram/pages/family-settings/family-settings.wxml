@@ -1,3 +1,4 @@
+<view class="btn btn-ghost" bindtap="onChooseFamily">选择或加入其他家庭</view>
 <view class="page">
   <view class="card">
     <view class="family-name">{{familyName || "家庭设置"}}</view>
@@ -27,3 +28,5 @@
   <view class="card"><view class="hint">{{role === 'owner' ? "管理员需先转让管理权再退出家庭。" : "退出家庭不会删除药品。"}}</view><view class="btn btn-danger" bindtap="onLeaveFamily">退出家庭</view></view>
   <view class="error-card" wx:if="{{errorMessage}}"><view class="hint">{{errorMessage}}</view><view class="btn btn-ghost" bindtap="refresh">重试</view></view>
 </view>
+
+<business-nav />

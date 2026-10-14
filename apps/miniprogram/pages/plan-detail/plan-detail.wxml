@@ -81,3 +81,4 @@
 </view>
 
 <view class="leave-mask" wx:if="{{leaveSheetVisible}}"><view class="leave-sheet"><view class="section-title">计划修改尚未保存</view><view class="btn btn-primary" data-choice="keep" bindtap="onLeaveChoice">保留草稿</view><view class="btn btn-danger" data-choice="discard" bindtap="onLeaveChoice">放弃修改</view><view class="btn btn-ghost" data-choice="continue" bindtap="onLeaveChoice">继续编辑</view></view></view>
+<business-nav />

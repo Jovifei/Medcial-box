@@ -16,3 +16,5 @@
 
   <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
 </view>
+
+<business-nav />

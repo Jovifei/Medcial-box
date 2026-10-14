@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -1113,64 +1116,72 @@ void main() {
         },
       );
     }
-    test(
-      'external same-token family move clears old data before validated rebind',
-      () async {
-        final store = _StateStore(value: _fence());
-        final secrets = _Secrets()..values[_tokenKey] = _envelope();
-        final local = MemoryInventoryLocalStore();
-        local.family = FamilyRecord(
-          id: 'synthetic-family-a',
-          name: 'A',
-          role: 'member',
-        );
-        local.drafts['synthetic-old-draft'] = 'synthetic-old-private-data';
-        local.inventory = [
-          MedicineRecord(id: 'old-item', name: 'Old item', batches: []),
-        ];
-        final services = await http.runWithClient(
-          () => AppServices.create(
-            apiBaseUrl: _origin,
-            secretStore: secrets,
-            identityStore: store,
-            localStore: local,
-          ),
-          () => MockClient(
-            (_) async => _json({
-              'user': {
-                'id': 'synthetic-user-a',
-                'nickname': null,
-                'hasFamily': true,
-              },
-              'family': {
-                'id': 'synthetic-family-b',
-                'name': 'B',
-                'role': 'member',
-              },
-            }),
-          ),
-        );
-        final profile = await services.auth!.getCurrentUser();
-        expect(profile.family!.id, 'synthetic-family-b');
-        expect(local.drafts, isEmpty);
-        expect(local.inventory, isNull);
-        expect(local.family!.id, 'synthetic-family-b');
-        expect(
-          services.api!.identityState!.owner!.familyId,
-          'synthetic-family-b',
-        );
-        expect(
-          services.familyInvalidated.value,
-          isFalse,
-          reason: 'A validated replacement family must not remain routed to family setup',
-        );
-        expect(await services.auth!.readAccessToken(), 'synthetic-token-a');
-        final restored = _state(store, secrets);
-        expect(await restored.readAccessToken(), 'synthetic-token-a');
-        expect(restored.owner!.familyId, 'synthetic-family-b');
-        services.api!.close();
-      },
-    );
+    test('external same-token family move clears snapshots and retains scoped input before validated rebind', () async {
+      final store = _StateStore(value: _fence());
+      final secrets = _Secrets()..values[_tokenKey] = _envelope();
+      final local = MemoryInventoryLocalStore();
+      local.family = FamilyRecord(
+        id: 'synthetic-family-a',
+        name: 'A',
+        role: 'member',
+      );
+      local.drafts['synthetic-old-draft'] = 'synthetic-old-private-data';
+      local.inventory = [
+        MedicineRecord(id: 'old-item', name: 'Old item', batches: []),
+      ];
+      final services = await http.runWithClient(
+        () => AppServices.create(
+          apiBaseUrl: _origin,
+          secretStore: secrets,
+          identityStore: store,
+          localStore: local,
+        ),
+        () => MockClient(
+          (_) async => _json({
+            'user': {
+              'id': 'synthetic-user-a',
+              'nickname': null,
+              'hasFamily': true,
+            },
+            'family': {
+              'id': 'synthetic-family-b',
+              'name': 'B',
+              'role': 'member',
+            },
+          }),
+        ),
+      );
+      final profile = await services.auth!.getCurrentUser();
+      expect(profile.family!.id, 'synthetic-family-b');
+      expect(local.drafts, {
+        'synthetic-old-draft': 'synthetic-old-private-data',
+      });
+      final replacementKey = base64Url.encode(
+        utf8.encode(
+          jsonEncode([_origin, 'synthetic-user-a', 'synthetic-family-b']),
+        ),
+      );
+      expect(
+        await MedicineDraftQueue(local, ownerKey: replacementKey).list(),
+        isEmpty,
+      );
+      expect(local.inventory, isNull);
+      expect(local.family!.id, 'synthetic-family-b');
+      expect(
+        services.api!.identityState!.owner!.familyId,
+        'synthetic-family-b',
+      );
+      expect(
+        services.familyInvalidated.value,
+        isFalse,
+        reason: 'A validated replacement family must not remain routed to family setup',
+      );
+      expect(await services.auth!.readAccessToken(), 'synthetic-token-a');
+      final restored = _state(store, secrets);
+      expect(await restored.readAccessToken(), 'synthetic-token-a');
+      expect(restored.owner!.familyId, 'synthetic-family-b');
+      services.api!.close();
+    });
     test(
       'late auth me cannot bind old owner while replacement cleanup is queued',
       () async {
@@ -1299,7 +1310,7 @@ void main() {
       );
       services.api!.close();
     });
-    test('current-family endpoint clears prior private data before same-token family rebind', () async {
+    test('current-family endpoint clears snapshots and retains inaccessible prior input before same-token family rebind', () async {
       final store = _StateStore(value: _fence());
       final secrets = _Secrets()..values[_tokenKey] = _envelope();
       final local = MemoryInventoryLocalStore();
@@ -1331,7 +1342,16 @@ void main() {
       );
       final family = await services.families!.getCurrentFamily();
       expect(family.id, 'synthetic-family-b');
-      expect(local.drafts, isEmpty);
+      expect(local.drafts, {'old-private': 'synthetic-old-family-draft'});
+      final replacementKey = base64Url.encode(
+        utf8.encode(
+          jsonEncode([_origin, 'synthetic-user-a', 'synthetic-family-b']),
+        ),
+      );
+      expect(
+        await MedicineDraftQueue(local, ownerKey: replacementKey).list(),
+        isEmpty,
+      );
       expect(local.inventory, isNull);
       expect(local.family!.id, 'synthetic-family-b');
       expect(

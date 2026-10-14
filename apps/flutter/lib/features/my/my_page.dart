@@ -357,6 +357,10 @@ class _MyPageState extends State<MyPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(family?.role == 'owner' ? '管理员' : '家庭成员'),
+                  TextButton(
+                    onPressed: () => context.push('/family-choice'),
+                    child: const Text('选择或加入其他家庭'),
+                  ),
                   const SizedBox(height: 10),
                   if (family == null && snapshot.hasError)
                     Text(friendlyApiError(snapshot.error!))

@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"账号设置"}
+{
+  "navigationBarTitleText": "账号设置",
+  "usingComponents": {
+    "business-nav": "../../components/business-nav/business-nav"
+  }
+}

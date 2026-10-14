@@ -1,5 +1,6 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { registerTemporaryShareFile, cleanupTemporaryShareFile, recoverTemporaryShareFiles, temporaryShareScope } from "../../services/temporary-share-files";
 import type { FamilyMedicineBackup, PreviewJsonBackupResponse } from "../../services/api-types";
 
 interface LocalFile { path: string; name: string }
@@ -22,6 +23,19 @@ Page({
   // serialize the whole backup to the view layer and can exceed WeChat setData limits.
   pendingImportPayload: null as FamilyMedicineBackup | null,
   pendingConfirmationToken: null as string | null,
+  backupLifecycleEpoch: 0,
+  backupCopyScope: null as string | null,
+  backupCopyIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
+  onUnload(): void { this.backupLifecycleEpoch += 1; },
+  onShow(): void {
+    if (this.backupCopyScope !== null &&
+        (this.backupCopyScope !== temporaryShareScope() || !this.backupCopyIdentity || !isCurrentSession(this.backupCopyIdentity))) {
+      this.backupCopyScope = null;
+      this.backupCopyIdentity = null;
+      this.setData({ backupJson: "", backupCreatedAt: "", statusText: "" });
+    }
+    if (!this.data.busy) void recoverTemporaryShareFiles();
+  },
   data: {
     busy: false,
     errorMessage: "",
@@ -38,36 +52,72 @@ Page({
   async onCreateBackup(): Promise<void> {
     if (this.data.busy) return;
     this.setData({ busy: true, errorMessage: "", statusText: "正在生成 JSON 备份…" });
+    let localFile = "";
+    const identity = captureSessionIdentity();
+    const scope = temporaryShareScope();
+    const epoch = this.backupLifecycleEpoch;
+    const current = (): boolean => scope !== null && temporaryShareScope() === scope &&
+      isCurrentSession(identity) && this.backupLifecycleEpoch === epoch;
+    const ensureCurrent = (): void => { if (!current()) throw new Error("家庭或登录状态已变化；旧备份不会分享，请在当前家庭重新操作。"); };
     try {
+      ensureCurrent();
       await ensureLoggedIn();
+      ensureCurrent();
       const backup = await api.createJsonBackup();
+      ensureCurrent();
       const json = JSON.stringify(backup, null, 2);
       const filename = `home-medicine-backup-${backup.backupId}.json`;
       const native = wx as unknown as FileSystemCapableWx;
       if (typeof native.shareFileMessage === "function") {
-        const filePath = `${wx.env.USER_DATA_PATH}/${filename}`;
+        localFile = `${wx.env.USER_DATA_PATH}/home-medicine-share-${Date.now()}-${Math.random().toString(36).slice(2, 12)}.json`;
+        ensureCurrent();
+        if (!registerTemporaryShareFile(localFile, scope)) {
+          throw new Error("无法安全登记临时备份文件；本次没有将备份写入磁盘");
+        }
+        ensureCurrent();
         await new Promise<void>((resolve, reject) => wx.getFileSystemManager().writeFile({
-          filePath, data: json, encoding: "utf8", success: () => resolve(),
+          filePath: localFile, data: json, encoding: "utf8", success: () => resolve(),
           fail: (error) => reject(new Error(error.errMsg ?? "写入临时备份文件失败")),
         }));
+        ensureCurrent();
         await new Promise<void>((resolve, reject) => native.shareFileMessage?.({
-          filePath, fileName: filename, success: resolve,
+          filePath: localFile, fileName: filename, success: resolve,
           fail: (error) => reject(new Error(error.errMsg ?? "分享未完成")),
         }));
+        ensureCurrent();
         this.setData({ backupCreatedAt: backup.exportedAt, backupJson: "", statusText: "JSON 备份文件已交给微信分享。" });
       } else {
+        ensureCurrent();
+        this.backupCopyScope = scope;
+        this.backupCopyIdentity = identity;
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
-      this.setData({ errorMessage: error instanceof ApiError ? error.message : "备份生成或分享失败" });
-    } finally { this.setData({ busy: false }); }
+      this.setData({ errorMessage: error instanceof ApiError ? error.message :
+        error instanceof Error ? error.message : "备份生成或分享失败" });
+    } finally {
+      if (localFile !== "" && !(await cleanupTemporaryShareFile(localFile, scope))) {
+        this.setData({ errorMessage: "临时备份原件清理待重试；下次进入页面将再次清理" });
+      }
+      this.setData({ busy: false });
+    }
   },
 
   onCopyBackup(): void {
     const json = this.data.backupJson as string;
     if (json === "") return;
-    wx.setClipboardData({ data: json, success: () => this.setData({ statusText: "JSON 已复制，请粘贴保存为 .json 文件。" }),
-      fail: () => this.setData({ errorMessage: "复制失败，请重试" }) });
+    if (!this.backupCopyIdentity || !isCurrentSession(this.backupCopyIdentity) ||
+        this.backupCopyScope !== temporaryShareScope()) {
+      this.backupCopyIdentity = null;
+      this.backupCopyScope = null;
+      this.setData({ backupJson: "", backupCreatedAt: "", statusText: "", errorMessage: "登录或家庭已变化，请重新生成备份。" });
+      return;
+    }
+    const identity = this.backupCopyIdentity;
+    const scope = this.backupCopyScope;
+    wx.setClipboardData({ data: json,
+      success: () => { if (isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ statusText: "JSON 已复制，请粘贴保存为 .json 文件。" }); },
+      fail: () => { if (isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ errorMessage: "复制失败，请重试" }); } });
   },
 
   async onChooseImport(): Promise<void> {

@@ -10,12 +10,17 @@ class FamilyChoiceApiPage extends StatelessWidget {
   final ApiFamilyRepository repository;
 
   Future<void> _create(BuildContext context) async {
+    final epoch = repository.api.identityEpoch;
     final name = await showAppSheet<String>(
       context,
       title: '创建家庭药箱',
       builder: (_) => const _CreateFamilyForm(),
     );
-    if (name == null || !context.mounted) return;
+    if (name == null ||
+        !context.mounted ||
+        epoch != repository.api.identityEpoch) {
+      return;
+    }
     try {
       await repository.createFamily(name);
       if (context.mounted) context.go('/home');
@@ -25,20 +30,27 @@ class FamilyChoiceApiPage extends StatelessWidget {
   }
 
   Future<void> _join(BuildContext context) async {
+    final epoch = repository.api.identityEpoch;
     final code = await showAppSheet<String>(
       context,
       title: '加入家人的药箱',
       builder: (_) => const _JoinFamilyForm(),
     );
-    if (code == null || !context.mounted) return;
+    if (code == null ||
+        !context.mounted ||
+        epoch != repository.api.identityEpoch) {
+      return;
+    }
     try {
       final preview = await repository.previewInvitation(code);
-      if (!context.mounted) return;
+      if (!context.mounted || epoch != repository.api.identityEpoch) return;
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('确认加入家庭？'),
-          content: Text('你将加入“${preview.familyName}”，与家庭成员共同维护库存。邀请码确认后会被使用一次。'),
+          content: Text(
+            '你将加入“${preview.familyName}”，与家庭成员共同维护库存。邀请码确认后会被使用一次。',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -51,7 +63,11 @@ class FamilyChoiceApiPage extends StatelessWidget {
           ],
         ),
       );
-      if (confirmed != true || !context.mounted) return;
+      if (confirmed != true ||
+          !context.mounted ||
+          epoch != repository.api.identityEpoch) {
+        return;
+      }
       await repository.acceptInvitation(code);
       if (context.mounted) context.go('/home');
     } catch (error) {
@@ -60,14 +76,19 @@ class FamilyChoiceApiPage extends StatelessWidget {
   }
 
   static void _showError(BuildContext context, Object error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(friendlyApiError(error))),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('家庭药箱')),
+    bottomNavigationBar: SafeArea(
+      child: TextButton(
+        onPressed: () => context.go('/home'),
+        child: const Text('返回药箱首页'),
+      ),
+    ),
     body: AppPage(
       child: Center(
         child: ConstrainedBox(
@@ -75,10 +96,47 @@ class FamilyChoiceApiPage extends StatelessWidget {
           child: ListView(
             children: [
               const SizedBox(height: 24),
-              Text('先选择你的家庭', style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                '先选择你的家庭',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 8),
               const Text('家庭成员共享药品库存。加入前会先显示家庭名称供你核对。'),
               const SizedBox(height: 24),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: repository.listFamilies(),
+                builder: (context, snapshot) => Column(
+                  children: [
+                    if (snapshot.hasError)
+                      TextButton(
+                        onPressed: () => _showError(context, snapshot.error!),
+                        child: const Text('家庭列表暂不可用'),
+                      ),
+                    for (final family
+                        in snapshot.data ?? <Map<String, dynamic>>[])
+                      ListTile(
+                        title: Text(family['name'] as String),
+                        subtitle: Text(
+                          family['isCurrent'] == true
+                              ? '当前家庭'
+                              : family['role'] == 'owner'
+                              ? '管理员'
+                              : '成员',
+                        ),
+                        onTap: () async {
+                          try {
+                            await repository.switchFamily(
+                              family['familyId'] as String,
+                            );
+                            if (context.mounted) context.go('/home');
+                          } catch (error) {
+                            if (context.mounted) _showError(context, error);
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ),
               choiceTile(
                 context,
                 icon: Icons.add_home_rounded,
@@ -168,7 +226,10 @@ class _JoinFamilyFormState extends State<_JoinFamilyForm> {
         controller: controller,
         autofocus: true,
         textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(labelText: '邀请码', hintText: '粘贴家人发来的邀请码'),
+        decoration: const InputDecoration(
+          labelText: '邀请码',
+          hintText: '粘贴家人发来的邀请码',
+        ),
       ),
       const SizedBox(height: 8),
       PrimaryButton(

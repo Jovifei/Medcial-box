@@ -32,3 +32,5 @@
     <view class="btn btn-primary" bindtap="onSubmit">{{submitting ? "保存中…" : "保存并完成盘点"}}</view>
   </view>
 </view>
+
+<business-nav />

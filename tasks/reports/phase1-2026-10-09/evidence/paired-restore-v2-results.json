@@ -1,0 +1,41 @@
+{
+  "source_sha": "85bfe729f2089db2ee48040b450293511e8ce9c7",
+  "scope": "actual API+PG+PrivatePhotoStore seed, pg_dump/pg_restore and copied synthetic file hashes; not production staging-backup.sh nor production restore",
+  "status": "PASS",
+  "table_results": [
+    {
+      "table": "families",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    },
+    {
+      "table": "medicines",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    },
+    {
+      "table": "medicine_batches",
+      "before_count": 2,
+      "after_count": 2,
+      "identical": true
+    },
+    {
+      "table": "medicine_leaflet_photos",
+      "before_count": 1,
+      "after_count": 1,
+      "identical": true
+    }
+  ],
+  "photo": {
+    "count": 1,
+    "key": "leaflets/5d6ec548-29e7-4ce5-9cb1-69ee68c273cf/4fbabf31-78bc-449e-ab2d-748f016dc546/54bf7c33-2062-449c-8a7f-c8a2ace1e769.png",
+    "source_sha256": "ee68049f8976341376cf2883efe6a2afc081d936289bf59260dd278753af0be9",
+    "restored_sha256": "ee68049f8976341376cf2883efe6a2afc081d936289bf59260dd278753af0be9",
+    "identical": true
+  },
+  "dump_sha256": "fd0e85016112002ec5e5932f701b91b7ce8bdc66c56184d7ffe60533234b2c8c",
+  "owned_restore_removed": true,
+  "finished_at": "2026-10-08T16:22:43.097Z"
+}

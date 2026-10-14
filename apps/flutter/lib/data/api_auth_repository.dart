@@ -7,8 +7,7 @@ import 'session_identity_state.dart';
 
 const apiBaseUrlFromBuild = String.fromEnvironment('API_BASE_URL');
 const localAppTrialFromBuild = bool.fromEnvironment('LOCAL_APP_TRIAL');
-const missingApiConfigurationMessage =
-    '当前安装包未配置可用的药箱服务。请安装正式发布包，或联系维护者检查服务配置。';
+const missingApiConfigurationMessage = '当前安装包未配置可用的药箱服务。请安装正式发布包，或联系维护者检查服务配置。';
 
 class DeviceLink {
   const DeviceLink({
@@ -269,7 +268,10 @@ class ApiAuthRepository {
         (previousOwner.userId != user['id'] ||
             (previousOwner.familyId != null &&
                 previousOwner.familyId != family.id))) {
-      final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
+      final cleanupEpoch = await api.reportNoCurrentFamily(
+        epoch,
+        selectionChanged: previousOwner.userId == user['id'],
+      );
       _requireCurrentIdentity(cleanupEpoch);
       epoch = cleanupEpoch;
     }
@@ -409,7 +411,7 @@ class ApiFamilyRepository {
     final family = FamilyRecord.fromJson(value);
     final oldFamilyId = api.identityState?.owner?.familyId;
     if (oldFamilyId != null && oldFamilyId != family.id) {
-      epoch = await api.reportNoCurrentFamily(epoch);
+      epoch = await api.reportNoCurrentFamily(epoch, selectionChanged: true);
       if (epoch != api.identityEpoch) {
         throw const ApiException(
           statusCode: 401,
@@ -444,6 +446,18 @@ class ApiFamilyRepository {
     }
     return family;
   }
+
+  Future<List<Map<String, dynamic>>> listFamilies() async {
+    final json = await api.get('/api/v1/families') as Map<String, dynamic>;
+    return (json['families'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<FamilyRecord> switchFamily(String id) =>
+      api.transitionIdentity(() async {
+        await api.post('/api/v1/families/${Uri.encodeComponent(id)}/switch');
+        await _clearPreviousFamilySnapshot();
+        return getCurrentFamily();
+      });
 
   Future<FamilyRecord> createFamily(String name) =>
       api.transitionIdentity(() => _createFamily(name));
@@ -485,7 +499,7 @@ class ApiFamilyRepository {
       await api.cleanupForIdentityTransition(onFamilyChanged!);
       return;
     }
-    await localStore.clearFamilyData();
+    await localStore.clearFamilySnapshot();
   }
 
   Future<String> createInvitation() async {
