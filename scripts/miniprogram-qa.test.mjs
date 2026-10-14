@@ -432,6 +432,8 @@ for (const phase of ['write', 'ocr-success', 'ocr-error']) {
       assert.equal(h.app.qa.summary().held.find(item => item.name === op).count, 1);
       if (lifecycle === 'hide') page.onHide(); else page.onUnload();
       const reopened = makePageContext(h.page); reopened.onLoad({}); await tick();
+      // New medicine starts blank; explicitly import the existing draft before managing it.
+      await reopened.onRestoreDraft();
       const id = reopened.data.photoDrafts[0].id;
       const path = reopened.data.photoDrafts[0].photos[0].path;
       reopened.onDeletePhotoDraft({ currentTarget: { dataset: { id } } }); await tick();
