@@ -2,7 +2,7 @@
 
 当前原分支 `audit/final-delivery-2026-10-04`。截至基线 `9de6d991`，照片清理归属、条码/编辑加载原家庭保护、日期精度与期限模式修复均已独立审查并提交；精确CI全绿：mini265、API389（严格PG无跳过）、tooling59、Flutter689/analyze、Debug/unsigned Release、隔离Docker恢复。
 
-本轮新增产品照片独占创建→reserved登记→按字节写入→close→ready。独立复审逐步补出被动回页、删除确认、普通输入和批次差量的并发覆盖反例；当前第六版使用独立确认基线及最新队列/逐字段差量合并，保留晚到照片归属回执与未落盘编辑；清理不替换进行中上传对象，新批次采用稳定本地身份。当前本地mini326/API238（13 PG套件明确跳过）/tooling94（含内存QA35，零跳过）及lint/typecheck/build/源包预算通过；精确第六版另有独立326/326全mini及45/45针对性复验通过；发布后的精确CI与官方IDE产品验收仍待核实。详见[安全照片写入证据与边界](reports/closeout/24-owned-photo-write-lifecycle.md)。
+本轮新增产品照片独占创建→reserved登记→按字节写入→close→ready。独立复审逐步补出被动回页、删除确认、普通输入和批次差量的并发覆盖反例；当前第六版使用独立确认基线及最新队列/逐字段差量合并，保留晚到照片归属回执与未落盘编辑；清理不替换进行中上传对象，新批次采用稳定本地身份。当前本地mini326/API238（13 PG套件明确跳过）/tooling94（含内存QA35，零跳过）及lint/typecheck/build/源包预算通过；精确第六版另有独立326/326全mini及45/45针对性复验通过；发布后的精确CI与官方IDE产品验收仍待核实。详见[安全照片写入证据与边界](../reports/closeout/24-owned-photo-write-lifecycle.md)。
 
 本机官方IDE在9de6d991已验证批次日期/期限转换和单独原生文件探针，但家庭切换异步矩阵因副本共享同账号/AppID存储而安全停止，不能称已通过。后续使用内存隔离合成夹具；不改真实存储、账号、照片或健康数据。正式签名、平台审批/模板、真实双设备与发布仍保持未验收。
 
@@ -14,7 +14,7 @@
 
 最新云端小程序250、API238（13可选PG套件跳过）、工具59及lint/typecheck/build/源包预算PASS。第一批CI验出旧字体资源回归后已修复，后续精确CI和Android构建仍跟踪，不以局部通过代表整项目交付。
 
-详情：[照片清理归属与恢复](reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
+详情：[照片清理归属与恢复](../reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](../reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](../reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
 
 ---
 
@@ -24,13 +24,13 @@
 
 本轮修复审计分支未触发 CI、小程序语法错误、诊断原始信息泄漏风险，并回补另一审计分支的限流/health/打包门禁。云端小程序232、API237（13 PG套件跳过）、工具58与lint/typecheck/build通过；新增限流聚焦3/3通过。精确CI、Flutter/Android/PG/Docker及真实设备/平台验收仍须分别确认。
 
-详情及剩余交付：[最新审计与门禁修复](reports/closeout/18-latest-audit-gates.md)。下一步检查照片草稿安全清理与日期状态边界；没有正式发布。
+详情及剩余交付：[最新审计与门禁修复](../reports/closeout/18-latest-audit-gates.md)。下一步检查照片草稿安全清理与日期状态边界；没有正式发布。
 
 ---
 
 # 当前执行补充 · 2026-10-03
 
-以 [v1收尾计划](plans/2026-10-02-project-closeout.md) 和 [当前证据矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md) 为准。状态PARTIAL；当前代码f5e17e5，以下旧勾选项只代表当时版本。
+以 [v1收尾计划](../plans/2026-10-02-project-closeout.md) 和 [当前证据矩阵](../reports/closeout/2026-10-03-current-closeout-matrix.md) 为准。状态PARTIAL；当前代码f5e17e5，以下旧勾选项只代表当时版本。
 
 - [x] 发布19批独立修复与验证补充，保留各自源码/测试/父提交与回放证据；逐提交CI按矩阵记录
 - [x] 最新Linux CI完整Flutter671/analyze，C2独立聚焦76历史证据保留；小程序230、工具6及根lint/typecheck/build通过
@@ -59,7 +59,7 @@
 - [x] 修复446fa63推送功能分支成功。
 - [ ] 明确的main合并验收（尚未合并）。
 
-审核证据：[2026-10-03收尾报告](reviews/2026-10-03-closeout-repair-and-verification.md)。当前PARTIAL，以下为原计划与历史。
+审核证据：[2026-10-03收尾报告](../reviews/2026-10-03-closeout-repair-and-verification.md)。当前PARTIAL，以下为原计划与历史。
 
 ---
 
@@ -67,7 +67,7 @@
 
 ## 当前执行入口：家庭药箱 v1 收尾（2026-10-02）
 
-以 [项目收尾执行计划](plans/2026-10-02-project-closeout.md) 为统一剩余工作清单。旧阶段记录保留为历史，不再用旧勾选项推导当前完成。编写基线7a94f50＋S4未提交改动，本轮仅文档核对，未跑测试。
+以 [项目收尾执行计划](../plans/2026-10-02-project-closeout.md) 为统一剩余工作清单。旧阶段记录保留为历史，不再用旧勾选项推导当前完成。编写基线7a94f50＋S4未提交改动，本轮仅文档核对，未跑测试。
 
 - [x] 冻结收尾范围、顺序、验收与最终完成定义，创建计划文档。
 - [ ] C0：工程/运行目录/构建配置/证据台账归一。
@@ -83,7 +83,7 @@
 
 ## 2026-10-01 双端录入体验与用药计划（R0–R5）
 
-详细方案见 [2026-10-01-dual-client-experience-and-medication](plans/2026-10-01-dual-client-experience-and-medication.md)。优先级固定：数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
+详细方案见 [2026-10-01-dual-client-experience-and-medication](../plans/2026-10-01-dual-client-experience-and-medication.md)。优先级固定：数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
 
 - [ ] **R0 数据修复**：复核既有修复，完成恢复保真、身份隔离、**编辑**和**提醒**回归，达到"高优先级缺陷有行为测试及数据库证据"。
   - [x] 恢复保真 A01/A02（提交 `33b30a8`，真实 PG 19/19 含逐字段往返与 handled 不复活断言）。
@@ -94,7 +94,7 @@
   - [ ] **A06 盘点刷新旧版本、A09 余量取消/清空**：Flutter 代码已改，本机无 SDK **NOT_RUN**，待 `flutter analyze/test` 验证。
   - [ ] A03 的 Flutter UI 层（运行期 401 统一失效、断网退出导航）与 `flutter analyze/test` 验证（同上 **NOT_RUN**）。
 - [ ] **R1 库存模型**：`ml`／`blister`、确认换算、包装与库存照片、人群／用途标签、统一库存状态与备份兼容。
-  - [x] R1-1 后端数据层：迁移 `013`（6 处列改 `numeric(14,3)`、三处单位约束加 `ml`／`blister`、计件单位整数约束）、契约单位类型拆分、`domain/decimal.ts` 定点工具、输入按单位校验；真实 PG 新套件 6/6，既有 19/19 + 4/4 无回归。详见 [R1 数量进展报告](reports/2026-10-01-r1-quantity-progress.md)。
+  - [x] R1-1 后端数据层：迁移 `013`（6 处列改 `numeric(14,3)`、三处单位约束加 `ml`／`blister`、计件单位整数约束）、契约单位类型拆分、`domain/decimal.ts` 定点工具、输入按单位校验；真实 PG 新套件 6/6，既有 19/19 + 4/4 无回归。详见 [R1 数量进展报告](../reports/2026-10-01-r1-quantity-progress.md)。
   - [x] R1-2 人群／用途标签：迁移 `014`（text[] + 元素白名单 + GIN 索引 + tag_source）、契约与校验、仓储读写；真实 PG 套件 5/5，旧自由文本用途并存不丢。
   - [x] R1-3 照片用途与药盒封面：迁移 `015`（purpose／batch_id／cover_photo_id + 约束）、上传接受用途与批次、列表按用途过滤、新增封面接口（回读数据库实际值）；真实 PG 套件 5/5。
   - [x] R1-4 数量模型同步·小程序端：单位表加 板／毫升、数量与换算数按单位校验（ml 三位小数定点归一）、index/detail 单位标签补齐；官方编译器 41 文件通过。（Flutter 端待 SDK）
@@ -118,20 +118,20 @@
   - [x] R4-c 更新链路：功能介绍每版本仅一次（最多三项）、"我的 → 版本与更新"可再次查看、小程序 UpdateManager 提示重启；用例 2/2。
   - [ ] **R4-d 真实微信模板送达、Android 双渠道通知与精确闹钟**：需药箱专用 AppID 与 Flutter SDK，本机 **NOT_RUN／BLOCKED_PLATFORM**。
 - [ ] **R5 家庭试用**：双端整体回归、独立测试部署、两账号两手机完整流程（需专用 AppID、两台设备与 Flutter APK，本机 **NOT_RUN**）。
-  - [x] R5-a 验收 runbook 就绪：[R5 家庭试用验收清单](reports/2026-10-01-r5-family-trial-checklist.md)（独立部署 / 账号与家庭 / 录入与库存 / 备份恢复 / 用药计划 / 通知与更新 / 双端回归 / 证据留存，共 8 节 40 项，含前置人工项与阻塞标注）。
-  - [~] R5-b 真机执行与证据留存：**模拟器单账号全链路已实跑通过**（2026-10-02，登录→建家庭→录药→计划→确认→历史→版本说明，14 张截图，见 [模拟器实跑报告](reports/2026-10-02-simulator-run.md)）；双账号双手机真机仍待 AppSecret、订阅模板 ID 与两台设备（Flutter 项另待 SDK）。
+  - [x] R5-a 验收 runbook 就绪：[R5 家庭试用验收清单](../reports/2026-10-01-r5-family-trial-checklist.md)（独立部署 / 账号与家庭 / 录入与库存 / 备份恢复 / 用药计划 / 通知与更新 / 双端回归 / 证据留存，共 8 节 40 项，含前置人工项与阻塞标注）。
+  - [~] R5-b 真机执行与证据留存：**模拟器单账号全链路已实跑通过**（2026-10-02，登录→建家庭→录药→计划→确认→历史→版本说明，14 张截图，见 [模拟器实跑报告](../reports/2026-10-02-simulator-run.md)）；双账号双手机真机仍待 AppSecret、订阅模板 ID 与两台设备（Flutter 项另待 SDK）。
 
 ### R0 状态
 
-见 [R0 就绪核对报告](reports/2026-10-01-r0-readiness.md)：A01/A02/A04/A05/A07/A08/A12/A14/A15 均有行为测试与数据库证据；**A06、A09 为 Flutter 改动未验证，R0 待 Flutter 环境收口后进入 R1**。
+见 [R0 就绪核对报告](../reports/2026-10-01-r0-readiness.md)：A01/A02/A04/A05/A07/A08/A12/A14/A15 均有行为测试与数据库证据；**A06、A09 为 Flutter 改动未验证，R0 待 Flutter 环境收口后进入 R1**。
 
 ## 2026-09-30 计划符合性审核与下一轮修复（CHANGES_REQUIRED）
 
 本节为当前判断；下方勾选项仅表示当时实现记录，不代表完整验收通过。审核基线 `47d36e3`。
 
-- [x] 对照双端计划审核 API、小程序和 Flutter，记录 15 组缺陷及功能缺口：[审核报告](reviews/2026-09-30-plan-code-audit.md)。
+- [x] 对照双端计划审核 API、小程序和 Flutter，记录 15 组缺陷及功能缺口：[审核报告](../reviews/2026-09-30-plan-code-audit.md)。
 - [x] 重跑根 lint/typecheck/test/build、Flutter analyze/test，并完成合成内存复现和本地服务健康只读核查。
-- [x] 写入下一阶段的具体修改范围、验收和失败处理：[实施计划](plans/2026-09-30-candidate-hardening.md)。
+- [x] 写入下一阶段的具体修改范围、验收和失败处理：[实施计划](../plans/2026-09-30-candidate-hardening.md)。
 - [x] S0：修复备份恢复字段丢失及已处理库存复活，真实 PG 全字段往返验证。（2026-10-01 完成：`integration-pg` 19/19，含逐字段往返与 handled 不复活断言）
 - [x] S1：修复双端身份/缓存/草稿隔离、内存令牌和已移除成员提醒。（2026-10-01：A04/A07/A12 已验；A03 为数据层实现，Flutter analyze/test 因本机无 SDK **NOT_RUN**；A03 的 UI 层 401/断网导航未做）
 - [ ] S2：修复慢加载编辑误新增、盘点版本、未知数量、库存投影、OCR覆盖及说明书来源。
@@ -145,7 +145,7 @@
 
 ## 2026-09-28 双端家庭药箱与库存完善（LOCAL_CANDIDATE_READY；真实环境验收待做）
 
-详细设计见 [2026-09-28-dual-client-inventory](plans/2026-09-28-dual-client-inventory.md)。本轮已在当前分支完成可运行候选版本；以下把代码交付与账号/设备验收分开记账。
+详细设计见 [2026-09-28-dual-client-inventory](../plans/2026-09-28-dual-client-inventory.md)。本轮已在当前分支完成可运行候选版本；以下把代码交付与账号/设备验收分开记账。
 
 - [x] P0 API：迁移 `006`–`012`、开封期限/来源、低库存阈值、盘点、补货、软删除与 30 天回收站、审计、条码值、私有说明书照片、JSON 备份恢复；图片上传在解析前认证，按家庭 64 MiB/100 张限额，药品超过恢复期后由定时任务清理关联图片。
 - [x] P0 设备连接：5 分钟连接码、独立轮询凭据、由小程序确认、Android 独立会话、列出会话并撤销 Android 会话；移除成员后换取前再次核对家庭关系。
@@ -629,7 +629,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [ ] 按R1-R7逐项独立代码审查、完整本机回归与证据复核。
 - [ ] 获修复提交后复验同断言；未关P0/P1不得推进相关真实数据路径。
 - [ ] Jovi按已准备人工卡实机交互；真人结果与自动化分开验收。
-详见[两阶段计划](plans/2026-10-08-two-stage-audit/README.md)。本次不改业务源码、不重新部署、不合入main。
+详见[两阶段计划](../plans/2026-10-08-two-stage-audit/README.md)。本次不改业务源码、不重新部署、不合入main。
 
 
 ## 第一阶段本机与独立审核执行（计划20261008，执行2026-10-09）
@@ -645,7 +645,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [ ] 取得业务最小修复授权，保持本轮失败证据，补正常不变量回归并独立复审。
 - [ ] 缺少的自动化驱动、平台/symlink/真实模型样本/真实HTTPS与后台门槛分别补证。
 - [ ] 关闭相关P0/P1后再让Jovi按人工卡测试，不立即进入真人或提审。
-报告：[第一阶段审查结果](reports/phase1-2026-10-09/README.md)。原staging Docker恢复runner只允许hostedLinux；未绕过。计划撤权竞态追加验证遭自动安全审查拒绝，保留BLOCKED，不计已复现。
+报告：[第一阶段审查结果](../reports/phase1-2026-10-09/README.md)。原staging Docker恢复runner只允许hostedLinux；未绕过。计划撤权竞态追加验证遭自动安全审查拒绝，保留BLOCKED，不计已复现。
 
 ## 2026-10-11 DNS迁移与药箱部署
 - [x] Jovi选择阿里云DNS，记录授权与不影响其他项目的边界。

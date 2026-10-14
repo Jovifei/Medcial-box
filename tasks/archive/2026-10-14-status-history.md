@@ -1,12 +1,12 @@
 # 当前执行 · 第一阶段审核结果（2026-10-09）
 
-分支codex/two-stage-audit-20261008；测试冻结85bfe72，产品f675416。CHANGES_REQUIRED：实际PG确认库存提醒保存软删批次及清空资料；另外身份/导出/草稿/识别边界与生产关闭链路存在已复现问题。已有全量回归通过不覆盖这些新负例。业务源码、main、用户数据未改；APK未安装，未重新上传或提审。详见[第一阶段报告](reports/phase1-2026-10-09/README.md)及[缺陷清单](reports/phase1-2026-10-09/defects.md)。真人阶段保持等待安全修复；未执行规格/环境缺口如实列出。
+分支codex/two-stage-audit-20261008；测试冻结85bfe72，产品f675416。CHANGES_REQUIRED：实际PG确认库存提醒保存软删批次及清空资料；另外身份/导出/草稿/识别边界与生产关闭链路存在已复现问题。已有全量回归通过不覆盖这些新负例。业务源码、main、用户数据未改；APK未安装，未重新上传或提审。详见[第一阶段报告](../reports/phase1-2026-10-09/README.md)及[缺陷清单](../reports/phase1-2026-10-09/defects.md)。真人阶段保持等待安全修复；未执行规格/环境缺口如实列出。
 
 ---
 
 # 当前阶段 · 2026-10-08 两阶段验收计划
 
-main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLAN_READY / INITIAL_AUDIT，完整验收未执行。三名独立子代理初审与局部实际页面/validator探针发现库存阈值保存缺字段风险（开/关均CONTRACT_FAIL，PG尚未复现）。相关真实数据路径不放行；本机独立测试继续。计划/288条来源规格映射/人工卡/缺陷证据见[two-stage-audit](plans/2026-10-08-two-stage-audit/README.md)。下列历史状态只对应其日期和SHA，不作当前PASS。
+main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLAN_READY / INITIAL_AUDIT，完整验收未执行。三名独立子代理初审与局部实际页面/validator探针发现库存阈值保存缺字段风险（开/关均CONTRACT_FAIL，PG尚未复现）。相关真实数据路径不放行；本机独立测试继续。计划/288条来源规格映射/人工卡/缺陷证据见[two-stage-audit](../plans/2026-10-08-two-stage-audit/README.md)。下列历史状态只对应其日期和SHA，不作当前PASS。
 
 ---
 
@@ -14,7 +14,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 当前原分支 `audit/final-delivery-2026-10-04`。截至基线 `9de6d991`，照片清理归属、条码/编辑加载原家庭保护、日期精度与期限模式修复均已独立审查并提交；精确CI全绿：mini265、API389（严格PG无跳过）、tooling59、Flutter689/analyze、Debug/unsigned Release、隔离Docker恢复。
 
-本轮新增产品照片独占创建→reserved登记→按字节写入→close→ready。独立复审逐步补出被动回页、删除确认、普通输入和批次差量的并发覆盖反例；当前第六版使用独立确认基线及最新队列/逐字段差量合并，保留晚到照片归属回执与未落盘编辑；清理不替换进行中上传对象，新批次采用稳定本地身份。当前本地mini326/API238（13 PG套件明确跳过）/tooling94（含内存QA35，零跳过）及lint/typecheck/build/源包预算通过；精确第六版另有独立326/326全mini及45/45针对性复验通过；发布后的精确CI与官方IDE产品验收仍待核实。详见[安全照片写入证据与边界](reports/closeout/24-owned-photo-write-lifecycle.md)。
+本轮新增产品照片独占创建→reserved登记→按字节写入→close→ready。独立复审逐步补出被动回页、删除确认、普通输入和批次差量的并发覆盖反例；当前第六版使用独立确认基线及最新队列/逐字段差量合并，保留晚到照片归属回执与未落盘编辑；清理不替换进行中上传对象，新批次采用稳定本地身份。当前本地mini326/API238（13 PG套件明确跳过）/tooling94（含内存QA35，零跳过）及lint/typecheck/build/源包预算通过；精确第六版另有独立326/326全mini及45/45针对性复验通过；发布后的精确CI与官方IDE产品验收仍待核实。详见[安全照片写入证据与边界](../reports/closeout/24-owned-photo-write-lifecycle.md)。
 
 本机官方IDE在9de6d991已验证批次日期/期限转换和单独原生文件探针，但家庭切换异步矩阵因副本共享同账号/AppID存储而安全停止，不能称已通过。后续使用内存隔离合成夹具；不改真实存储、账号、照片或健康数据。正式签名、平台审批/模板、真实双设备与发布仍保持未验收。
 
@@ -26,7 +26,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 最新云端小程序250、API238（13可选PG套件跳过）、工具59及lint/typecheck/build/源包预算PASS。第一批CI验出旧字体资源回归后已修复，后续精确CI和Android构建仍跟踪，不以局部通过代表整项目交付。
 
-详情：[照片清理归属与恢复](reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
+详情：[照片清理归属与恢复](../reports/closeout/21-photo-cleanup-ownership.md)、[录入家庭边界](../reports/closeout/20-entry-household-boundary.md)、[字体fixture修复](../reports/closeout/19-host-font-fixture.md)。下一步为初始照片写入前登记、余下日期模式状态同步及精确CI收口。真实设备、微信审批/模板、正式签名/API、HTTPS、双设备与最终交付仍需分别验收。
 
 ---
 
@@ -36,7 +36,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 本轮修复审计分支未触发 CI、小程序语法错误、诊断原始信息泄漏风险，并回补另一审计分支的限流/health/打包门禁。云端小程序232、API237（13 PG套件跳过）、工具58与lint/typecheck/build通过；新增限流聚焦3/3通过。精确CI、Flutter/Android/PG/Docker及真实设备/平台验收仍须分别确认。
 
-详情及剩余交付：[最新审计与门禁修复](reports/closeout/18-latest-audit-gates.md)。下一步检查照片草稿安全清理与日期状态边界；没有正式发布。
+详情及剩余交付：[最新审计与门禁修复](../reports/closeout/18-latest-audit-gates.md)。下一步检查照片草稿安全清理与日期状态边界；没有正式发布。
 
 ---
 
@@ -44,11 +44,11 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 - 状态：**IMPLEMENTATION_AND_VERIFICATION / PARTIAL**；当前代码核对 `f5e17e5`，既有分支 `codex/flutter-ui-prototype`
 - 已发布19批独立修复与验证补充；在既有会话/提醒/历史/幂等/权限/清理边界之上，补齐Flutter计划表单、重启身份、精确导出原件恢复，以及五批单页录入可靠性修复
-- 最新精确提交Linux CI的Flutter671/analyze通过，15个符号链接安全场景均实际执行；C2冻结时独立聚焦76证据保留；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](reports/closeout/2026-10-03-current-closeout-matrix.md)
-- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位；45张Flutter引擎图对应6ec8d7a的生产页面源码，后续两批未改渲染源码。原生系统Back、真实输入法、相机与WeChat页面仍待验，详见 [录入可靠性与视觉证据](reports/closeout/16-entry-reliability-and-visual-verification.md)
+- 最新精确提交Linux CI的Flutter671/analyze通过，15个符号链接安全场景均实际执行；C2冻结时独立聚焦76证据保留；小程序230、工具6、lint/typecheck/build通过。API382及严格隔离PG150项/12套保留计划表单阶段证据，后续不改Node/API/SQL。逐提交CI见 [当前收尾矩阵](../reports/closeout/2026-10-03-current-closeout-matrix.md)
+- 当前C2已覆盖320/360/430宽、100%/200%字号及合成键盘占位；45张Flutter引擎图对应6ec8d7a的生产页面源码，后续两批未改渲染源码。原生系统Back、真实输入法、相机与WeChat页面仍待验，详见 [录入可靠性与视觉证据](../reports/closeout/16-entry-reliability-and-visual-verification.md)
 - C4仍PARTIAL：仅恢复清理精确登记且证据一致的完整原件；中断未登记、替换和旧模糊文件保留。旧原始令牌无可信来源记录需重新连接；未知草稿保留隔离。不能宣称跨进程、断电或所有持久写入失败场景均已关闭
 - Windows本机官方WeChat编译25WXML+26WXSS通过，Flutter656 PASS / 0 FAIL / 15 SKIPPED（仅缺少创建符号链接权限errno1314）。非链接保留断言独立执行；这15个本机安全分支不称PASS
-- Android缺失的三个未选OCR脚本各Options/Builder仅用六条精确规则处理，保留R8和默认规则；CI及本机debug/release编译通过。本机release仍使用既有debug签名、API为空，未安装、未验证原生中文OCR，不能称正式发布就绪。详见 [平台编译门禁](reports/closeout/17-platform-build-and-fixture-verification.md)
+- Android缺失的三个未选OCR脚本各Options/Builder仅用六条精确规则处理，保留R8和默认规则；CI及本机debug/release编译通过。本机release仍使用既有debug签名、API为空，未安装、未验证原生中文OCR，不能称正式发布就绪。详见 [平台编译门禁](../reports/closeout/17-platform-build-and-fixture-verification.md)
 - WeChat JS/模拟器页面、真实账号/两手机/拍扫/模板/通知/分享/独立HTTPS/数据库图片恢复仍未验收
 - 本轮仅合成数据；本机后续使用隔离worktree验证，保留原目录未提交/未跟踪文件，未安装覆盖、未合并main、未部署。下方报告保留为对应版本的历史证据，不用旧统计或旧SDK阻塞替代当前结论
 
@@ -57,7 +57,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 - 精确提交 GitHub Actions [run 37107940730](https://github.com/Jovifei/Medcial-box/actions/runs/37107940730) 显示 Success，包含 verify 与 flutter 作业。
 - 本机小程序：运行时测试 220/220、lint、typecheck 与官方 WXML/WXSS 编译 51 个文件 PASS；DevTools CLI 接受隔离项目打开。未观察页面渲染或逐项点击。
 - 本机 Android：最终源码 Debug APK 经 `adb install -r` 更新到 OnePlus GM1910，首次安装时间未变；本机合成 API 下设备连接与家庭读取通过。日期滚轮与选中值已在真机验证为中文。Release R8 已构建 PASS，但使用 debug 证书。
-- 本机 Debug API 为 `127.0.0.1:13300` 的假微信/隔离 PostgreSQL 联调环境，当前进程和手机 ADB reverse 仍启用；测试家庭是合成数据。`medbox-test.joviluma.com` 当前无 DNS。真实微信 OAuth、相机照片识别准确率、通知、生产家庭数据均 `NOT_RUN`。小程序源码回归和官方编译仍 PASS；完整证据见 [Android 识药、单位、日期与 Release 报告](../docs/operations/04-RPT-Android识药单位日期与Release验证.md)。
+- 本机 Debug API 为 `127.0.0.1:13300` 的假微信/隔离 PostgreSQL 联调环境，当前进程和手机 ADB reverse 仍启用；测试家庭是合成数据。`medbox-test.joviluma.com` 当前无 DNS。真实微信 OAuth、相机照片识别准确率、通知、生产家庭数据均 `NOT_RUN`。小程序源码回归和官方编译仍 PASS；完整证据见 [Android 识药、单位、日期与 Release 报告](../../docs/operations/04-RPT-Android识药单位日期与Release验证.md)。
 - Docs 索引、架构/Flutter 本地构建说明与 Android 验证报告已更新；Obsidian overview/progress/decision checkpoint 及 7 份文档镜像为 `MEMORY_UPDATED`，源/目标哈希一致。
 - 本轮未向微信平台上传/发布，也未操作 ECS。两账号两手机、提醒模板/送达、系统分享、HTTPS、正式签名及数据库/图片恢复均 `NOT_RUN`。
 - 仍需补齐：Android 计划表单的星期选择、药箱药品关联、普通表单草稿；Flutter 跨重启安全恢复与跨进程导出文件清理。C1 计划创建幂等已在 736d762 完成。
@@ -69,7 +69,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 - 状态：**LOCAL_VERIFICATION / PARTIAL**。已按授权修复实例历史、提醒授权、数量换算、会话及失败恢复；新增单页录入、十份持久草稿、成员提醒设置和同快照多格式导出。
 - 唯一目录 `E:\project\medcial_box`，分支 `codex/flutter-ui-prototype`，实施基线45bb7aa。保留所有者AGENTS、overview及本地工具状态，不纳入业务提交。
 - 根lint/typecheck/test/build PASS；Mini157、API191（普通运行9套可选PG跳过）、tooling6 PASS；严格真实PG84 PASS；官方编译51文件PASS。Flutter analyze、61项测试与最终Debug APK PASS；未配置生产API及正式签名。
-- 详细证据：[本次收尾修复与审核](reviews/2026-10-03-closeout-repair-and-verification.md)。严格PG是隔离schema及测试微信网关，不代表真实登录。
+- 详细证据：[本次收尾修复与审核](../reviews/2026-10-03-closeout-repair-and-verification.md)。严格PG是隔离schema及测试微信网关，不代表真实登录。
 - 真实双账号两手机、拍扫权限/识别质量、微信消息与分享、Android系统通知、独立HTTPS及数据库图片恢复仍NOT_RUN；正式Android签名与生产API构建配置未完成。不得标记整项目完成。
 - 业务修复446fa63已推送功能分支；main仍ad6b31f，未合并，未部署。初次fetch短暂失败，普通push随后成功。
 
@@ -78,7 +78,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 # 历史状态 · 2026-10-02 项目收尾规划
 
 - 状态：**CLOSEOUT_PLANNED / PARTIAL**，尚未完成真实双端家庭交付。
-- 唯一剩余工作入口：[家庭药箱v1收尾执行计划](plans/2026-10-02-project-closeout.md)，顺序C0工程归一→C1可靠性→C2简洁交互→C3双端补齐→C4资料/导出→C5门禁→C6部署恢复→C7家庭试用。
+- 唯一剩余工作入口：[家庭药箱v1收尾执行计划](../plans/2026-10-02-project-closeout.md)，顺序C0工程归一→C1可靠性→C2简洁交互→C3双端补齐→C4资料/导出→C5门禁→C6部署恢复→C7家庭试用。
 - 当前主目录 `E:\project\medcial_box`，分支 `codex/flutter-ui-prototype`；编写基线7a94f50。H0/S1/S2/S3已有修复提交；S4会话/导航/草稿/导出等工作区改动待验收整合，不重新实现。
 - 本轮仅核对代码/文档并创建计划、同步台账，测试/构建/真机/平台/部署全部**本轮NOT_RUN**；下方旧统计及旧阻塞是历史记录。
 - 仍需完成：单页添加体验、Android既定计划/通知等功能、真实拍扫/资料和分享、独立HTTPS及恢复、双账号两手机验收。专用AppID已有配置，不能继续称未确认；SDK/CLI按当前环境检查，不沿用旧“无SDK”结论。
@@ -88,21 +88,21 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 # 历史状态 · 2026-10-01 双端录入体验与用药计划
 
-- **2026-10-02 模拟器实跑通过**：`wechatide` CLI skill 通道首次打通（CodeBuddy 客户端已授权、工具已登录 Jovi），项目导入开发者工具后在模拟器内完成**全链路实跑**：真实 wx.login（开发网关）→ 建家庭 → 录药 → 详情 → 创建计划 → 今日安排确认 → 计划详情历史 → 版本说明；console 无错误，PG 逐条核验一致。新增 `scripts/dev-simulator-server.mjs`（真实 API + 真实 PG + 开发网关，端口 13300；本机 3000 被其他项目占用）。发现并修复 `dist/` 陈旧导致的 auth/me 404（教训：跑 dist 前先构建）。证据 14 张截图 + 报告：[模拟器实跑报告](reports/2026-10-02-simulator-run.md)。
+- **2026-10-02 模拟器实跑通过**：`wechatide` CLI skill 通道首次打通（CodeBuddy 客户端已授权、工具已登录 Jovi），项目导入开发者工具后在模拟器内完成**全链路实跑**：真实 wx.login（开发网关）→ 建家庭 → 录药 → 详情 → 创建计划 → 今日安排确认 → 计划详情历史 → 版本说明；console 无错误，PG 逐条核验一致。新增 `scripts/dev-simulator-server.mjs`（真实 API + 真实 PG + 开发网关，端口 13300；本机 3000 被其他项目占用）。发现并修复 `dist/` 陈旧导致的 auth/me 404（教训：跑 dist 前先构建）。证据 14 张截图 + 报告：[模拟器实跑报告](../reports/2026-10-02-simulator-run.md)。
 
 - **2026-10-02 更新**：药箱专用 AppID 已确认（`wx1f6dd99d28aab8e5`，公开客户端标识，已填入 `project.config.json`）。服药提醒模板环境变量接线补齐（`WECHAT_DOSE_REMINDER_TEMPLATE_ID` / `WECHAT_DOSE_REMINDER_FIELD_MAP` / `WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED`，含 compose 传递与 env 样例）。剩余人工步骤：① AppSecret 由所有者填入服务端 `deploy/.env.local`（不进聊天/仓库）；② mp 后台申请订阅消息模板并回填模板 ID；③ 开发者工具扫码登录后真机预览。`wechatide` CLI 仍被 `reg.exe` 黑名单阻塞。
-- **本次更新（R3 + R4）**：R3 用药计划全链路完成并验证（后端详情/编辑/历史/授权接口 + 小程序今日安排、全部计划、计划详情、照护对象与共享权限页）；R4 服药提醒服务端链路完成（迁移 `018`、排队/复核/取消调度器、订阅与发送结果展示）并完成版本介绍与更新链路。**当前 PASS**：根 `lint`/`typecheck`/`build`；小程序 **96/96**；API 单元 **184**；工具 6/6；**严格真实 PostgreSQL 59/59**（19+4+6+5+6+10+9）；官方编译器门禁 **47 个文件全部通过**。详见 [R3/R4 交付与测试报告](reports/2026-10-01-r3-r4-medication-and-reminders.md)。
+- **本次更新（R3 + R4）**：R3 用药计划全链路完成并验证（后端详情/编辑/历史/授权接口 + 小程序今日安排、全部计划、计划详情、照护对象与共享权限页）；R4 服药提醒服务端链路完成（迁移 `018`、排队/复核/取消调度器、订阅与发送结果展示）并完成版本介绍与更新链路。**当前 PASS**：根 `lint`/`typecheck`/`build`；小程序 **96/96**；API 单元 **184**；工具 6/6；**严格真实 PostgreSQL 59/59**（19+4+6+5+6+10+9）；官方编译器门禁 **47 个文件全部通过**。详见 [R3/R4 交付与测试报告](../reports/2026-10-01-r3-r4-medication-and-reminders.md)。
 - 本轮修复的真实缺陷：① 今日安排客户端未排序（已按时间升序）；② 改期删除时间点会级联删掉服药历史（迁移 `017` 改为归档时间点，历史保留、未来按新时间点物化）。
 - **NOT_RUN/BLOCKED**：R4 真实微信模板送达需药箱专用 AppID（`BLOCKED_PLATFORM`，计划与今日安排不受影响）；Android 双渠道通知与精确闹钟、R0 收口 A06/A09 与 A03 UI 层需 Flutter SDK；R5 双账号两手机试用需两台设备。
-- **R5 准备就绪**：验收 runbook 已落地——[R5 家庭试用验收清单](reports/2026-10-01-r5-family-trial-checklist.md)（8 节 40 项：独立部署、账号与家庭、录入与库存、备份恢复、用药计划、通知与更新、双端回归、证据留存，前置人工项与阻塞项已标注）。所有可自动化部分已全部完成，剩余均为外部授权/设备依赖。
+- **R5 准备就绪**：验收 runbook 已落地——[R5 家庭试用验收清单](../reports/2026-10-01-r5-family-trial-checklist.md)（8 节 40 项：独立部署、账号与家庭、录入与库存、备份恢复、用药计划、通知与更新、双端回归、证据留存，前置人工项与阻塞项已标注）。所有可自动化部分已全部完成，剩余均为外部授权/设备依赖。
 
 ---
 
 # 历史状态 · 2026-10-01 双端录入体验与用药计划（R0 进行中）
 
-- 当前阶段：按 [2026-10-01 双端录入体验与用药计划实施方案](plans/2026-10-01-dual-client-experience-and-medication.md) 推进 **R0 数据修复**；优先级固定为 数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
-- R0 进度：**A01/A02/A04/A05/A07/A08/A12/A14/A15 已修复并有行为测试与真实 PG 证据**（小程序 56/56、PG 19/19 + 4/4）；**A06、A09 为 Flutter 改动，本机无 Flutter SDK 未验证**，R0 待 Flutter 环境收口后进入 R1。详见 [R0 就绪核对报告](reports/2026-10-01-r0-readiness.md)。
-- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 56/56；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 4/4**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
+- 当前阶段：按 [2026-10-01 双端录入体验与用药计划实施方案](../plans/2026-10-01-dual-client-experience-and-medication.md) 推进 **R0 数据修复**；优先级固定为 数据正确性 → 录入和查找 → 用药计划 → 真实通知 → 后续分析。
+- R0 进度：**A01/A02/A04/A05/A07/A08/A12/A14/A15 已修复并有行为测试与真实 PG 证据**（小程序 56/56、PG 19/19 + 4/4）；**A06、A09 为 Flutter 改动，本机无 Flutter SDK 未验证**，R0 待 Flutter 环境收口后进入 R1。详见 [R0 就绪核对报告](../reports/2026-10-01-r0-readiness.md)。
+- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 56/56；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 4/4**。详见 [修复批次报告](../reports/2026-10-01-s0-s1-fix-report.md)。
 - 当前 NOT_RUN：Flutter `analyze`/`test`/`build apk`（本机无 Flutter SDK）、真机预览与上传（需专用 AppID 并登录开发者工具）、真实订阅消息送达、双账号双手机试用、ECS 独立部署。
 - 本机**新增小程序官方编译器门禁**：`npm run check:miniprogram` 调用开发者工具自带的 `wcc`／`wcsc` 逐个编译 WXML／WXSS（当前 **39 个文件全部通过**）。微信开发者工具版本 `2.02.2609231`。
 - **BLOCKED_ENV**：`wechatide` CLI 无法启动 IDE——CLI 内部调用 `reg.exe` 被本机安全策略列入程序黑名单（提示不可批准、不可绕过）。解除方式：安全中心 → 命令安全 → 程序黑名单移除 `reg.exe`；之后首次启动开发者工具还需扫码登录并允许「设备连接 CLI」授权。完成后即可用 CLI 跑编译／预览／自动化。
@@ -115,9 +115,9 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 # 历史状态 · 2026-10-01 S0+S1 修复批次
 
 - 该批次结论：**S0 与 S1 已完成并验证通过，A03 的 Flutter 部分代码已改但本机无 Flutter SDK 未运行验证**；S2/S3/S4/S5 当时未开始。
-- 基线：`codex/flutter-ui-prototype / 47d36e30`。本批次修复 A01、A02、A03（数据层）、A04、A07、A12，对应 [候选修复计划](plans/2026-09-30-candidate-hardening.md) 的 S0 + S1。
+- 基线：`codex/flutter-ui-prototype / 47d36e30`。本批次修复 A01、A02、A03（数据层）、A04、A07、A12，对应 [候选修复计划](../plans/2026-09-30-candidate-hardening.md) 的 S0 + S1。
 - 本批次提交：`33b30a823edb322485116c219baa0d90cfc4af77`，已推送 `origin/codex/flutter-ui-prototype`（`47d36e3..33b30a8`）。
-- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 51/51；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 3/3**。详见 [修复批次报告](reports/2026-10-01-s0-s1-fix-report.md)。
+- 当前 PASS：根 `lint`/`typecheck`/`build`；小程序 51/51；API 单元 182 PASS；工具 6/6；**严格真实 PostgreSQL 19/19 + 提醒套件 3/3**。详见 [修复批次报告](../reports/2026-10-01-s0-s1-fix-report.md)。
 - 当前 NOT_RUN：Flutter `analyze`/`test`（本机无 Flutter SDK）、APK 构建、真机与微信开发者工具、真实消息送达、双账号双设备试用、ECS 部署。
 - 剩余问题：A05/A06/A08/A09/A10/A11/A13/A14/A15（S2/S3）；S4 功能补齐（连续照片草稿、小程序 CSV/PDF、成员提醒时刻）；A03 的 UI 层（运行期 401 统一失效、断网退出导航）。
 - 本轮新增：`apps/api/test/integration-pg-reminders.test.mjs`、`apps/miniprogram/services/session-scope.ts`、`apps/flutter/test/session_identity_switch_test.dart`。
@@ -128,7 +128,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 # 历史状态 · 2026-09-30 审核
 
 - 结论：**CHANGES_REQUIRED / PARTIAL**。审核基线 `codex/flutter-ui-prototype / 47d36e30d091d68d4b5a6d5bf3ad346ef0ab2792`。
-- 审核发现 15 组问题，包含备份恢复丢失期限/说明书、已处理库存恢复为活动状态、身份切换残留数据、编辑误新增、盘点旧版本及提醒收件人复核缺失。详见 [审核报告](reviews/2026-09-30-plan-code-audit.md)。
+- 审核发现 15 组问题，包含备份恢复丢失期限/说明书、已处理库存恢复为活动状态、身份切换残留数据、编辑误新增、盘点旧版本及提醒收件人复核缺失。详见 [审核报告](../reviews/2026-09-30-plan-code-audit.md)。
 - 该轮 PASS：根 lint/typecheck/test/build；API 178 PASS/1 可选 PG SKIPPED、Mini 47/47、tooling 6/6；Flutter analyze/test 40/40；本地候选服务健康只读检查。
 - 该轮 NOT_RUN：严格真实 PostgreSQL、APK 构建、手机/微信开发者工具、供应商、真实消息及远端验收。
 
