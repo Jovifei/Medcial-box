@@ -24,6 +24,10 @@ enum _ImageAction { camera, gallery }
 
 enum _DraftExitAction { keep, discard, continueEditing }
 
+class _DraftSaveFailure implements Exception {
+  const _DraftSaveFailure();
+}
+
 class MedicineEntryApiPage extends StatefulWidget {
   const MedicineEntryApiPage({
     super.key,
@@ -382,6 +386,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     var acknowledged = false;
     await _persistDraft(() async {
       acknowledged = await draftQueue.save(id, fields);
+      if (!acknowledged) return;
       if (legacy && mounted && _isDraftIdentityCurrent) {
         final previous = await widget.localStore.readDraft(_draftKey);
         if (!mounted || !_isDraftIdentityCurrent) return;
@@ -396,6 +401,23 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
     });
     return acknowledged;
+  }
+
+  // Explicit decisions require a durable ACK. Autosave keeps using the
+  // best-effort bool API, without showing unsolicited failure prompts.
+  Future<void> _requireDraftSave({bool legacy = true}) async {
+    try {
+      if (!await _saveDraft(legacy: legacy)) throw const _DraftSaveFailure();
+    } catch (_) {
+      throw const _DraftSaveFailure();
+    }
+  }
+
+  void _showDraftSaveFailure() {
+    if (mounted && _isDraftIdentityCurrent) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('草稿保存失败，内容仍在当前页面。请重试。')));
+    }
   }
 
   String _editableSnapshot() {
@@ -493,7 +515,16 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Future<void> _chooseDraft() async {
     if (handlingBack || !_isDraftIdentityCurrent) return;
     final originalId = draftId;
-    if (dirty) await _saveDraft(legacy: false);
+    if (dirty) {
+      try {
+        await _requireDraftSave(legacy: false);
+      } catch (_) {
+        if (mounted && _isDraftIdentityCurrent && draftId == originalId) {
+          _showDraftSaveFailure();
+        }
+        return;
+      }
+    }
     if (!mounted || !_isDraftIdentityCurrent || handlingBack) return;
     final drafts = await draftQueue.list();
     final legacy = await widget.localStore.readDraft(_draftKey);
@@ -595,7 +626,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         _isDraftIdentityCurrent &&
         !handlingBack &&
         draftId == selectedId) {
-      await _saveDraft();
+      try {
+        await _requireDraftSave();
+      } catch (_) {
+        if (mounted && _isDraftIdentityCurrent && draftId == selectedId) {
+          _showDraftSaveFailure();
+        }
+      }
     }
   }
 
@@ -664,7 +701,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         String snapshot;
         do {
           snapshot = jsonEncode(_draftFields());
-          await _saveDraft();
+          await _requireDraftSave();
           if (!isCurrentIntent()) return;
         } while (snapshot != jsonEncode(_draftFields()));
       } else {
@@ -682,7 +719,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         if (!isCurrentIntent()) return;
         if (snapshot != _editableSnapshot()) {
           // The discard decision did not cover edits entered while deleting.
-          await _saveDraft();
+          await _requireDraftSave();
           return;
         }
       }
@@ -847,7 +884,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       };
       _syncPhotoDrafts();
       photoDrafts.add(pendingPhoto);
-      final reserved = await _saveDraft(legacy: false);
+      final reserved = await _saveDraft(legacy: false)
+          .catchError((Object _) => throw const _DraftSaveFailure());
       if (!reserved) {
         photoDrafts.remove(pendingPhoto);
         if (mounted && _isDraftIdentityCurrent) {
@@ -872,9 +910,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
       pendingPhoto['state'] = 'ready';
       try {
-        if (!await _saveDraft(legacy: false)) {
-          throw StateError('照片完成回执未确认，请保留草稿后重试。');
-        }
+        await _requireDraftSave(legacy: false);
       } catch (_) {
         pendingPhoto['state'] = 'reserved';
         rethrow;
@@ -892,9 +928,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         frontPhotoId = null;
       }
       _markDirty();
-      if (!await _saveDraft(legacy: false)) {
+      try {
+        await _requireDraftSave(legacy: false);
+      } catch (_) {
         restorePreviousPhotos();
-        return;
+        rethrow;
       }
       if (!mounted ||
           request != recognitionRequest ||
@@ -906,7 +944,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         recognitionFailure = null;
         recognitionWarnings = const [];
       });
-      await _saveDraft(legacy: false);
+      await _requireDraftSave(legacy: false);
       try {
         if (!mounted ||
             request != recognitionRequest ||
@@ -1001,7 +1039,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           recognizing = false;
           recognitionWarnings = draft.warnings;
         });
-        await _saveDraft(legacy: false);
+        await _requireDraftSave(legacy: false);
       } catch (error) {
         recognitionTimer?.cancel();
         if (!mounted || request != recognitionRequest) return;
@@ -1009,7 +1047,15 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           recognizing = false;
           recognitionFailure = error;
         });
-        await _saveDraft(legacy: false);
+        if (error is _DraftSaveFailure) {
+          _showDraftSaveFailure();
+          return;
+        }
+        try {
+          await _requireDraftSave(legacy: false);
+        } catch (_) {
+          _showDraftSaveFailure();
+        }
       }
     } catch (error) {
       final pending = unregisteredDirectory;
@@ -1042,6 +1088,17 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         }
       }
       if (!mounted) return;
+      if (error is _DraftSaveFailure) {
+        if (_isDraftIdentityCurrent) {
+          recognitionTimer?.cancel();
+          setState(() {
+            recognizing = false;
+            recognitionFailure = error;
+          });
+          _showDraftSaveFailure();
+        }
+        return;
+      }
       final value = error.toString().toLowerCase();
       final denied = value.contains('permission') || value.contains('denied');
       ScaffoldMessenger.of(context).showSnackBar(

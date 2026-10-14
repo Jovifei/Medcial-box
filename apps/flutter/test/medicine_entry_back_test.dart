@@ -25,6 +25,7 @@ class _ControlledStore extends MemoryInventoryLocalStore {
   String? failWriteKey;
   bool failDelete = false;
   bool failAfterWrite = false;
+  bool dropQueueWrites = false;
   Completer<void>? writeGate;
   Completer<void>? readGate;
   Completer<void>? deleteGate;
@@ -45,6 +46,7 @@ class _ControlledStore extends MemoryInventoryLocalStore {
   @override
   Future<void> saveDraft(String key, String json) async {
     writes.add(key);
+    if (dropQueueWrites && key == MedicineDraftQueue.storageKey) return;
     if (failWriteKey == key) throw StateError('synthetic write failure');
     final gate = writeGate;
     writeGate = null;
@@ -506,4 +508,90 @@ void main() {
       _expectProtected(tester, '原家庭草稿');
     },
   );
+  for (final failure in ['false', 'throw']) {
+    testWidgets(
+      'ACK keep $failure stays editable and normal retry preserves the same draft',
+      (tester) async {
+        final store = _ControlledStore();
+        await _openEntry(tester, store);
+        await _edit(tester, 'Original retained');
+        final before = store.drafts[MedicineDraftQueue.storageKey];
+        final legacyBefore = store.drafts[_legacyKey];
+        store.dropQueueWrites = failure == 'false';
+        store.failWriteKey = failure == 'throw'
+            ? MedicineDraftQueue.storageKey
+            : null;
+        await _edit(tester, 'Unsaved latest');
+        expect(
+          find.text('草稿保存失败，内容仍在当前页面。请重试。'),
+          findsNothing,
+          reason: 'best-effort autosave must remain quiet',
+        );
+        await _leave(tester, '保留草稿');
+        _expectProtected(tester, 'Unsaved latest');
+        expect(store.drafts[MedicineDraftQueue.storageKey], before);
+        expect(store.drafts[_legacyKey], legacyBefore);
+        expect(find.text('草稿保存失败，内容仍在当前页面。请重试。'), findsOneWidget);
+        store.dropQueueWrites = false;
+        store.failWriteKey = null;
+        await _leave(tester, '保留草稿');
+        expect(find.byType(MedicineEntryApiPage), findsNothing);
+        expect(
+          (jsonDecode(
+            store.drafts[MedicineDraftQueue.storageKey]!,
+          ) as List).single['name'],
+          'Unsaved latest',
+        );
+      },
+    );
+    testWidgets(
+      'ACK import $failure cannot replace unsaved form and normal retry retains both entries',
+      (tester) async {
+        final store = _ControlledStore();
+        await store.saveDraft(
+          MedicineDraftQueue.storageKey,
+          jsonEncode([
+            {'id': 'saved-other', 'name': 'Saved other'},
+          ]),
+        );
+        await _openEntry(tester, store);
+        await _edit(tester, 'Original retained');
+        final before = store.drafts[MedicineDraftQueue.storageKey];
+        store.dropQueueWrites = failure == 'false';
+        store.failWriteKey = failure == 'throw'
+            ? MedicineDraftQueue.storageKey
+            : null;
+        await _edit(tester, 'Unsaved latest');
+        expect(
+          find.text('草稿保存失败，内容仍在当前页面。请重试。'),
+          findsNothing,
+          reason: 'best-effort autosave must remain quiet',
+        );
+        await tester.tap(find.byTooltip('导入草稿'));
+        await tester.pumpAndSettle();
+        expect(find.text('恢复未完成的药品录入'), findsNothing);
+        _expectProtected(tester, 'Unsaved latest');
+        expect(store.drafts[MedicineDraftQueue.storageKey], before);
+        expect(find.text('草稿保存失败，内容仍在当前页面。请重试。'), findsOneWidget);
+        store.dropQueueWrites = false;
+        store.failWriteKey = null;
+        await tester.tap(find.byTooltip('导入草稿'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Saved other'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<TextField>(find.byType(TextField).first)
+              .controller!
+              .text,
+          'Saved other',
+        );
+        expect(
+          (jsonDecode(store.drafts[MedicineDraftQueue.storageKey]!) as List)
+              .any((draft) => draft['name'] == 'Unsaved latest'),
+          true,
+        );
+      },
+    );
+  }
 }

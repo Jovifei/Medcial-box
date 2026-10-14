@@ -67,8 +67,18 @@ class _CopyFile implements File {
 
 class _AckStore extends MemoryInventoryLocalStore {
   bool drop = false;
+  int queueWrites = 0;
+  int? failFrom;
+  bool throwOnFailure = false;
   @override
   Future<void> saveDraft(String key, String json) async {
+    if (key.startsWith('medicine-entry-queue.v1')) {
+      queueWrites++;
+      if (failFrom != null && queueWrites >= failFrom!) {
+        if (throwOnFailure) throw StateError('synthetic ACK write failure');
+        return;
+      }
+    }
     if (!drop) await super.saveDraft(key, json);
   }
 }
@@ -87,6 +97,10 @@ void main() {
     'delete',
     'discard',
     'cleanup-blocked',
+    'ACK-capture-later-false',
+    'ACK-capture-later-throw',
+    'ACK-capture-status-false',
+    'ACK-capture-status-throw',
   ]) {
     testWidgets(
       '$mode: same-format retake preserves originals, receipts and cover choice',
@@ -121,7 +135,7 @@ void main() {
               .writeAsBytes(nextBytes);
           ImagePickerPlatform.instance = _Picker([first, second]);
           PathProviderPlatform.instance = _Paths(root);
-          final store = MemoryInventoryLocalStore();
+          final store = _AckStore();
           final uploads = <Map<String, dynamic>>[];
           final recognitionRequests = <String>[];
           final remote = <String, String>{};
@@ -263,7 +277,7 @@ void main() {
           }
 
           var captures = 0;
-          Future<void> capture() async {
+          Future<void> capture({bool ackFailure = false}) async {
             captures++;
             await tester.ensureVisible(find.text('从相册选择'));
             await tester.tap(find.text('从相册选择'));
@@ -274,6 +288,13 @@ void main() {
             ) {
               await Future<void>.delayed(const Duration(milliseconds: 10));
               await tester.pump();
+            }
+            if (ackFailure) {
+              for (var i = 0; i < 40; i++) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+                await tester.pump();
+              }
+              return;
             }
             await tester.pump(const Duration(milliseconds: 500));
             if (mode == 'picker-gone') {
@@ -302,6 +323,49 @@ void main() {
 
           if (mode == 'legacy') {
             ImagePickerPlatform.instance = _Picker([second]);
+          }
+          if (mode.startsWith('ACK-capture')) {
+            store.queueWrites = 0;
+            store.failFrom = mode.contains('later') ? 3 : 4;
+            store.throwOnFailure = mode.endsWith('throw');
+            final callsBefore = recognitionRequests.length;
+            await capture(ackFailure: true);
+            final unexpectedDialog = find.text('AI 识别').evaluate().isNotEmpty;
+            if (unexpectedDialog) {
+              await tester.pumpWidget(const SizedBox());
+              await tester.pumpAndSettle();
+            }
+            expect(
+              unexpectedDialog,
+              false,
+              reason: 'failed draft ACK cannot begin recognition',
+            );
+            expect(recognitionRequests.length, callsBefore);
+            expect(find.text('草稿保存失败，内容仍在当前页面。请重试。'), findsOneWidget);
+            expect(state.recognizing, false);
+            if (mode.contains('later')) expect(state.image.path, originalPath);
+            final retained = (jsonDecode(
+              store.drafts['medicine-entry-queue.v1']!,
+            ) as List).single;
+            expect(retained['photos'].length, 2);
+            for (final photo in retained['photos']) {
+              expect(await File(photo['path'] as String).exists(), true);
+            }
+            expect(await File(originalPath).readAsBytes(), originalBytes);
+            store.failFrom = null;
+            store.queueWrites = 0;
+            ImagePickerPlatform.instance = _Picker([second]);
+            ScaffoldMessenger.of(
+              tester.element(find.byType(MedicineEntryApiPage)),
+            ).clearSnackBars();
+            await tester.pumpAndSettle();
+            await capture();
+            expect(recognitionRequests.length, callsBefore + 1);
+            expect(state.photoDrafts.length, 3);
+            expect(await File(originalPath).readAsBytes(), originalBytes);
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpAndSettle();
+            return;
           }
           await capture();
           final String retakePath = state.image.path as String;
