@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '1.0.5';
+const String appVersion = '1.0.6';
 
 class ReleaseNote {
   const ReleaseNote({
@@ -18,6 +18,15 @@ class ReleaseNote {
 }
 
 const List<ReleaseNote> releaseNotes = [
+  ReleaseNote(
+    version: '1.0.6',
+    date: '2026-10-16',
+    items: [
+      '区分相机相册权限、取消、读图和服务失败，照片草稿继续保留。',
+      '商品条码与追溯码分别说明，未匹配资料不猜测药名。',
+      '识别候选须本人核对，确认保存后再读回验证。',
+    ],
+  ),
   ReleaseNote(
     version: '1.0.5',
     date: '2026-10-15',

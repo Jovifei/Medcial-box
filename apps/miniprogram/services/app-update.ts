@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.0.5";
+export const APP_VERSION = "1.0.6";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,15 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.0.6",
+    date: "2026-10-16",
+    items: [
+      "区分拍照扫码取消、权限、读图和服务失败，未读到码不再提示已保留。",
+      "商品条码与追溯码分别说明，资料无匹配时不猜测药名。",
+      "识别只填待核对候选，确认保存后再验证重开读取。",
+    ],
+  },
   {
     version: "1.0.5",
     date: "2026-10-15",

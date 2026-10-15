@@ -69,6 +69,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-15 independent review: draft-import confirmation rechecks captured scope and session, including ABA.
   // Existing identity helpers only; native/filesystem/component capability sets unchanged.
   'de0efda35f23cc746e45b44c3e2d8f6e19597b9e',
+  // 2026-10-16 independent review: capture failure stages and code-type labels, version1.0.6.
+  // No additional wx/fs/network/component capabilities; ownership helper unchanged.
+  'd5d021680cfb578fbc5767bf662b78db1dc9becc',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

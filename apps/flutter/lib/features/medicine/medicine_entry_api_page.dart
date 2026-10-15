@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,6 +22,27 @@ import '../../domain/ingredient_match.dart';
 import '../../models/medicine_models.dart';
 
 enum _ImageAction { camera, gallery }
+
+bool _isProductBarcode(String code) => RegExp(r'^\d{8,14}$').hasMatch(code);
+bool _isTraceabilityCode(String code) => RegExp(r'^\d{20}$').hasMatch(code);
+
+String _recognitionErrorMessage(Object error) {
+  if (error is FileSystemException) return '无法读取本机照片，请重新选择或拍照。';
+  if (error is FormatException) {
+    const messages = {
+      '请选择不超过 4 MB 的药盒照片。',
+      '照片格式或大小不正确。',
+      '仅支持 JPEG 或 PNG 药盒照片。',
+    };
+    return messages.contains(error.message)
+        ? error.message
+        : '识别结果格式异常，请重试或手动录入。';
+  }
+  if (error is MissingPluginException || error is PlatformException) {
+    return '本机识别暂不可用，可选择 AI 识别或手动录入。';
+  }
+  return friendlyApiError(error);
+}
 
 enum _DraftExitAction { keep, discard, continueEditing }
 
@@ -790,6 +812,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       return;
     }
     if (!_isDraftIdentityCurrent) return;
+    final entryDraftId = draftId;
     action ??= await showAppSheet<_ImageAction>(
       context,
       title: '拍药盒',
@@ -814,12 +837,18 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ],
       ),
     );
-    if (action == null || !mounted) return;
+    if (action == null ||
+        !mounted ||
+        !_isDraftIdentityCurrent ||
+        draftId != entryDraftId) {
+      return;
+    }
     if (_isCleanupDraft) {
       _showCleanupHint();
       return;
     }
     Directory? unregisteredDirectory;
+    final request = ++recognitionRequest;
     final previousPhotos = (image, expiryImage, frontPhotoId, expiryPhotoId);
     void restorePreviousPhotos() {
       image = previousPhotos.$1;
@@ -836,13 +865,24 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         imageQuality: 90,
         maxWidth: 1800,
       );
-      if (selected == null || !mounted) return;
+      if (selected == null ||
+          !mounted ||
+          !_isDraftIdentityCurrent ||
+          draftId != entryDraftId ||
+          request != recognitionRequest) {
+        return;
+      }
       if (_isCleanupDraft) {
         _showCleanupHint();
         return;
       }
-      final request = ++recognitionRequest;
       final support = await getApplicationSupportDirectory();
+      if (!mounted ||
+          !_isDraftIdentityCurrent ||
+          draftId != entryDraftId ||
+          request != recognitionRequest) {
+        return;
+      }
       final directory = Directory('${support.path}/medicine-draft-images');
       await directory.create(recursive: true);
       final originalBytes = await File(selected.path).readAsBytes();
@@ -975,7 +1015,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             !_isDraftIdentityCurrent) {
           return;
         }
-        if (leafletPhoto && useServer != true) {
+        if (useServer == null || (leafletPhoto && useServer != true)) {
           setState(() => recognizing = false);
           return;
         }
@@ -1041,8 +1081,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         });
         await _requireDraftSave(legacy: false);
       } catch (error) {
+        if (!mounted ||
+            request != recognitionRequest ||
+            !_isDraftIdentityCurrent ||
+            draftId != entryDraftId) {
+          return;
+        }
         recognitionTimer?.cancel();
-        if (!mounted || request != recognitionRequest) return;
         setState(() {
           recognizing = false;
           recognitionFailure = error;
@@ -1087,7 +1132,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           unregisteredDirectory = null;
         }
       }
-      if (!mounted) return;
+      if (!mounted ||
+          !_isDraftIdentityCurrent ||
+          draftId != entryDraftId ||
+          request != recognitionRequest) {
+        return;
+      }
       if (error is _DraftSaveFailure) {
         if (_isDraftIdentityCurrent) {
           recognitionTimer?.cancel();
@@ -1099,11 +1149,26 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         }
         return;
       }
-      final value = error.toString().toLowerCase();
-      final denied = value.contains('permission') || value.contains('denied');
+      final source = action == _ImageAction.camera ? '相机' : '相册';
+      final denied =
+          error is PlatformException &&
+          const {
+            'camera_access_denied',
+            'photo_access_denied',
+            'camera_access_restricted',
+            'photo_access_restricted',
+            'camera_access_denied_without_prompt',
+            'photo_access_denied_without_prompt',
+          }.contains(error.code.toLowerCase());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(denied ? '相机或相册权限未开启，请在系统设置中允许访问。' : '无法打开相机或相册，请重试。'),
+          content: Text(
+            error is FileSystemException
+                ? '无法读取或保存所选照片，请重新选择或拍照。'
+                : denied
+                ? '$source权限未开启，请在系统设置中允许访问。'
+                : '无法打开$source，请重试或${action == _ImageAction.camera ? '从相册选择' : '拍照录入'}。',
+          ),
         ),
       );
     } finally {
@@ -1127,16 +1192,19 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     }
     if (!_isDraftIdentityCurrent) return;
     final request = recognitionRequest;
+    final entryDraftId = draftId;
     final code = await Navigator.of(
       context,
     ).push<String>(MaterialPageRoute(builder: (_) => const _BarcodeScanPage()));
     if (!mounted ||
         code == null ||
         _isCleanupDraft ||
+        draftId != entryDraftId ||
         !_isDraftIdentityCurrent ||
         request != recognitionRequest) {
       return;
     }
+    if (!_isProductBarcode(code) && !_isTraceabilityCode(code)) return;
     setState(() => scannedCode = code);
     _markDirty();
     await _searchCatalog(barcode: code);
@@ -1168,6 +1236,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     if (barcode == null && query.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('请先识别或填写药品名称，或扫描药盒编码。')));
+      return;
+    }
+    if (barcode != null && _isTraceabilityCode(barcode)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('已读取 20 位码，可能是药品追溯码；不能据此确认药名，可改扫商品条码或拍照识别。'),
+        ),
+      );
       return;
     }
     final consent = await showDialog<bool>(
@@ -1873,11 +1949,16 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             icon: Icons.manage_search_rounded,
                             onPressed: searchingCatalog
                                 ? null
-                                : () => _searchCatalog(),
+                                : () => _searchCatalog(
+                                    barcode: nameController.text.trim().isEmpty
+                                        ? scannedCode
+                                        : null,
+                                  ),
                           ),
                         ],
                         if (image != null) ...[
                           const SizedBox(height: 12),
+                          const Text('识别资料仅供录入参考，请逐项人工核对后保存。'),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: Image.file(
@@ -1885,6 +1966,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                               height: 150,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Text('照片预览不可用，可重新选择或拍照。'),
                             ),
                           ),
                         ],
@@ -1915,7 +1998,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         if (scannedCode != null) ...[
                           const SizedBox(height: 10),
                           SelectableText('药盒编码：$scannedCode'),
-                          const Text('商品码和追溯码可能用途不同；读取编码不代表已查到药品资料。'),
+                          const Text(
+                            '8–14 位商品条码用于查询候选资料；20 位码可能是药品追溯码，不能据此确认药名。资料须人工核对。',
+                          ),
                         ],
                         if (recognizing) ...[
                           const SizedBox(height: 12),
@@ -1927,7 +2012,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
                             child: Text(
-                              '识别失败，可继续手动保存：${friendlyApiError(recognitionFailure!)}',
+                              '识别失败，可继续手动保存：${_recognitionErrorMessage(recognitionFailure!)}',
                             ),
                           ),
                         if (recognitionWarnings.isNotEmpty)
@@ -2380,13 +2465,18 @@ class _BarcodeScanPage extends StatefulWidget {
 
 class _BarcodeScanPageState extends State<_BarcodeScanPage> {
   bool handled = false;
+  String? scanHint;
 
   void _onDetect(BarcodeCapture capture) {
-    if (handled || capture.barcodes.isEmpty) return;
-    final code = capture.barcodes.first.rawValue?.trim();
-    if (code == null || code.isEmpty) return;
-    handled = true;
-    Navigator.of(context).pop(code);
+    if (!mounted || handled || capture.barcodes.isEmpty) return;
+    for (final barcode in capture.barcodes) {
+      final code = barcode.rawValue?.trim() ?? '';
+      if (!_isProductBarcode(code) && !_isTraceabilityCode(code)) continue;
+      handled = true;
+      Navigator.of(context).pop(code);
+      return;
+    }
+    setState(() => scanHint = '请扫描 8–14 位商品条码或 20 位码（可能是药品追溯码）；未保存其他内容。');
   }
 
   @override
@@ -2428,14 +2518,17 @@ class _BarcodeScanPageState extends State<_BarcodeScanPage> {
             ),
           ),
         ),
-        const Align(
+        Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Card(
               child: Padding(
                 padding: EdgeInsets.all(14),
-                child: Text('对准药盒条形码或二维码。读取编码只生成候选，不代表药品资料已经核实。'),
+                child: Text(
+                  scanHint ??
+                      '对准 8–14 位商品条码或 20 位码（可能是药品追溯码）。读取编码不代表药品资料已核实，请人工确认。',
+                ),
               ),
             ),
           ),

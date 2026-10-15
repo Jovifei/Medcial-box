@@ -196,7 +196,24 @@ function rebasePhotoValue(current: unknown, baseline: unknown, latest: unknown, 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
 const NATIVE_LEAVE_WARNING = "此表单有未保存修改。离开后会保留本机草稿；如要放弃修改，请使用页面左上角返回按钮。";
 const PHOTO_DRAFT_LIMIT_HINT = "本机已有10份未完成照片草稿，请通过“导入草稿”管理旧草稿后再拍照；原照片和文字仍保留。";
-const UNSUPPORTED_CATALOG_CODE = "此码可能是追溯码或其他标识；当前资料服务仅支持8–14位数字商品条码。原码已保留，可拍药盒尝试生成待核对草稿，或手动填写。";
+const UNSUPPORTED_CATALOG_CODE = "此码可能是追溯码或其他标识；当前资料服务仅支持8–14位数字商品条码。20位码可能是追溯码，不按商品条码查询。原码已保留，可拍药盒尝试生成待核对草稿，或手动填写。";
+
+function nativeFailureKind(error: unknown): "cancel" | "permission" | "other" {
+  const message = typeof error === "object" && error !== null && "errMsg" in error ? String(error.errMsg) : "";
+  if (/cancel/i.test(message)) return "cancel";
+  if (/auth\s*(?:deny|denied)|permission|authorize.*fail|权限/i.test(message)) return "permission";
+  return "other";
+}
+
+function catalogLookupFailureMessage(error: unknown): string {
+  switch (error instanceof ApiError ? error.code : "") {
+    case "MEDICINE_CATALOG_NOT_CONFIGURED": return "商品码已扫到；药品资料服务尚未配置，请拍药盒识别或手动核对。";
+    case "MEDICINE_CATALOG_UNAVAILABLE": return "商品码已扫到；资料服务暂不可用，可稍后重试。";
+    case "NETWORK_ERROR": return "查询失败：网络连接失败；商品码已保留，请检查网络后重试。";
+    case "UNAUTHORIZED": case "UNAUTHENTICATED": case "SESSION_EXPIRED": return "查询失败：登录已失效，请重新登录；商品码已保留。";
+    default: return "条码已保留，查询失败；可重试或手动录入。";
+  }
+}
 
 /**
  * 草稿键必须绑定当前 userId + familyId；没有可用身份时返回 null，
@@ -997,6 +1014,7 @@ Page({
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
     if (!this.entryScopeIsCurrent(originalScope)) return;
     this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
+    let scannedBarcode = "";
     try {
       const shareConsent = await new Promise<boolean>((resolve) => wx.showModal({
         title: "查询药品资料候选",
@@ -1004,17 +1022,21 @@ Page({
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       }));
-      if (!shareConsent || !this.entryScopeIsCurrent(originalScope)) return;
+      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!shareConsent) {
+        this.setData({ recognitionHint: "已取消扫码，未查询资料。" });
+        return;
+      }
       const result = await new Promise<{ result: string }>((resolve, reject) => {
         wx.scanCode({ onlyFromCamera: false, scanType: ["barCode"],
           success: (value) => resolve(value), fail: (error) => reject(error) });
       });
       if (!this.entryScopeIsCurrent(originalScope)) return;
       if (result.result.trim() === "") {
-        this.setData({ recognitionHint: "没有读到条码，请重试或手动录入。" });
+        this.setData({ barcodeLookupStatus: "没有读到条码，请重试或手动录入。", recognitionHint: "没有读到条码，请重试或手动录入。" });
         return;
       }
-      const scannedBarcode = result.result.trim();
+      scannedBarcode = result.result.trim();
       this.setData({ scannedBarcode, barcodeValue: scannedBarcode, canRetryBarcode: false,
         barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
       this.updateDirtyState();
@@ -1041,16 +1063,17 @@ Page({
       });
     } catch (error) {
       if (!this.entryScopeIsCurrent(originalScope)) return;
-      if (typeof error === "object" && error !== null && "errMsg" in error &&
-        String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
-      if (error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED")) {
-        this.setData({ barcodeLookupStatus: error.code === "MEDICINE_CATALOG_NOT_CONFIGURED" ? "商品码已扫到；药品资料服务尚未配置，请拍药盒识别或手动核对。" : "商品码已扫到；资料服务暂不可用，可稍后重试。",
-          recognitionHint: "当前资料服务无法完成条码查询；商品码仍保留在表单中。", canRetryBarcode: true });
-      } else {
-        showError(error);
-        this.setData({ barcodeLookupStatus: "条码已保留，查询失败；可重试或手动录入。",
-          recognitionHint: "扫码查询失败；商品码已保留。", canRetryBarcode: true });
+      if (!scannedBarcode) {
+        const kind = nativeFailureKind(error);
+        const message = kind === "cancel" ? "已取消扫码，未查询资料。"
+          : kind === "permission" ? "扫码权限未允许，请在微信设置中检查相机或相册权限；本次未读取商品码。"
+          : "扫码未读取到商品码，请重新扫描或手动录入。";
+        this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: false });
+        return;
       }
+      const message = catalogLookupFailureMessage(error);
+      this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
+      if (!(error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"))) showError(error);
     } finally {
       this.stopRecognitionClock();
       this.setData({ recognizing: false });
@@ -1100,11 +1123,7 @@ Page({
       });
     } catch (error) {
       if (!this.entryScopeIsCurrent(originalScope)) return;
-      const message = error instanceof ApiError && error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"
-        ? "商品码已扫到；药品资料服务尚未配置，请拍药盒识别或手动核对。"
-        : error instanceof ApiError && error.code === "MEDICINE_CATALOG_UNAVAILABLE"
-        ? "商品码已扫到；资料服务暂不可用，可稍后重试。"
-        : "条码已保留，查询失败；可稍后重试或手动录入。";
+      const message = catalogLookupFailureMessage(error);
       this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
       if (!(error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"))) showError(error);
     } finally {
@@ -1228,6 +1247,7 @@ Page({
     let registered = false;
     let operationDraftId = initialData.activePhotoDraftId;
     let existingDraftId = initialData.activePhotoDraftId;
+    let photoStage: "selection" | "read" | "storage" | "recognition" = "selection";
     const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope) &&
       (!registered || this.currentPhotoDraftQueue(operationDraftId, photo?.path) !== null);
     try {
@@ -1260,6 +1280,7 @@ Page({
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
       }
+      photoStage = "read";
       const imageBase64 = await new Promise<string>((resolve, reject) => {
         wx.getFileSystemManager().readFile({
           filePath: file.tempFilePath,
@@ -1282,6 +1303,7 @@ Page({
       const id = existingDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       operationDraftId = id;
       const fs = wx.getFileSystemManager();
+      photoStage = "storage";
       let sdkVersion = "";
       try { sdkVersion = wx.getSystemInfoSync().SDKVersion; } catch { /* fail closed below */ }
       if (typeof wx.base64ToArrayBuffer !== "function") {
@@ -1332,6 +1354,7 @@ Page({
       });
       if (!operationCurrent()) return;
       this.setData({ recognitionHint: "正在识别药盒，请稍候…保存时照片会上传到家庭私有资料。" });
+      photoStage = "recognition";
       await ensureLoggedIn();
       if (!operationCurrent()) return;
       const result = await api.recognizeMedicine(imageBase64, mimeType, purpose === "leaflet" ? "leaflet" : "box_front");
@@ -1407,8 +1430,17 @@ Page({
       this.updateDirtyState();
     } catch (error) {
       if (!operationCurrent()) return;
-      if (typeof error === "object" && error !== null && "errMsg" in error &&
-        String((error as { errMsg: unknown }).errMsg).includes("cancel")) return;
+      if (nativeFailureKind(error) === "cancel") {
+        this.setData({ recognitionHint: "已取消照片选择，未发送识别请求。" });
+        return;
+      }
+      if (photoStage === "selection" || photoStage === "read") {
+        const message = nativeFailureKind(error) === "permission" ? "照片访问权限未允许，请在微信设置中检查相机或相册权限后重试。"
+          : photoStage === "read" ? "照片读取失败，请重新选择或重拍；尚未发送识别请求。"
+          : "无法打开相机或相册，请稍后重试或手动录入。";
+        this.setData({ recognitionHint: message });
+        return;
+      }
       if (registered) {
         const latest = this.currentPhotoDraftQueue(operationDraftId, photo?.path);
         if (!latest) return;
@@ -1429,7 +1461,11 @@ Page({
         return;
       }
       const code = error instanceof ApiError ? error.code : "";
-      if (code === "RECOGNITION_UNAVAILABLE") {
+      if (code === "NETWORK_ERROR") {
+        this.setData({ recognitionHint: "网络连接失败；照片草稿已保留，请检查网络后重试。" });
+      } else if (["UNAUTHORIZED", "UNAUTHENTICATED", "SESSION_EXPIRED"].includes(code)) {
+        this.setData({ recognitionHint: "登录已失效，请重新登录；照片草稿仍保留。" });
+      } else if (code === "RECOGNITION_UNAVAILABLE") {
         // The API already maps model/context/timeout failures to safe, actionable
         // messages. Do not erase that category into a generic unavailable toast.
         const detail = error instanceof ApiError ? error.message.slice(0, 180) : "";

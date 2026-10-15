@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { loadApi, loadPage, makePageContext } from "./runtime.mjs";
 
 class CatalogError extends Error {
   constructor(code, statusCode) { super("Synthetic lookup failure"); this.code = code; this.statusCode = statusCode; }
 }
+
+test("scan and form labels do not identify every retained packaging code as a product barcode", () => {
+  const template = readFileSync(new URL("../pages/medicine-edit/medicine-edit.wxml", import.meta.url), "utf8");
+  assert.match(template, /已扫描的码/);
+  assert.match(template, /包装码（选填）/);
+  assert.doesNotMatch(template, /已扫描的商品码|商品条码（选填）/);
+  assert.match(template, /资料查询仅支持8–14位数字商品条码，追溯码不用于此查询/);
+});
 
 test("catalog transport waits at most thirty seconds and preserves its consent payload", async () => {
   const requests = [];
@@ -124,6 +133,7 @@ for (const value of ["12345678901234567890", "https://synthetic.invalid/trace/12
     assert.equal(page.data.canRetryBarcode, false);
     assert.equal(page.data.recognizing, false);
     assert.match(page.data.barcodeLookupStatus, /可能是追溯码或其他标识.*仅支持8–14位数字商品条码.*原码已保留.*手动填写/);
+    assert.match(page.data.barcodeLookupStatus, /20位码可能是追溯码，不按商品条码查询/);
   });
 }
 
