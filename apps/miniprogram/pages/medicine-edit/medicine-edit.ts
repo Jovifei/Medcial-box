@@ -1010,9 +1010,11 @@ Page({
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting) return;
     const originalScope = scopedStorageKey("medicine-photo-drafts");
-    if (!this.entryScopeIsCurrent(originalScope)) return;
+    const token = ++this.recognitionToken;
+    const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope);
+    if (!operationCurrent()) return;
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
-    if (!this.entryScopeIsCurrent(originalScope)) return;
+    if (!operationCurrent()) return;
     this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0, canRetryBarcode: false, recognitionHint: "请扫描药盒商品码，查询结果仅作为候选。" });
     let scannedBarcode = "";
     try {
@@ -1022,7 +1024,7 @@ Page({
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       }));
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       if (!shareConsent) {
         this.setData({ recognitionHint: "已取消扫码，未查询资料。" });
         return;
@@ -1031,7 +1033,7 @@ Page({
         wx.scanCode({ onlyFromCamera: false, scanType: ["barCode"],
           success: (value) => resolve(value), fail: (error) => reject(error) });
       });
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       if (result.result.trim() === "") {
         this.setData({ barcodeLookupStatus: "没有读到条码，请重试或手动录入。", recognitionHint: "没有读到条码，请重试或手动录入。" });
         return;
@@ -1046,9 +1048,9 @@ Page({
       }
       this.startRecognitionClock("商品资料");
       await ensureLoggedIn();
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const response = await api.findMedicineCandidates(scannedBarcode);
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       this.setData({
         candidates: response.candidates,
         candidate: response.candidates[0] ?? null,
@@ -1062,7 +1064,7 @@ Page({
         canRetryBarcode: false,
       });
     } catch (error) {
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       if (!scannedBarcode) {
         const kind = nativeFailureKind(error);
         const message = kind === "cancel" ? "已取消扫码，未查询资料。"
@@ -1075,8 +1077,10 @@ Page({
       this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
       if (!(error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"))) showError(error);
     } finally {
-      this.stopRecognitionClock();
-      this.setData({ recognizing: false });
+      if (operationCurrent()) {
+        this.stopRecognitionClock();
+        this.setData({ recognizing: false });
+      }
     }
   },
 
@@ -1089,7 +1093,9 @@ Page({
       return;
     }
     const originalScope = scopedStorageKey("medicine-photo-drafts");
-    if (!this.entryScopeIsCurrent(originalScope)) return;
+    const token = ++this.recognitionToken;
+    const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope);
+    if (!operationCurrent()) return;
     this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0 });
     const consent = await new Promise<boolean>((resolve) => wx.showModal({
       title: "重新查询商品码",
@@ -1097,7 +1103,8 @@ Page({
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
-    if (!consent || !this.entryScopeIsCurrent(originalScope)) {
+    if (!operationCurrent()) return;
+    if (!consent) {
       this.setData({ recognizing: false });
       return;
     }
@@ -1105,10 +1112,10 @@ Page({
     this.setData({ canRetryBarcode: false, barcodeLookupStatus: "正在查询候选资料…" });
     try {
       await ensureLoggedIn();
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       this.startRecognitionClock("商品资料");
       const response = await api.findMedicineCandidates(code);
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       this.setData({
         candidates: response.candidates,
         candidate: response.candidates[0] ?? null,
@@ -1122,13 +1129,15 @@ Page({
           : "暂未找到条码候选资料；商品码已保留，可重试或手动录入。",
       });
     } catch (error) {
-      if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (!operationCurrent()) return;
       const message = catalogLookupFailureMessage(error);
       this.setData({ barcodeLookupStatus: message, recognitionHint: message, canRetryBarcode: true });
       if (!(error instanceof ApiError && (error.code === "MEDICINE_CATALOG_UNAVAILABLE" || error.code === "MEDICINE_CATALOG_NOT_CONFIGURED"))) showError(error);
     } finally {
-      this.stopRecognitionClock();
-      this.setData({ recognizing: false });
+      if (operationCurrent()) {
+        this.stopRecognitionClock();
+        this.setData({ recognizing: false });
+      }
     }
   },
 

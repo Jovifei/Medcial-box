@@ -106,18 +106,39 @@ abstract class MedicineRecognitionRepository {
 
 class ApiMedicineRecognitionRepository
     implements MedicineRecognitionRepository {
-  ApiMedicineRecognitionRepository(this.api, {this.purpose = 'box_front'});
+  ApiMedicineRecognitionRepository(
+    this.api, {
+    this.purpose = 'box_front',
+    this.isCurrent,
+  });
 
   final String purpose;
+  final bool Function()? isCurrent;
 
   final ApiClient api;
 
   @override
   Future<MedicineRecognitionDraft> recognize(XFile image) async {
-    if (await image.length() > 4 * 1024 * 1024) {
+    final epoch = api.identityEpoch;
+    bool current() => epoch == api.identityEpoch && (isCurrent?.call() ?? true);
+    void requireCurrent() {
+      if (!current()) {
+        throw const ApiException(
+          statusCode: 401,
+          code: 'STALE_SESSION',
+          message: '会话已变更，请重新加载。',
+        );
+      }
+    }
+
+    requireCurrent();
+    final length = await image.length();
+    requireCurrent();
+    if (length > 4 * 1024 * 1024) {
       throw const FormatException('请选择不超过 4 MB 的药盒照片。');
     }
     final bytes = await image.readAsBytes();
+    requireCurrent();
     if (bytes.length < 128 || bytes.length > 4 * 1024 * 1024) {
       throw const FormatException('照片格式或大小不正确。');
     }
@@ -136,6 +157,8 @@ class ApiMedicineRecognitionRepository
     }
     final result = await api.post(
       '/api/v1/recognitions/medicine',
+      isCurrent: current,
+      responseIsCurrent: current,
       body: {
         'imageBase64': base64Encode(bytes),
         'mimeType': mimeType,

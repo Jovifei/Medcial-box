@@ -1029,6 +1029,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     ? ApiMedicineRecognitionRepository(
                         widget.repository.api,
                         purpose: leafletPhoto ? 'leaflet' : 'box_front',
+                        isCurrent: () =>
+                            mounted &&
+                            request == recognitionRequest &&
+                            draftId == entryDraftId &&
+                            _isDraftIdentityCurrent &&
+                            !_isCleanupDraft,
                       )
                     : recognition)
                 .recognize(XFile(durable.path));

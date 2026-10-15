@@ -72,6 +72,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-16 independent review: capture failure stages and code-type labels, version1.0.6.
   // No additional wx/fs/network/component capabilities; ownership helper unchanged.
   'd5d021680cfb578fbc5767bf662b78db1dc9becc',
+  // 2026-10-16 follow-up review: barcode generations fence all callbacks and finalizers.
+  // No new native/network/filesystem capabilities; owned-photo helper unchanged.
+  '58fdcfd939f6fc65ac1e7e21e0ca617333179fd8',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

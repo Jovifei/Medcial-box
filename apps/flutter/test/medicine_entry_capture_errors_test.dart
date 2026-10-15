@@ -38,14 +38,18 @@ class _Paths extends PathProviderPlatform {
 
 void main() {
   final requests = <String>[];
-  Future<void> open(WidgetTester tester, {int status = 200}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    int status = 200,
+    TokenProvider? tokenProvider,
+  }) async {
     requests.clear();
     tester.view.physicalSize = const Size(400, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final api = ApiClient(
       baseUrl: 'https://synthetic.invalid',
-      tokenProvider: () async => 'synthetic',
+      tokenProvider: tokenProvider ?? () async => 'synthetic',
       client: MockClient((request) async {
         requests.add(request.url.path);
         return http.Response(
@@ -289,6 +293,8 @@ void main() {
     'recognition-503',
     'recognition-cancel',
     'recognition-file-missing',
+    'dispatch-cancel',
+    'dispatch-draft',
   ]) {
     testWidgets('photo $mode uses an accurate safe message', (tester) async {
       await tester.runAsync(() async {
@@ -314,7 +320,18 @@ void main() {
         );
         ImagePickerPlatform.instance = _Picker(() async => XFile(file.path));
         PathProviderPlatform.instance = _Paths(root.path);
-        await open(tester, status: mode == 'recognition-401' ? 401 : 503);
+        final tokenEntered = Completer<void>();
+        final tokenResume = Completer<String?>();
+        await open(
+          tester,
+          status: mode == 'recognition-401' ? 401 : 503,
+          tokenProvider: mode.startsWith('dispatch-')
+              ? () async {
+                  tokenEntered.complete();
+                  return tokenResume.future;
+                }
+              : null,
+        );
         await gallery(tester);
         for (
           var i = 0;
@@ -336,6 +353,23 @@ void main() {
             await File(state.image.path as String).delete();
           }
           await tester.tap(find.text('AI 识别').last);
+        }
+        if (mode.startsWith('dispatch-')) {
+          await tokenEntered.future;
+          if (mode == 'dispatch-draft') {
+            state.draftId = 'other-explicit-draft';
+          } else {
+            state.recognitionRequest++;
+          }
+          tokenResume.complete('replacement-session');
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+          expect(requests, isEmpty);
+          expect(state.nameController.text, '');
+          expect(state.photoDrafts.single['state'], 'ready');
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+          return;
         }
         for (var i = 0; i < 100 && state.recognizing == true; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 10));
