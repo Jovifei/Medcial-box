@@ -78,6 +78,8 @@ export function startLeafletPhotoCleanup(
   onError: (message: string) => void = () => undefined,
   intervalMs = 6 * 60 * 60 * 1000,
 ): () => void {
+  // First-start data verification must not implicitly authorize file deletion.
+  if (process.env.LEAFLET_PHOTO_CLEANUP_ENABLED !== "true") return () => undefined;
   let running = false;
   const run = async () => {
     if (running) return;
