@@ -2,6 +2,11 @@
 # Migration checksums and Linux shell execution must not depend on checkout OS.
 *.sql text eol=lf
 *.sh text eol=lf
+# The installed model supervisor verifies these reviewed source bytes.
+scripts/private-model-channel.mjs text eol=lf
+scripts/private_model_socket_lease.py text eol=lf
+scripts/install-private-model-startup.ps1 text eol=lf
+scripts/prepare-local-backup-vault.ps1 text eol=lf
 
 # Preserve reviewed audit attachments byte-for-byte for provenance hashes.
 tasks/plans/2026-10-08-two-stage-audit/sources/** -text
