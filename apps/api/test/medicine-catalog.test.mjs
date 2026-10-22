@@ -225,3 +225,14 @@ test("composite can recover local failure with a consented external match but ne
   await assert.rejects(new CompositeMedicineCatalogProvider(brokenLocal, { async search() { throw new MedicineCatalogUnavailableError("synthetic missing external", "not_configured"); } }).search(query),
     error => error.reason === "unavailable");
 });
+
+test("Jisu provider gracefully handles status 203 (没有信息) as zero candidates rather than error", async () => {
+  const { JisuMedicineCatalogProvider } = catalogModule;
+  const provider = new JisuMedicineCatalogProvider("test-key", async () => {
+    return jsonResponse({ status: 203, msg: "没有信息", result: "" });
+  });
+  const res = await provider.search({ barcode: "81093690127825858280", consentToShare: true });
+  assert.equal(res.candidates.length, 0);
+  assert.ok(res.warnings.some(w => w.includes("未收录")));
+});
+

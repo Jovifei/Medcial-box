@@ -15,6 +15,7 @@ import {
   isValidExpiryValue,
   expiryValueForPrecision,
 } from "../../services/input-validation";
+import { parseMedicineBarcode, UNSUPPORTED_CATALOG_CODE } from "../../services/barcode-parser";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
   ExpiryPrecision,
@@ -196,8 +197,6 @@ function rebasePhotoValue(current: unknown, baseline: unknown, latest: unknown, 
 const MEDICINE_DRAFT_SCHEMA_VERSION = 1;
 const NATIVE_LEAVE_WARNING = "此表单有未保存修改。离开后会保留本机草稿；如要放弃修改，请使用页面左上角返回按钮。";
 const PHOTO_DRAFT_LIMIT_HINT = "本机已有10份未完成照片草稿，请通过“导入草稿”管理旧草稿后再拍照；原照片和文字仍保留。";
-const UNSUPPORTED_CATALOG_CODE = "此码可能是追溯码或其他标识；当前资料服务仅支持8–14位数字商品条码。20位码可能是追溯码，不按商品条码查询。原码已保留，可拍药盒尝试生成待核对草稿，或手动填写。";
-
 function nativeFailureKind(error: unknown): "cancel" | "permission" | "other" {
   const message = typeof error === "object" && error !== null && "errMsg" in error ? String(error.errMsg) : "";
   if (/cancel/i.test(message)) return "cancel";
@@ -1039,17 +1038,39 @@ Page({
         return;
       }
       scannedBarcode = result.result.trim();
-      this.setData({ scannedBarcode, barcodeValue: scannedBarcode, canRetryBarcode: false,
-        barcodeLookupStatus: "正在查询候选资料…", recognitionHint: "已读取商品码；只发送码值查询候选，不上传照片。" });
+      const parsed = parseMedicineBarcode(scannedBarcode);
+      const barcodeValue = parsed.queryBarcode ?? scannedBarcode;
+      this.setData({
+        scannedBarcode,
+        barcodeValue,
+        canRetryBarcode: false,
+        barcodeLookupStatus: parsed.statusText,
+        recognitionHint: parsed.statusText,
+      });
       this.updateDirtyState();
-      if (!/^[0-9]{8,14}$/.test(scannedBarcode)) {
-        this.setData({ barcodeLookupStatus: UNSUPPORTED_CATALOG_CODE, recognitionHint: UNSUPPORTED_CATALOG_CODE });
+      if (parsed.queryBarcode === null) {
+        this.setData({ barcodeLookupStatus: parsed.statusText, recognitionHint: parsed.statusText });
         return;
+      }
+      if (parsed.extractedLotNumber || parsed.extractedExpiry) {
+        const currentBatches = [...(this.data as MedicineEditPageData).batches];
+        if (currentBatches.length > 0) {
+          const firstBatch = { ...currentBatches[0] };
+          if (!firstBatch.lotNumber && parsed.extractedLotNumber) {
+            firstBatch.lotNumber = parsed.extractedLotNumber;
+          }
+          if (!firstBatch.expiryValue && parsed.extractedExpiry) {
+            firstBatch.expiryValue = parsed.extractedExpiry.value;
+            firstBatch.precisionIndex = parsed.extractedExpiry.precision === "month" ? 1 : 0;
+          }
+          currentBatches[0] = firstBatch;
+          this.setData({ batches: currentBatches });
+        }
       }
       this.startRecognitionClock("商品资料");
       await ensureLoggedIn();
       if (!operationCurrent()) return;
-      const response = await api.findMedicineCandidates(scannedBarcode);
+      const response = await api.findMedicineCandidates(parsed.queryBarcode);
       if (!operationCurrent()) return;
       this.setData({
         candidates: response.candidates,
@@ -1059,8 +1080,8 @@ Page({
           ? "找到资料候选，请核对名称、规格和厂家；确认后才会填入表单。"
           : "暂未找到条码候选资料；商品码已保留，可拍药盒尝试生成待核对草稿，或手动录入。",
         barcodeLookupStatus: response.candidates.length > 0
-          ? `已读取商品码 ${scannedBarcode}，请核对候选。`
-          : `商品码 ${scannedBarcode} 已填入表单；可拍药盒尝试生成待核对草稿，或手动填写。`,
+          ? `已读取商品码 ${parsed.queryBarcode}，请核对候选。`
+          : `商品码 ${parsed.queryBarcode} 已填入表单；可拍药盒尝试生成待核对草稿，或手动填写。`,
         canRetryBarcode: false,
       });
     } catch (error) {
@@ -1088,8 +1109,9 @@ Page({
     if (this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
-    if (!/^[0-9]{8,14}$/.test(data.scannedBarcode.trim())) {
-      this.setData({ barcodeLookupStatus: UNSUPPORTED_CATALOG_CODE, recognitionHint: UNSUPPORTED_CATALOG_CODE, canRetryBarcode: false });
+    const parsed = parseMedicineBarcode(data.scannedBarcode);
+    if (parsed.queryBarcode === null) {
+      this.setData({ barcodeLookupStatus: parsed.statusText, recognitionHint: parsed.statusText, canRetryBarcode: false });
       return;
     }
     const originalScope = scopedStorageKey("medicine-photo-drafts");
@@ -1097,9 +1119,10 @@ Page({
     const operationCurrent = (): boolean => token === this.recognitionToken && this.entryScopeIsCurrent(originalScope);
     if (!operationCurrent()) return;
     this.setData({ recognizing: true, recognitionSubject: "商品资料", recognitionSeconds: 0 });
+    const code = parsed.queryBarcode;
     const consent = await new Promise<boolean>((resolve) => wx.showModal({
       title: "重新查询商品码",
-      content: `商品码 ${data.scannedBarcode} 将再次发送到家庭药箱资料服务；若启用联网资料库，会将码值发送给外部资料供应商查询候选。不上传照片。是否继续？`,
+      content: `商品码 ${code} 将再次发送到家庭药箱资料服务；若启用联网资料库，会将码值发送给外部资料供应商查询候选。不上传照片。是否继续？`,
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
@@ -1108,13 +1131,13 @@ Page({
       this.setData({ recognizing: false });
       return;
     }
-    const code = data.scannedBarcode.trim();
+    const codeToSearch = code;
     this.setData({ canRetryBarcode: false, barcodeLookupStatus: "正在查询候选资料…" });
     try {
       await ensureLoggedIn();
       if (!operationCurrent()) return;
       this.startRecognitionClock("商品资料");
-      const response = await api.findMedicineCandidates(code);
+      const response = await api.findMedicineCandidates(codeToSearch);
       if (!operationCurrent()) return;
       this.setData({
         candidates: response.candidates,
@@ -1289,10 +1312,30 @@ Page({
         wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
         return;
       }
+      let uploadPath = file.tempFilePath;
+      if (typeof wx.compressImage === "function") {
+        try {
+          const compressed = await new Promise<{ tempFilePath: string }>((resolve, reject) => {
+            wx.compressImage({
+              src: file.tempFilePath,
+              quality: 80,
+              compressedWidth: 1280,
+              success: resolve,
+              fail: reject,
+            });
+          });
+          if (compressed && compressed.tempFilePath) {
+            uploadPath = compressed.tempFilePath;
+          }
+        } catch {
+          // Gracefully keep original file if compression fails or is mocked
+        }
+      }
+      if (!operationCurrent()) return;
       photoStage = "read";
       const imageBase64 = await new Promise<string>((resolve, reject) => {
         wx.getFileSystemManager().readFile({
-          filePath: file.tempFilePath,
+          filePath: uploadPath,
           encoding: "base64",
           success: (result) => resolve(result.data as string),
           fail: reject,

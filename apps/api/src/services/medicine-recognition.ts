@@ -67,7 +67,7 @@ async function upstreamFailure(response: Response): Promise<RecognitionUnavailab
   if (/out of memory|not enough (?:system )?memory|unable to allocate|cuda.*memory/i.test(diagnostic)) reason = "model_memory";
   else if (/model.*(?:not found|does not exist)|pull.*model/i.test(diagnostic)) reason = "model_missing";
   else if (/(?:decode|invalid|unsupported|corrupt).*(?:image|jpeg|png)|(?:image|jpeg|png).*(?:decode|invalid|unsupported|corrupt)/i.test(diagnostic)) reason = "image_decode";
-  else if (/context.*(?:limit|exceed|length)|too many tokens|token.*limit/i.test(diagnostic)) reason = "context_limit";
+  else if (/context.*(?:limit|exceed|length)|(?:limit|exceed|length).*context|too many tokens|token.*limit/i.test(diagnostic)) reason = "context_limit";
   else if (/invalid (?:request|parameter)|missing required|malformed request/i.test(diagnostic)) reason = "invalid_request";
   else if (response.status === 408 || response.status === 504) reason = "timeout";
   else if (response.status === 429 || response.status >= 500) reason = "provider_unavailable";
@@ -189,6 +189,8 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
     private readonly model = "qwen3.5:0.8b",
     private readonly baseUrl = "http://host.docker.internal:11434",
     private readonly fetchFn: typeof fetch = fetch,
+    private readonly numCtx = 2048,
+    private readonly numBatch = 128,
   ) {}
 
   async recognize(imageBase64: string, mimeType: "image/jpeg" | "image/png", purpose: "box_front" | "leaflet" = "box_front"): Promise<MedicineRecognitionResponse> {
@@ -205,7 +207,7 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
           stream: false,
           think: false,
           format: "json",
-          options: { temperature: 0, num_ctx: 2048, num_batch: 128 },
+          options: { temperature: 0, num_ctx: this.numCtx, num_batch: this.numBatch },
           messages: [{ role: "user", content: purpose === "leaflet" ? LEAFLET_PROMPT : OCR_PROMPT, images: [imageBase64] }],
         }),
         signal: AbortSignal.timeout(55_000),
@@ -227,9 +229,14 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
 
 export function createDefaultMedicineRecognitionProvider(): MedicineRecognitionProvider {
   if (process.env.MEDICINE_RECOGNITION_PROVIDER === "ollama") {
+    const numCtx = process.env.OLLAMA_NUM_CTX ? Number(process.env.OLLAMA_NUM_CTX) : 8192;
+    const numBatch = process.env.OLLAMA_NUM_BATCH ? Number(process.env.OLLAMA_NUM_BATCH) : 256;
     return new OllamaMedicineRecognitionProvider(
       process.env.OLLAMA_MODEL ?? "qwen3.5:0.8b",
       process.env.OLLAMA_BASE_URL ?? "http://host.docker.internal:11434",
+      fetch,
+      numCtx,
+      numBatch,
     );
   }
   return new DashscopeMedicineRecognitionProvider(

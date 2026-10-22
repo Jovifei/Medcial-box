@@ -64,6 +64,7 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
       return injected === undefined ? real : { ...real, ...injected };
     }
     if (id.endsWith("photo-file-lifecycle")) return loadService("services/photo-file-lifecycle.ts", { wx: pageWx });
+    if (id.endsWith("barcode-parser")) return loadService("services/barcode-parser.ts", { wx: pageWx });
     if (id.endsWith("medicine-tags")) return loadService("services/medicine-tags.ts", { wx: pageWx });
     if (id.endsWith("/services/api") && Object.hasOwn(modules, id)) {
       // Legacy page unit tests mock network methods but not identity transport.

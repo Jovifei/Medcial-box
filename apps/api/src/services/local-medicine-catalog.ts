@@ -49,7 +49,10 @@ export class LocalMedicineCatalogProvider implements MedicineCatalogProvider {
       else throw new MedicineCatalogUnavailableError("local catalog is invalid");
     }
     const matches = document.entries.filter(item => {
-      if (query.barcode) return item.barcodeValue === query.barcode.trim();
+      if (query.barcode) {
+        const match69 = query.barcode.match(/69[0-9]{11}/)?.[0];
+        return item.barcodeValue === query.barcode.trim() || (match69 !== undefined && item.barcodeValue === match69);
+      }
       if (!query.name && !query.manufacturer && !query.approvalNumber) return false;
       return (!query.name || item.name.toLocaleLowerCase().includes(query.name.trim().toLocaleLowerCase())) &&
         (!query.manufacturer || item.manufacturer === query.manufacturer.trim()) &&

@@ -131,7 +131,7 @@ async function run() {
         const started = Date.now();
         forward = spawn('ssh', [...args, '-N', '-R', `${socket}:127.0.0.1:11434`, values.host],
           { windowsHide: true, stdio: ['ignore', 'ignore', 'inherit'] });
-        forward.on('error', finish);
+        forward.on('error', (err) => { console.error('forward transport error:', err.message); });
         await status('FORWARD_STARTED_NOT_HEALTH_VERIFIED', { preserved: ready.preserved });
         while (!stop && forward.exitCode === null && forward.signalCode === null
             && lease.exitCode === null && lease.signalCode === null && !leaseFailed

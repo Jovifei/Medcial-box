@@ -94,7 +94,7 @@ function candidateFromDetail(
   if (query.approvalNumber && approvalNumber === query.approvalNumber.trim()) matchReasons.push("批准文号一致");
   if (query.manufacturer && manufacturer === query.manufacturer.trim()) matchReasons.push("厂家一致");
   if (query.specification && specification === query.specification.trim()) matchReasons.push("规格一致");
-  if (query.barcode && cleanText(detail.barcode) === query.barcode.trim()) matchReasons.push("条码一致");
+  if (query.barcode && (cleanText(detail.barcode) === query.barcode.trim() || (cleanText(detail.barcode) && query.barcode.includes(cleanText(detail.barcode)!)))) matchReasons.push("条码一致");
   if (matchReasons.length === 0 && query.name && name.includes(query.name.trim())) matchReasons.push("名称相似，请核对厂家和规格");
 
   return {
@@ -130,28 +130,36 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
     if (identifiers.length === 0) throw new Error("请先提供药品名称、厂家、批准文号或条码");
 
     try {
-      let selectedItems: JisuSearchItem[];
-      let details: JisuMedicineDetail[];
+      let selectedItems: JisuSearchItem[] = [];
+      let details: JisuMedicineDetail[] = [];
       if (query.approvalNumber || query.barcode) {
+        const barcodeParam = query.barcode
+          ? (query.barcode.match(/69[0-9]{11}/)?.[0] ?? query.barcode.trim())
+          : undefined;
         const detail = await this.fetchJson<JisuMedicineDetail>("detail", {
           ...(query.approvalNumber ? { approval_num: query.approvalNumber.trim() } : {}),
-          ...(query.barcode ? { barcode: query.barcode.trim() } : {}),
+          ...(barcodeParam ? { barcode: barcodeParam } : {}),
         });
-        selectedItems = [detail];
-        details = [detail];
+        if (detail) {
+          selectedItems = [detail];
+          details = [detail];
+        }
       } else {
         selectedItems = (await this.findItems(query)).slice(0, 5);
-        details = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
+        const fetched = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
+        details = fetched.filter((d): d is JisuMedicineDetail => d !== null);
       }
       const candidates = details
-        .map((detail, index) => candidateFromDetail(selectedItems[index], detail, query))
+        .map((detail, index) => candidateFromDetail(selectedItems[index] ?? detail, detail, query))
         .filter((candidate): candidate is MedicineCandidate => candidate !== null)
         .sort((left, right) => right.matchReasons.length - left.matchReasons.length);
       return {
         candidates,
-        warnings: [
+        warnings: candidates.length > 0 ? [
           "联网结果仅作候选，请按批准文号、厂家和规格核对包装；保存前仍需人工确认。",
           "说明书内容可能缺失或不完整；没有返回的字段请对照实物说明书补充。",
+        ] : [
+          "全网资料库未收录该条码资料，可拍药盒识别或手动录入。",
         ],
       };
     } catch (error) {
@@ -161,24 +169,35 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
   }
 
   private async findItems(query: MedicineCatalogQuery): Promise<JisuSearchItem[]> {
-    return this.fetchJson<{ list?: JisuSearchItem[] }>("query", {
+    const result = await this.fetchJson<{ list?: JisuSearchItem[] }>("query", {
       ...(query.name ? { name: query.name.trim() } : {}),
       ...(query.manufacturer ? { manufacturer: query.manufacturer.trim() } : {}),
-    }).then((result) => Array.isArray(result.list) ? result.list : []);
+    });
+    return Array.isArray(result?.list) ? result.list : [];
   }
 
-  private async fetchDetail(item: JisuSearchItem): Promise<JisuMedicineDetail> {
-    if (item.medicine_id === undefined) throw new MedicineCatalogUnavailableError("catalog item missing id");
+  private async fetchDetail(item: JisuSearchItem): Promise<JisuMedicineDetail | null> {
+    if (item.medicine_id === undefined) return null;
     return this.fetchJson<JisuMedicineDetail>("detail", { medicine_id: String(item.medicine_id) });
   }
 
-  private async fetchJson<T>(endpoint: "query" | "detail", params: Record<string, string>): Promise<T> {
+  private async fetchJson<T>(endpoint: "query" | "detail", params: Record<string, string>): Promise<T | null> {
     const url = new URL(`https://api.jisuapi.com/medicine/${endpoint}`);
     url.searchParams.set("appkey", this.apiKey);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     const response = await this.fetchFn(url, { signal: AbortSignal.timeout(12_000) });
     if (!response.ok) throw new MedicineCatalogUnavailableError(`catalog status ${response.status}`);
     const body = await response.json() as JisuEnvelope<T>;
+    if (
+      body.status === 201 ||
+      body.status === 202 ||
+      body.status === 203 ||
+      body.status === 204 ||
+      body.status === 205 ||
+      (typeof body.msg === "string" && body.msg.includes("没有信息"))
+    ) {
+      return null;
+    }
     if (body.status !== 0 || body.result === undefined) {
       throw new MedicineCatalogUnavailableError(`catalog response ${body.status ?? "invalid"}`);
     }
