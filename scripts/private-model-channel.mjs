@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
@@ -92,11 +92,17 @@ async function run() {
   };
   const stopRequested = async () => {
     try {
-      const request = JSON.parse(await readFile(resolve(directory, 'control.json'), 'utf8'));
-      return request.pid === process.pid && request.action === 'stop';
-    } catch (error) {
-      if (error.code === 'ENOENT') return false;
-      throw error;
+      const raw = await readFile(resolve(directory, 'control.json'), 'utf8');
+      const clean = raw.replace(/^\uFEFF/, '').trim();
+      if (!clean) return false;
+      const request = JSON.parse(clean);
+      if (request.pid === process.pid && request.action === 'stop') {
+        await rm(resolve(directory, 'control.json'), { force: true }).catch(() => {});
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   };
   try {
