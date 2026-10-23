@@ -1372,7 +1372,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     if (leaflet is Map<String, dynamic>) {
       fill(purposeController, leaflet['purposeSummary']);
     }
-    // 待核对候选的高级字段必须可见，不能自动保存也不覆盖已有手填资料。
+    // 用户采纳待核验候选后主动展开隐藏字段，必须核对但不会自行保存。
     if (mounted) setState(() => moreExpanded = true);
     _markDirty();
   }
@@ -2000,3 +2000,548 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                                 : (value) {
                                     setState(() => usePhotoAsCover = value);
                                     _markDirty();
+                                  },
+                          ),
+                        ],
+                        if (scannedCode != null) ...[
+                          const SizedBox(height: 10),
+                          SelectableText('药盒编码：$scannedCode'),
+                          const Text(
+                            '8–14 位商品条码用于查询候选资料；20 位码可能是药品追溯码，不能据此确认药名。资料须人工核对。',
+                          ),
+                        ],
+                        if (recognizing) ...[
+                          const SizedBox(height: 12),
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 6),
+                          const Text('正在识别药盒文字…'),
+                        ],
+                        if (recognitionFailure != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              '识别失败，可继续手动保存：${_recognitionErrorMessage(recognitionFailure!)}',
+                            ),
+                          ),
+                        if (recognitionWarnings.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(recognitionWarnings.join('\n')),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '药品名称（唯一必填）',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: nameController,
+                          onChanged: (_) {
+                            touchedName = true;
+                            _markDirty();
+                          },
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: '例如：布洛芬缓释胶囊',
+                            errorText:
+                                touchedName &&
+                                    nameController.text.trim().isEmpty
+                                ? '请填写药品名称'
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: brandController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(
+                            labelText: '品牌（按包装核对）',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: specificationController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(
+                            labelText: '包装规格',
+                            helperText: '如每盒20粒；服药间隔不属于包装数量',
+                            helperMaxLines: 3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: manufacturerController,
+                          onChanged: (_) => _markDirty(),
+                          decoration: const InputDecoration(labelText: '厂家'),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '库存与有效期（选填）',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        _quantityUnitFields(
+                          quantityLabels: const ['剩余数量', '未知可留空'],
+                          unitLabels: kQuantityUnitValues.map(unitLabel),
+                          quantityField: TextField(
+                            controller: quantityController,
+                            onChanged: (_) => _markDirty(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: '剩余数量',
+                              hintText: '未知可留空',
+                            ),
+                          ),
+                          unitField: DropdownButtonFormField<String>(
+                            key: ValueKey(unit),
+                            initialValue: unit,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: '单位'),
+                            // R08：单位选择器使用共享单位表，确保 ml/blister 始终在列，
+                            // 避免 initialValue 找不到 item 触发断言。
+                            items: kQuantityUnitValues
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(unitLabel(value)),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: (value) {
+                              setState(() => unit = value ?? 'box');
+                              _markDirty();
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        MedicineDateField(
+                          key: const ValueKey('api-expiry-date-field'),
+                          controller: expiryController,
+                          label: '包装有效期',
+                          precision: expiryPrecision == 'day' ? 'day' : 'month',
+                          onChanged: () {
+                            setState(() {
+                              touchedExpiry = true;
+                              if (expiryPrecision == 'unknown') {
+                                expiryPrecision = 'month';
+                              }
+                            });
+                            _markDirty();
+                          },
+                        ),
+                        TextButton.icon(
+                          onPressed: saving
+                              ? null
+                              : () => _chooseImage(
+                                  action: _ImageAction.camera,
+                                  expiryPhoto: true,
+                                ),
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: Text(
+                            expiryImage == null ? '补拍有效期照片' : '已保留有效期照片（可补拍）',
+                          ),
+                        ),
+                        if (expiryController.text.isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: PopupMenuButton<String>(
+                              tooltip: '选择有效期精度',
+                              onSelected: _setExpiryPrecision,
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'day',
+                                  child: Text('精确到日'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'month',
+                                  child: Text('精确到月'),
+                                ),
+                              ],
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '按包装印刷精度保存：${expiryPrecision == 'month' ? '年月' : '年月日'}　修改',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _optionalSection(
+                          title: '开封信息（选填）',
+                          expanded: openingExpanded,
+                          onTap: () {
+                            setState(() => openingExpanded = !openingExpanded);
+                            _markDirty();
+                          },
+                        ),
+                        if (openingExpanded) ...[
+                          const SizedBox(height: 12),
+                          _openingSegments(
+                            labels: const {
+                              'unknown': '未记录',
+                              'unopened': '未开封',
+                              'opened': '已开封',
+                            },
+                            selected: openedState,
+                            onSelectionChanged: (value) {
+                              setState(() => openedState = value.first);
+                              _markDirty();
+                            },
+                          ),
+                          if (openedState == 'opened') ...[
+                            const SizedBox(height: 12),
+                            SoftButton(
+                              label: openedAt == null
+                                  ? '选择开封日期'
+                                  : '开封日期：$openedAt',
+                              icon: Icons.event_outlined,
+                              onPressed: _pickOpenedDate,
+                            ),
+                            const SizedBox(height: 10),
+                            const Text('按说明书填写开封后的期限，不确定时留空。系统不会自动推定期限。'),
+                            const SizedBox(height: 8),
+                            _openingSegments(
+                              labels: const {
+                                'duration': '经过时长',
+                                'date': '截止日期',
+                              },
+                              selected: afterOpenKind,
+                              onSelectionChanged: (value) {
+                                setState(() => afterOpenKind = value.first);
+                                _markDirty();
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            if (afterOpenKind == 'duration')
+                              _quantityUnitFields(
+                                quantityLabels: const ['开封后期限', '例如 30'],
+                                unitLabels: const ['选择', '天', '月'],
+                                quantityField: TextField(
+                                  controller: afterOpenValueController,
+                                  onChanged: (_) => _markDirty(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: '开封后期限',
+                                    hintText: '例如 30',
+                                  ),
+                                ),
+                                unitField: DropdownButtonFormField<String>(
+                                  key: ValueKey(afterOpenUnit),
+                                  initialValue: afterOpenUnit,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: '单位',
+                                  ),
+                                  hint: const Text('选择'),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'day',
+                                      child: Text('天'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'month',
+                                      child: Text('月'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() => afterOpenUnit = value);
+                                    _markDirty();
+                                  },
+                                ),
+                              )
+                            else
+                              MedicineDateField(
+                                controller: afterOpenDateController,
+                                label: '开封后截止日期',
+                                onChanged: () {
+                                  setState(() {});
+                                  _markDirty();
+                                },
+                              ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _optionalSection(
+                          title: '用途与人群（请核对）',
+                          expanded: categoryExpanded,
+                          onTap: () => setState(
+                            () => categoryExpanded = !categoryExpanded,
+                          ),
+                        ),
+                        if (categoryExpanded) ...[
+                          MedicineTagFields(
+                            populations: populationTags,
+                            purposes: purposeTags,
+                            onChanged: () {
+                              setState(() {});
+                              _markDirty();
+                            },
+                          ),
+                          TextField(
+                            controller: purposeController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '用途分类 / 标签',
+                              hintText: '保留你填写的分类文案',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _optionalSection(
+                          title: '存放位置（选填）',
+                          expanded: locationExpanded,
+                          onTap: () => setState(
+                            () => locationExpanded = !locationExpanded,
+                          ),
+                        ),
+                        if (locationExpanded) ...[
+                          TextField(
+                            controller: locationController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '存放位置（选填）',
+                              hintText: '例如：厨房抽屉',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _optionalSection(
+                          title: '更多资料（选填）',
+                          expanded: moreExpanded,
+                          onTap: () {
+                            setState(() => moreExpanded = !moreExpanded);
+                            _markDirty();
+                          },
+                        ),
+                        if (moreExpanded) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: approvalController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '批准文号',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: ingredientController,
+                            onChanged: (_) => _markDirty(),
+                            decoration: const InputDecoration(
+                              labelText: '成分（多个请用逗号分开）',
+                            ),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: ingredientsVerified,
+                            onChanged: (value) {
+                              setState(
+                                () => ingredientsVerified = value == true,
+                              );
+                              _markDirty();
+                            },
+                            title: const Text('已对照包装核对有效成分'),
+                            subtitle: const Text('未核对的成分不会触发家庭内重复成分提示。'),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
+                    ),
+                  ),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '说明书（选填，识别后请核对）',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        TextButton.icon(
+                          onPressed: recognizing
+                              ? null
+                              : () => _chooseImage(
+                                  action: _ImageAction.camera,
+                                  leafletPhoto: true,
+                                ),
+                          icon: const Icon(Icons.document_scanner_outlined),
+                          label: const Text('拍说明书识别文字'),
+                        ),
+                        for (final entry in leafletControllers.entries)
+                          TextField(
+                            controller: entry.value,
+                            maxLines: null,
+                            onChanged: (_) => _markDirty(),
+                            decoration: InputDecoration(
+                              labelText: const {
+                                'purposeSummary': '功能与用途',
+                                'packageUsageSummary': '用法用量',
+                                'precautionsSummary': '注意事项',
+                                'contraindicationsSummary': '禁忌',
+                              }[entry.key],
+                            ),
+                          ),
+                        const Text('识别内容仅作草稿，保存后仍标记未核对。'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '数量和日期不确定时可以先留空。任何识别字段都需要人工核对后才会保存。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (recognizing)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black38,
+                child: Center(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            '正在识别药品… 已等待 $recognitionSeconds 秒',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Text('完成后请核对包装信息'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+bool _validExpiry(String value, String precision) {
+  final monthMatch = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(value);
+  if (precision == 'month' && monthMatch != null) {
+    final month = int.parse(monthMatch.group(2)!);
+    return month >= 1 && month <= 12;
+  }
+  final date = DateTime.tryParse(value);
+  if (precision != 'day' || date == null || value.length != 10) return false;
+  return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}' ==
+      value;
+}
+
+String? _nullableText(String value) =>
+    value.trim().isEmpty ? null : value.trim();
+String _date(DateTime value) =>
+    '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+class _BarcodeScanPage extends StatefulWidget {
+  const _BarcodeScanPage();
+
+  @override
+  State<_BarcodeScanPage> createState() => _BarcodeScanPageState();
+}
+
+class _BarcodeScanPageState extends State<_BarcodeScanPage> {
+  bool handled = false;
+  String? scanHint;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (!mounted || handled || capture.barcodes.isEmpty) return;
+    for (final barcode in capture.barcodes) {
+      final code = barcode.rawValue?.trim() ?? '';
+      if (!_isProductBarcode(code) && !_isTraceabilityCode(code)) continue;
+      handled = true;
+      Navigator.of(context).pop(code);
+      return;
+    }
+    setState(() => scanHint = '请扫描 8–14 位商品条码或 20 位码（可能是药品追溯码）；未保存其他内容。');
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('扫描药盒编码')),
+    body: Stack(
+      children: [
+        MobileScanner(
+          onDetect: _onDetect,
+          errorBuilder: (context, error) => ColoredBox(
+            color: Colors.black,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.no_photography_outlined,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      error.errorCode.name == 'permissionDenied'
+                          ? '相机权限未开启。请到系统设置 → 应用 → 家庭药箱 → 权限中允许相机，然后重试。'
+                          : '相机暂不可用，请检查设备或重试。',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      child: const Text('返回录入'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(14),
+                child: Text(
+                  scanHint ??
+                      '对准 8–14 位商品条码或 20 位码（可能是药品追溯码）。读取编码不代表药品资料已核实，请人工确认。',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
