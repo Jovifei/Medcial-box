@@ -86,6 +86,9 @@ const reviewedSourceTrees = new Set([
   // 精确源树（包含本轮合成竞态测试）须与固定候选提交一一对应；
   // 任何后续小程序源码变更都仍将被 fail-closed 拒绝，需重新审核。
   '5a9cc031be9d57bf4058097c0ed037404a9277ba',
+  // 2026-10-23 新增专属草稿 scope 及跨家庭身份切换合成断言，
+  // 小程序生产模块未再变更；仅测试目录差异且权限库存保持不变。
+  '16495a4c514f269598e3d6b2bebb63bf9bd91fc6',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
