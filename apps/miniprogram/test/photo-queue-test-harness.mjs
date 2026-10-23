@@ -6,7 +6,7 @@ function harness(behavior = {}) {
   const scope = makeSessionScopeModule({userId:'independent-synthetic-user', familyId:'independent-synthetic-family'});
   const key = scope.scopedStorageKey('medicine-photo-drafts');
   const storage = new Map(), files = new Map(), handles = new Map();
-  const calls = {write:0, unlink:0, close:0, recognize:0, store:0, create:0, upload:0, cover:0, get:0};
+  const calls = {write:0, unlink:0, close:0, recognize:0, store:0, create:0, update:0, upload:0, cover:0, get:0};
   let fdCounter = 0;
   const fs = {
     readFile: o => behavior.read ? behavior.read(o) : o.success({data:'/9j/2Q=='}),
@@ -21,6 +21,7 @@ function harness(behavior = {}) {
       recognizeMedicine:async()=>{calls.recognize++;const result={warnings:[],draft:{name:null,specification:null,manufacturer:null,approvalNumber:null,purposeCategory:null}};return behavior.recognize?behavior.recognize(result):result;},
       createMedicine:async()=>{calls.create++;const result={id:'synthetic-created',batches:[{id:'synthetic-batch'}]};return behavior.create?behavior.create(result):result;},
       getMedicine:async()=>{calls.get++;return {id:'synthetic-created',batches:[{id:'synthetic-batch'}]};},
+      updateMedicine:async(id,payload)=>{calls.update++;const result={id,batches:[{id:'synthetic-batch'}],version:payload.version+1};return behavior.update?behavior.update(result,id,payload):result;},
       setMedicineCover:async()=>{calls.cover++;},
       uploadLeafletPhoto:async()=>{calls.upload++;const result={photo:{id:'synthetic-photo'}};return behavior.upload?behavior.upload(result):result;},
     }}},

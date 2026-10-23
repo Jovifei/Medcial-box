@@ -56,12 +56,12 @@ Page({
       if (!current()) return;
       const session = result.stocktake;
       if (session === null) {
-        this.applySession(null);
+        if (current()) this.applySession(null);
         return;
       }
       const conflicted = session.items.filter((item) => item.result === "conflict");
       if (conflicted.length === 0) {
-        this.applySession(session);
+        if (current()) this.applySession(session);
         return;
       }
       const medicineIds = [...new Set(conflicted.map((item) => item.medicineId))];
