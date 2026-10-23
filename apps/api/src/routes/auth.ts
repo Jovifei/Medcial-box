@@ -159,11 +159,13 @@ export async function registerAuthRoutes(
     }
 
     const family = auth.familyId === null ? null : await findFamilyById(database, auth.familyId);
+    // 旧会话选中项失效不等于该账号已经没有家庭。
+    const hasFamily = family !== null || (await findMembershipByUserId(database, auth.userId)) !== null;
     return {
       user: {
         id: user.id,
         nickname: user.nickname,
-        hasFamily: family !== null,
+        hasFamily,
       },
       family:
         family === null
