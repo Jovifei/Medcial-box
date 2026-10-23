@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { parseQuantityByUnit } from "../../services/input-validation";
 import type { QuantityUnit, StocktakeItemInput, StocktakeSession } from "../../services/api-types";
@@ -38,14 +38,22 @@ Page({
     outcomeLabels: ["暂不核对", "数量没变化", "修改余量", "已用完", "已处理"],
     outcomeValues: ["deferred", "unchanged", "adjusted", "empty", "handled"] as Outcome[],
   },
+  requestSeq: 0,
   onShow(): void { void this.refresh(); },
+  onHide(): void { ++this.requestSeq; },
+  onUnload(): void { ++this.requestSeq; },
   onPullDownRefresh(): void { void this.refresh().finally(() => wx.stopPullDownRefresh()); },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
     try {
       await ensureLoggedIn();
+      if (!current()) return;
       const result = await api.getCurrentStocktake();
+      if (!current()) return;
       const session = result.stocktake;
       if (session === null) {
         this.applySession(null);
@@ -76,15 +84,19 @@ Page({
           return { ...item, version: batch.version, quantity: batch.quantity, unit: batch.unit };
         }),
       };
-      this.applySession(refreshedSession);
+      if (current()) this.applySession(refreshedSession);
     } catch (error) {
-      this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取盘点" });
+      if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取盘点" });
     } finally {
-      this.setData({ loading: false });
+      if (current()) this.setData({ loading: false });
     }
   },
 
   applySession(stocktake: StocktakeSession | null): void {
+    const previousSession = (this.data as StocktakePageData).stocktake;
+    const previous = previousSession?.id === stocktake?.id
+      ? new Map((this.data as StocktakePageData).items.map((item) => [item.batchId, item]))
+      : new Map<string, StocktakeViewItem>();
     const items = stocktake?.items.map((item) => ({
       batchId: item.batchId,
       version: item.version,
@@ -100,6 +112,15 @@ Page({
         ? `家人已修改此批次；当前数量：${item.quantity === null ? "未知" : `${item.quantity} ${item.unit}`}，请重新核对。`
         : item.result === "not_found" ? "批次已删除或不可见。"
           : item.result === "saved" ? "已保存" : "",
+      // 一样的盘点会话/批次及版本才复用用户尚未提交的选择。
+      ...(item.result === "pending" && previous.get(item.batchId)?.result === "pending" &&
+        previous.get(item.batchId)?.version === item.version &&
+        previous.get(item.batchId)?.quantity === item.quantity &&
+        previous.get(item.batchId)?.unit === item.unit ? {
+          outcome: previous.get(item.batchId)!.outcome,
+          outcomeIndex: previous.get(item.batchId)!.outcomeIndex,
+          adjustedQuantity: previous.get(item.batchId)!.adjustedQuantity,
+        } : {}),
     })) ?? [];
     this.setData({ stocktake, items });
   },

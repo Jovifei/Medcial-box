@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type { RestockItemSummary, RestockStatus } from "../../services/api-types";
 
@@ -6,22 +6,30 @@ interface RestockView extends RestockItemSummary { statusLabel: string; quantity
 
 Page({
   data: { loading: true, items: [] as RestockView[], errorMessage: "", busyId: "" },
+  requestSeq: 0,
   onShow(): void { void this.refresh(); },
+  onHide(): void { ++this.requestSeq; },
+  onUnload(): void { ++this.requestSeq; },
   onPullDownRefresh(): void { void this.refresh().finally(() => wx.stopPullDownRefresh()); },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
     try {
       await ensureLoggedIn();
+      if (!current()) return;
       const result = await api.listRestockItems();
+      if (!current()) return;
       const labels: Record<RestockStatus, string> = { needed: "待购买", purchased: "已购买", dismissed: "已取消" };
       const units: Record<string, string> = { tablet: "片", capsule: "粒", sachet: "袋", bottle: "瓶", tube: "支", box: "盒", other: "份" };
       this.setData({ items: result.items.map((item) => ({ ...item, statusLabel: labels[item.status],
         quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${units[item.unit] ?? "份"}` })) });
     } catch (error) {
-      this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取补货清单" });
+      if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取补货清单" });
     } finally {
-      this.setData({ loading: false });
+      if (current()) this.setData({ loading: false });
     }
   },
 
