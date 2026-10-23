@@ -15,7 +15,7 @@ Page({
 
   async refresh(): Promise<void> {
     const seq = ++this.requestSeq;
-    const identity = captureSessionIdentity();
+    let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
       this.displayedIdentity = identity;
@@ -23,8 +23,17 @@ Page({
     }
     const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       if (!current()) return;
       const result = await api.listRestockItems();
       if (!current()) return;
@@ -33,7 +42,16 @@ Page({
       this.setData({ items: result.items.map((item) => ({ ...item, statusLabel: labels[item.status],
         quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${units[item.unit] ?? "份"}` })) });
     } catch (error) {
-      if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取补货清单" });
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
+      this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取补货清单" });
     } finally {
       if (current()) this.setData({ loading: false });
     }

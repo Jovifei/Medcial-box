@@ -17,7 +17,7 @@ Page({
 
   async refresh(): Promise<void> {
     const seq = ++this.requestSeq;
-    const identity = captureSessionIdentity();
+    let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
       this.displayedIdentity = identity;
@@ -25,14 +25,32 @@ Page({
     }
     const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       if (!current()) return;
       const result = await api.getPendingNotifications();
       if (!current()) return;
       this.setData({ items: result.items, lastUpdated: new Date().toLocaleString() });
     } catch (error) {
-      if (current()) this.setData({ errorMessage: showError(error) });
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
+      this.setData({ errorMessage: showError(error) });
     } finally {
       if (current()) this.setData({ loading: false });
     }

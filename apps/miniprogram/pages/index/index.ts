@@ -217,7 +217,7 @@ Page({
     filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
     /** 人群多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPopulations: [] as string[],
-    /** 用途多选：空数组 = 不筛选。 */
+    /** 用途多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPurposes: [] as string[],
     populationChips: chipOptions(POPULATION_CHIPS, []),
     purposeChips: chipOptions(PURPOSE_CHIPS, []),
@@ -258,7 +258,7 @@ Page({
   async refresh(): Promise<void> {
     const seq = ++this.refreshSeq;
     ++this.coverToken; // 新列表必须使上一轮封面下载失效。
-    const identity = captureSessionIdentity();
+    let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
       this.displayedIdentity = identity;
@@ -276,15 +276,25 @@ Page({
       return;
     }
     this.redirecting = false;
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.refreshSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn({ allowInteractive: false });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
     } catch (error) {
-      if (!current()) return;
+      if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
-        if (!this.redirecting) {
-          this.redirecting = true;
-          wx.reLaunch({ url: "/pages/login/login" });
-        }
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
       this.showUnavailable(error);
@@ -305,9 +315,12 @@ Page({
       this.applyMedicines(list.medicines, family.family.name);
       void this.loadCovers();
     } catch (error) {
-      if (!current()) return;
-      if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        // 当前家庭失效应重新选择，不能在首页 tab 上堆叠失效导航栈。
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }

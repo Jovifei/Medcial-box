@@ -302,7 +302,7 @@ Page({
   async refresh(): Promise<void> {
     const medicineId = (this.data as MedicineDetailPageData).medicineId;
     const seq = ++this.refreshSeq;
-    const identity = captureSessionIdentity();
+    let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token ||
         this.displayedMedicineId !== medicineId) {
@@ -318,8 +318,17 @@ Page({
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;
     this.setData({ loading: true });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.refreshSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       if (!current()) return;
       const medicine = await api.getMedicine(medicineId);
       if (!current()) return;
@@ -328,7 +337,16 @@ Page({
       this.applyData(medicine, notes.notes);
       await Promise.all([this.refreshLeafletPhotos(), this.refreshCoverPhoto()]);
     } catch (error) {
-      if (current()) showError(error);
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
+      showError(error);
     } finally {
       if (current()) this.setData({ loading: false });
     }

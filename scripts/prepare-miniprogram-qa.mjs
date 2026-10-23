@@ -94,6 +94,11 @@ const reviewedSourceTrees = new Set([
   // stocktake/restock write guards, and new synthetic tests use only existing APIs.
   // This review does not grant new wx/fs/network capabilities or relax fail-closed QA.
   '49511b6acdf3175ad50c4207c1232ca3abc9e24d',
+  // 2026-10-23 continuation review: own 401/scope resolution is separated from stale
+  // foreign responses; backup preview/confirmation retains its original owner and
+  // stocktake post-refresh status is fenced. No new wx/fs/network capabilities.
+  // Independently exercised by scripts/resume-boundaries.test.mjs; other trees denied.
+  'e646e48709fab7535f74747868c123a23fc6b1eb',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
