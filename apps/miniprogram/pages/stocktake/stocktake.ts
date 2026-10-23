@@ -39,6 +39,7 @@ Page({
     outcomeValues: ["deferred", "unchanged", "adjusted", "empty", "handled"] as Outcome[],
   },
   requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onShow(): void { void this.refresh(); },
   onHide(): void { ++this.requestSeq; },
   onUnload(): void { ++this.requestSeq; },
@@ -47,6 +48,11 @@ Page({
   async refresh(): Promise<void> {
     const seq = ++this.requestSeq;
     const identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({ stocktake: null, items: [], submitting: false, errorMessage: "" });
+    }
     const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
     try {
@@ -93,6 +99,7 @@ Page({
   },
 
   applySession(stocktake: StocktakeSession | null): void {
+    this.displayedIdentity = captureSessionIdentity();
     const previousSession = (this.data as StocktakePageData).stocktake;
     const previous = previousSession?.id === stocktake?.id
       ? new Map((this.data as StocktakePageData).items.map((item) => [item.batchId, item]))

@@ -240,6 +240,7 @@ Page({
   /** 缩略图代次：每次新的 loadCovers 自增，令此刻仍在途的旧下载回写作废（对齐 R10/R11 纪律）。 */
   coverToken: 0,
   refreshSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   coverCacheOwner: "",
   /** coverPhotoId → 本地临时路径缓存，只能用于捕获到的家庭范围。 */
   coverCache: null as Map<string, string> | null,
@@ -258,6 +259,14 @@ Page({
     const seq = ++this.refreshSeq;
     ++this.coverToken; // 新列表必须使上一轮封面下载失效。
     const identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.coverCacheOwner = "";
+      this.coverCache = null;
+      this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+        expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+    }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity);
     if (readToken() === "") {
       if (current() && !this.redirecting) {

@@ -287,6 +287,7 @@ Page({
   },
 
   refreshSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   photoSeq: 0,
   coverSeq: 0,
   onHide(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
@@ -301,6 +302,12 @@ Page({
     const medicineId = (this.data as MedicineDetailPageData).medicineId;
     const seq = ++this.refreshSeq;
     const identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({ medicineSummary: null, leafletPhotos: [], coverPhotoPath: "",
+        photoError: "", coverPhotoError: "", photoLoading: false, coverPhotoLoading: false });
+    }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;
     this.setData({ loading: true });

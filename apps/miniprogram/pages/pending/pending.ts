@@ -9,6 +9,7 @@ function showError(error: unknown): string {
 Page({
   data: { loading: true, items: [] as PendingNotificationSummary[], errorMessage: "", lastUpdated: "" },
   requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onShow(): void { void this.refresh(); },
   onHide(): void { ++this.requestSeq; },
   onUnload(): void { ++this.requestSeq; },
@@ -17,6 +18,11 @@ Page({
   async refresh(): Promise<void> {
     const seq = ++this.requestSeq;
     const identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({ items: [], lastUpdated: "", errorMessage: "" });
+    }
     const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
     try {
