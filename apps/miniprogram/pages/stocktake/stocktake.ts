@@ -134,15 +134,17 @@ Page({
 
   async onStart(): Promise<void> {
     if (this.data.submitting) return;
+    const identity = captureSessionIdentity();
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       const result = await api.startStocktake();
-      this.applySession(result.stocktake);
+      if (isCurrentSession(identity)) this.applySession(result.stocktake);
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "无法开始盘点", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "无法开始盘点", icon: "none" });
     } finally {
-      this.setData({ submitting: false });
+      if (isCurrentSession(identity)) this.setData({ submitting: false });
     }
   },
 
@@ -186,10 +188,13 @@ Page({
       }
       payload.push({ batchId: item.batchId, version: item.version, outcome: item.outcome, ...(quantity !== undefined ? { quantity } : {}) });
     }
+    const identity = captureSessionIdentity();
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       const result = await api.submitStocktakeItems(session.id, payload);
+      if (!isCurrentSession(identity)) return;
       const conflicts = result.results.filter((item) => item.outcome !== "saved");
       if (conflicts.length > 0) {
         await this.refresh();
@@ -197,12 +202,13 @@ Page({
         return;
       }
       const completed = await api.completeStocktake(session.id);
+      if (!isCurrentSession(identity)) return;
       wx.showToast({ title: completed.completed ? "盘点已完成" : "盘点结果已保存", icon: "success" });
       await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "盘点保存失败，请重试", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "盘点保存失败，请重试", icon: "none" });
     } finally {
-      this.setData({ submitting: false });
+      if (isCurrentSession(identity)) this.setData({ submitting: false });
     }
   },
 });

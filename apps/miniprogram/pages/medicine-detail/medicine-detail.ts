@@ -288,6 +288,7 @@ Page({
 
   refreshSeq: 0,
   displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
+  displayedMedicineId: "",
   photoSeq: 0,
   coverSeq: 0,
   onHide(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
@@ -303,10 +304,16 @@ Page({
     const seq = ++this.refreshSeq;
     const identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
-    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token ||
+        this.displayedMedicineId !== medicineId) {
       this.displayedIdentity = identity;
-      this.setData({ medicineSummary: null, leafletPhotos: [], coverPhotoPath: "",
-        photoError: "", coverPhotoError: "", photoLoading: false, coverPhotoLoading: false });
+      this.displayedMedicineId = medicineId;
+      // 已离开原家庭或已换药品：清理旧详情在内存中的完整展示投影，不动原数据。
+      this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
+        leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
+        notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
+        coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
+        coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "" });
     }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;

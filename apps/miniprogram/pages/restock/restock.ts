@@ -44,32 +44,36 @@ Page({
     if (!id || !status || this.data.busyId) return;
     const item = (this.data.items as RestockView[]).find((entry) => entry.id === id);
     if (!item) return;
+    const identity = captureSessionIdentity();
     this.setData({ busyId: id });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       await api.updateRestockItem(id, status, item.version ?? Number(version));
-      await this.refresh();
+      if (isCurrentSession(identity)) await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "更新失败，请刷新后重试", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "更新失败，请刷新后重试", icon: "none" });
     } finally {
-      this.setData({ busyId: "" });
+      if (isCurrentSession(identity)) this.setData({ busyId: "" });
     }
   },
 
   async onDelete(event: { currentTarget: { dataset: { id?: string } } }): Promise<void> {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
+    const identity = captureSessionIdentity();
     const confirmed = await new Promise<boolean>((resolve) => wx.showModal({
       title: "移出补货清单", content: "这只会移除补货提醒，不会修改药箱库存。",
       success: (result) => resolve(result.confirm), fail: () => resolve(false),
     }));
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity)) return;
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       await api.deleteRestockItem(id);
-      await this.refresh();
+      if (isCurrentSession(identity)) await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "移除失败", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "移除失败", icon: "none" });
     }
   },
 
