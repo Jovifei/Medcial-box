@@ -15,7 +15,7 @@ import {
   isValidExpiryValue,
   expiryValueForPrecision,
 } from "../../services/input-validation";
-import { parseMedicineBarcode, UNSUPPORTED_CATALOG_CODE } from "../../services/barcode-parser";
+import { parseMedicineBarcode } from "../../services/barcode-parser";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import type {
   ExpiryPrecision,
@@ -1308,11 +1308,8 @@ Page({
           return;
         }
       }
-      if (file.size > 4 * 1024 * 1024) {
-        wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
-        return;
-      }
       let uploadPath = file.tempFilePath;
+      let compressedPhoto = false;
       if (typeof wx.compressImage === "function") {
         try {
           const compressed = await new Promise<{ tempFilePath: string }>((resolve, reject) => {
@@ -1326,12 +1323,35 @@ Page({
           });
           if (compressed && compressed.tempFilePath) {
             uploadPath = compressed.tempFilePath;
+            compressedPhoto = true;
           }
         } catch {
           // Gracefully keep original file if compression fails or is mocked
         }
       }
+      if (!compressedPhoto && file.size > 4 * 1024 * 1024) {
+        wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
+        return;
+      }
       if (!operationCurrent()) return;
+      if (typeof wx.getFileInfo === "function") {
+        let uploadSize: number;
+        try {
+          uploadSize = await new Promise<number>((resolve, reject) => wx.getFileInfo({
+            filePath: uploadPath,
+            success: (result) => resolve(result.size),
+            fail: reject,
+          }));
+        } catch {
+          wx.showToast({ title: "无法核对图片大小，请重拍或手动录入", icon: "none" });
+          return;
+        }
+        if (!operationCurrent()) return;
+        if (uploadSize > 4 * 1024 * 1024) {
+          wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
+          return;
+        }
+      }
       photoStage = "read";
       const imageBase64 = await new Promise<string>((resolve, reject) => {
         wx.getFileSystemManager().readFile({
@@ -1342,6 +1362,11 @@ Page({
         });
       });
       if (!operationCurrent()) return;
+      const padding = imageBase64.endsWith("==") ? 2 : imageBase64.endsWith("=") ? 1 : 0;
+      if (Math.floor(imageBase64.length * 3 / 4) - padding > 4 * 1024 * 1024) {
+        wx.showToast({ title: "图片超过 4MB，请压缩后重试", icon: "none" });
+        return;
+      }
       let mimeType: "image/jpeg" | "image/png";
       if (imageBase64.startsWith("/9j/")) mimeType = "image/jpeg";
       else if (imageBase64.startsWith("iVBORw0KGgo")) mimeType = "image/png";

@@ -29,6 +29,7 @@ test('default plan and inspect use fixed public identity without mutation', { sk
   for (const mode of ['', '-Inspect']) {
     const output = passed(`${noMutation}
 function Get-ScheduledTask { @() }
+function Test-StartupFiles { }
 Invoke-MedboxStartup ${mode}`);
     const plan = JSON.parse(output);
     assert.equal(plan.mode, mode ? 'INSPECT' : 'PLAN');
@@ -38,7 +39,7 @@ Invoke-MedboxStartup ${mode}`);
     assert.equal(plan.started, false);
     assert.equal(plan.executionTimeLimit, 'PT0S');
     assert.match(plan.userId, /^S-1-/);
-    assert.equal(plan.hashes['private-model-channel.mjs'], 'ea4e29de201bd506951126f643d09b02af4b8262818130c1d937883f874acc33');
+    assert.equal(plan.hashes['private-model-channel.mjs'], 'f84fa3c513e126689c835289f0278e7d6b14415a55eb150d5a927cbf76a54c4a');
     assert.equal(plan.hashes['private_model_socket_lease.py'], 'a75341264ffb19762b837ba4fbc89ce7f863bf1523d661948bf9a2ddc7a326ef');
     assert.ok(!/password|private.key|token|credential/i.test(output));
   }

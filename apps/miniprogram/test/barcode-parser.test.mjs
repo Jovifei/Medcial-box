@@ -27,13 +27,13 @@ test("standard barcodes (8-14 digits) are accepted as-is", () => {
   }
 });
 
-test("20-digit Chinese drug code embedding 69 barcode extracts 13 digits", () => {
+test("20-digit traceability code never guesses a product barcode from an internal substring", () => {
   const userCode = "81093690127825858280";
   const res = parseMedicineBarcode(userCode);
   assert.equal(res.raw, userCode);
-  assert.equal(res.queryBarcode, "6901278258582");
-  assert.equal(res.kind, "extracted_69");
-  assert.match(res.statusText, /截取有效商品码 6901278258582/);
+  assert.equal(res.queryBarcode, null);
+  assert.equal(res.kind, "traceability_unextracted");
+  assert.equal(res.statusText, UNSUPPORTED_CATALOG_CODE);
 });
 
 test("20-digit code without 69 barcode remains unsupported but preserves raw", () => {
@@ -45,11 +45,25 @@ test("20-digit code without 69 barcode remains unsupported but preserves raw", (
   assert.equal(res.statusText, UNSUPPORTED_CATALOG_CODE);
 });
 
+test("20-digit traceability code starting with 01 and a valid GTIN is still not GS1", () => {
+  const raw = "01069018480100121234";
+  const res = parseMedicineBarcode(raw);
+  assert.equal(res.queryBarcode, null);
+  assert.equal(res.kind, "traceability_unextracted");
+});
+
+test("AIM GS1 prefix makes a 20-digit structured code unambiguous", () => {
+  const res = parseMedicineBarcode("]C101069018480100121012");
+  assert.equal(res.queryBarcode, "6901848010012");
+  assert.equal(res.kind, "gs1");
+  assert.equal(res.extractedLotNumber, "12");
+});
+
 test("GS1 composite code with AI parentheses extracts GTIN, lot and expiry", () => {
-  const gs1 = "(01)06901848010014(17)261231(10)LOT2024A";
+  const gs1 = "(01)06901848010012(17)261231(10)LOT2024A";
   const res = parseMedicineBarcode(gs1);
   assert.equal(res.raw, gs1);
-  assert.equal(res.queryBarcode, "6901848010014");
+  assert.equal(res.queryBarcode, "6901848010012");
   assert.equal(res.kind, "gs1");
   assert.equal(res.extractedLotNumber, "LOT2024A");
   assert.equal(res.extractedExpiry?.value, "2026-12-31");
@@ -57,9 +71,9 @@ test("GS1 composite code with AI parentheses extracts GTIN, lot and expiry", () 
 });
 
 test("GS1 composite code with continuous format (no parentheses)", () => {
-  const gs1 = "01069222485000101725080010BATCH99";
+  const gs1 = "01069222485000191725080010BATCH99";
   const res = parseMedicineBarcode(gs1);
-  assert.equal(res.queryBarcode, "6922248500010");
+  assert.equal(res.queryBarcode, "6922248500019");
   assert.equal(res.kind, "gs1");
   assert.equal(res.extractedLotNumber, "BATCH99");
   assert.equal(res.extractedExpiry?.value, "2025-08");
@@ -67,9 +81,18 @@ test("GS1 composite code with continuous format (no parentheses)", () => {
 });
 
 test("AIM scanner symbology prefix (]C1, ]d2) is stripped cleanly", () => {
-  const code = "]C10106901848010014";
+  const code = "]C10106901848010012";
   const res = parseMedicineBarcode(code);
-  assert.equal(res.queryBarcode, "6901848010014");
+  assert.equal(res.queryBarcode, "6901848010012");
+});
+
+test("GS1 with an invalid GTIN or impossible day is not silently accepted", () => {
+  const badCode = parseMedicineBarcode("(01)06901848010014(17)260231");
+  assert.equal(badCode.queryBarcode, null);
+  const badDay = parseMedicineBarcode("(01)06901848010012(17)260231");
+  assert.equal(badDay.queryBarcode, "6901848010012");
+  assert.equal(badDay.extractedExpiry, undefined);
+  assert.match(badDay.statusText, /有效期无效.*手动核对/);
 });
 
 test("empty, URL, and non-numeric strings are rejected gracefully", () => {

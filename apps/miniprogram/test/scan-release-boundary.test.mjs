@@ -156,7 +156,7 @@ for (const value of ["12345678", "12345678901234"]) {
   });
 }
 
-test("scanned 20-digit drug code embedding 69 barcode extracts 13 digits and queries with extracted barcode", async () => {
+test("scanned 20-digit traceability code preserves the original without guessing a barcode", async () => {
   const queries = [];
   const raw20 = "81093690127825858280";
   const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
@@ -170,7 +170,7 @@ test("scanned 20-digit drug code embedding 69 barcode extracts 13 digits and que
   const page = makePageContext(definition);
   await page.onScanCode();
   await page.onRetryBarcodeLookup();
-  assert.deepEqual(queries, ["6901278258582", "6901278258582"]);
+  assert.deepEqual(queries, []);
   assert.equal(page.data.scannedBarcode, raw20);
-  assert.equal(page.data.barcodeValue, "6901278258582");
+  assert.equal(page.data.barcodeValue, raw20);
 });

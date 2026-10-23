@@ -16,7 +16,7 @@ const mockText = readFileSync(join(root, 'scripts/qa/synthetic-mock.cjs'), 'utf8
 const dangerous = ['getStorageSync', 'setStorageSync', 'removeStorageSync', 'clearStorageSync', 'getStorageInfoSync',
   'getStorage', 'setStorage', 'removeStorage', 'clearStorage', 'getStorageInfo', 'batchGetStorage', 'batchSetStorage',
   'batchGetStorageSync', 'batchSetStorageSync', 'getFileSystemManager', 'request', 'downloadFile', 'uploadFile',
-  'connectSocket', 'login', 'checkSession', 'chooseMedia', 'chooseImage', 'scanCode', 'previewImage', 'setClipboardData',
+  'connectSocket', 'login', 'checkSession', 'chooseMedia', 'compressImage', 'getFileInfo', 'chooseImage', 'scanCode', 'previewImage', 'setClipboardData',
   'shareFileMessage', 'chooseMessageFile', 'requestSubscribeMessage', 'getUpdateManager', 'base64ToArrayBuffer'];
 const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab',
   'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu'];
@@ -73,7 +73,7 @@ function harness({ project, mutateNative, mockOverride } = {}) {
     install() { return runtime.install(native, config, sandbox.App, sandbox.Page, sandbox.Component); },
   };
 }
-const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
+const tick = async () => { for (let i = 0; i < 100; i++) await Promise.resolve(); };
 const callback = invoke => new Promise((resolve, reject) => invoke({ success: resolve, fail: reject }));
 function assertNoOriginals(h) { assert.deepEqual(h.counts, {}); }
 

@@ -6,7 +6,7 @@ import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
 class ApiError extends Error {
   constructor(code, message = "Synthetic request failure") { super(message); this.code = code; }
 }
-function fixture({ scan, choose, read, login, recognize, lookup } = {}) {
+function fixture({ scan, choose, read, login, recognize, lookup, compress, info, toast } = {}) {
   const native = ownedPhotoFixture();
   if (read) native.getFileSystemManager().readFile = read;
   let lookups = 0;
@@ -20,12 +20,66 @@ function fixture({ scan, choose, read, login, recognize, lookup } = {}) {
         async recognizeMedicine() { recognitions++; return recognize ? recognize() : { draft: {}, warnings: [] }; },
       } },
     },
-    wx: { ...native, scanCode: scan, chooseMedia: choose ?? (async () => ({ tempFiles: [{ tempFilePath: "/synthetic.jpg", size: 4 }] })) },
+    wx: { ...native, scanCode: scan, chooseMedia: choose ?? (async () => ({ tempFiles: [{ tempFilePath: "/synthetic.jpg", size: 4 }] })),
+      ...(compress ? { compressImage: compress } : {}), ...(info ? { getFileInfo: info } : {}),
+      ...(toast ? { showToast: toast } : {}) },
   });
   const page = makePageContext(definition);
   page.onLoad({});
   return { page, lookups: () => lookups, recognitions: () => recognitions };
 }
+
+test("large original photo is compressed before the upload limit is applied", async () => {
+  let compressed = false;
+  const f = fixture({
+    choose: async () => ({ tempFiles: [{ tempFilePath: "/large.jpg", size: 6 * 1024 * 1024 }] }),
+    compress: options => { compressed = true; options.success({ tempFilePath: "/small.jpg" }); },
+  });
+  await f.page.onRecognizePhoto("camera");
+  assert.equal(compressed, true);
+  assert.equal(f.recognitions(), 1);
+});
+
+test("photo still over 4 MB after compression never reaches recognition", async () => {
+  const toasts = [];
+  const f = fixture({
+    choose: async () => ({ tempFiles: [{ tempFilePath: "/large.jpg", size: 6 * 1024 * 1024 }] }),
+    compress: options => options.success({ tempFilePath: "/still-large.jpg" }),
+    read: options => options.success({ data: "/9j/" + "A".repeat(6 * 1024 * 1024) }),
+    toast: options => toasts.push(options.title),
+  });
+  await f.page.onRecognizePhoto("camera");
+  assert.equal(f.recognitions(), 0);
+  assert.match(toasts.join(" "), /超过 4MB/);
+});
+
+test("oversized compressed photo is rejected before base64 allocation when file info is available", async () => {
+  let reads = 0;
+  const f = fixture({
+    choose: async () => ({ tempFiles: [{ tempFilePath: "/large.jpg", size: 6 * 1024 * 1024 }] }),
+    compress: options => options.success({ tempFilePath: "/compressed.jpg" }),
+    info: options => options.success({ size: 5 * 1024 * 1024 }),
+    read: () => { reads++; },
+  });
+  await f.page.onRecognizePhoto("camera");
+  assert.equal(reads, 0);
+  assert.equal(f.recognitions(), 0);
+});
+
+test("failed compression rejects an oversized original before reading it", async () => {
+  let reads = 0;
+  const toasts = [];
+  const f = fixture({
+    choose: async () => ({ tempFiles: [{ tempFilePath: "/large.jpg", size: 6 * 1024 * 1024 }] }),
+    compress: options => options.fail({ errMsg: "synthetic compression failure" }),
+    read: () => { reads++; },
+    toast: options => toasts.push(options.title),
+  });
+  await f.page.onRecognizePhoto("camera");
+  assert.equal(reads, 0);
+  assert.equal(f.recognitions(), 0);
+  assert.match(toasts.join(" "), /超过 4MB/);
+});
 
 for (const method of ["onScanCode", "onRetryBarcodeLookup"]) {
   for (const [code, expected] of [["UNAUTHORIZED", /登录已失效/], ["NETWORK_ERROR", /网络连接失败/]]) {

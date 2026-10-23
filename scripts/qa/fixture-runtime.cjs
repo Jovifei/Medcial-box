@@ -141,6 +141,12 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
       files.set(file, { data: mockModule.PNG, encoding: 'base64' });
       return { tempFiles: [{ tempFilePath: file, size: 68, fileType: 'image' }], type: 'image' };
     }),
+    getFileInfo: options => asyncCall('getFileInfo', options, () => {
+      const item = files.get(options.filePath);
+      if (!item) throw new Error('QA file missing');
+      return { size: decodeBase64(item.data).byteLength, digest: '', errMsg: 'getFileInfo:ok' };
+    }),
+    compressImage: options => asyncCall('compressImage', options, () => ({ tempFilePath: options.src, errMsg: 'compressImage:ok' })),
     scanCode: options => asyncCall('scanCode', options, () => ({ result: '0000000000000', scanType: 'EAN_13', errMsg: 'scanCode:ok' })),
     previewImage: options => asyncCall('previewImage', options, () => ({ errMsg: 'previewImage:ok synthetic no-op' })),
   };

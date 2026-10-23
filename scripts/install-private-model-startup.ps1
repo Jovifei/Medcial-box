@@ -10,7 +10,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:StartupRoot = 'E:\AI_Tools\Codex\data\medbox-model-channel'
 $script:StartupSources = @{
-    'private-model-channel.mjs' = 'ea4e29de201bd506951126f643d09b02af4b8262818130c1d937883f874acc33'
+    'private-model-channel.mjs' = 'f84fa3c513e126689c835289f0278e7d6b14415a55eb150d5a927cbf76a54c4a'
     'private_model_socket_lease.py' = 'a75341264ffb19762b837ba4fbc89ce7f863bf1523d661948bf9a2ddc7a326ef'
 }
 
@@ -178,7 +178,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = 'E:\AI_Tools\Codex\data\medbox-model-channel'
 foreach ($pair in @(
-    @('private-model-channel.mjs', 'ea4e29de201bd506951126f643d09b02af4b8262818130c1d937883f874acc33'),
+    @('private-model-channel.mjs', 'f84fa3c513e126689c835289f0278e7d6b14415a55eb150d5a927cbf76a54c4a'),
     @('private_model_socket_lease.py', 'a75341264ffb19762b837ba4fbc89ce7f863bf1523d661948bf9a2ddc7a326ef')
 )) {
     $path = Join-Path $root $pair[0]

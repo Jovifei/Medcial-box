@@ -55,16 +55,7 @@ export async function registerMedicineCatalogRoutes(
       if (database) {
         const params: unknown[] = [context.familyId];
         const conditions: string[] = [];
-        if (barcode) {
-          const match69 = barcode.match(/69[0-9]{11}/)?.[0];
-          if (match69 && match69 !== barcode) {
-            params.push(barcode, match69);
-            conditions.push("(barcode_value = $2 OR barcode_value = $3)");
-          } else {
-            params.push(barcode);
-            conditions.push("barcode_value = $2");
-          }
-        }
+        if (barcode) { params.push(barcode); conditions.push("barcode_value = $2"); }
         else {
           if (name) { params.push(name); conditions.push(`strpos(lower(name), lower($${params.length})) > 0`); }
           for (const [column, value] of [["manufacturer", manufacturer], ["approval_number", approvalNumber], ["specification", specification]] as const) {

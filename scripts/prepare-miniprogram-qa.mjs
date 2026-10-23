@@ -75,6 +75,9 @@ const reviewedSourceTrees = new Set([
   // 2026-10-16 follow-up review: barcode generations fence all callbacks and finalizers.
   // No new native/network/filesystem capabilities; owned-photo helper unchanged.
   '58fdcfd939f6fc65ac1e7e21e0ca617333179fd8',
+  // 2026-10-23 reviewed: GS1-only barcode extraction, bounded photo compression and file-size check.
+  // New wx.compressImage/getFileInfo remain in the synthetic-only QA facade; no new transport route.
+  'a593a6064cda05dd2db4d2eb43b7071c5e80e665',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -101,9 +104,9 @@ export function assertReviewedComponents(filename, usingComponents) {
 // This list is deliberately reviewed rather than inferred from source. A new capability
 // requires an explicit adapter change and new tests. The owned-photo integration adapter
 // explicitly covers base64ToArrayBuffer plus ArrayBuffer open/write/close semantics.
-const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'chooseMessageFile', 'disableAlertBeforeUnload', 'downloadFile',
+const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'compressImage', 'chooseMessageFile', 'disableAlertBeforeUnload', 'downloadFile',
   'enableAlertBeforeUnload', 'env', 'getFileSystemManager', 'getMenuButtonBoundingClientRect', 'getStorageSync',
-  'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'previewImage', 'reLaunch',
+  'getFileInfo', 'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'previewImage', 'reLaunch',
   'redirectTo', 'removeStorageSync', 'request', 'requestSubscribeMessage', 'scanCode', 'setClipboardData',
   'setStorageSync', 'shareFileMessage', 'showActionSheet', 'showModal', 'showToast', 'stopPullDownRefresh', 'switchTab']);
 const reviewedFs = new Set(['readFile', 'writeFile', 'unlink', 'open', 'write', 'close']);

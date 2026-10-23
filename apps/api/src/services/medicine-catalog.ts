@@ -94,7 +94,7 @@ function candidateFromDetail(
   if (query.approvalNumber && approvalNumber === query.approvalNumber.trim()) matchReasons.push("批准文号一致");
   if (query.manufacturer && manufacturer === query.manufacturer.trim()) matchReasons.push("厂家一致");
   if (query.specification && specification === query.specification.trim()) matchReasons.push("规格一致");
-  if (query.barcode && (cleanText(detail.barcode) === query.barcode.trim() || (cleanText(detail.barcode) && query.barcode.includes(cleanText(detail.barcode)!)))) matchReasons.push("条码一致");
+  if (query.barcode && cleanText(detail.barcode) === query.barcode.trim()) matchReasons.push("条码一致");
   if (matchReasons.length === 0 && query.name && name.includes(query.name.trim())) matchReasons.push("名称相似，请核对厂家和规格");
 
   return {
@@ -131,14 +131,11 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
 
     try {
       let selectedItems: JisuSearchItem[] = [];
-      let details: JisuMedicineDetail[] = [];
+      let details: Array<JisuMedicineDetail | null> = [];
       if (query.approvalNumber || query.barcode) {
-        const barcodeParam = query.barcode
-          ? (query.barcode.match(/69[0-9]{11}/)?.[0] ?? query.barcode.trim())
-          : undefined;
         const detail = await this.fetchJson<JisuMedicineDetail>("detail", {
           ...(query.approvalNumber ? { approval_num: query.approvalNumber.trim() } : {}),
-          ...(barcodeParam ? { barcode: barcodeParam } : {}),
+          ...(query.barcode ? { barcode: query.barcode.trim() } : {}),
         });
         if (detail) {
           selectedItems = [detail];
@@ -146,11 +143,10 @@ export class JisuMedicineCatalogProvider implements MedicineCatalogProvider {
         }
       } else {
         selectedItems = (await this.findItems(query)).slice(0, 5);
-        const fetched = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
-        details = fetched.filter((d): d is JisuMedicineDetail => d !== null);
+        details = await Promise.all(selectedItems.map((item) => this.fetchDetail(item)));
       }
       const candidates = details
-        .map((detail, index) => candidateFromDetail(selectedItems[index] ?? detail, detail, query))
+        .map((detail, index) => detail ? candidateFromDetail(selectedItems[index], detail, query) : null)
         .filter((candidate): candidate is MedicineCandidate => candidate !== null)
         .sort((left, right) => right.matchReasons.length - left.matchReasons.length);
       return {

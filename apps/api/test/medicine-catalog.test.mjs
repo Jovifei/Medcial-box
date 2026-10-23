@@ -138,6 +138,20 @@ test("name lookup with no matches does not request details", async () => {
   assert.equal(calls, 1);
 });
 
+test("missing first detail cannot lend its name to a later candidate", async () => {
+  const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async input => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/query")) return jsonResponse({ status: 0, result: { list: [
+      { medicine_id: 1, name: "第一药" }, { medicine_id: 2, name: "第二药" },
+    ] } });
+    if (url.searchParams.get("medicine_id") === "1") return jsonResponse({ status: 203, msg: "没有信息" });
+    return jsonResponse({ status: 0, result: { medicine_id: 2, spec: "合成规格" } });
+  });
+  const result = await provider.search({ name: "第二药", consentToShare: true });
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0].name, "第二药");
+});
+
 for (const [name, respond] of [
   ["timeout", async (_input, options) => { assert.ok(options.signal instanceof globalThis.AbortSignal); throw new globalThis.DOMException("synthetic timeout", "TimeoutError"); }],
   ["invalid JSON", async () => new globalThis.Response("invalid synthetic JSON")],
