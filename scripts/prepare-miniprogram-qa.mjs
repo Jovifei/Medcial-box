@@ -80,6 +80,12 @@ const reviewedSourceTrees = new Set([
   'a593a6064cda05dd2db4d2eb43b7071c5e80e665',
   // 2026-10-23 review: invalid GS1 expiry fails closed and remains visible after scan/retry.
   '51f87be926b11be406b0fb922fe3ac706d35d82a',
+  // 2026-10-23 本轮独立逐页审阅：login restore/主动登录代次；首页/详情/待处理/
+  // 补货/盘点晚到响应；照片草稿重试；邀请、退出及备份回执；均复用既有
+  // wx/文件系统/网络白名单，没有增加原生能力或改变合成沙盒边界。
+  // 精确源树（包含本轮合成竞态测试）须与固定候选提交一一对应；
+  // 任何后续小程序源码变更都仍将被 fail-closed 拒绝，需重新审核。
+  '5a9cc031be9d57bf4058097c0ed037404a9277ba',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
