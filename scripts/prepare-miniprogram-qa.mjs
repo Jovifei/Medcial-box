@@ -89,6 +89,11 @@ const reviewedSourceTrees = new Set([
   // 2026-10-23 新增专属草稿 scope 及跨家庭身份切换合成断言，
   // 小程序生产模块未再变更；仅测试目录差异且权限库存保持不变。
   '16495a4c514f269598e3d6b2bebb63bf9bd91fc6',
+  // 2026-10-23 independent source review: family identity changes synchronously clear
+  // prior household display snapshots; detail projections, stale async completions,
+  // stocktake/restock write guards, and new synthetic tests use only existing APIs.
+  // This review does not grant new wx/fs/network capabilities or relax fail-closed QA.
+  '49511b6acdf3175ad50c4207c1232ca3abc9e24d',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
