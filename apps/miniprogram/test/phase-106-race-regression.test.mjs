@@ -134,3 +134,49 @@ test('successful family leave navigates despite the deliberate session generatio
   await page.onLeaveFamily();
   assert.deepEqual(routes,['/pages/family-entry/family-entry']);
 });
+
+test('existing pending A items clear synchronously before family B async load completes',async()=>{
+  let actor='A',generation=1;
+  const response=deferred();
+  const {definition}=loadPage('pages/pending/pending.ts',{modules:{
+    '../../services/api':{
+      api:{getPendingNotifications:()=>actor==='A'?Promise.resolve({items:[{id:'A-private'}]}):response.promise},
+      ApiError:class ApiError extends Error{},
+      captureSessionIdentity:()=>({token:actor,generation}),
+      isCurrentSession:id=>id.token===actor&&id.generation===generation,
+    },
+    '../../services/auth':{ensureLoggedIn:async()=>{}},
+  }});
+  const page=makePageContext(definition);
+  await page.refresh();
+  assert.equal(page.data.items[0].id,'A-private');
+  actor='B';generation++;
+  const next=page.refresh();
+  assert.equal(page.data.items.length,0,'cross-family transition must blank previous private view without waiting for network');
+  response.resolve({items:[{id:'B-current'}]});
+  await next;
+  assert.equal(page.data.items[0].id,'B-current');
+});
+test('restock deletion confirmation from old household cannot dispatch under a newer session',async()=>{
+  let actor='A',generation=1,completeDialog;
+  let mutations=0;
+  const {definition}=loadPage('pages/restock/restock.ts',{
+    modules:{
+      '../../services/api':{
+        api:{deleteRestockItem:async()=>{mutations++;}},
+        ApiError:class ApiError extends Error{},
+        captureSessionIdentity:()=>({token:actor,generation}),
+        isCurrentSession:id=>id.token===actor&&id.generation===generation,
+      },
+      '../../services/auth':{ensureLoggedIn:async()=>{}},
+    },
+    wx:{showModal:options=>{completeDialog=options.success;}},
+  });
+  const page=makePageContext(definition);
+  const action=page.onDelete({currentTarget:{dataset:{id:'A-restock'}}});
+  await tick();
+  actor='B';generation++;
+  completeDialog({confirm:true});
+  await action;
+  assert.equal(mutations,0,'old confirmation must not write B household');
+});
