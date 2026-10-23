@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Freeze tracked review source before regression execution
         run: |
-          git archive --format=tar --output="$RUNNER_TEMP/review-source.tar" HEAD apps/api apps/flutter/lib 'apps/flutter/test/*.dart' scripts packages db package.json package-lock.json VERSION.json
+          git archive --format=tar --output="$RUNNER_TEMP/review-source.tar" HEAD apps/api apps/miniprogram apps/flutter/lib 'apps/flutter/test/*.dart' scripts packages package.json package-lock.json VERSION.json
       - uses: actions/upload-artifact@v6
         with:
           name: medbox-review-source-${{ github.event.pull_request.head.sha || github.sha }}
