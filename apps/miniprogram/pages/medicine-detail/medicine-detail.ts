@@ -1,5 +1,5 @@
 import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import {
   isStrictPositiveInteger,
@@ -286,25 +286,37 @@ Page({
     this.setData({ medicineId: options.id });
   },
 
+  refreshSeq: 0,
+  photoSeq: 0,
+  coverSeq: 0,
+  onHide(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
+  onUnload(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
   onShow(): void {
     if ((this.data as MedicineDetailPageData).medicineId !== "") {
-      this.refresh();
+      void this.refresh();
     }
   },
 
   async refresh(): Promise<void> {
     const medicineId = (this.data as MedicineDetailPageData).medicineId;
+    const seq = ++this.refreshSeq;
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
     this.setData({ loading: true });
     try {
       await ensureLoggedIn();
+      if (!current()) return;
       const medicine = await api.getMedicine(medicineId);
+      if (!current()) return;
       const notes = await api.listDosageNotes(medicineId);
+      if (!current()) return;
       this.applyData(medicine, notes.notes);
       await Promise.all([this.refreshLeafletPhotos(), this.refreshCoverPhoto()]);
     } catch (error) {
-      showError(error);
+      if (current()) showError(error);
     } finally {
-      this.setData({ loading: false });
+      if (current()) this.setData({ loading: false });
     }
   },
 
@@ -346,16 +358,23 @@ Page({
   async refreshLeafletPhotos(): Promise<void> {
     const medicineId = (this.data as MedicineDetailPageData).medicineId;
     if (medicineId === "") return;
+    const seq = ++this.photoSeq;
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.photoSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
     this.setData({ photoLoading: true, photoError: "" });
     try {
       await ensureLoggedIn();
+      if (!current()) return;
       const result = await api.listLeafletPhotos(medicineId);
-      this.setData({ leafletPhotos: result.photos.map(toLeafletPhotoView) });
+      if (current()) this.setData({ leafletPhotos: result.photos.map(toLeafletPhotoView) });
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "暂时无法读取说明书照片";
-      this.setData({ leafletPhotos: [], photoError: message });
+      if (current()) {
+        const message = error instanceof ApiError ? error.message : "暂时无法读取说明书照片";
+        this.setData({ leafletPhotos: [], photoError: message });
+      }
     } finally {
-      this.setData({ photoLoading: false });
+      if (current()) this.setData({ photoLoading: false });
     }
   },
 
@@ -366,19 +385,27 @@ Page({
    */
   async refreshCoverPhoto(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
+    const medicineId = data.medicineId;
     const coverId = data.medicineSummary?.coverPhotoId ?? null;
-    if (data.medicineId === "" || coverId === null || coverId === undefined || coverId === "") {
-      this.setData({ coverPhotoPath: "", coverPhotoError: "" });
+    const seq = ++this.coverSeq;
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.coverSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
+    if (medicineId === "" || coverId === null || coverId === undefined || coverId === "") {
+      if (current()) this.setData({ coverPhotoPath: "", coverPhotoError: "", coverPhotoLoading: false });
       return;
     }
     this.setData({ coverPhotoLoading: true, coverPhotoError: "" });
     try {
       await ensureLoggedIn();
-      const tempFilePath = await api.downloadLeafletPhoto(data.medicineId, coverId);
-      this.setData({ coverPhotoPath: tempFilePath, coverPhotoLoading: false });
+      if (!current()) return;
+      const tempFilePath = await api.downloadLeafletPhoto(medicineId, coverId);
+      if (current()) this.setData({ coverPhotoPath: tempFilePath, coverPhotoLoading: false });
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "封面图片读取失败";
-      this.setData({ coverPhotoPath: "", coverPhotoError: message, coverPhotoLoading: false });
+      if (current()) {
+        const message = error instanceof ApiError ? error.message : "封面图片读取失败";
+        this.setData({ coverPhotoPath: "", coverPhotoError: message, coverPhotoLoading: false });
+      }
     }
   },
 

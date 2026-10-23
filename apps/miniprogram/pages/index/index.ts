@@ -1,4 +1,4 @@
-import { api, ApiError, readToken } from "../../services/api";
+import { api, ApiError, readToken, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
@@ -239,9 +239,13 @@ Page({
 
   /** 缩略图代次：每次新的 loadCovers 自增，令此刻仍在途的旧下载回写作废（对齐 R10/R11 纪律）。 */
   coverToken: 0,
-  /** coverPhotoId → 本地临时路径缓存，令切 tab 回前台不重复下载。 */
+  refreshSeq: 0,
+  coverCacheOwner: "",
+  /** coverPhotoId → 本地临时路径缓存，只能用于捕获到的家庭范围。 */
   coverCache: null as Map<string, string> | null,
 
+  onHide() { ++this.refreshSeq; ++this.coverToken; },
+  onUnload() { ++this.refreshSeq; ++this.coverToken; this.coverCache = null; },
   onShow() {
     this.refresh();
   },
@@ -251,16 +255,22 @@ Page({
   },
 
   async refresh(): Promise<void> {
+    const seq = ++this.refreshSeq;
+    ++this.coverToken; // 新列表必须使上一轮封面下载失效。
+    const identity = captureSessionIdentity();
+    const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity);
     if (readToken() === "") {
-      if (!this.redirecting) {
+      if (current() && !this.redirecting) {
         this.redirecting = true;
         wx.reLaunch({ url: "/pages/login/login" });
       }
       return;
     }
+    this.redirecting = false;
     try {
       await ensureLoggedIn({ allowInteractive: false });
     } catch (error) {
+      if (!current()) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
         if (!this.redirecting) {
           this.redirecting = true;
@@ -271,16 +281,25 @@ Page({
       this.showUnavailable(error);
       return;
     }
+    if (!current()) return;
     try {
       const family = await api.getCurrentFamily();
-      // 首页需要支持“已归档”筛选，因此取完整集合；默认视图仍只展示未归档药品。
+      if (!current()) return;
+      // 首页需要支持已归档筛选，默认视图仍只展示未归档药品。
       const list = await api.listMedicines(true);
+      if (!current()) return;
+      const owner = scopedStorageKey("cabinet-cover-cache") ?? "";
+      if (owner !== this.coverCacheOwner) {
+        this.coverCacheOwner = owner;
+        this.coverCache = null;
+      }
       this.applyMedicines(list.medicines, family.family.name);
       void this.loadCovers();
     } catch (error) {
+      if (!current()) return;
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        // 尚未创建或加入家庭：先让用户选择创建还是加入。
-        wx.navigateTo({ url: "/pages/family-entry/family-entry" });
+        // 当前家庭失效应重新选择，不能在首页 tab 上堆叠失效导航栈。
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
       this.showUnavailable(error);
@@ -338,9 +357,11 @@ Page({
     if (targets.length === 0) return;
     const cache = this.coverCache ?? (this.coverCache = new Map<string, string>());
     const token = (this.coverToken += 1);
+    const identity = captureSessionIdentity();
+    const current = (): boolean => token === this.coverToken && isCurrentSession(identity);
     const resolved = new Map<string, string>();
     for (const item of targets.slice(0, 60)) {
-      if (token !== this.coverToken) return;
+      if (!current()) return;
       const cached = cache.get(item.coverPhotoId);
       if (cached !== undefined) {
         resolved.set(item.id, cached);
@@ -348,16 +369,16 @@ Page({
       }
       try {
         const tempFilePath = await api.downloadLeafletPhoto(item.id, item.coverPhotoId);
-        if (token !== this.coverToken) return;
+        if (!current()) return;
         if (typeof tempFilePath === "string" && tempFilePath !== "") {
           cache.set(item.coverPhotoId, tempFilePath);
           resolved.set(item.id, tempFilePath);
         }
       } catch {
-        if (token !== this.coverToken) return;
+        if (!current()) return;
       }
     }
-    if (token !== this.coverToken || resolved.size === 0) return;
+    if (!current() || resolved.size === 0) return;
     const current = this.data as IndexPageData;
     const allItems = current.allItems.map((entry) => {
       const path = resolved.get(entry.id);
