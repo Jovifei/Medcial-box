@@ -79,6 +79,7 @@ interface MedicineEditPageData {
   usePhotoAsCover: boolean;
   activePhotoDraftId: string;
   optionalExpanded: boolean;
+  conversionExpanded: boolean;
   recognitionHint: string;
   scannedBarcode: string;
   barcodeLookupStatus: string;
@@ -515,6 +516,7 @@ Page({
     usePhotoAsCover: false,
     activePhotoDraftId: "",
     optionalExpanded: false,
+    conversionExpanded: false,
     recognitionHint: "",
     scannedBarcode: "",
     barcodeLookupStatus: "",
@@ -927,6 +929,10 @@ Page({
 
   onToggleOptional(): void {
     this.setData({ optionalExpanded: !(this.data as MedicineEditPageData).optionalExpanded });
+  },
+
+  onToggleConversion(): void {
+    this.setData({ conversionExpanded: !(this.data as MedicineEditPageData).conversionExpanded });
   },
 
   onPurposeChange(event: { detail: { value: string | number } }): void {
@@ -1477,9 +1483,6 @@ Page({
         fields.optionalExpanded = true;
         fields.verified = false;
       }
-      if (draft.specification || draft.manufacturer || draft.approvalNumber) {
-        fields.optionalExpanded = true;
-      }
       // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
       // 也不能把晚到的识别结果写进被删除/新增后的另一个批次。
       const shapeUnchanged = current.batches.length === batchShape.length &&
@@ -2001,12 +2004,21 @@ Page({
         return;
       }
       let saved: MedicationSummary;
-      if (activePhoto?.medicineId) {
-        saved = await api.getMedicine(activePhoto.medicineId);
-      } else if (data.isEdit) {
+      if (data.isEdit) {
+        // 已关联药品的照片草稿同样必须提交本次编辑。旧实现只 GET，
+        // 导致 photo_pending 重试时悄悄丢掉用户修改的药品字段。
+        if (activePhoto?.medicineId && activePhoto.medicineId !== data.medicineId) {
+          throw new Error("照片草稿不属于当前编辑的药品，请重新核对");
+        }
         saved = await api.updateMedicine(data.medicineId, { ...payload, version: data.version });
         if (!this.entryScopeIsCurrent(originalScope)) return;
+        // 更新版本供同页照片上传失败后再次保存使用；仍由服务端实施乐观锁。
+        this.setData({ version: saved.version });
+        this.persistCurrentDraft();
         wx.showToast({ title: "已保存", icon: "success" });
+      } else if (activePhoto?.medicineId) {
+        // 新建药品在首次保存后绑定了 ID；重试只补照片，不重复创建。
+        saved = await api.getMedicine(activePhoto.medicineId);
       } else {
         if (!this.data.attemptedPayload) { this.setData({ attemptedPayload: payload }); this.persistCurrentDraft(); this.persistPhotoDrafts(); }
         saved = await api.createMedicine(this.data.attemptedPayload ?? payload);
