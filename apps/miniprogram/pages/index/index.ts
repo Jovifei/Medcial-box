@@ -379,8 +379,8 @@ Page({
       }
     }
     if (!current() || resolved.size === 0) return;
-    const current = this.data as IndexPageData;
-    const allItems = current.allItems.map((entry) => {
+    const latestData = this.data as IndexPageData;
+    const allItems = latestData.allItems.map((entry) => {
       const path = resolved.get(entry.id);
       return path === undefined ? entry : { ...entry, coverPhotoPath: path };
     });
