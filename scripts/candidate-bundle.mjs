@@ -22,7 +22,8 @@ function exact(root, sha) {
   if (git(root, ['rev-parse', sha+'^{commit}']).toString().trim() !== sha) throw new Error('Commit mismatch');
 }
 function safeName(name) {
-  if (!name || name.includes('\\') || name.split('/').some(part => !part || part==='.' || part==='..') || /[\x00-\x1f\x7f]/.test(name)) throw new Error('Unsafe source path');
+  const control=[...name].some(char=>char.charCodeAt(0)<32 || char.charCodeAt(0)===127);
+  if (!name || name.includes('\\') || name.split('/').some(part => !part || part==='.' || part==='..') || control) throw new Error('Unsafe source path');
 }
 function plan(root, sha, appId, apiBase) {
   exact(root, sha);

@@ -99,6 +99,10 @@ const reviewedSourceTrees = new Set([
   // stocktake post-refresh status is fenced. No new wx/fs/network capabilities.
   // Independently exercised by scripts/resume-boundaries.test.mjs; other trees denied.
   'e646e48709fab7535f74747868c123a23fc6b1eb',
+  // 2026-10-23 follow-up: same-identity strict read-only checks share one owned
+  // invalidation receipt; interactive login remains separate. Native capabilities
+  // unchanged; scripts/session-check-coalescing.test.mjs covers overlap and release.
+  '3ba9bb68954e82ba2b3f713fe93a082d7e4f974d',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
