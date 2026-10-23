@@ -84,13 +84,21 @@ export function parseMedicineBarcode(input: string): ParsedBarcodeResult {
     if (!hasValidGtinCheckDigit(gs1Gtin)) {
       return { raw, queryBarcode: null, kind: "unsupported", statusText: UNSUPPORTED_CATALOG_CODE };
     }
+    if (invalidExpiry) {
+      return {
+        raw,
+        queryBarcode: null,
+        kind: "unsupported",
+        statusText: "GS1 码内有效期无效，原码已保留；请对照药盒手动核对或重新扫描。",
+      };
+    }
     // GTIN-14 如果以 0 开头且后面是 13 位，提取为 13 位商品码（EAN-13）
     const query = gs1Gtin.startsWith("0") ? gs1Gtin.slice(1) : gs1Gtin;
     return {
       raw,
       queryBarcode: query,
       kind: "gs1",
-      statusText: `已从 GS1 复合码中提取商品码 ${query}，正在查询候选…${invalidExpiry ? " 码内有效期无效，请对照药盒手动核对。" : ""}`,
+      statusText: `已从 GS1 复合码中提取商品码 ${query}，正在查询候选…`,
       extractedLotNumber: gs1Lot,
       extractedExpiry: gs1Expiry,
     };

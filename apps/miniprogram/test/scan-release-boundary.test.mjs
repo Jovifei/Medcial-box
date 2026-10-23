@@ -174,3 +174,23 @@ test("scanned 20-digit traceability code preserves the original without guessing
   assert.equal(page.data.scannedBarcode, raw20);
   assert.equal(page.data.barcodeValue, raw20);
 });
+
+test("invalid GS1 expiry remains visible after scanning and never queries candidates", async () => {
+  let queries = 0;
+  const raw = "(01)06901848010012(17)260231";
+  const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
+    modules: {
+      "../../services/api": { ApiError: CatalogError, api: { async findMedicineCandidates() { queries++; } } },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+    },
+    wx: { scanCode(options) { options.success({ result: raw }); } },
+    setTimeoutFn: () => 0,
+  });
+  const page = makePageContext(definition);
+  await page.onScanCode();
+  await page.onRetryBarcodeLookup();
+  assert.equal(queries, 0);
+  assert.equal(page.data.scannedBarcode, raw);
+  assert.match(page.data.barcodeLookupStatus, /有效期无效.*手动核对/);
+  assert.match(page.data.recognitionHint, /有效期无效.*手动核对/);
+});

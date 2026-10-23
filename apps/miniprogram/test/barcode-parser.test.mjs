@@ -90,7 +90,7 @@ test("GS1 with an invalid GTIN or impossible day is not silently accepted", () =
   const badCode = parseMedicineBarcode("(01)06901848010014(17)260231");
   assert.equal(badCode.queryBarcode, null);
   const badDay = parseMedicineBarcode("(01)06901848010012(17)260231");
-  assert.equal(badDay.queryBarcode, "6901848010012");
+  assert.equal(badDay.queryBarcode, null);
   assert.equal(badDay.extractedExpiry, undefined);
   assert.match(badDay.statusText, /有效期无效.*手动核对/);
 });

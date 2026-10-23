@@ -78,6 +78,8 @@ const reviewedSourceTrees = new Set([
   // 2026-10-23 reviewed: GS1-only barcode extraction, bounded photo compression and file-size check.
   // New wx.compressImage/getFileInfo remain in the synthetic-only QA facade; no new transport route.
   'a593a6064cda05dd2db4d2eb43b7071c5e80e665',
+  // 2026-10-23 review: invalid GS1 expiry fails closed and remains visible after scan/retry.
+  '51f87be926b11be406b0fb922fe3ac706d35d82a',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
