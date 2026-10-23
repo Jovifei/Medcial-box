@@ -77,7 +77,13 @@ Page({
       scopedStorageKey("leave-family") === familyScope;
     const confirmed = await new Promise<boolean>((resolve) => wx.showModal({ title: "退出家庭", content: "退出后立即失去药箱访问权限，重新加入需要新的邀请。", success: (result) => resolve(result.confirm), fail: () => resolve(false) }));
     if (!confirmed || !stillOriginal()) return;
-    try { await ensureLoggedIn({ allowInteractive: false }); if (!stillOriginal()) return; await api.leaveFamily(); if (isCurrentSession(identity)) wx.reLaunch({ url: "/pages/family-entry/family-entry" }); }
+    try {
+      await ensureLoggedIn({ allowInteractive: false });
+      if (!stillOriginal()) return;
+      await api.leaveFamily();
+      // API 成功会令会话代次变化，不可再用退出前的 identity 阻断导航。
+      wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+    }
     catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "退出失败，请重试", icon: "none" }); }
   },
   onChooseFamily(): void { wx.navigateTo({ url: "/pages/family-entry/family-entry" }); },

@@ -148,6 +148,7 @@ Page({
     }
   },
 
+  onExitInvite(): void { wx.reLaunch({ url: "/pages/family-entry/family-entry" }); },
   onOpenFamily(): void { wx.navigateTo({ url: "/pages/family-settings/family-settings" }); },
 
   onNicknameInput(event: { detail: { value: string } }): void {
@@ -287,8 +288,8 @@ Page({
       if (!isCurrentSession(identity) || this.data.inviteInput.trim() !== code) return;
       const result = await api.acceptInvitation(code);
       wx.showToast({ title: `已加入 ${result.family.name}`, icon: "success" });
-      const selected = captureSessionIdentity();
-      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 900);
+      // 当前身份将在首页由 auth/me 重新固化；跳转不保留失效邀请页栈。
+      wx.reLaunch({ url: "/pages/index/index" });
     } catch (error) {
       showError(error);
     } finally {
@@ -310,8 +311,7 @@ Page({
     try {
       await api.leaveFamily();
       wx.showToast({ title: "已退出家庭", icon: "success" });
-      const selected = captureSessionIdentity();
-      setTimeout(() => { if (isCurrentSession(selected)) wx.switchTab({ url: "/pages/index/index" }); }, 900);
+      wx.reLaunch({ url: "/pages/family-entry/family-entry" });
     } catch (error) {
       showError(error);
     } finally {

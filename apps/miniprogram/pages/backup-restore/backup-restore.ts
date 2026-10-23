@@ -93,13 +93,15 @@ Page({
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
-      this.setData({ errorMessage: error instanceof ApiError ? error.message :
+      // 页面已换家庭/身份时旧错误不能回填到新的视图。
+      if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message :
         error instanceof Error ? error.message : "备份生成或分享失败" });
     } finally {
-      if (localFile !== "" && !(await cleanupTemporaryShareFile(localFile, scope))) {
-        this.setData({ errorMessage: "临时备份原件清理待重试；下次进入页面将再次清理" });
+      const cleaned = localFile === "" || await cleanupTemporaryShareFile(localFile, scope);
+      if (current()) {
+        if (!cleaned) this.setData({ errorMessage: "临时备份原件清理待重试；下次进入页面将再次清理" });
+        this.setData({ busy: false });
       }
-      this.setData({ busy: false });
     }
   },
 
