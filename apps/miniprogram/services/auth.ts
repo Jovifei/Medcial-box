@@ -59,8 +59,7 @@ export function ensureLoggedIn(options: SessionCheckOptions = {}): Promise<strin
   // 发现家庭变化并递增代次而永久停留在 loading。主动登录不加入此合并。
   if (strictCheck && strictCheck.identity.token === identity.token &&
       strictCheck.identity.generation === identity.generation) return strictCheck.promise;
-  let pending: Promise<string>;
-  pending = checkSession(options).finally(() => {
+  const pending: Promise<string> = checkSession(options).finally(() => {
     if (strictCheck?.promise === pending) strictCheck = null;
   });
   strictCheck = { identity, promise: pending };

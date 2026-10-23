@@ -103,6 +103,8 @@ const reviewedSourceTrees = new Set([
   // invalidation receipt; interactive login remains separate. Native capabilities
   // unchanged; scripts/session-check-coalescing.test.mjs covers overlap and release.
   '3ba9bb68954e82ba2b3f713fe93a082d7e4f974d',
+  // Same reviewed behavior; Promise handle is const with explicit type for lint.
+  'd33fd365f61743aefcbfbcb305d8e7c930a6b02d',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
