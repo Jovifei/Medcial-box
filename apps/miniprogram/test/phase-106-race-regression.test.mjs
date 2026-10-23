@@ -70,7 +70,13 @@ test('edit with an attached photo_pending draft updates medicine before retrying
   });
   const draft=h.draft('edit-pending','photo_pending');
   draft.medicineId='existing-medicine';
-  h.seed([draft]);h.attach(h.a,[draft],draft.id);
+  const photoScope=h.scope.scopedStorageKey('medicine-photo-drafts','existing-medicine');
+  const editScope=h.scope.scopedStorageKey('medicine-edit-draft','existing-medicine');
+  for(const photo of draft.photos)photo.ownedLocal.scopeKey=photoScope;
+  h.seed([draft]);h.storage.set(photoScope,structuredClone([draft]));
+  h.attach(h.a,[draft],draft.id);
+  h.a.photoScopeKey=photoScope;
+  h.a.draftStorageKey=editScope;
   h.a.setData({isEdit:true,medicineId:'existing-medicine',version:4});
   edit(h.a,'name','更新药名');
   await h.a.onSubmit();
@@ -84,4 +90,47 @@ test('edit with an attached photo_pending draft updates medicine before retrying
   assert.equal(writes[1].version,5);
   assert.equal(writes[1].manufacturer,'新厂家');
   assert.equal(h.calls.create,0);
+});
+
+test('cross-family pending result never refills the next household after session generation changes',async()=>{
+  let actor='family-A',generation=1;
+  const requests=[];
+  const {definition}=loadPage('pages/pending/pending.ts',{modules:{
+    '../../services/api':{
+      api:{getPendingNotifications:()=>{const d=deferred();requests.push(d);return d.promise;}},
+      ApiError:class ApiError extends Error{},
+      captureSessionIdentity:()=>({token:actor,generation}),
+      isCurrentSession:identity=>identity.token===actor&&identity.generation===generation,
+    },
+    '../../services/auth':{ensureLoggedIn:async()=>{}},
+  }});
+  const page=makePageContext(definition);
+  const old=page.refresh();await tick();
+  actor='family-B';generation++;
+  const latest=page.refresh();await tick();
+  requests[0].resolve({items:[{id:'family-A-private'}]});await old;
+  assert.equal(page.data.items.some(item=>item.id==='family-A-private'),false);
+  requests[1].resolve({items:[{id:'family-B-safe'}]});await latest;
+  assert.equal(page.data.items[0].id,'family-B-safe');
+});
+test('successful family leave navigates despite the deliberate session generation rollover',async()=>{
+  let generation=1;
+  const routes=[];
+  const {definition}=loadPage('pages/family-settings/family-settings.ts',{
+    modules:{
+      '../../services/api':{
+        api:{leaveFamily:async()=>{generation++;}},
+        ApiError:class ApiError extends Error{},
+        captureSessionIdentity:()=>({token:'same-user',generation}),
+        isCurrentSession:value=>value.token==='same-user'&&value.generation===generation,
+      },
+      '../../services/auth':{ensureLoggedIn:async()=>{}},
+      '../../services/session-scope':{scopedStorageKey:name=>name+':synthetic'},
+    },
+    wx:{reLaunch:options=>routes.push(options.url)},
+  });
+  const page=makePageContext(definition);
+  page.setData({role:'member'});
+  await page.onLeaveFamily();
+  assert.deepEqual(routes,['/pages/family-entry/family-entry']);
 });
