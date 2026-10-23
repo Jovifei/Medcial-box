@@ -34,6 +34,14 @@ jobs:
           fetch-depth: 0 # Frozen historical QA source must be available to deterministic tests.
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Freeze tracked review source before regression execution
+        run: |
+          git archive --format=tar --output="$RUNNER_TEMP/review-source.tar" HEAD apps/api apps/flutter/lib 'apps/flutter/test/*.dart' scripts packages db package.json package-lock.json VERSION.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: medbox-review-source-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/review-source.tar
+          if-no-files-found: error
       - uses: actions/setup-node@v7
         with:
           node-version: 22
