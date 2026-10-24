@@ -113,6 +113,10 @@ const reviewedSourceTrees = new Set([
   // 2026-10-24 二次源树核验：仅补充 MedicationSummary 写回执静态类型，
   // 产品模块 API/权限调用没有增量；QA 仍绑定精确 SHA。
   'c9f090f9df9f73c07c778b3fcfecbcb6c4dd9c22',
+  // 2026-10-24 独立复审：备份入口/收尾按原操作清屏，家庭设置绑定
+  // 已显示身份，18 项真实 transport/auth 合成回归覆盖无 onShow 的切家。
+  // 只复用既有 wx/fs 能力；精确树已核验，其他未审树仍 fail closed。
+  '1214bcbfd220684835bf46fa4667d2bd74379ba0',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

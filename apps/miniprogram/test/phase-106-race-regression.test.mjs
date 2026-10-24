@@ -115,22 +115,25 @@ test('cross-family pending result never refills the next household after session
 });
 test('successful family leave navigates despite the deliberate session generation rollover',async()=>{
   let generation=1;
+  let scopeActive=true;
   const routes=[];
   const {definition}=loadPage('pages/family-settings/family-settings.ts',{
     modules:{
       '../../services/api':{
-        api:{leaveFamily:async()=>{generation++;}},
+        api:{leaveFamily:async()=>{generation++;scopeActive=false;},
+          getCurrentFamily:async()=>({family:{name:'synthetic-family',role:'member',members:[]}}),
+          getFamilyInventorySettings:async()=>({settings:{stocktakeInterval:'monthly'}})},
         ApiError:class ApiError extends Error{},
         captureSessionIdentity:()=>({token:'same-user',generation}),
         isCurrentSession:value=>value.token==='same-user'&&value.generation===generation,
       },
       '../../services/auth':{ensureLoggedIn:async()=>{}},
-      '../../services/session-scope':{scopedStorageKey:name=>name+':synthetic'},
+      '../../services/session-scope':{scopedStorageKey:name=>scopeActive?name+':synthetic':null},
     },
     wx:{reLaunch:options=>routes.push(options.url)},
   });
   const page=makePageContext(definition);
-  page.setData({role:'member'});
+  await page.refresh();
   await page.onLeaveFamily();
   assert.deepEqual(routes,['/pages/family-entry/family-entry']);
 });

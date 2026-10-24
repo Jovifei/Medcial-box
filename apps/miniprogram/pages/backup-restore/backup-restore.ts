@@ -29,16 +29,23 @@ Page({
   backupCopyScope: null as string | null,
   backupCopyIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onUnload(): void { this.backupLifecycleEpoch += 1; },
-  // 仅处理本次请求失去的 401 身份；清空原家庭私有内容并立即释放 busy。
-  clearAfterOwn401(error: unknown, epoch: number): boolean {
-    if (!(error instanceof ApiError) || error.statusCode !== 401 ||
+  // 只接收本次校验拥有的身份变化；旧回调不能清掉新操作的页面。
+  clearAfterSessionChange(error: unknown, epoch: number): boolean {
+    if (!(error instanceof ApiError) ||
+        (error.statusCode !== 401 && error.code !== "SESSION_SCOPE_CHANGED") ||
         !error.invalidatedSession || !isCurrentSession(error.invalidatedSession) ||
-        epoch !== this.backupLifecycleEpoch || temporaryShareScope() !== null) return false;
+        epoch !== this.backupLifecycleEpoch ||
+        (error.statusCode === 401 && temporaryShareScope() !== null)) return false;
     this.onShow();
-    this.setData({ errorMessage: "登录已失效，请重新登录后操作。" });
+    this.setData({ errorMessage: error.code === "SESSION_SCOPE_CHANGED"
+      ? "当前家庭已变化，请重新确认家庭后操作。" : "登录已失效，请重新登录后操作。" });
     return true;
   },
   onShow(): void {
+    this.clearInvalidatedView();
+    if (!this.data.busy) void recoverTemporaryShareFiles();
+  },
+  clearInvalidatedView(): void {
     if (this.backupOperationIdentity !== null &&
         (!isCurrentSession(this.backupOperationIdentity) || this.backupOperationScope !== temporaryShareScope())) {
       ++this.backupLifecycleEpoch;
@@ -55,7 +62,6 @@ Page({
       this.backupCopyIdentity = null;
       this.setData({ backupJson: "", backupCreatedAt: "", statusText: "" });
     }
-    if (!this.data.busy) void recoverTemporaryShareFiles();
   },
   data: {
     busy: false,
@@ -71,6 +77,7 @@ Page({
   },
 
   async onCreateBackup(): Promise<void> {
+    this.clearInvalidatedView();
     if (this.data.busy) return;
     const identity = captureSessionIdentity();
     const scope = temporaryShareScope();
@@ -88,7 +95,7 @@ Page({
     const ensureCurrent = (): void => { if (!current()) throw new Error("家庭或登录状态已变化；旧备份不会分享，请在当前家庭重新操作。"); };
     try {
       ensureCurrent();
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       ensureCurrent();
       const backup = await api.createJsonBackup();
       ensureCurrent();
@@ -120,12 +127,13 @@ Page({
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
-      if (this.clearAfterOwn401(error, epoch)) return;
+      if (this.clearAfterSessionChange(error, epoch)) return;
       // 页面已换家庭/身份时旧错误不能回填到新的视图。
       if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message :
         error instanceof Error ? error.message : "备份生成或分享失败" });
     } finally {
       const cleaned = localFile === "" || await cleanupTemporaryShareFile(localFile, scope);
+      if (epoch === this.backupLifecycleEpoch) this.clearInvalidatedView();
       if (current()) {
         if (!cleaned) this.setData({ errorMessage: "临时备份原件清理待重试；下次进入页面将再次清理" });
         this.setData({ busy: false });
@@ -152,6 +160,7 @@ Page({
   },
 
   async onChooseImport(): Promise<void> {
+    this.clearInvalidatedView();
     if (this.data.busy) return;
     const identity = captureSessionIdentity();
     const scope = temporaryShareScope();
@@ -181,7 +190,7 @@ Page({
       });
       if (file === null || !current()) return;
       this.setData({ statusText: "正在读取并检查备份…", selectedFileName: file.name });
-      await ensureLoggedIn({ allowInteractive: false });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       if (!current()) return;
       const text = await readLocalText(file.path);
       if (!current()) return;
@@ -208,15 +217,19 @@ Page({
         restoreAllowed: preview.valid && !preview.duplicateBackup && typeof preview.confirmationToken === "string",
         statusText: "预览完成；确认前不会写入家庭药箱。" });
     } catch (error) {
-      if (this.clearAfterOwn401(error, epoch)) return;
+      if (this.clearAfterSessionChange(error, epoch)) return;
       if (!current()) return;
       this.pendingImportPayload = null;
       this.pendingConfirmationToken = null;
       this.setData({ errorMessage: error instanceof ApiError ? error.message : error instanceof Error ? error.message : "备份文件无效" });
-    } finally { if (current()) this.setData({ busy: false }); }
+    } finally {
+      if (epoch === this.backupLifecycleEpoch) this.clearInvalidatedView();
+      if (current()) this.setData({ busy: false });
+    }
   },
 
   async onConfirmRestore(): Promise<void> {
+    this.clearInvalidatedView();
     const preview = this.data.importPreview as PreviewJsonBackupResponse | null;
     const backup = this.pendingImportPayload;
     const identity = this.backupOperationIdentity;
@@ -238,7 +251,7 @@ Page({
       }));
       if (!confirmed || !current()) return;
       this.setData({ statusText: "正在恢复…" });
-      await ensureLoggedIn({ allowInteractive: false });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       if (!current()) return;
       const response = await api.restoreJsonBackup(backup, confirmationToken);
       if (!current()) return;
@@ -247,9 +260,10 @@ Page({
       this.setData({ statusText: `已新增 ${response.restoredCount} 种药品到当前家庭。`, importPreview: null, restoreAllowed: false });
       wx.showToast({ title: "恢复完成", icon: "success" });
     } catch (error) {
-      if (this.clearAfterOwn401(error, epoch)) return;
+      if (this.clearAfterSessionChange(error, epoch)) return;
       if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message : "恢复失败；当前家庭数据未显示为已恢复" });
     } finally {
+      if (epoch === this.backupLifecycleEpoch) this.clearInvalidatedView();
       if (epoch === this.backupLifecycleEpoch && isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ busy: false });
     }
   },

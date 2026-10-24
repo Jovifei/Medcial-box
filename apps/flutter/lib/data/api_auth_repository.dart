@@ -281,11 +281,13 @@ class ApiAuthRepository {
       _requireCurrentIdentity(epoch);
     } else {
       // Legal hasFamily=true/family=null means no active selection, not
-      // revoked membership. Preserve verified same-user input drafts; always
-      // drop previous household inventory, alarms and cached projections.
+      // revoked membership. Preserve verified same-user input drafts only
+      // while membership remains; explicit loss also clears private drafts.
+      // Always drop previous household inventory, alarms and projections.
       final cleanupEpoch = await api.reportNoCurrentFamily(
         epoch,
-        selectionChanged: previousOwner != null &&
+        selectionChanged: user['hasFamily'] == true &&
+            previousOwner != null &&
             previousOwner.userId == user['id'],
       );
       _requireCurrentIdentity(cleanupEpoch);

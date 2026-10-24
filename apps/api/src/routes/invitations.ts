@@ -252,8 +252,6 @@ export async function registerInvitationRoutes(
     }
     try {
       await database.withTransaction(async (tx) => {
-        // 同一账号并行退出家庭必须串行：先锁其全部会话，再读取可用成员关系。
-        await tx.query("SELECT id FROM sessions WHERE user_id = $1 ORDER BY id FOR UPDATE", [auth.userId]);
         const locked = await tx.query<{ id: string }>(
           "SELECT id FROM families WHERE id = $1 FOR UPDATE",
           [ctx.familyId],
@@ -288,6 +286,9 @@ export async function registerInvitationRoutes(
             ),
           );
         }
+        // 与邀请/切家保持家庭、成员、会话的锁顺序，避免相互等待。
+        // 会话锁仍先于成员删除和回退读取，保证同账号并行退家的新快照。
+        await tx.query("SELECT id FROM sessions WHERE user_id = $1 ORDER BY id FOR UPDATE", [auth.userId]);
         const careOwned = await tx.query(`SELECT id FROM care_profiles WHERE family_id=$1 AND linked_user_id IS NULL AND COALESCE(managed_by,created_by)=$2 AND archived_at IS NULL FOR UPDATE`, [ctx.familyId, auth.userId]);
         if ((careOwned.rowCount ?? 0) > 0) throw new TransactionConflictError(409, errorBody("CARE_HANDOVER_REQUIRED", "请先交接或归档本人管理的照护对象，再退出或移除成员"));
         const deleted = await deleteMembershipByUserId(tx, auth.userId, ctx.familyId);
