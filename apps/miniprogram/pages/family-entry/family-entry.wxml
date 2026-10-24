@@ -3,7 +3,7 @@
   <view class="hero">
     <view class="eyebrow">欢迎使用家庭药箱</view>
     <view class="title">先选择你的家庭</view>
-    <view class="subtitle">一个微信账号首版只加入一个家庭。你可以创建自己的药箱，也可以使用家人发来的邀请码加入。</view>
+    <view class="subtitle">一个账号可以创建自己的药箱，也可以用家人发来的邀请码加入其他家庭；可同时属于多个家庭，使用时在设置里切换当前家庭。</view>
   </view>
 
   <view class="card">
