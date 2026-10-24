@@ -110,6 +110,9 @@ const reviewedSourceTrees = new Set([
   // 仅沿用已审 wx/request/filesystem 能力，未增加外部运行时或权限。
   // 列表中只有精确此树可运行合成 QA；后续源码更改必须重新核实树。
   '5705e1ce090bbf9546cd25639cc49e7a1a618893',
+  // 2026-10-24 二次源树核验：仅补充 MedicationSummary 写回执静态类型，
+  // 产品模块 API/权限调用没有增量；QA 仍绑定精确 SHA。
+  'c9f090f9df9f73c07c778b3fcfecbcb6c4dd9c22',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
