@@ -105,6 +105,11 @@ const reviewedSourceTrees = new Set([
   '3ba9bb68954e82ba2b3f713fe93a082d7e4f974d',
   // Same reviewed behavior; Promise handle is const with explicit type for lint.
   'd33fd365f61743aefcbfbcb305d8e7c930a6b02d',
+  // 2026-10-24 逐页审阅本阶段正式源码树：
+  // 登录范围变更先清本地投影、backup 本次 401 清 busy、照片草稿批次回执；
+  // 仅沿用已审 wx/request/filesystem 能力，未增加外部运行时或权限。
+  // 列表中只有精确此树可运行合成 QA；后续源码更改必须重新核实树。
+  '5705e1ce090bbf9546cd25639cc49e7a1a618893',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

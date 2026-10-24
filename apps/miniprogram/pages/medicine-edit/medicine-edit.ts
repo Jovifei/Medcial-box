@@ -2003,7 +2003,9 @@ Page({
         wx.showToast({ title: "照片尚未完整保存", icon: "none" });
         return;
       }
-      let saved: MedicationSummary;
+      let saved: MedicationSummary & {
+        batchSaveReceipts?: Array<{ index: number; id: string; version: number }>;
+      };
       // expiry 照片用提交顺序索引，不能假定服务端批次列表维持这一顺序。
       let acknowledgedBatchIds: Array<string | null> | null = null;
       if (data.isEdit) {
