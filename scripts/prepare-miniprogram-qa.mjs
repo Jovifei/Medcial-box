@@ -83,6 +83,8 @@ const reviewedSourceTrees = new Set([
   '4562490777bd433fc1a6d692b28f07a311c52378',
   // 2026-10-25 follow-up: release-notes text and version bump only; capability set unchanged from 4562490777.
   '4b8fcfedabe7eff48405e11995f58aafd342e64d',
+  // 2026-10-25 follow-up: release notes converged to three items; capability set unchanged.
+  '7ee9bd445a3d5bb6cb611660afeab965c481def6',
   // 2026-10-23 review: invalid GS1 expiry fails closed and remains visible after scan/retry.
   '51f87be926b11be406b0fb922fe3ac706d35d82a',
   // 2026-10-23 本轮独立逐页审阅：login restore/主动登录代次；首页/详情/待处理/
