@@ -2004,16 +2004,67 @@ Page({
         return;
       }
       let saved: MedicationSummary;
+      // expiry 照片用提交顺序索引，不能假定服务端批次列表维持这一顺序。
+      let acknowledgedBatchIds: Array<string | null> | null = null;
       if (data.isEdit) {
         // 已关联药品的照片草稿同样必须提交本次编辑。旧实现只 GET，
         // 导致 photo_pending 重试时悄悄丢掉用户修改的药品字段。
         if (activePhoto?.medicineId && activePhoto.medicineId !== data.medicineId) {
           throw new Error("照片草稿不属于当前编辑的药品，请重新核对");
         }
+        const submittedBatches = data.batches.map((batch) => ({ ...batch }));
         saved = await api.updateMedicine(data.medicineId, { ...payload, version: data.version });
         if (!this.entryScopeIsCurrent(originalScope)) return;
-        // 更新版本供同页照片上传失败后再次保存使用；仍由服务端实施乐观锁。
-        this.setData({ version: saved.version });
+        const byId = new Map(saved.batches.map((batch) => [batch.id, batch]));
+        const receipts = saved.batchSaveReceipts;
+        const validReceipts = Array.isArray(receipts) &&
+          receipts.length === submittedBatches.length &&
+          receipts.every((receipt, index) => receipt.index === index &&
+            typeof receipt.id === "string" && Number.isInteger(receipt.version) &&
+            byId.get(receipt.id)?.version === receipt.version &&
+            (submittedBatches[index].id === null || submittedBatches[index].id === receipt.id));
+        const oldIds = new Set(submittedBatches.map((batch) => batch.id).filter((id): id is string => id !== null));
+        const newRows = saved.batches.filter((batch) => !oldIds.has(batch.id));
+        const newCount = submittedBatches.filter((batch) => batch.id === null).length;
+        const submittedPhotoBatchIds: Array<string | null> = submittedBatches.map((batch, index) =>
+          validReceipts ? receipts[index].id :
+          batch.id ?? (newCount === 1 && newRows.length === 1 ? newRows[0].id : null));
+        const unambiguous = submittedPhotoBatchIds.length === saved.batches.length &&
+          submittedPhotoBatchIds.every((id) => id !== null && Number.isInteger(byId.get(id)?.version)) &&
+          new Set(submittedPhotoBatchIds).size === submittedPhotoBatchIds.length;
+        // 已部署的旧 API 不提供写回执：至多一个新批次时可凭 ID 差集
+        // 唯一回绑；多个新批次时使用服务端权威列表，禁止猜测照片关联。
+        const acknowledgedBatches: BatchForm[] = unambiguous
+          ? submittedBatches.map((batch, index) => ({
+              ...batch, id: submittedPhotoBatchIds[index],
+              version: byId.get(submittedPhotoBatchIds[index]!)!.version,
+            }))
+          : batchFromSummary(saved);
+        // 必须在改表单指纹前确认旧队列仍属原提交，禁止覆盖另一页面的更改。
+        const draftQueue = activePhoto ? this.currentPhotoDraftQueue(activePhoto.id) : null;
+        this.setData({ version: saved.version, batches: acknowledgedBatches });
+        acknowledgedBatchIds = acknowledgedBatches.map((batch) => batch.id);
+        if (activePhoto) {
+          const draft = draftQueue?.find((item) => item.id === activePhoto.id);
+          if (!draftQueue || !draft) {
+            wx.showToast({ title: "药品已保存，照片草稿已变化，请重新核对", icon: "none" });
+            return;
+          }
+          for (const photo of draft.photos) {
+            if (photo.purpose !== "expiry") continue;
+            const id = submittedPhotoBatchIds[photo.batchIndex];
+            photo.batchIndex = id === null || id === undefined ? -1
+              : acknowledgedBatches.findIndex((batch) => batch.id === id);
+          }
+          draft.fields = draftValues(this.data as MedicineEditPageData);
+          if (!this.writePhotoDraftQueue(draftQueue)) {
+            wx.showToast({ title: "药品已保存，批次回执本机存储失败，请勿重复新增", icon: "none" });
+            return;
+          }
+          this.photoQueueBaseline = snapshot(draftQueue);
+          this.photoFormBaseline = { id: draft.id, fields: snapshot(draft.fields) };
+          this.setData({ photoDrafts: this.visiblePhotoDrafts(draftQueue) });
+        }
         this.persistCurrentDraft();
         wx.showToast({ title: "已保存", icon: "success" });
       } else if (activePhoto?.medicineId) {
@@ -2068,8 +2119,10 @@ Page({
               filePath: snapshotPhoto.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject,
             }));
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            const batchId = saved.batches[confirmed.batchIndex]?.id;
-            if (confirmed.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成");
+            const batchId = data.isEdit
+              ? acknowledgedBatchIds?.[confirmed.batchIndex] ?? null
+              : saved.batches[confirmed.batchIndex]?.id;
+            if (confirmed.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成，照片仍保留待核对");
             const result = await api.uploadLeafletPhoto(saved.id, imageBase64, confirmed.mimeType, "medicine_entry",
               { purpose: confirmed.purpose, ...(batchId ? { batchId } : {}) }, confirmed.uploadIntentKey);
             if (!this.entryScopeIsCurrent(originalScope)) return;

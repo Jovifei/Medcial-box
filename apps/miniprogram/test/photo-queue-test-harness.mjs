@@ -21,7 +21,20 @@ function harness(behavior = {}) {
       recognizeMedicine:async()=>{calls.recognize++;const result={warnings:[],draft:{name:null,specification:null,manufacturer:null,approvalNumber:null,purposeCategory:null}};return behavior.recognize?behavior.recognize(result):result;},
       createMedicine:async()=>{calls.create++;const result={id:'synthetic-created',batches:[{id:'synthetic-batch'}]};return behavior.create?behavior.create(result):result;},
       getMedicine:async()=>{calls.get++;return {id:'synthetic-created',batches:[{id:'synthetic-batch'}]};},
-      updateMedicine:async(id,payload)=>{calls.update++;const result={id,batches:[{id:'synthetic-batch'}],version:payload.version+1};return behavior.update?behavior.update(result,id,payload):result;},
+      updateMedicine:async(id,payload)=>{calls.update++;
+        const batches=(payload.batches??[]).map((b,i)=>({
+          id:b.id??`synthetic-batch-${i}`,version:(b.version??0)+1,
+          lotNumber:b.lotNumber??null,expiry:b.expiry??{value:null,precision:'unknown'},
+          quantity:b.quantity??null,unit:b.unit??'box',
+          confirmedUnitsPerPackage:b.confirmedUnitsPerPackage??null,
+          conversionUnit:b.conversionUnit??null,storageLocation:b.storageLocation??null,
+          openedState:b.openedState??'unknown',openedAt:b.openedAt??null,
+          afterOpeningLimit:b.afterOpeningLimit??null,
+        }));
+        const result={id,batches,version:payload.version+1,
+          batchSaveReceipts:batches.map((b,index)=>({index,id:b.id,version:b.version}))};
+        return behavior.update?behavior.update(result,id,payload):result;
+      },
       setMedicineCover:async()=>{calls.cover++;},
       uploadLeafletPhoto:async()=>{calls.upload++;const result={photo:{id:'synthetic-photo'}};return behavior.upload?behavior.upload(result):result;},
     }}},
