@@ -425,6 +425,8 @@ export interface MedicineCandidate {
   approvalNumber: string | null;
   barcodeValue?: string | null;
   activeIngredients: string[];
+  /** 资料库功能主治文本映射出的用途标签草稿（B02 枚举）；仅供核对，不自动保存。 */
+  purposeTags?: PurposeTag[];
   leaflet: LeafletInput | null;
   source: string;
   sourceUpdatedAt: string | null;

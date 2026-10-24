@@ -84,3 +84,20 @@ test("barcode misses retain the code and describe an optional review draft", asy
   assert.match(page.data.recognitionHint, /尝试生成待核对草稿/);
   assert.doesNotMatch(page.data.recognitionHint, /显卡|自动识别/);
 });
+
+test("catalog candidates with mapped purpose tags fill empty chips but never replace manual picks", () => {
+  const page = pageFor();
+  const candidate = { name: "布洛芬缓释胶囊", specification: "0.3g×20粒", manufacturer: null, approvalNumber: null,
+    activeIngredients: [], purposeTags: ["fever", "pain"], leaflet: null, source: "synthetic", sourceUpdatedAt: null, matchReasons: [] };
+  page.setData({ candidate, candidates: [candidate] });
+  page.onApplyCandidate();
+  assert.deepEqual([...page.data.purposeTags], ["fever", "pain"]);
+  assert.equal(page.data.purposeChips.find((chip) => chip.kind === "fever").selected, true);
+  assert.equal(page.data.classificationExpanded, true);
+  // 用户已手动勾选过其它标签时，候选标签不得覆盖。
+  const manual = pageFor();
+  manual.onTogglePurposeTag({ currentTarget: { dataset: { kind: "gastro" } } });
+  manual.setData({ candidate, candidates: [candidate] });
+  manual.onApplyCandidate();
+  assert.deepEqual([...manual.data.purposeTags], ["gastro"]);
+});

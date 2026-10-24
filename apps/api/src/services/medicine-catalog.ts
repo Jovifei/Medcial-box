@@ -3,6 +3,7 @@ import type {
   LeafletInput,
   MedicineCandidate,
   MedicineCandidatesResponse,
+  PurposeTag,
 } from "@home-medicine/contracts";
 
 export interface MedicineCatalogQuery {
@@ -62,6 +63,36 @@ function extractSection(description: string | null, names: readonly string[]): s
   return cleanText(match?.[1], 1000);
 }
 
+/**
+ * 功能主治文本 → 用途标签的保守映射（值域与 B02 枚举同源）：
+ * 只收录明确指向单一用途的词，不含"感冒"这类多用途泛词；
+ * 命中按枚举顺序去重，最多 3 个。结果仅作为候选草稿供用户核对，不自动保存。
+ */
+const PURPOSE_KEYWORDS: ReadonlyArray<readonly [PurposeTag, RegExp]> = [
+  ["fever", /发热|发烧|退热|解热/],
+  ["pain", /疼痛|头痛|偏头痛|止痛|镇痛|牙痛|痛经/],
+  ["cough", /咳嗽|止咳|祛痰/],
+  ["throat", /咽喉|利咽|咽炎/],
+  ["nasal", /鼻塞|流涕|打喷嚏|鼻炎/],
+  ["gastro", /胃酸|烧心|反酸|消化不良|胃肠(?!道手术)/],
+  ["diarrhea", /腹泻|止泻/],
+  ["constipation", /便秘|通便/],
+  ["allergy", /过敏|荨麻疹/],
+  ["itch", /瘙痒|止痒/],
+  ["eye", /结膜炎|眼疲劳|干眼/],
+  ["oral", /口腔溃疡|口疮|牙龈(炎|肿痛)/],
+];
+
+function derivePurposeTags(purposeText: string | null): PurposeTag[] {
+  if (purposeText === null) return [];
+  const tags: PurposeTag[] = [];
+  for (const [tag, pattern] of PURPOSE_KEYWORDS) {
+    if (tags.length >= 3) break;
+    if (pattern.test(purposeText)) tags.push(tag);
+  }
+  return tags;
+}
+
 function candidateFromDetail(
   item: JisuSearchItem,
   detail: JisuMedicineDetail,
@@ -104,6 +135,7 @@ function candidateFromDetail(
     approvalNumber,
     barcodeValue,
     activeIngredients: ingredients === null ? [] : [ingredients],
+    purposeTags: derivePurposeTags(purpose),
     leaflet,
     source: "极速数据药品信息",
     sourceUpdatedAt: null,

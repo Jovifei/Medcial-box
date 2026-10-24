@@ -1183,6 +1183,12 @@ Page({
     if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
     if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
     if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
+    // 资料库功能主治映射出的标签同样只是草稿：仅在用户尚未勾选时填入并展开供核对。
+    if (candidate.purposeTags !== undefined && candidate.purposeTags.length > 0 && data.purposeTags.length === 0) {
+      fields.purposeTags = candidate.purposeTags;
+      fields.purposeChips = buildPurposeChips(candidate.purposeTags);
+      fields.classificationExpanded = true;
+    }
     if (data.ingredients.trim() === "" && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
     if (candidate.leaflet !== null) {
       // 内容与来源必须同源：用户自己写过的说明书文字不能被改写成供应商来源。
