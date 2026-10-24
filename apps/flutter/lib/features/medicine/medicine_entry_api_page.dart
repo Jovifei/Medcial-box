@@ -1372,6 +1372,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     if (leaflet is Map<String, dynamic>) {
       fill(purposeController, leaflet['purposeSummary']);
     }
+    // 用户采纳待核验候选后主动展开隐藏字段，必须核对但不会自行保存。
+    if (mounted) setState(() => moreExpanded = true);
     _markDirty();
   }
 

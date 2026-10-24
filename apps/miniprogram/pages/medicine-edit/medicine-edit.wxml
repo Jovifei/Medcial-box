@@ -157,17 +157,21 @@
       <view class="btn-ghost-mini">{{optionalExpanded ? "收起" : "展开"}}</view>
     </view>
     <view class="btn btn-ghost" data-source="camera" data-purpose="leaflet" bindtap="onRecognizePhoto">拍说明书，识别文字</view>
+    <view class="field-hint" wx:if="{{!optionalExpanded && (approvalNumber || ingredients || leafletPurpose || leafletText)}}">还有已识别的批准文号、成分或说明书资料，请展开核对原图；收起不代表已确认。</view>
     <view wx:if="{{optionalExpanded}}">
       <view class="field" wx:if="{{leafletText}}"><view class="field-label">说明书识别原文（请核对原图）</view><text class="leaflet-text" selectable="true">{{leafletText}}</text></view>
       <view class="field"><view class="field-label">批准文号</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="approvalNumber" bindinput="onFieldInput" value="{{approvalNumber}}" /></view>
       <view class="field"><view class="field-label">包装码（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="barcodeValue" bindinput="onFieldInput" value="{{barcodeValue}}" placeholder="扫码后会自动保留，可手动修改" /><view class="field-hint">保留包装上的码值；资料查询仅支持8–14位数字商品条码，追溯码不用于此查询。</view></view>
-      <view class="field"><view class="field-label">有效成分</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="ingredients" bindinput="onFieldInput" value="{{ingredients}}" /></view>
-      <view class="field"><view class="field-label">旧用途说明（保留，可修改）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="purposeCategory" bindinput="onFieldInput" value="{{purposeCategory}}" /></view>
+      <view class="field" wx:if="{{ingredients !== '' || isEdit}}"><view class="field-label">有效成分（选填，请按包装核对）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="ingredients" bindinput="onFieldInput" value="{{ingredients}}" /></view>
+      <view class="field" wx:if="{{isEdit && purposeCategory !== ''}}"><view class="field-label">历史用途说明（仅编辑旧记录）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="purposeCategory" bindinput="onFieldInput" value="{{purposeCategory}}" /></view>
+      <view class="row" bindtap="onToggleConversion"><view class="section-title">批号与包装换算（选填）</view><view>{{conversionExpanded ? "收起" : "展开"}}</view></view>
+      <view wx:if="{{conversionExpanded}}">
       <view wx:for="{{batches}}" wx:key="index" wx:for-item="batch" wx:for-index="index" class="batch-block">
         <view class="batch-title">{{batches.length > 1 ? '库存 ' + (index + 1) + ' 的批号与换算' : '批号与包装换算（选填）'}}</view>
         <view class="field"><view class="field-label">批次号</view><input disabled="{{attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="lotNumber" bindinput="onBatchFieldInput" value="{{batch.lotNumber}}" /></view>
         <view class="field"><view class="field-label">换算后的单位</view><picker disabled="{{attemptedPayload !== null}}" range="{{unitLabels}}" value="{{batch.conversionUnitIndex}}" data-index="{{index}}" bindchange="onConversionUnitChange"><view class="picker-box">{{unitLabels[batch.conversionUnitIndex]}}</view></picker></view>
       <view class="field"><view class="field-label">每包装换算数（确认后填写）</view><input disabled="{{attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="confirmedUnits" bindinput="onBatchFieldInput" value="{{batch.confirmedUnits}}" placeholder="例如：24" /></view>
+      </view>
       </view>
       <view class="field"><view class="field-label">用途摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" /></view>
       <view class="field"><view class="field-label">说明书用法用量摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" /></view>

@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type { RestockItemSummary, RestockStatus } from "../../services/api-types";
 
@@ -6,22 +6,56 @@ interface RestockView extends RestockItemSummary { statusLabel: string; quantity
 
 Page({
   data: { loading: true, items: [] as RestockView[], errorMessage: "", busyId: "" },
+  requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onShow(): void { void this.refresh(); },
+  onHide(): void { ++this.requestSeq; },
+  onUnload(): void { ++this.requestSeq; },
   onPullDownRefresh(): void { void this.refresh().finally(() => wx.stopPullDownRefresh()); },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    let identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({ items: [], busyId: "", errorMessage: "" });
+    }
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
       const result = await api.listRestockItems();
+      if (!current()) return;
       const labels: Record<RestockStatus, string> = { needed: "待购买", purchased: "已购买", dismissed: "已取消" };
       const units: Record<string, string> = { tablet: "片", capsule: "粒", sachet: "袋", bottle: "瓶", tube: "支", box: "盒", other: "份" };
       this.setData({ items: result.items.map((item) => ({ ...item, statusLabel: labels[item.status],
         quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${units[item.unit] ?? "份"}` })) });
     } catch (error) {
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.setData({ items: [], busyId: "", loading: false });
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.setData({ items: [], busyId: "", loading: false });
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
       this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取补货清单" });
     } finally {
-      this.setData({ loading: false });
+      if (current()) this.setData({ loading: false });
     }
   },
 
@@ -30,32 +64,36 @@ Page({
     if (!id || !status || this.data.busyId) return;
     const item = (this.data.items as RestockView[]).find((entry) => entry.id === id);
     if (!item) return;
+    const identity = captureSessionIdentity();
     this.setData({ busyId: id });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       await api.updateRestockItem(id, status, item.version ?? Number(version));
-      await this.refresh();
+      if (isCurrentSession(identity)) await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "更新失败，请刷新后重试", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "更新失败，请刷新后重试", icon: "none" });
     } finally {
-      this.setData({ busyId: "" });
+      if (isCurrentSession(identity)) this.setData({ busyId: "" });
     }
   },
 
   async onDelete(event: { currentTarget: { dataset: { id?: string } } }): Promise<void> {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
+    const identity = captureSessionIdentity();
     const confirmed = await new Promise<boolean>((resolve) => wx.showModal({
       title: "移出补货清单", content: "这只会移除补货提醒，不会修改药箱库存。",
       success: (result) => resolve(result.confirm), fail: () => resolve(false),
     }));
-    if (!confirmed) return;
+    if (!confirmed || !isCurrentSession(identity)) return;
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       await api.deleteRestockItem(id);
-      await this.refresh();
+      if (isCurrentSession(identity)) await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "移除失败", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "移除失败", icon: "none" });
     }
   },
 

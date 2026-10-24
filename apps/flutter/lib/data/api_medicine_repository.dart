@@ -19,6 +19,8 @@ class ApiMedicineRepository extends ChangeNotifier {
   /// 在途请求在回填内存或本机缓存前比对代次；不一致说明结果属于上一个会话，
   /// 必须丢弃，绝不把旧家庭的库存写回新会话（"清空后旧请求仍回灌"）。
   int _session = 0;
+  // 同一会话多次刷新也要拒绝先发后到的旧列表。
+  int _listRequestSeq = 0;
 
   bool _isCurrentSession(int captured) => captured == _session;
 
@@ -27,6 +29,7 @@ class ApiMedicineRepository extends ChangeNotifier {
   void clearSessionSnapshot() {
     // 先自增代次，让此刻仍在途的请求回填时自动作废（R10）。
     _session += 1;
+    _listRequestSeq += 1;
     _medicines = const [];
     isOffline = false;
     hasPendingWrites = false;
@@ -50,6 +53,8 @@ class ApiMedicineRepository extends ChangeNotifier {
   }) async {
     _requireIntent(isCurrent);
     final session = _session;
+    final requestSeq = ++_listRequestSeq;
+    bool isLatest() => _isCurrentSession(session) && requestSeq == _listRequestSeq;
     try {
       final json = await api.get(
         '/api/v1/medicines${includeArchived ? '?includeArchived=true' : ''}',
@@ -62,7 +67,7 @@ class ApiMedicineRepository extends ChangeNotifier {
           .map(MedicineRecord.fromJson)
           .toList(growable: false);
       // 请求在途时会话已切换：丢弃这份属于旧会话的结果，不回填内存/缓存（R10）。
-      if (!_isCurrentSession(session)) return medicines;
+      if (!isLatest()) return medicines;
       _medicines = result;
       isOffline = false;
       final syncedAt = DateTime.now();
@@ -70,23 +75,24 @@ class ApiMedicineRepository extends ChangeNotifier {
       _requireIntent(isCurrent);
       await localStore.saveInventory(result);
       _requireIntent(isCurrent);
-      if (!_isCurrentSession(session)) return medicines;
+      if (!isLatest()) return medicines;
       await localStore.saveLastSyncedAt(syncedAt);
       _requireIntent(isCurrent);
-      if (!_isCurrentSession(session)) return medicines;
+      if (!isLatest()) return medicines;
       notifyListeners();
       return result;
     } on ApiNetworkException {
       _requireIntent(isCurrent);
+      if (!isLatest()) return medicines;
       final cached = await localStore.readInventory();
       _requireIntent(isCurrent);
       if (cached == null) rethrow;
-      if (!_isCurrentSession(session)) return medicines;
+      if (!isLatest()) return medicines;
       _medicines = cached;
       isOffline = true;
       final syncedAt = await localStore.readLastSyncedAt();
       _requireIntent(isCurrent);
-      if (!_isCurrentSession(session)) return medicines;
+      if (!isLatest()) return medicines;
       lastSyncedAt = syncedAt;
       notifyListeners();
       return cached;

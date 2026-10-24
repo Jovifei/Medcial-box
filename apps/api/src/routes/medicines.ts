@@ -178,10 +178,13 @@ export async function registerMedicineRoutes(
 
         const byId = new Map(existingRows.map((row) => [row.id, row]));
         const keptIds = new Set<string>();
-        for (const fields of parsed.value.batches) {
+        // 对应客户端提交顺序的新增/更新回执；不能以响应批次的排序推断。
+        const batchSaveReceipts: Array<{ index: number; id: string; version: number }> = [];
+        for (const [index, fields] of parsed.value.batches.entries()) {
           if (fields.id === null) {
             const row = await insertBatch(tx, medicineId, ctx.familyId, fields, ctx.userId);
             keptIds.add(row.id);
+            batchSaveReceipts.push({ index, id: row.id, version: row.version });
             continue;
           }
           const current = byId.get(fields.id);
@@ -206,6 +209,7 @@ export async function registerMedicineRoutes(
             throw new TransactionConflictError(409, CONFLICT_BODY);
           }
           keptIds.add(row.id);
+          batchSaveReceipts.push({ index, id: row.id, version: row.version });
         }
         for (const row of existingRows) {
           if (!keptIds.has(row.id)) {
@@ -221,7 +225,10 @@ export async function registerMedicineRoutes(
 
         const batchRows = await listBatchesByMedicine(tx, medicineId, ctx.familyId);
         const now = new Date();
-        return toMedicineSummary(updated, batchRows.map((row) => toBatchSummary(row, now)), now);
+        return {
+          ...toMedicineSummary(updated, batchRows.map((row) => toBatchSummary(row, now)), now),
+          batchSaveReceipts,
+        };
       });
       return summary;
     } catch (error) {

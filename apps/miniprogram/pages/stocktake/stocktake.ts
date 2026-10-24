@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { parseQuantityByUnit } from "../../services/input-validation";
 import type { QuantityUnit, StocktakeItemInput, StocktakeSession } from "../../services/api-types";
@@ -38,22 +38,45 @@ Page({
     outcomeLabels: ["暂不核对", "数量没变化", "修改余量", "已用完", "已处理"],
     outcomeValues: ["deferred", "unchanged", "adjusted", "empty", "handled"] as Outcome[],
   },
+  requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onShow(): void { void this.refresh(); },
+  onHide(): void { ++this.requestSeq; },
+  onUnload(): void { ++this.requestSeq; },
   onPullDownRefresh(): void { void this.refresh().finally(() => wx.stopPullDownRefresh()); },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    let identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({ stocktake: null, items: [], submitting: false, errorMessage: "" });
+    }
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
       const result = await api.getCurrentStocktake();
+      if (!current()) return;
       const session = result.stocktake;
       if (session === null) {
-        this.applySession(null);
+        if (current()) this.applySession(null);
         return;
       }
       const conflicted = session.items.filter((item) => item.result === "conflict");
       if (conflicted.length === 0) {
-        this.applySession(session);
+        if (current()) this.applySession(session);
         return;
       }
       const medicineIds = [...new Set(conflicted.map((item) => item.medicineId))];
@@ -76,15 +99,31 @@ Page({
           return { ...item, version: batch.version, quantity: batch.quantity, unit: batch.unit };
         }),
       };
-      this.applySession(refreshedSession);
+      if (current()) this.applySession(refreshedSession);
     } catch (error) {
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.setData({ stocktake: null, items: [], submitting: false, loading: false });
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.setData({ stocktake: null, items: [], submitting: false, loading: false });
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
       this.setData({ errorMessage: error instanceof ApiError ? error.message : "暂时无法读取盘点" });
     } finally {
-      this.setData({ loading: false });
+      if (current()) this.setData({ loading: false });
     }
   },
 
   applySession(stocktake: StocktakeSession | null): void {
+    this.displayedIdentity = captureSessionIdentity();
+    const previousSession = (this.data as StocktakePageData).stocktake;
+    const previous = previousSession?.id === stocktake?.id
+      ? new Map((this.data as StocktakePageData).items.map((item) => [item.batchId, item]))
+      : new Map<string, StocktakeViewItem>();
     const items = stocktake?.items.map((item) => ({
       batchId: item.batchId,
       version: item.version,
@@ -100,21 +139,32 @@ Page({
         ? `家人已修改此批次；当前数量：${item.quantity === null ? "未知" : `${item.quantity} ${item.unit}`}，请重新核对。`
         : item.result === "not_found" ? "批次已删除或不可见。"
           : item.result === "saved" ? "已保存" : "",
+      // 一样的盘点会话/批次及版本才复用用户尚未提交的选择。
+      ...(item.result === "pending" && previous.get(item.batchId)?.result === "pending" &&
+        previous.get(item.batchId)?.version === item.version &&
+        previous.get(item.batchId)?.quantity === item.quantity &&
+        previous.get(item.batchId)?.unit === item.unit ? {
+          outcome: previous.get(item.batchId)!.outcome,
+          outcomeIndex: previous.get(item.batchId)!.outcomeIndex,
+          adjustedQuantity: previous.get(item.batchId)!.adjustedQuantity,
+        } : {}),
     })) ?? [];
     this.setData({ stocktake, items });
   },
 
   async onStart(): Promise<void> {
     if (this.data.submitting) return;
+    const identity = captureSessionIdentity();
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       const result = await api.startStocktake();
-      this.applySession(result.stocktake);
+      if (isCurrentSession(identity)) this.applySession(result.stocktake);
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "无法开始盘点", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "无法开始盘点", icon: "none" });
     } finally {
-      this.setData({ submitting: false });
+      if (isCurrentSession(identity)) this.setData({ submitting: false });
     }
   },
 
@@ -158,23 +208,28 @@ Page({
       }
       payload.push({ batchId: item.batchId, version: item.version, outcome: item.outcome, ...(quantity !== undefined ? { quantity } : {}) });
     }
+    const identity = captureSessionIdentity();
     this.setData({ submitting: true });
     try {
       await ensureLoggedIn();
+      if (!isCurrentSession(identity)) return;
       const result = await api.submitStocktakeItems(session.id, payload);
+      if (!isCurrentSession(identity)) return;
       const conflicts = result.results.filter((item) => item.outcome !== "saved");
       if (conflicts.length > 0) {
         await this.refresh();
+        if (!isCurrentSession(identity)) return;
         this.setData({ errorMessage: `${conflicts.length} 个批次已被家人修改或已删除；其余项目已保存，请查看标记项。` });
         return;
       }
       const completed = await api.completeStocktake(session.id);
+      if (!isCurrentSession(identity)) return;
       wx.showToast({ title: completed.completed ? "盘点已完成" : "盘点结果已保存", icon: "success" });
       await this.refresh();
     } catch (error) {
-      wx.showToast({ title: error instanceof ApiError ? error.message : "盘点保存失败，请重试", icon: "none" });
+      if (isCurrentSession(identity)) wx.showToast({ title: error instanceof ApiError ? error.message : "盘点保存失败，请重试", icon: "none" });
     } finally {
-      this.setData({ submitting: false });
+      if (isCurrentSession(identity)) this.setData({ submitting: false });
     }
   },
 });

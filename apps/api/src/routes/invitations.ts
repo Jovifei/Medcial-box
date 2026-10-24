@@ -286,6 +286,9 @@ export async function registerInvitationRoutes(
             ),
           );
         }
+        // 与邀请/切家保持家庭、成员、会话的锁顺序，避免相互等待。
+        // 会话锁仍先于成员删除和回退读取，保证同账号并行退家的新快照。
+        await tx.query("SELECT id FROM sessions WHERE user_id = $1 ORDER BY id FOR UPDATE", [auth.userId]);
         const careOwned = await tx.query(`SELECT id FROM care_profiles WHERE family_id=$1 AND linked_user_id IS NULL AND COALESCE(managed_by,created_by)=$2 AND archived_at IS NULL FOR UPDATE`, [ctx.familyId, auth.userId]);
         if ((careOwned.rowCount ?? 0) > 0) throw new TransactionConflictError(409, errorBody("CARE_HANDOVER_REQUIRED", "请先交接或归档本人管理的照护对象，再退出或移除成员"));
         const deleted = await deleteMembershipByUserId(tx, auth.userId, ctx.familyId);
@@ -306,6 +309,16 @@ export async function registerInvitationRoutes(
         await tx.query(`UPDATE medication_plans SET status='ended', version=version+1, updated_at=now()
           WHERE family_id=$1 AND care_profile_id IN (SELECT id FROM care_profiles WHERE family_id=$1 AND archived_at IS NOT NULL) AND status <> 'ended'`, [ctx.familyId]);
         await cancelDoseReminders(tx, "family_id=$1 AND plan_id IN (SELECT p.id FROM medication_plans p JOIN care_profiles c ON c.id=p.care_profile_id WHERE c.archived_at IS NOT NULL)", [ctx.familyId]);
+        // 退出家庭后修复本账号所有会话中的失效 active_family_id。
+        // 只影响仍选中已退出家庭的会话；其他家庭成员关系和数据原样保留。
+        const fallback = await tx.query<{ family_id: string }>(
+          "SELECT family_id FROM family_members WHERE user_id = $1 ORDER BY joined_at, id LIMIT 1",
+          [auth.userId],
+        );
+        await tx.query(
+          "UPDATE sessions SET active_family_id = $3 WHERE user_id = $1 AND active_family_id = $2",
+          [auth.userId, ctx.familyId, fallback.rows[0]?.family_id ?? null],
+        );
       });
       return reply.code(204).send();
     } catch (error) {

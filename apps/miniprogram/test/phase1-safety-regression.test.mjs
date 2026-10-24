@@ -3,13 +3,15 @@ import test from "node:test";
 import { loadPage, loadService, makePageContext } from "./runtime.mjs";
 
 test("AUD-02 family leave and member mutation do not dispatch after confirmation changes identity", async () => {
-  let actor="A", generation=1, approve;
+  let actor="A", generation=1, approve, role="member";
   let calls=0;
   const api={
     ApiError: class ApiError extends Error {},
     captureSessionIdentity:()=>({token:actor,generation}),
     isCurrentSession:value=>value.token===actor&&value.generation===generation,
-    api:{leaveFamily:async()=>{calls++},transferOwnership:async()=>{calls++},removeMember:async()=>{calls++}},
+    api:{leaveFamily:async()=>{calls++},transferOwnership:async()=>{calls++},removeMember:async()=>{calls++},
+      getCurrentFamily:async()=>({family:{name:actor,role,members:[]}}),
+      getFamilyInventorySettings:async()=>({settings:{stocktakeInterval:"monthly"}})},
   };
   const {definition}=loadPage("pages/family-settings/family-settings.ts",{
     modules:{
@@ -20,13 +22,14 @@ test("AUD-02 family leave and member mutation do not dispatch after confirmation
     wx:{showModal:opts=>{approve=opts.success},showToast(){},reLaunch(){}},
   });
   const page=makePageContext(definition);
-  page.setData({role:"member"});
+  await page.refresh();
   const leave=page.onLeaveFamily();
   actor="B";generation++;
   approve({confirm:true});
   await leave;
   assert.equal(calls,0);
-  page.setData({role:"owner"});
+  role="owner";
+  await page.refresh();
   const transfer=page.onManageMember({currentTarget:{dataset:{id:"member-1",action:"transfer"}}});
   actor="A";generation++;
   approve({confirm:true});

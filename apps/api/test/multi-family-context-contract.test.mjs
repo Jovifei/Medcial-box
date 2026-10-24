@@ -98,6 +98,9 @@ test('real PG: old two-household upgrade/rerun and session/invitation/product is
     expect(await req(tokenA,'POST','/families/invitations/accept',{code:secondCode}),200);
     assert.equal((await pool.query('SELECT used_at FROM family_invites WHERE token_hash=encode(sha256($1::bytea),\'hex\')',[Buffer.from(secondCode)])).rows[0].used_at,null);
     expect(await req(tokenA,'POST','/families/leave'),204);
+    const afterLeave=expect(await req(tokenA,'GET','/auth/me'),200);
+    assert.equal(afterLeave.user.hasFamily,true);
+    assert.equal(afterLeave.family.id,f[0].id,'已离开的当前家庭要切回仍然拥有的家庭');
     assert.equal(expect(await req(deviceA2,'GET','/families/current'),200).family.role,'owner');
     expect(await req(tokenA,'GET','/medicines',undefined,f[1].id),404);
     expect(await req(deviceA2,'POST','/families/leave'),409);

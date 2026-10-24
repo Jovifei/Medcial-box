@@ -239,7 +239,8 @@ class ApiAuthRepository {
         (user['nickname'] != null && user['nickname'] is! String) ||
         user['hasFamily'] is! bool ||
         !json.containsKey('family') ||
-        (user['hasFamily'] == true && familyJson is! Map<String, dynamic>) ||
+        // 仍有家庭成员资格但尚未选择活动家庭是合法状态。
+        (familyJson != null && familyJson is! Map<String, dynamic>) ||
         (user['hasFamily'] == false && familyJson != null)) {
       throw const ApiException(
         statusCode: 502,
@@ -279,7 +280,16 @@ class ApiAuthRepository {
       await localStore?.saveFamily(family);
       _requireCurrentIdentity(epoch);
     } else {
-      final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
+      // Legal hasFamily=true/family=null means no active selection, not
+      // revoked membership. Preserve verified same-user input drafts only
+      // while membership remains; explicit loss also clears private drafts.
+      // Always drop previous household inventory, alarms and projections.
+      final cleanupEpoch = await api.reportNoCurrentFamily(
+        epoch,
+        selectionChanged: user['hasFamily'] == true &&
+            previousOwner != null &&
+            previousOwner.userId == user['id'],
+      );
       _requireCurrentIdentity(cleanupEpoch);
       epoch = cleanupEpoch;
     }

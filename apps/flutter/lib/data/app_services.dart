@@ -264,7 +264,7 @@ class AppServices {
         return identity.owner;
       };
       api.onFamilySelectionChanged = () =>
-          clearIdentityData(preserveDrafts: true);
+          clearIdentityData(familyMissing: true, preserveDrafts: true);
       api.onFamilyUnavailable = () => clearIdentityData(familyMissing: true);
       api.onUnauthorized = () async {
         final intent = identity.beginSignOut();

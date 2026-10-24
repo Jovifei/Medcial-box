@@ -64,6 +64,17 @@ test("recognition without structured labels does not guess from the name", async
   assert.equal(page.data.purposeCategory, "");
 });
 
+test("box-front recognition fills core details without opening advanced fields", async () => {
+  const page = pageFor({ recognizeMedicine: async () => ({
+    draft: { name: "蒙脱石散", specification: "3克×10袋", manufacturer: "合成药厂", approvalNumber: "测试准字" },
+    warnings: [], requiresConfirmation: true,
+  }) });
+  await page.onRecognizePhoto("camera");
+  assert.equal(page.data.name, "蒙脱石散");
+  assert.equal(page.data.specification, "3克×10袋");
+  assert.equal(page.data.optionalExpanded, false);
+});
+
 test("barcode misses retain the code and describe an optional review draft", async () => {
   const page = pageFor({ findMedicineCandidates: async () => ({ candidates: [], warnings: [] }) }, {
     scanCode(options) { options.success({ result: "6900000000012" }); },

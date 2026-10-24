@@ -80,6 +80,43 @@ const reviewedSourceTrees = new Set([
   'a593a6064cda05dd2db4d2eb43b7071c5e80e665',
   // 2026-10-23 review: invalid GS1 expiry fails closed and remains visible after scan/retry.
   '51f87be926b11be406b0fb922fe3ac706d35d82a',
+  // 2026-10-23 本轮独立逐页审阅：login restore/主动登录代次；首页/详情/待处理/
+  // 补货/盘点晚到响应；照片草稿重试；邀请、退出及备份回执；均复用既有
+  // wx/文件系统/网络白名单，没有增加原生能力或改变合成沙盒边界。
+  // 精确源树（包含本轮合成竞态测试）须与固定候选提交一一对应；
+  // 任何后续小程序源码变更都仍将被 fail-closed 拒绝，需重新审核。
+  '5a9cc031be9d57bf4058097c0ed037404a9277ba',
+  // 2026-10-23 新增专属草稿 scope 及跨家庭身份切换合成断言，
+  // 小程序生产模块未再变更；仅测试目录差异且权限库存保持不变。
+  '16495a4c514f269598e3d6b2bebb63bf9bd91fc6',
+  // 2026-10-23 independent source review: family identity changes synchronously clear
+  // prior household display snapshots; detail projections, stale async completions,
+  // stocktake/restock write guards, and new synthetic tests use only existing APIs.
+  // This review does not grant new wx/fs/network capabilities or relax fail-closed QA.
+  '49511b6acdf3175ad50c4207c1232ca3abc9e24d',
+  // 2026-10-23 continuation review: own 401/scope resolution is separated from stale
+  // foreign responses; backup preview/confirmation retains its original owner and
+  // stocktake post-refresh status is fenced. No new wx/fs/network capabilities.
+  // Independently exercised by scripts/resume-boundaries.test.mjs; other trees denied.
+  'e646e48709fab7535f74747868c123a23fc6b1eb',
+  // 2026-10-23 follow-up: same-identity strict read-only checks share one owned
+  // invalidation receipt; interactive login remains separate. Native capabilities
+  // unchanged; scripts/session-check-coalescing.test.mjs covers overlap and release.
+  '3ba9bb68954e82ba2b3f713fe93a082d7e4f974d',
+  // Same reviewed behavior; Promise handle is const with explicit type for lint.
+  'd33fd365f61743aefcbfbcb305d8e7c930a6b02d',
+  // 2026-10-24 逐页审阅本阶段正式源码树：
+  // 登录范围变更先清本地投影、backup 本次 401 清 busy、照片草稿批次回执；
+  // 仅沿用已审 wx/request/filesystem 能力，未增加外部运行时或权限。
+  // 列表中只有精确此树可运行合成 QA；后续源码更改必须重新核实树。
+  '5705e1ce090bbf9546cd25639cc49e7a1a618893',
+  // 2026-10-24 二次源树核验：仅补充 MedicationSummary 写回执静态类型，
+  // 产品模块 API/权限调用没有增量；QA 仍绑定精确 SHA。
+  'c9f090f9df9f73c07c778b3fcfecbcb6c4dd9c22',
+  // 2026-10-24 独立复审：备份入口/收尾按原操作清屏，家庭设置绑定
+  // 已显示身份，18 项真实 transport/auth 合成回归覆盖无 onShow 的切家。
+  // 只复用既有 wx/fs 能力；精确树已核验，其他未审树仍 fail closed。
+  '1214bcbfd220684835bf46fa4667d2bd74379ba0',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

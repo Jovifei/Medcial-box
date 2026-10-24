@@ -1,4 +1,4 @@
-import { api, ApiError, readToken } from "../../services/api";
+import { api, ApiError, readToken, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
@@ -217,7 +217,7 @@ Page({
     filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
     /** 人群多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPopulations: [] as string[],
-    /** 用途多选：空数组 = 不筛选。 */
+    /** 用途多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPurposes: [] as string[],
     populationChips: chipOptions(POPULATION_CHIPS, []),
     purposeChips: chipOptions(PURPOSE_CHIPS, []),
@@ -239,9 +239,14 @@ Page({
 
   /** 缩略图代次：每次新的 loadCovers 自增，令此刻仍在途的旧下载回写作废（对齐 R10/R11 纪律）。 */
   coverToken: 0,
-  /** coverPhotoId → 本地临时路径缓存，令切 tab 回前台不重复下载。 */
+  refreshSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
+  coverCacheOwner: "",
+  /** coverPhotoId → 本地临时路径缓存，只能用于捕获到的家庭范围。 */
   coverCache: null as Map<string, string> | null,
 
+  onHide() { ++this.refreshSeq; ++this.coverToken; },
+  onUnload() { ++this.refreshSeq; ++this.coverToken; this.coverCache = null; },
   onShow() {
     this.refresh();
   },
@@ -250,37 +255,86 @@ Page({
     this.refresh().then(() => wx.stopPullDownRefresh());
   },
 
+  clearPrivateView(): void {
+    ++this.coverToken;
+    this.coverCacheOwner = "";
+    this.coverCache = null;
+    this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+      highlightedId: "", savedMessage: "", entrySheetVisible: false,
+      expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+  },
+
   async refresh(): Promise<void> {
+    const seq = ++this.refreshSeq;
+    ++this.coverToken; // 新列表必须使上一轮封面下载失效。
+    let identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.coverCacheOwner = "";
+      this.coverCache = null;
+      this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+        expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+    }
+    const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity);
     if (readToken() === "") {
-      if (!this.redirecting) {
+      if (current() && !this.redirecting) {
         this.redirecting = true;
         wx.reLaunch({ url: "/pages/login/login" });
       }
       return;
     }
+    this.redirecting = false;
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.refreshSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn({ allowInteractive: false });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
     } catch (error) {
+      if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
-        if (!this.redirecting) {
-          this.redirecting = true;
-          wx.reLaunch({ url: "/pages/login/login" });
-        }
+        this.clearPrivateView();
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.clearPrivateView();
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
       this.showUnavailable(error);
       return;
     }
+    if (!current()) return;
     try {
       const family = await api.getCurrentFamily();
-      // 首页需要支持“已归档”筛选，因此取完整集合；默认视图仍只展示未归档药品。
+      if (!current()) return;
+      // 首页需要支持已归档筛选，默认视图仍只展示未归档药品。
       const list = await api.listMedicines(true);
+      if (!current()) return;
+      const owner = scopedStorageKey("cabinet-cover-cache") ?? "";
+      if (owner !== this.coverCacheOwner) {
+        this.coverCacheOwner = owner;
+        this.coverCache = null;
+      }
       this.applyMedicines(list.medicines, family.family.name);
       void this.loadCovers();
     } catch (error) {
-      if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") {
-        // 尚未创建或加入家庭：先让用户选择创建还是加入。
-        wx.navigateTo({ url: "/pages/family-entry/family-entry" });
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.clearPrivateView();
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.clearPrivateView();
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
       this.showUnavailable(error);
@@ -338,9 +392,11 @@ Page({
     if (targets.length === 0) return;
     const cache = this.coverCache ?? (this.coverCache = new Map<string, string>());
     const token = (this.coverToken += 1);
+    const identity = captureSessionIdentity();
+    const current = (): boolean => token === this.coverToken && isCurrentSession(identity);
     const resolved = new Map<string, string>();
     for (const item of targets.slice(0, 60)) {
-      if (token !== this.coverToken) return;
+      if (!current()) return;
       const cached = cache.get(item.coverPhotoId);
       if (cached !== undefined) {
         resolved.set(item.id, cached);
@@ -348,18 +404,18 @@ Page({
       }
       try {
         const tempFilePath = await api.downloadLeafletPhoto(item.id, item.coverPhotoId);
-        if (token !== this.coverToken) return;
+        if (!current()) return;
         if (typeof tempFilePath === "string" && tempFilePath !== "") {
           cache.set(item.coverPhotoId, tempFilePath);
           resolved.set(item.id, tempFilePath);
         }
       } catch {
-        if (token !== this.coverToken) return;
+        if (!current()) return;
       }
     }
-    if (token !== this.coverToken || resolved.size === 0) return;
-    const current = this.data as IndexPageData;
-    const allItems = current.allItems.map((entry) => {
+    if (!current() || resolved.size === 0) return;
+    const latestData = this.data as IndexPageData;
+    const allItems = latestData.allItems.map((entry) => {
       const path = resolved.get(entry.id);
       return path === undefined ? entry : { ...entry, coverPhotoPath: path };
     });

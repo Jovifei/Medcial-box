@@ -49,7 +49,24 @@ export function loginWithWechat(): Promise<LoginResult> {
  * 确认当前令牌仍然可用。首次欢迎页传 allowInteractive=false，避免打开应用
  * 时悄悄替用户完成微信登录；业务页保留旧的静默登录兼容行为。
  */
-export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {}): Promise<string> {
+type SessionCheckOptions = { allowInteractive?: boolean; rejectScopeChange?: boolean };
+let strictCheck: { identity: SessionIdentity; promise: Promise<string> } | null = null;
+
+export function ensureLoggedIn(options: SessionCheckOptions = {}): Promise<string> {
+  if (options.allowInteractive !== false || options.rejectScopeChange !== true) return checkSession(options);
+  const identity = captureSessionIdentity();
+  // 同身份的并行只读刷新共享同一回执；这样较新页面不会因为较早页面
+  // 发现家庭变化并递增代次而永久停留在 loading。主动登录不加入此合并。
+  if (strictCheck && strictCheck.identity.token === identity.token &&
+      strictCheck.identity.generation === identity.generation) return strictCheck.promise;
+  const pending: Promise<string> = checkSession(options).finally(() => {
+    if (strictCheck?.promise === pending) strictCheck = null;
+  });
+  strictCheck = { identity, promise: pending };
+  return pending;
+}
+
+async function checkSession(options: SessionCheckOptions): Promise<string> {
   const identity = captureSessionIdentity();
   const existing = identity.token;
   let ownInvalidatedSession: SessionIdentity | undefined;
@@ -60,8 +77,14 @@ export async function ensureLoggedIn(options: { allowInteractive?: boolean } = {
       if (!isCurrentSession(identity)) throw staleSessionError();
       const previous = readSessionScope();
       const next = { userId: me.user.id, familyId: me.family?.id ?? "" };
-      if (previous !== null && (previous.userId !== next.userId || previous.familyId !== next.familyId)) beginSessionTransition();
+      const scopeChanged = previous !== null && (previous.userId !== next.userId || previous.familyId !== next.familyId);
+      if (scopeChanged) beginSessionTransition();
       writeSessionScope(next);
+      // 列表页可以区分本次校验确认的家庭变化与其他页面发起的新登录。
+      // 只返回带本次拥有代次的错误；旧表单不得借此接续向新家庭写入。
+      if (scopeChanged && options.rejectScopeChange) {
+        throw new ApiError("SESSION_SCOPE_CHANGED", "当前家庭已变化，请重新选择家庭", 0, captureSessionIdentity());
+      }
       return existing;
     } catch (error) {
       if (!(error instanceof ApiError) || (error.statusCode !== 401 && error.code !== "UNAUTHORIZED" && error.code !== "SESSION_EXPIRED")) {

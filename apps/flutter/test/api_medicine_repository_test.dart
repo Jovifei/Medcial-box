@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,48 @@ import 'package:home_medicine_flutter/data/app_stores.dart';
 import 'package:home_medicine_flutter/models/medicine_models.dart';
 
 void main() {
+
+  test('same-session overlapping inventory refresh keeps the newest result and cache', () async {
+    final responses = <Completer<http.Response>>[
+      Completer<http.Response>(),
+      Completer<http.Response>(),
+    ];
+    final reached = <Completer<void>>[
+      Completer<void>(),
+      Completer<void>(),
+    ];
+    var requestIndex = 0;
+    final cache = MemoryInventoryLocalStore();
+    final repository = ApiMedicineRepository(
+      api: ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => 'session-token',
+        client: MockClient((request) {
+          final index = requestIndex++;
+          reached[index].complete();
+          return responses[index].future;
+        }),
+      ),
+      localStore: cache,
+    );
+    http.Response reply(String name) => http.Response(
+      jsonEncode({'medicines': [
+        {'id': name, 'name': name, 'batches': []},
+      ]}),
+      200,
+    );
+    final first = repository.listMedicines();
+    await reached[0].future;
+    final second = repository.listMedicines();
+    await reached[1].future;
+    responses[1].complete(reply('newer'));
+    await second;
+    responses[0].complete(reply('older'));
+    await first;
+    expect(repository.medicines.single.id, 'newer');
+    expect((await cache.readInventory())!.single.id, 'newer');
+  });
+
   test('maps opening deadline and threshold from the shared inventory API', () async {
     final repository = ApiMedicineRepository(
       api: ApiClient(

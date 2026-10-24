@@ -421,8 +421,13 @@ export const api = {
     });
   },
 
-  updateMedicine(medicineId: string, payload: MedicinePayload): Promise<MedicationSummary> {
-    return request<MedicationSummary>({
+  updateMedicine(medicineId: string, payload: MedicinePayload): Promise<MedicationSummary & {
+    batchSaveReceipts?: Array<{ index: number; id: string; version: number }>;
+  }> {
+    // 兼容既有部署：早期 API 不保证返回逐项回执，调用方执行安全回退。
+    return request<MedicationSummary & {
+      batchSaveReceipts?: Array<{ index: number; id: string; version: number }>;
+    }>({
       method: "PUT",
       path: `/api/v1/medicines/${medicineId}`,
       payload: toPayload(payload),

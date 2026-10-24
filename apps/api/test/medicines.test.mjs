@@ -408,6 +408,11 @@ test("medicine update syncs batches (add / update / delete) in one transaction",
       ["b-keep", "b-new"],
       "删除的批次不应出现在结果里",
     );
+    // 请求索引绑定新增/更新后的版本回执；拒绝按返回列表排序猜测批次。
+    assert.deepEqual(body.batchSaveReceipts, [
+      { index: 0, id: "b-keep", version: 5 },
+      { index: 1, id: "b-new", version: 1 },
+    ]);
     assert.equal(pool.callsMatching(/INSERT INTO medicine_batches/).length, 1);
     assert.equal(pool.callsMatching(/UPDATE medicine_batches SET\s+lot_number/).length, 1);
     assert.equal(pool.callsMatching(/UPDATE medicine_batches SET deleted_at = now\(\)/).length, 1);
