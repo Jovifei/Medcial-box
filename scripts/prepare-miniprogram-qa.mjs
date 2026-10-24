@@ -81,6 +81,8 @@ const reviewedSourceTrees = new Set([
   // 2026-10-25 reviewed: scan-candidate purpose-tag chips backfill (setData only) and family-entry copy fix.
   // Type-only candidate field plus synthetic test; no new wx/fs/network/component capabilities.
   '4562490777bd433fc1a6d692b28f07a311c52378',
+  // 2026-10-25 follow-up: release-notes text and version bump only; capability set unchanged from 4562490777.
+  '4b8fcfedabe7eff48405e11995f58aafd342e64d',
   // 2026-10-23 review: invalid GS1 expiry fails closed and remains visible after scan/retry.
   '51f87be926b11be406b0fb922fe3ac706d35d82a',
   // 2026-10-23 本轮独立逐页审阅：login restore/主动登录代次；首页/详情/待处理/
