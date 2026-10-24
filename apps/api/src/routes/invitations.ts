@@ -252,6 +252,8 @@ export async function registerInvitationRoutes(
     }
     try {
       await database.withTransaction(async (tx) => {
+        // 同一账号并行退出家庭必须串行：先锁其全部会话，再读取可用成员关系。
+        await tx.query("SELECT id FROM sessions WHERE user_id = $1 ORDER BY id FOR UPDATE", [auth.userId]);
         const locked = await tx.query<{ id: string }>(
           "SELECT id FROM families WHERE id = $1 FOR UPDATE",
           [ctx.familyId],

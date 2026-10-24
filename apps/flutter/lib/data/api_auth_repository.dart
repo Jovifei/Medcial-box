@@ -239,7 +239,8 @@ class ApiAuthRepository {
         (user['nickname'] != null && user['nickname'] is! String) ||
         user['hasFamily'] is! bool ||
         !json.containsKey('family') ||
-        (user['hasFamily'] == true && familyJson is! Map<String, dynamic>) ||
+        // 仍有家庭成员资格但尚未选择活动家庭是合法状态。
+        (familyJson != null && familyJson is! Map<String, dynamic>) ||
         (user['hasFamily'] == false && familyJson != null)) {
       throw const ApiException(
         statusCode: 502,

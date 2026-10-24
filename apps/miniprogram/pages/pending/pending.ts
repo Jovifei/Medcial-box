@@ -43,10 +43,12 @@ Page({
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.setData({ items: [], lastUpdated: "", loading: false });
         wx.reLaunch({ url: "/pages/login/login" });
         return;
       }
       if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.setData({ items: [], lastUpdated: "", loading: false });
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }

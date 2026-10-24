@@ -29,6 +29,15 @@ Page({
   backupCopyScope: null as string | null,
   backupCopyIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onUnload(): void { this.backupLifecycleEpoch += 1; },
+  // 仅处理本次请求失去的 401 身份；清空原家庭私有内容并立即释放 busy。
+  clearAfterOwn401(error: unknown, epoch: number): boolean {
+    if (!(error instanceof ApiError) || error.statusCode !== 401 ||
+        !error.invalidatedSession || !isCurrentSession(error.invalidatedSession) ||
+        epoch !== this.backupLifecycleEpoch || temporaryShareScope() !== null) return false;
+    this.onShow();
+    this.setData({ errorMessage: "登录已失效，请重新登录后操作。" });
+    return true;
+  },
   onShow(): void {
     if (this.backupOperationIdentity !== null &&
         (!isCurrentSession(this.backupOperationIdentity) || this.backupOperationScope !== temporaryShareScope())) {
@@ -111,6 +120,7 @@ Page({
         this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
       }
     } catch (error) {
+      if (this.clearAfterOwn401(error, epoch)) return;
       // 页面已换家庭/身份时旧错误不能回填到新的视图。
       if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message :
         error instanceof Error ? error.message : "备份生成或分享失败" });
@@ -198,6 +208,7 @@ Page({
         restoreAllowed: preview.valid && !preview.duplicateBackup && typeof preview.confirmationToken === "string",
         statusText: "预览完成；确认前不会写入家庭药箱。" });
     } catch (error) {
+      if (this.clearAfterOwn401(error, epoch)) return;
       if (!current()) return;
       this.pendingImportPayload = null;
       this.pendingConfirmationToken = null;
@@ -236,6 +247,7 @@ Page({
       this.setData({ statusText: `已新增 ${response.restoredCount} 种药品到当前家庭。`, importPreview: null, restoreAllowed: false });
       wx.showToast({ title: "恢复完成", icon: "success" });
     } catch (error) {
+      if (this.clearAfterOwn401(error, epoch)) return;
       if (current()) this.setData({ errorMessage: error instanceof ApiError ? error.message : "恢复失败；当前家庭数据未显示为已恢复" });
     } finally {
       if (epoch === this.backupLifecycleEpoch && isCurrentSession(identity) && scope === temporaryShareScope()) this.setData({ busy: false });

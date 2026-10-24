@@ -255,6 +255,15 @@ Page({
     this.refresh().then(() => wx.stopPullDownRefresh());
   },
 
+  clearPrivateView(): void {
+    ++this.coverToken;
+    this.coverCacheOwner = "";
+    this.coverCache = null;
+    this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+      highlightedId: "", savedMessage: "", entrySheetVisible: false,
+      expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+  },
+
   async refresh(): Promise<void> {
     const seq = ++this.refreshSeq;
     ++this.coverToken; // 新列表必须使上一轮封面下载失效。
@@ -290,10 +299,12 @@ Page({
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.clearPrivateView();
         wx.reLaunch({ url: "/pages/login/login" });
         return;
       }
       if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.clearPrivateView();
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
@@ -317,10 +328,12 @@ Page({
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.clearPrivateView();
         wx.reLaunch({ url: "/pages/login/login" });
         return;
       }
       if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.clearPrivateView();
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
