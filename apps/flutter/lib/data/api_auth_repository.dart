@@ -280,7 +280,14 @@ class ApiAuthRepository {
       await localStore?.saveFamily(family);
       _requireCurrentIdentity(epoch);
     } else {
-      final cleanupEpoch = await api.reportNoCurrentFamily(epoch);
+      // Legal hasFamily=true/family=null means no active selection, not
+      // revoked membership. Preserve verified same-user input drafts; always
+      // drop previous household inventory, alarms and cached projections.
+      final cleanupEpoch = await api.reportNoCurrentFamily(
+        epoch,
+        selectionChanged: previousOwner != null &&
+            previousOwner.userId == user['id'],
+      );
       _requireCurrentIdentity(cleanupEpoch);
       epoch = cleanupEpoch;
     }

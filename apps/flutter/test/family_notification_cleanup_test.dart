@@ -628,7 +628,8 @@ void main() {
     'missing-flag',
     'missing-family',
     'false-with-family',
-    'true-with-null',
+    // true-with-null is a legal unselected household; its positive privacy
+    // and same-owner draft contract is covered in unselected_family_auth_test.
     'missing-user-id',
     'blank-user-id',
     'failed-read',

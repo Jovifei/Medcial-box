@@ -113,6 +113,7 @@ void main() {
     expect(await services.auth!.readAccessToken(), 'synthetic-session-a');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('C2C-02 approved device link reaches chooser, never INVALID_RESPONSE or home', (tester) async {
@@ -149,5 +150,6 @@ void main() {
     expect(await services.auth!.readAccessToken(), 'synthetic-linked-session');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
+    debugDefaultTargetPlatformOverride = null;
   });
 }
