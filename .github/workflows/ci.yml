@@ -134,6 +134,7 @@ jobs:
           node scripts/candidate-bundle.mjs build --sha "$CANDIDATE_SHA" --appid wx1f6dd99d28aab8e5 --api-base https://medbox.joviluma.com --output var/candidate-delivery/bundle
           node scripts/candidate-bundle.mjs verify --sha "$CANDIDATE_SHA" --appid wx1f6dd99d28aab8e5 --api-base https://medbox.joviluma.com --output var/candidate-delivery/bundle
           node scripts/candidate-bundle.mjs receipt --sha "$CANDIDATE_SHA" --output var/candidate-delivery/ci-receipt.json
+          node scripts/candidate-readiness.mjs --manifest var/candidate-delivery/bundle/manifest.json --receipt var/candidate-delivery/ci-receipt.json --output var/candidate-delivery/release-readiness.json
       - uses: actions/upload-artifact@v6
         with:
           name: medbox-source-candidate-${{ github.event.pull_request.head.sha || github.sha }}
