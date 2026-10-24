@@ -180,3 +180,47 @@ test('restock deletion confirmation from old household cannot dispatch under a n
   await action;
   assert.equal(mutations,0,'old confirmation must not write B household');
 });
+
+
+test('C2C-01 photo_pending second edit reuses ACK batch identities/versions, never INSERTs the new batch twice',async()=>{
+  let uploadFails=true;
+  const updates=[];
+  const batch=(id,version)=>({id,version,expiry:{value:null,precision:'unknown'},quantity:null,
+    unit:'box',confirmedUnitsPerPackage:null,conversionUnit:null,storageLocation:null,
+    lotNumber:null,openedState:'unknown',openedAt:null,afterOpeningLimit:null});
+  const h=harness({
+    update:(_result,id,payload)=>{
+      updates.push(structuredClone(payload));
+      const next=updates.length;
+      return {id,version:payload.version+1,
+        batches:[batch('existing-batch',7+next),batch('saved-new-batch',next)],
+        batchSaveReceipts:[{index:0,id:'existing-batch',version:7+next},
+          {index:1,id:'saved-new-batch',version:next}]};
+    },
+    upload:result=>uploadFails?Promise.reject(Error('synthetic upload unavailable')):result,
+  });
+  const draft=h.draft('two-batches','photo_pending');
+  draft.medicineId='existing-medicine';
+  const photoScope=h.scope.scopedStorageKey('medicine-photo-drafts','existing-medicine');
+  for(const photo of draft.photos)photo.ownedLocal.scopeKey=photoScope;
+  h.seed([draft]);h.storage.set(photoScope,structuredClone([draft]));h.attach(h.a,[draft],draft.id);
+  h.a.photoScopeKey=photoScope;
+  h.a.draftStorageKey=h.scope.scopedStorageKey('medicine-edit-draft','existing-medicine');
+  const initial=h.a.data.batches[0];
+  h.a.setData({isEdit:true,medicineId:'existing-medicine',version:4,
+    batches:[{...initial,id:'existing-batch',version:7},
+      {...initial,id:null,version:null,draftKey:'unsaved-new-batch',lotNumber:'new-lot'}]});
+  await h.a.onSubmit();
+  assert.equal(updates.length,1);
+  assert.equal(h.a.data.version,5);
+  assert.equal(h.a.data.batches[0].version,8);
+  assert.equal(h.a.data.batches[1].id,'saved-new-batch');
+  assert.equal(h.a.data.batches[1].version,1);
+  uploadFails=false;
+  await h.a.onSubmit();
+  assert.equal(updates.length,2);
+  assert.equal(updates[1].version,5);
+  assert.deepEqual(updates[1].batches.map(x=>[x.id,x.version]),
+    [['existing-batch',8],['saved-new-batch',1]]);
+  assert.equal(h.calls.create,0);
+});
