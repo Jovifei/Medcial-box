@@ -40,7 +40,7 @@ export type LeafletReviewStatus = "unverified" | "matched" | "user_confirmed";
 export type NoteVisibility = "private" | "family";
 
 export type PopulationTag = "adult" | "child";
-export type PurposeTag = "fever" | "cough" | "throat" | "nasal" | "gastro" | "pain" | "topical" | "allergy" | "itch" | "eye" | "oral" | "constipation" | "diarrhea" | "other";
+export type PurposeTag = "fever" | "cough" | "throat" | "nasal" | "gastro" | "pain" | "topical" | "allergy" | "antiinfective" | "itch" | "eye" | "oral" | "constipation" | "diarrhea" | "other";
 
 export interface MedicationBatchSummary {
   id: string;
