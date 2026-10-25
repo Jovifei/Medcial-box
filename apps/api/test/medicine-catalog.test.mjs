@@ -104,6 +104,48 @@ test("indication text maps to conservative purpose tags; ingredient text never d
   assert.deepEqual(coldOnly.candidates[0].purposeTags, [], "泛用途词（感冒）不得映射");
 });
 
+async function candidateForDescription(desc) {
+  const provider = new catalogModule.JisuMedicineCatalogProvider("test-key", async () => jsonResponse({
+    status: 0,
+    result: { name: "合成候选", barcode: "6900000000012", desc },
+  }));
+  const result = await provider.search({ barcode: "6900000000012", consentToShare: true });
+  assert.equal(result.candidates[0].leaflet.reviewStatus, "unverified");
+  return result.candidates[0];
+}
+
+for (const [text, expected] of [
+  ["用于缓解疼痛。不适用于发热、咳嗽。", ["pain"]],
+  ["发热者禁用；过敏者慎用。用于缓解鼻塞。", ["nasal"]],
+  ["对腹泻无效。用于缓解非甾体抗炎药相关说明中的疼痛。", ["pain"]],
+  // 混合肯定/否定的同一句也保守放弃，不能把否定用途变成推荐标签。
+  ["用于缓解疼痛，不适用于发热。", []],
+]) {
+  test(`catalog purpose tags exclude negated or cautionary sentences: ${text}`, async () => {
+    const candidate = await candidateForDescription(`〖功能主治〗${text}`);
+    assert.deepEqual(candidate.purposeTags, expected);
+    assert.equal(candidate.leaflet.purposeSummary, text, "原候选说明仍供人工核对");
+  });
+}
+
+for (const [open, close] of [["", "："], ["〖", "〗"], ["【", "】"], ["[", "]"]]) {
+  test(`catalog indication stops before the next leaflet section: ${open || "plain"}`, async () => {
+    const heading = value => `${open}${value}${close}`;
+    const candidate = await candidateForDescription(
+      `${heading("功能主治")}缓解鼻塞。${heading("禁忌")}发热者禁用。${heading("注意事项及副作用")}可能腹泻。`,
+    );
+    assert.deepEqual(candidate.purposeTags, ["nasal"]);
+    assert.equal(candidate.leaflet.purposeSummary, "缓解鼻塞。");
+    assert.equal(candidate.leaflet.contraindicationsSummary, "发热者禁用。");
+    assert.equal(candidate.leaflet.precautionsSummary, "可能腹泻。");
+  });
+}
+
+test("catalog keeps only three explicit purpose tags without inferring from broad indications", async () => {
+  const candidate = await candidateForDescription("〖功能主治〗发热、疼痛、咳嗽、鼻塞、腹泻。感冒。" );
+  assert.deepEqual(candidate.purposeTags, ["fever", "pain", "cough"]);
+});
+
 test("catalog provider errors become a safe unavailable result", async () => {  assert.ok(catalogModule, "medicine catalog adapter has not been implemented");
   const { JisuMedicineCatalogProvider, MedicineCatalogUnavailableError } = catalogModule;
   const provider = new JisuMedicineCatalogProvider("test-key", async () => jsonResponse({ status: 104, msg: "quota" }));

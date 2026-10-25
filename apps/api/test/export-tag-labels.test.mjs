@@ -96,3 +96,16 @@ test("unknown tag values are preserved but markdown-escaped", () => {
   const markdown = renderMarkdownExport(medicines, snapshotWith().options, new Date());
   assert.match(markdown, /用途标签：发热、future\\_tag/);
 });
+
+test("prototype property names stay unknown labels in every export column", () => {
+  const unknown = ["constructor", "toString", "__proto__"];
+  const snapshot = snapshotWith({ purposeTags: unknown, populationTags: unknown });
+  const row = inventoryExportRows(snapshot)[0];
+  for (const column of ["用途标签", "人群标签"]) {
+    assert.equal(row[EXPORT_COLUMNS.indexOf(column)], unknown.join("；"));
+  }
+  const markdown = renderMarkdownExport(snapshot.medicines, snapshot.options, new Date());
+  assert.match(markdown, /用途标签：constructor、toString、\\_\\_proto\\_\\_/);
+  assert.match(markdown, /适用人群：constructor、toString、\\_\\_proto\\_\\_/);
+  assert.doesNotMatch(renderCsvExport(snapshot), /function|native code|\[object Object\]/);
+});

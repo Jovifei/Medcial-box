@@ -101,3 +101,31 @@ test("catalog candidates with mapped purpose tags fill empty chips but never rep
   manual.onApplyCandidate();
   assert.deepEqual([...manual.data.purposeTags], ["gastro"]);
 });
+
+test("catalog candidates cannot revive purpose tags explicitly cleared by the user", () => {
+  let writes = 0;
+  const page = pageFor({ createMedicine: async () => { writes += 1; } });
+  const event = { currentTarget: { dataset: { kind: "other" } } };
+  page.onTogglePurposeTag(event);
+  page.onTogglePurposeTag(event);
+  assert.deepEqual([...page.data.purposeTags], []);
+  const candidate = { name: "合成候选", activeIngredients: [], purposeTags: ["fever", "pain"], leaflet: null };
+  page.setData({ candidate, candidates: [candidate] });
+  page.onApplyCandidate();
+  assert.deepEqual([...page.data.purposeTags], []);
+  assert.equal(page.data.purposeChips.some(chip => chip.selected), false);
+  assert.equal(writes, 0, "采纳候选仍需要人工保存");
+});
+
+test("catalog candidate purpose tags are whitelisted, unique and limited before entering the draft", () => {
+  const page = pageFor();
+  const candidate = { name: "合成候选", activeIngredients: [], leaflet: null,
+    purposeTags: ["constructor", "future_tag", "fever", "fever", null, "pain", "cough", "nasal"] };
+  page.setData({ candidate, candidates: [candidate], classificationExpanded: false });
+  assert.deepEqual([...page.data.purposeTags], [], "查询结果不能自动采纳");
+  page.onApplyCandidate();
+  assert.deepEqual([...page.data.purposeTags], ["fever", "pain", "cough"]);
+  assert.equal(page.data.purposeChips.filter(chip => chip.selected).length, 3);
+  assert.equal(page.data.classificationExpanded, true);
+  assert.equal(page.data.verified, false);
+});
