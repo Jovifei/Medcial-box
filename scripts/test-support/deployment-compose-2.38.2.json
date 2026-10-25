@@ -1,0 +1,79 @@
+{
+  "name": "medbox-synthetic",
+  "networks": {
+    "default": {
+      "name": "medbox-synthetic_default",
+      "ipam": {}
+    }
+  },
+  "services": {
+    "api": {
+      "command": null,
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "LEAFLET_PHOTO_CLEANUP_ENABLED": "false",
+        "PGDATABASE": "syntheticdb",
+        "PGHOST": "db",
+        "PGPASSWORD": "synthetic-$$ONE-$$$$TWO-$${THREE}",
+        "PGPORT": "5432",
+        "PGUSER": "syntheticdb",
+        "WECHAT_APP_SECRET": "synthetic-provider-secret",
+        "WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED": "false",
+        "WECHAT_REMINDER_SCHEDULER_ENABLED": "false"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "printf '%s' 'synthetic-$$ONE-$$$$TWO-$${THREE}'"
+        ]
+      },
+      "image": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "labels": {
+        "synthetic.$$KEY": "synthetic-$$ONE-$$$$TWO-$${THREE}"
+      },
+      "networks": {
+        "default": null
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "photos",
+          "target": "/var/lib/medbox/private-uploads"
+        }
+      ]
+    },
+    "db": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "POSTGRES_DB": "syntheticdb",
+        "POSTGRES_USER": "syntheticdb"
+      },
+      "image": "postgres:17-alpine",
+      "networks": {
+        "default": null
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "database",
+          "target": "/var/lib/postgresql/data"
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "database": {
+      "name": "medbox-synthetic_db"
+    },
+    "photos": {
+      "name": "medbox-synthetic_photos"
+    }
+  }
+}

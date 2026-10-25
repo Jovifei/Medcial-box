@@ -37,7 +37,8 @@ export async function exerciseDeploymentGuard() {
   const docker = async (args, options) => { calls.push(args); return run('docker', ['--host', env.DOCKER_HOST, ...args], options); };
   const resources = new OwnedResources(docker, project), ownerLabel = 'io.medbox.backup-ci';
   const labels = ['--label', `${ownerLabel}=${project}`];
-  const database = 'medbox_guard_ci', password = `#'synthetic-${randomUUID()}'`;
+  const database = 'medbox_guard_ci', password = "#'synthetic-" + randomUUID() + "-$ONE-$$TWO-${THREE}'";
+  const composePassword = password.replaceAll('$', () => '$$');
   const uploadRoot = '/var/lib/medbox/private-uploads';
   const volumes = {database: `${project}_database`, photos: `${project}_photos`, empty: `${project}_empty`};
   const network = `${project}_default`, configFile = join(scratch, 'compose.json'), envFile = join(scratch, 'empty.env');
@@ -78,13 +79,13 @@ export async function exerciseDeploymentGuard() {
     for (const name of Object.values(volumes)) await resources.create('volume', name, ['volume', 'create', ...labels, name]);
     const config = {name: project, services: {
       db: {image: pgImage, container_name: `${project}-db`, labels: {[ownerLabel]: project}, restart: 'no', command: ['postgres', '-p', '5432'],
-        environment: {POSTGRES_DB: database, POSTGRES_USER: database, POSTGRES_PASSWORD: password,
+        environment: {POSTGRES_DB: database, POSTGRES_USER: database, POSTGRES_PASSWORD: composePassword,
           // Production DB probes/dumps must sanitize these inherited libpq overrides.
           PGHOST: 'wrong-db.invalid', PGPORT: '6543', PGOPTIONS: '-c search_path=wrong_schema'},
         volumes: [{type: 'volume', source: 'database', target: '/var/lib/postgresql/data'}], networks: {default: {aliases: ['db']}}},
       api: {image: oldImage, container_name: `${project}-api`, labels: {[ownerLabel]: project, literal: 'synthetic-$$literal'}, restart: 'no', init: true,
         environment: {NODE_ENV: 'production', API_HOST: '0.0.0.0', API_PORT: '3000',
-          PGHOST: 'db', PGPORT: '5432', PGDATABASE: database, PGUSER: database, PGPASSWORD: password,
+          PGHOST: 'db', PGPORT: '5432', PGDATABASE: database, PGUSER: database, PGPASSWORD: composePassword,
           PRIVATE_UPLOAD_DIR: uploadRoot, WECHAT_APP_ID: 'synthetic-unused', WECHAT_APP_SECRET: 'synthetic-unused',
           MEDICINE_RECOGNITION_PROVIDER: 'dashscope', DASHSCOPE_API_KEY: '', JISU_MEDICINE_API_KEY: '',
           WECHAT_REMINDER_SCHEDULER_ENABLED: 'false', WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED: 'false', LEAFLET_PHOTO_CLEANUP_ENABLED: 'false'},

@@ -112,13 +112,19 @@ function composeArgs(binding) {
   return ['compose', '--project-name', binding.project, '--env-file', binding.compose.envFile,
     ...binding.compose.files.flatMap(file => ['-f', file.path])];
 }
+function composeRuntimeModel(config) {
+  // Compose's config command escapes every dollar after JSON serialization,
+  // including mapping keys. Keep that document's fingerprint, then undo exactly
+  // one serialization layer for the runtime model and the Docker probe env file.
+  return json(JSON.stringify(config).replaceAll('$$', '$'), 'Compose runtime model');
+}
 async function composeConfig(binding, docker) {
   for (const file of binding.compose.files) same(digest(await regularFile(file.path)), file.sha256, 'Compose file');
   const envInfo = await lstat(binding.compose.envFile);
   must(envInfo.isFile() && !envInfo.isSymbolicLink(), 'Private env input must be a regular file');
   const config = json((await docker([...composeArgs(binding), 'config', '--format', 'json'])).stdout, 'Compose configuration');
   same(digest(JSON.stringify(config)), binding.compose.configSha256, 'Resolved Compose configuration');
-  return config;
+  return composeRuntimeModel(config);
 }
 function volumeAt(container, destination) {
   must(Array.isArray(container.mounts) && container.mounts.length === 1, 'Unexpected additional or missing container mount');
@@ -138,7 +144,11 @@ function validateService(config, binding, updating = false) {
   const api = config.services.api, db = config.services.db;
   if (updating) {
     const supported = ['build', 'image', 'restart', 'init', 'environment', 'ports', 'volumes', 'networks', 'depends_on', 'healthcheck', 'labels', 'container_name', 'profiles', 'pull_policy'];
-    must(Object.keys(api).every(key => supported.includes(key)), 'Unsupported API service field; this entry only supports the reviewed staging layout');
+    // Compose config emits these explicit nulls for absent image overrides.
+    // Empty strings/lists clear the image defaults and must remain forbidden.
+    const unsupported = Object.keys(api).filter(key => !supported.includes(key) &&
+      !(['command', 'entrypoint'].includes(key) && api[key] === null));
+    must(unsupported.length === 0, `Unsupported API service fields: ${unsupported.sort().join(', ')}`);
     for (const key of ['WECHAT_REMINDER_SCHEDULER_ENABLED', 'WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED', 'LEAFLET_PHOTO_CLEANUP_ENABLED']) {
       must(api.environment?.[key] === 'false', 'Candidate maintenance jobs must all be explicitly disabled');
     }
@@ -197,7 +207,7 @@ export async function discoverBinding({endpoint, project, files, envFile, apiOri
   binding.network = network;
   binding.database = await readDatabase(docker, binding);
   validateBinding(binding, {reviewed: false});
-  validateService(config, binding);
+  validateService(composeRuntimeModel(config), binding);
   return binding;
 }
 
