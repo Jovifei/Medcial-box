@@ -90,6 +90,9 @@ const reviewedSourceTrees = new Set([
   '8d3eb7958dc17e1eb210d6672c4337b8aad5a20d',
   // 2026-10-25 follow-up: miniprogram PurposeTag union copy gains antiinfective; capabilities unchanged.
   '7a468c9c7b2480e96d2863347472f5bb04acd69c',
+  // 2026-10-25 family-entry redesign (58号设计B): list-first chooser with progressive create/join
+  // disclosure; page-local addExpanded only, no new wx/fs/network/component capabilities.
+  '8a9555c3d1c3a71ec6693633218f3057a1f80010',
   // 2026-10-25 build 10 独立复审：人工用途标签编辑/清空随各自草稿保存，
   // 候选只填未编辑空值并限制有效标签；版本说明及合成回归同步。
   // 42 个生产 TS 文件的 wx/fs 库存重新核验，无新增原生、网络或文件能力。
