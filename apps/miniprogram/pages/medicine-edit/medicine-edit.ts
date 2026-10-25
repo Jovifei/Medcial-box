@@ -95,6 +95,8 @@ interface MedicineEditPageData {
   /** 人群/用途整理标签（kind 值）；编辑页可增删，保存时随 payload 写回（B02）。 */
   populationTags: string[];
   purposeTags: string[];
+  /** 明确增删（含全取消）随本份草稿保存，不影响其它草稿的候选填充。 */
+  purposeTagsTouched: boolean;
   /** WXML 不执行方法表达式（B24）：chip 的 selected 由 TS 预计算。 */
   populationChips: Array<{ kind: string; label: string; selected: boolean }>;
   purposeChips: Array<{ kind: string; label: string; selected: boolean }>;
@@ -122,7 +124,7 @@ interface MedicineEditPageData {
 
 type MedicineDraftValues = Pick<MedicineEditPageData,
   "createOperationKey" | "attemptedPayload" | "name" | "brand" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
-  "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" |
+  "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" | "purposeTagsTouched" |
   "leafletPurpose" | "leafletUsage" |
   "leafletContraindications" | "leafletPrecautions" | "leafletSource" | "verified" |
   "batches" | "purposeIndex" | "scannedBarcode" | "leafletText">;
@@ -261,6 +263,7 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
     purposeCategory: data.purposeCategory,
     populationTags: [...data.populationTags],
     purposeTags: [...data.purposeTags],
+    purposeTagsTouched: data.purposeTagsTouched === true,
     leafletPurpose: data.leafletPurpose,
     leafletUsage: data.leafletUsage,
     leafletContraindications: data.leafletContraindications,
@@ -531,6 +534,7 @@ Page({
     purposeCategory: "",
     populationTags: [] as string[],
     purposeTags: [] as string[],
+    purposeTagsTouched: false,
     populationChips: buildPopulationChips([]),
     purposeChips: buildPurposeChips([]),
     leafletPurpose: "",
@@ -850,6 +854,7 @@ Page({
       // 旧版本草稿没有标签字段：归一为空数组，避免 undefined 写入。
       populationTags: fields.populationTags ?? [],
       purposeTags: fields.purposeTags ?? [],
+      purposeTagsTouched: fields.purposeTagsTouched === true,
       populationChips: buildPopulationChips(fields.populationTags ?? []),
       purposeChips: buildPurposeChips(fields.purposeTags ?? []),
       draftAvailable: false,
@@ -963,7 +968,7 @@ Page({
     const current = (this.data as MedicineEditPageData).purposeTags;
     const next = current.includes(kind) ? current.filter((tag) => tag !== kind) : [...current, kind];
     this.markFieldTouched("purposeTags");
-    this.setData({ purposeTags: next, purposeChips: buildPurposeChips(next) });
+    this.setData({ purposeTags: next, purposeTagsTouched: true, purposeChips: buildPurposeChips(next) });
     this.updateDirtyState();
   },
 
@@ -1183,6 +1188,15 @@ Page({
     if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
     if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
     if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
+    // 候选只填未编辑的空标签；明确全取消也是人工选择。外部资料仍须经过白名单。
+    const candidatePurposeTags = Array.isArray(candidate.purposeTags)
+      ? [...new Set(candidate.purposeTags.filter((tag) => PURPOSE_TAG_OPTIONS.some((option) => option.kind === tag)))].slice(0, 3)
+      : [];
+    if (candidatePurposeTags.length > 0 && data.purposeTags.length === 0 && !data.purposeTagsTouched) {
+      fields.purposeTags = candidatePurposeTags;
+      fields.purposeChips = buildPurposeChips(candidatePurposeTags);
+      fields.classificationExpanded = true;
+    }
     if (data.ingredients.trim() === "" && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
     if (candidate.leaflet !== null) {
       // 内容与来源必须同源：用户自己写过的说明书文字不能被改写成供应商来源。
@@ -1463,7 +1477,7 @@ Page({
           }
         }
       }
-      if (untouched("purposeTags") && current.purposeTags.length === 0 && draft.purposeTags?.length) {
+      if (untouched("purposeTags") && !current.purposeTagsTouched && current.purposeTags.length === 0 && draft.purposeTags?.length) {
         fields.purposeTags = draft.purposeTags;
         fields.purposeChips = buildPurposeChips(draft.purposeTags);
         fields.classificationExpanded = true;
@@ -1787,7 +1801,7 @@ Page({
     this.photoQueueBaseline = snapshot(drafts);
     this.photoFormBaseline = active ? { id: active.id, fields: snapshot(active.fields) } : null;
     this.setData({ photoDrafts: entries,
-      ...(fields ? { ...fields, populationChips: buildPopulationChips(fields.populationTags),
+      ...(fields ? { ...fields, purposeTagsTouched: fields.purposeTagsTouched === true, populationChips: buildPopulationChips(fields.populationTags),
         purposeChips: buildPurposeChips(fields.purposeTags) } : {}),
       ...(!active ? { activePhotoDraftId: "" } : {}),
     });
@@ -1887,7 +1901,7 @@ Page({
     if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
     const incomplete = entry.photos.some((photo) => photo.ownedLocal?.state === "reserved");
-    this.setData({ ...entry.fields, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
+    this.setData({ ...entry.fields, purposeTagsTouched: entry.fields.purposeTagsTouched === true, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
       ? "照片写入尚未完成，请删除这份照片草稿后重拍；药品文字仍可手动保存。"
       : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
     this.updateDirtyState();

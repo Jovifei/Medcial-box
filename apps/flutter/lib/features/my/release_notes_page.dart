@@ -20,11 +20,11 @@ class ReleaseNote {
 const List<ReleaseNote> releaseNotes = [
   ReleaseNote(
     version: '1.0.6',
-    date: '2026-10-16',
+    date: '2026-10-25',
     items: [
       '区分相机相册权限、取消、读图和服务失败，照片草稿继续保留。',
       '商品条码与追溯码分别说明，未匹配资料不猜测药名。',
-      '识别候选须本人核对，确认保存后再读回验证。',
+      '资料候选的用途标签由本人采纳，人工选择和清空随草稿保留，核对后再保存。',
     ],
   ),
   ReleaseNote(

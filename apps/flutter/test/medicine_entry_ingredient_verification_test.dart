@@ -158,6 +158,38 @@ class _Fixture {
     await tester.pumpAndSettle();
   }
 
+  void candidateWithPurposeTags(List<Object?> tags) {
+    catalogGate = Completer<Map<String, dynamic>>()
+      ..complete({
+        'candidates': [
+          {
+            'name': 'Candidate B',
+            'activeIngredients': ['compound-B'],
+            'purposeTags': tags,
+          },
+        ],
+      });
+  }
+
+  Future<void> toggleTag(WidgetTester tester, String label) async {
+    final chip = find.widgetWithText(FilterChip, label);
+    await tester.ensureVisible(chip);
+    await tester.pumpAndSettle();
+    final selected = tester.widget<FilterChip>(chip).selected;
+    await tester.tap(chip);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(tester.widget<FilterChip>(chip).selected, !selected);
+  }
+
+  void expectNoSave() {
+    expect(
+      requests.where(
+        (r) => r.method == 'POST' && r.url.path == '/api/v1/medicines',
+      ),
+      isEmpty,
+    );
+  }
+
   Future<Map<String, dynamic>> save(
     WidgetTester tester, {
     bool retry = false,
@@ -211,6 +243,92 @@ class _Fixture {
 }
 
 void main() {
+  testWidgets(
+    'explicit candidate selection fills only three valid unique purpose tags before manual save',
+    (tester) async {
+      final f = _Fixture();
+      f.candidateWithPurposeTags([
+        'constructor',
+        'future_tag',
+        'fever',
+        'fever',
+        null,
+        'pain',
+        'cough',
+        'nasal',
+      ]);
+      await f.open(tester);
+      await f.search(tester);
+      expect(f.state(tester).purposeTags, isEmpty);
+      f.expectNoSave();
+      await f.selectCandidate(tester);
+      expect(f.state(tester).purposeTags, {'fever', 'pain', 'cough'});
+      for (final label in ['发热', '疼痛', '咳嗽']) {
+        expect(
+          tester.widget<FilterChip>(find.widgetWithText(FilterChip, label)).selected,
+          isTrue,
+        );
+      }
+      f.expectNoSave();
+      final body = await f.save(tester);
+      expect(body['purposeTags'], ['fever', 'pain', 'cough']);
+      expect(body['leaflet']['reviewStatus'], 'unverified');
+    },
+  );
+
+  for (final clearSelection in [false, true]) {
+    testWidgets(
+      'catalog selection preserves manual purpose ${clearSelection ? 'clear' : 'selection'}',
+      (tester) async {
+        final f = _Fixture();
+        f.candidateWithPurposeTags(['fever', 'pain']);
+        await f.open(tester);
+        await f.toggleTag(tester, '其他');
+        if (clearSelection) await f.toggleTag(tester, '其他');
+        await f.search(tester);
+        await f.selectCandidate(tester);
+        expect(f.state(tester).purposeTags, clearSelection ? <String>{} : {'other'});
+        f.expectNoSave();
+        final body = await f.save(tester);
+        expect(body['purposeTags'], clearSelection ? [] : ['other']);
+        expect(body['leaflet']['reviewStatus'], 'unverified');
+      },
+    );
+  }
+
+  testWidgets('editing population tags does not mark untouched purpose tags as manual', (
+    tester,
+  ) async {
+    final f = _Fixture();
+    f.candidateWithPurposeTags(['pain']);
+    await f.open(tester);
+    await f.toggleTag(tester, '成人');
+    await f.search(tester);
+    await f.selectCandidate(tester);
+    final body = await f.save(tester);
+    expect(body['purposeTags'], ['pain']);
+    expect(body['populationTags'], ['adult']);
+  });
+
+  testWidgets('manual empty purpose selection belongs to its persisted draft', (
+    tester,
+  ) async {
+    final f = _Fixture();
+    f.candidateWithPurposeTags(['pain']);
+    await f.open(tester);
+    await f.toggleTag(tester, '其他');
+    await f.toggleTag(tester, '其他');
+    await f.switchDraft(tester, '新建一份草稿');
+    await f.search(tester);
+    await f.selectCandidate(tester);
+    expect(f.state(tester).purposeTags, {'pain'}, reason: '新草稿仍允许填充未编辑的标签');
+    await f.switchDraft(tester, 'Synthetic');
+    await f.search(tester);
+    await f.selectCandidate(tester);
+    expect(f.state(tester).purposeTags, isEmpty, reason: '恢复原草稿保留明确清空的选择');
+    expect((await f.save(tester))['purposeTags'], isEmpty);
+  });
+
   testWidgets('verified A cleared then candidate B saves B as unverified', (
     tester,
   ) async {

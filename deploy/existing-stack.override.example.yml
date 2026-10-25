@@ -1,0 +1,15 @@
+# Existing resources only. Copy to a private reviewed configuration and fill
+# these non-secret identifiers from independently retained deployment receipts.
+# This template never discovers or approves a deployment binding.
+name: ${MEDBOX_EXISTING_PROJECT:?Set the independently reviewed existing project}
+volumes:
+  staging_database:
+    external: true
+    name: ${MEDBOX_EXISTING_DB_VOLUME:?Set the original database volume name}
+  staging_private_uploads:
+    external: true
+    name: ${MEDBOX_EXISTING_PHOTO_VOLUME:?Set the original private photo volume name}
+networks:
+  default:
+    external: true
+    name: ${MEDBOX_EXISTING_NETWORK:?Set the original network name}

@@ -3,6 +3,7 @@ import type {
   LeafletInput,
   MedicineCandidate,
   MedicineCandidatesResponse,
+  PurposeTag,
 } from "@home-medicine/contracts";
 
 export interface MedicineCatalogQuery {
@@ -55,11 +56,62 @@ function cleanText(value: unknown, maxLength = 300): string | null {
   return text === "" ? null : text.slice(0, maxLength);
 }
 
+const LEAFLET_HEADINGS = [
+  "功能主治/适应症", "功能主治", "适应症", "主要成份", "主要成分", "成份", "成分",
+  "用法用量", "禁忌", "注意事项及副作用", "注意事项", "不良反应", "副作用",
+  "药物相互作用", "孕妇及哺乳期妇女用药", "儿童用药", "老年用药", "药理毒理",
+  "药理作用", "药代动力学", "药品名称", "性状", "规格", "贮藏", "储藏", "包装",
+  "有效期", "执行标准", "批准文号", "生产企业",
+];
+
+function headingPattern(names: readonly string[]): string {
+  return [...names].sort((left, right) => right.length - left.length)
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+}
+
 function extractSection(description: string | null, names: readonly string[]): string | null {
   if (description === null) return null;
-  const heading = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const match = new RegExp(`(?:〖|【|\\[)?(?:${heading})(?:〗|】|\\])?\\s*[:：]?\\s*([\\s\\S]*?)(?=〖|【|\\[|$)`, "i").exec(description);
+  const heading = headingPattern(names);
+  // 无括号标题必须有冒号；标题按最长优先匹配，避免把“及副作用”误当正文。
+  const start = `(?:[〖【\\[](?:${heading})[〗】\\]]\\s*[:：]?|(?:^|[\\s。；;])(?:${heading})\\s*[:：])`;
+  const end = `(?=[〖【\\[]|(?:${headingPattern(LEAFLET_HEADINGS)})\\s*[:：]|$)`;
+  const match = new RegExp(`${start}\\s*([\\s\\S]*?)${end}`, "i").exec(description);
   return cleanText(match?.[1], 1000);
+}
+
+/**
+ * 功能主治文本 → 用途标签的保守映射（值域与 B02 枚举同源）：
+ * 只收录明确指向单一用途的词，不含"感冒"这类多用途泛词；
+ * 命中按枚举顺序去重，最多 3 个。结果仅作为候选草稿供用户核对，不自动保存。
+ */
+const PURPOSE_KEYWORDS: ReadonlyArray<readonly [PurposeTag, RegExp]> = [
+  ["fever", /发热|发烧|退热|解热/],
+  ["pain", /疼痛|头痛|偏头痛|止痛|镇痛|牙痛|痛经/],
+  ["cough", /咳嗽|止咳|祛痰/],
+  ["throat", /咽喉|利咽|咽炎/],
+  ["nasal", /鼻塞|流涕|打喷嚏|鼻炎/],
+  ["gastro", /胃酸|烧心|反酸|消化不良|胃肠(?!道手术)/],
+  ["diarrhea", /腹泻|止泻/],
+  ["constipation", /便秘|通便/],
+  ["allergy", /过敏|荨麻疹/],
+  ["itch", /瘙痒|止痒/],
+  ["eye", /结膜炎|眼疲劳|干眼/],
+  ["oral", /口腔溃疡|口疮|牙龈(炎|肿痛)/],
+];
+
+function derivePurposeTags(purposeText: string | null): PurposeTag[] {
+  if (purposeText === null) return [];
+  // 对否定、禁慎用或无效描述不推断用途。混合肯否定的同一句也保守放弃；
+  // 不拆逗号，以免“不得用于发热，咳嗽等”后半句重新进入候选。
+  const affirmativeText = purposeText.split(/[。；;！？!?]/)
+    .filter((sentence) => !/不(?:适用|适于|宜|可|能|应|得|用|推荐|建议|具|属于|是|治疗|缓解)|[勿禁慎忌]|避免|无效|无.{0,20}(?:疗效|作用)|未.{0,8}(?:证明|证实|推荐)|非(?:适应症|用于)|不良反应|副作用/.test(sentence))
+    .join("。");
+  const tags: PurposeTag[] = [];
+  for (const [tag, pattern] of PURPOSE_KEYWORDS) {
+    if (tags.length >= 3) break;
+    if (pattern.test(affirmativeText)) tags.push(tag);
+  }
+  return tags;
 }
 
 function candidateFromDetail(
@@ -104,6 +156,7 @@ function candidateFromDetail(
     approvalNumber,
     barcodeValue,
     activeIngredients: ingredients === null ? [] : [ingredients],
+    purposeTags: derivePurposeTags(purpose),
     leaflet,
     source: "极速数据药品信息",
     sourceUpdatedAt: null,

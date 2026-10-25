@@ -81,10 +81,17 @@ jobs:
           node-version: 22
       - name: Exercise isolated staging backup and restore
         run: node scripts/test-staging-backup-docker.mjs
+      - name: Reject wrong deployment identities and exercise an isolated API replacement
+        run: node scripts/test-deployment-guard-docker.mjs
       - uses: actions/upload-artifact@v6
         with:
           name: family-pilot-backup-${{ github.event.pull_request.head.sha || github.sha }}
           path: var/family-pilot-backup/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        with:
+          name: family-pilot-deployment-guard-${{ github.event.pull_request.head.sha || github.sha }}
+          path: var/deployment-guard/
           if-no-files-found: error
 
   flutter:

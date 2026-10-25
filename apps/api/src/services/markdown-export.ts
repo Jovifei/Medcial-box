@@ -11,6 +11,7 @@ import type {
   QuantityUnit,
 } from "@home-medicine/contracts";
 import { describeExpiry } from "../domain/expiry.js";
+import { populationTagLabel, purposeTagLabel } from "./tag-labels.js";
 
 export interface MarkdownExportOptions {
   includePersonalDosage: boolean;
@@ -181,6 +182,11 @@ function renderMedicine(
   if (medicine.approvalNumber !== null) meta.push(`批准文号：${medicine.approvalNumber}`);
   if (medicine.barcodeValue !== null && medicine.barcodeValue !== undefined) meta.push(`商品条码：${medicine.barcodeValue}`);
   if (medicine.purposeCategory !== null) meta.push(`用途分类：${medicine.purposeCategory}`);
+  // 标签以枚举为主，但未知值会原样透出：拼接后统一转义防注入。
+  const purposeTagText = escapeMarkdownText((medicine.purposeTags ?? []).map(purposeTagLabel).join("、"));
+  if (purposeTagText !== "") meta.push(`用途标签：${purposeTagText}`);
+  const populationTagText = escapeMarkdownText((medicine.populationTags ?? []).map(populationTagLabel).join("、"));
+  if (populationTagText !== "") meta.push(`适用人群：${populationTagText}`);
   if (meta.length > 0) lines.push(`- ${meta.join("；")}`);
 
   if (medicine.batches.length === 0) {

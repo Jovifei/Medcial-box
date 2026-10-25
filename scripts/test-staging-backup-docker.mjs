@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { discoverBinding } from './deployment-guard.mjs';
+import { digest } from './build-api-candidate.mjs';
 
 const ownerLabel = "io.medbox.backup-ci";
 const uploadRoot = "/var/lib/medbox/private-uploads";
@@ -324,25 +326,40 @@ export async function exercise() {
       assert.deepEqual(beforeSnapshot[table], [], `${table} synthetic fixture must be explicitly empty before backup`);
     }
     assert.deepEqual(beforeSnapshot.schemaMigrations, migrations, 'applied upgrade receipts must be read from the source database');
+    const binding = await discoverBinding({endpoint: env.DOCKER_HOST, project, files: [join(root, 'deploy/docker-compose.staging.yml'), overrideFile],
+      envFile, apiOrigin: 'https://synthetic.invalid', docker});
+    assert.equal(binding.api.id, apiId); assert.equal(binding.db.id, dbId);
+    assert.equal(binding.volumes.database.name, volumes.staging_database);
+    assert.equal(binding.volumes.photos.name, volumes.staging_private_uploads);
+    // The fixture owns and independently initialized these exact IDs. Production
+    // discovery never performs this review transition or changes a saved binding.
+    binding.review = {status: 'OWNER_REVIEWED', reference: 'CI-owned synthetic fixture verified against this invocation resource ledger'};
+    const bindingFile = join(scratch, 'synthetic-binding.json');
+    await writeFile(bindingFile, JSON.stringify(binding), {mode: 0o600});
     const backup = async (name, expectedError) => {
       checkpoint();
       const directory = join(scratch, name);
       await mkdir(directory);
       if (expectedError) {
-        await assert.rejects(run("bash", ["scripts/staging-backup.sh", envFile, directory]), (error) => {
+        await assert.rejects(run("bash", ["scripts/staging-backup.sh", envFile, directory, bindingFile]), (error) => {
           assert(exitedWithFailure(error), "Timeout, signal, or spawn error cannot qualify a failure-path check");
           assert.match(error.message, expectedError);
           return true;
         });
         assert.deepEqual(await readdir(directory), [], "Failed backup left a partial or published directory");
       } else {
-        await run("bash", ["scripts/staging-backup.sh", envFile, directory]);
+        await run("bash", ["scripts/staging-backup.sh", envFile, directory, bindingFile]);
         const entries = await readdir(directory);
         assert.equal(entries.length, 1);
         assert.match(entries[0], /^medbox-\d{8}T\d{6}Z-\d+$/);
         const result = join(directory, entries[0]);
-        assert.deepEqual((await readdir(result)).sort(), ["SHA256SUMS", "database.dump", "photos.tar.gz"]);
+        assert.deepEqual((await readdir(result)).sort(), ["SHA256SUMS", "database.dump", "deployment-identity.json", "photos.tar.gz"]);
         await run("sha256sum", ["-c", "SHA256SUMS"], { cwd: result });
+        assert.deepEqual(JSON.parse(await readFile(join(result, 'deployment-identity.json'), 'utf8')), {
+          schemaVersion: 1, kind: 'MEDBOX_BOUND_BACKUP', bindingSha256: digest(JSON.stringify(binding)),
+          apiId, dbId, apiImage: appImage, photoVolume: volumes.staging_private_uploads,
+          databaseFingerprint: digest(JSON.stringify(binding.database)),
+        });
         return result;
       }
     };
@@ -350,11 +367,11 @@ export async function exercise() {
       ["-e", "setTimeout(() => {}, 300000)"], { start: false });
     await docker(["start", writer]);
     assert.equal((await docker(["inspect", "--format", "{{.State.Status}}", writer])).stdout.trim(), "running");
-    await backup("active-consumer", /photo-volume consumer is active/);
+    await backup("active-consumer", /Additional active volume consumer/);
     await resources.remove(resources.records.find((r) => r.identity.id === writer));
     await docker(["stop", "--time", "10", dbId]);
     assert.equal((await docker(["inspect", "--format", "{{.State.Status}}", dbId])).stdout.trim(), "exited");
-    await backup("stopped-db", /not running/);
+    await backup("stopped-db", /DB must be running/);
     await docker(["start", dbId]);
     await waitForDb(dbId);
     await helper(["--network", "none", "--user", "0:0", ...mount(volumes.staging_private_uploads), "--entrypoint", "node"], appImage,
@@ -430,6 +447,7 @@ export async function exercise() {
       after:await artifact("after.json",afterRecords),
       backupDatabase:await artifact("database.dump",await readFile(join(complete,"database.dump"))),
       backupPhotos:await artifact("photos.tar.gz",await readFile(join(complete,"photos.tar.gz"))),
+      deploymentIdentity:await artifact("deployment-identity.json",await readFile(join(complete,"deployment-identity.json"))),
       sourcePhotos:[{id:ids.photo,storageKey:photoKey,...await artifact("source-photo.png",Buffer.from(photoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("source-photo2.png",Buffer.from(photoBase64,"base64"))}],
       photos:[{id:ids.photo,storageKey:photoKey,...await artifact("restored-photo.png",Buffer.from(actualPhotoBase64,"base64"))},{id:ids.photo2,storageKey:photoKey2,...await artifact("restored-photo2.png",Buffer.from(secondActualPhotoBase64,"base64"))}],
     };

@@ -171,6 +171,7 @@ export interface MedicineCandidate {
   approvalNumber: string | null;
   barcodeValue?: string | null;
   activeIngredients: string[];
+  purposeTags?: string[];
   leaflet: NonNullable<MedicinePayload["leaflet"]> | null;
   source: string;
   sourceUpdatedAt: string | null;
