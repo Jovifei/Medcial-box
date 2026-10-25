@@ -85,6 +85,9 @@ const reviewedSourceTrees = new Set([
   '4b8fcfedabe7eff48405e11995f58aafd342e64d',
   // 2026-10-25 follow-up: release notes converged to three items; capability set unchanged.
   '7ee9bd445a3d5bb6cb611660afeab965c481def6',
+  // 2026-10-25 friend-feedback batch: draft retirement on save, leading-GTIN extraction, unit prefill,
+  // antiinfective tag, larger entry buttons; no new wx/fs/network/component capabilities.
+  '8d3eb7958dc17e1eb210d6672c4337b8aad5a20d',
   // 2026-10-25 build 10 独立复审：人工用途标签编辑/清空随各自草稿保存，
   // 候选只填未编辑空值并限制有效标签；版本说明及合成回归同步。
   // 42 个生产 TS 文件的 wx/fs 库存重新核验，无新增原生、网络或文件能力。
