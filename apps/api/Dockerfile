@@ -14,6 +14,13 @@ RUN npm run build --workspace @home-medicine/contracts
 RUN npm run build --workspace @home-medicine/api
 
 FROM node:22-alpine AS runtime
+ARG MEDBOX_SOURCE_SHA
+ARG MEDBOX_SOURCE_TREE
+ARG MEDBOX_API_TREE
+LABEL org.opencontainers.image.source="https://github.com/Jovifei/Medcial-box" \
+      org.opencontainers.image.revision=$MEDBOX_SOURCE_SHA \
+      io.medbox.source-tree=$MEDBOX_SOURCE_TREE \
+      io.medbox.api-tree=$MEDBOX_API_TREE
 ENV NODE_ENV=production
 WORKDIR /app
 

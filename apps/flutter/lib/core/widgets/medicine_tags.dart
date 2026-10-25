@@ -24,11 +24,17 @@ class MedicineTagFields extends StatelessWidget {
     required this.populations,
     required this.purposes,
     required this.onChanged,
+    this.onPurposeChanged,
   });
   final Set<String> populations;
   final Set<String> purposes;
   final VoidCallback onChanged;
-  Widget _choices(Map<String, String> labels, Set<String> selected) => Wrap(
+  final VoidCallback? onPurposeChanged;
+  Widget _choices(
+    Map<String, String> labels,
+    Set<String> selected, [
+    VoidCallback? onEdited,
+  ]) => Wrap(
     spacing: 8,
     runSpacing: 6,
     children: [
@@ -38,6 +44,7 @@ class MedicineTagFields extends StatelessWidget {
           selected: selected.contains(entry.key),
           onSelected: (value) {
             value ? selected.add(entry.key) : selected.remove(entry.key);
+            onEdited?.call();
             onChanged();
           },
         ),
@@ -48,7 +55,7 @@ class MedicineTagFields extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Text('用途标签（按包装/说明书核对）'),
-      _choices(medicinePurposeLabels, purposes),
+      _choices(medicinePurposeLabels, purposes, onPurposeChanged),
       const SizedBox(height: 10),
       const Text('人群标签（仅按包装/说明书确认）'),
       _choices(medicinePopulationLabels, populations),

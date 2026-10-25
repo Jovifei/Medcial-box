@@ -24,9 +24,9 @@ const POPULATION_TAG_LABELS: Record<string, string> = {
 };
 
 export function purposeTagLabel(tag: string): string {
-  return PURPOSE_TAG_LABELS[tag] ?? tag;
+  return Object.hasOwn(PURPOSE_TAG_LABELS, tag) ? PURPOSE_TAG_LABELS[tag] : tag;
 }
 
 export function populationTagLabel(tag: string): string {
-  return POPULATION_TAG_LABELS[tag] ?? tag;
+  return Object.hasOwn(POPULATION_TAG_LABELS, tag) ? POPULATION_TAG_LABELS[tag] : tag;
 }

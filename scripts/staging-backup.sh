@@ -2,39 +2,21 @@
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
-env_file="${1:-deploy/.env.staging}"
-backup_dir="${2:-.local-data/backups}"
-[[ -f "$env_file" ]] || { printf '%s\n' 'Staging env file is missing.' >&2; exit 1; }
-if docker compose version >/dev/null 2>&1; then compose=(docker compose); else compose=(docker-compose); fi
-compose+=(--env-file "$env_file" -f deploy/docker-compose.staging.yml)
-
+env_file="${1:?Usage: staging-backup.sh ENV_FILE BACKUP_DIR REVIEWED_BINDING}"
+backup_dir="${2:?An explicit backup directory is required}"
+binding_file="${3:?An independently reviewed existing-deployment binding is required}"
 fail() { printf '%s\n' "$1" >&2; exit 1; }
-api_id="$("${compose[@]}" ps --all --quiet api)"
-[[ "$api_id" =~ ^[a-f0-9]{12,64}$ ]] || fail 'Expected one existing staging API container; stop and verify the stack before backup.'
-metadata_format='{{.State.Status}}|{{.Image}}|{{range .Mounts}}{{if eq .Destination "/var/lib/medbox/private-uploads"}}{{.Type}}|{{.Name}}|{{.RW}}{{end}}{{end}}'
-metadata="$(docker inspect --format "$metadata_format" "$api_id")"
-IFS='|' read -r api_state api_image mount_type photo_volume mount_write extra <<< "$metadata"
-[[ "$api_state" == exited || "$api_state" == created ]] || fail 'Backup requires the API and its background jobs to be stopped for an exclusive maintenance window.'
-[[ "$api_image" =~ ^sha256:[a-f0-9]{64}$ && "$mount_type" == volume && "$photo_volume" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ && "$mount_write" == true && -z "$extra" ]] || fail 'Cannot verify the existing API image and named private-photo volume.'
-
-# Checks detect observed state changes; the operator must prevent any restart or
-# external writer throughout the window. They are not an atomic Docker lock.
-verify_maintenance() {
-  [[ "$("${compose[@]}" ps --all --quiet api)" == "$api_id" ]] || fail 'API container identity changed during backup.'
-  local current state image type volume writable remainder consumers consumer
-  current="$(docker inspect --format "$metadata_format" "$api_id")"
-  IFS='|' read -r state image type volume writable remainder <<< "$current"
-  [[ "$state" == exited || "$state" == created ]] || fail 'API restarted or is not stopped; backup will not be published.'
-  [[ "$image" == "$api_image" && "$type" == volume && "$volume" == "$photo_volume" && "$writable" == true && -z "$remainder" ]] || fail 'API image or photo volume changed during backup.'
-  consumers="$(docker ps --all --quiet --filter "volume=$photo_volume")"
-  while IFS= read -r consumer; do
-    [[ -z "$consumer" ]] && continue
-    [[ "$consumer" =~ ^[a-f0-9]{12,64}$ ]] || fail 'Cannot verify photo-volume consumers.'
-    state="$(docker inspect --format '{{.State.Status}}' "$consumer")"
-    [[ "$state" == exited || "$state" == created ]] || fail 'A photo-volume consumer is active; stop all writers before backup.'
-  done <<< "$consumers"
-}
-verify_maintenance
+[[ "$#" == 3 && -f "$env_file" && -f "$binding_file" ]] || fail 'Expected one env-file, backup directory and reviewed binding.'
+env_file="$(realpath -- "$env_file")"
+binding_file="$(realpath -- "$binding_file")"
+check_identity() { node scripts/deployment-guard.mjs backup-check --binding "$binding_file" --env-file "$env_file"; }
+identity="$(check_identity)"
+IFS='|' read -r api_id db_id api_image photo_volume binding_sha endpoint database_fingerprint extra <<< "$identity"
+[[ "$api_id" =~ ^[a-f0-9]{64}$ && "$db_id" =~ ^[a-f0-9]{64}$ && "$api_image" =~ ^sha256:[a-f0-9]{64}$ && "$photo_volume" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ && "$binding_sha" =~ ^[a-f0-9]{64}$ && "$endpoint" =~ ^unix:/// && "$database_fingerprint" =~ ^[a-f0-9]{64}$ && -z "$extra" ]] || fail 'Invalid identity-check result.'
+# Only the bound local daemon and DB container may be used. No ambient Compose
+# project/context/config or service-name lookup can redirect the dump.
+docker_bound() { env -i PATH="$PATH" DOCKER_HOST="$endpoint" DOCKER_CONFIG="$work_dir/docker-config" docker --host "$endpoint" "$@"; }
+verify_maintenance() { [[ "$(check_identity)" == "$identity" ]] || fail 'Deployment identity changed; backup will not be published.'; }
 mkdir -p "$backup_dir"
 target="$backup_dir/medbox-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 [[ ! -e "$target" && ! -L "$target" ]] || fail 'Backup target already exists.'
@@ -42,25 +24,29 @@ work_dir="$(mktemp -d "$backup_dir/.medbox-backup-XXXXXXXX")"
 cleanup() {
   if [[ -n "$work_dir" ]]; then
     # Only this invocation's newly created staging directory and known files.
-    rm -f -- "$work_dir/database.dump" "$work_dir/photos.tar.gz" "$work_dir/SHA256SUMS"
+    rm -f -- "$work_dir/database.dump" "$work_dir/photos.tar.gz" "$work_dir/SHA256SUMS" "$work_dir/deployment-identity.json"
+    rmdir -- "$work_dir/docker-config" 2>/dev/null || true
     rmdir -- "$work_dir" || printf '%s\n' 'Incomplete backup directory retained for inspection.' >&2
   fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-"${compose[@]}" exec -T db \
-  sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$work_dir/database.dump"
+mkdir "$work_dir/docker-config"
+docker_bound exec "$db_id" \
+  sh -c 'exec env -i PATH="$PATH" PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$work_dir/database.dump"
 [[ -s "$work_dir/database.dump" ]] || fail 'Backup was empty.'
 verify_maintenance
 # Reuse the already installed application image; no pulls, dependencies,
 # application entrypoint, network, writable photo mount, or server environment.
-docker run --pull=never --rm --network none --read-only \
+docker_bound run --pull=never --rm --network none --read-only \
   --mount "type=volume,src=$photo_volume,dst=/backup-photos,readonly" \
   --entrypoint tar "$api_image" -czf - -C /backup-photos . > "$work_dir/photos.tar.gz"
 [[ -s "$work_dir/photos.tar.gz" ]] || fail 'Private photo backup was empty.'
 verify_maintenance
-(cd "$work_dir" && sha256sum database.dump photos.tar.gz > SHA256SUMS)
+printf '{"schemaVersion":1,"kind":"MEDBOX_BOUND_BACKUP","bindingSha256":"%s","apiId":"%s","dbId":"%s","apiImage":"%s","photoVolume":"%s","databaseFingerprint":"%s"}\n' "$binding_sha" "$api_id" "$db_id" "$api_image" "$photo_volume" "$database_fingerprint" > "$work_dir/deployment-identity.json"
+rmdir -- "$work_dir/docker-config"
+(cd "$work_dir" && sha256sum database.dump photos.tar.gz deployment-identity.json > SHA256SUMS)
 # Publish both files and their checksums together with one same-filesystem
 # directory rename. Never overwrite an existing backup directory.
 mv --no-clobber --no-target-directory -- "$work_dir" "$target"

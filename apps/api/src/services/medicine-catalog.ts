@@ -56,10 +56,26 @@ function cleanText(value: unknown, maxLength = 300): string | null {
   return text === "" ? null : text.slice(0, maxLength);
 }
 
+const LEAFLET_HEADINGS = [
+  "功能主治/适应症", "功能主治", "适应症", "主要成份", "主要成分", "成份", "成分",
+  "用法用量", "禁忌", "注意事项及副作用", "注意事项", "不良反应", "副作用",
+  "药物相互作用", "孕妇及哺乳期妇女用药", "儿童用药", "老年用药", "药理毒理",
+  "药理作用", "药代动力学", "药品名称", "性状", "规格", "贮藏", "储藏", "包装",
+  "有效期", "执行标准", "批准文号", "生产企业",
+];
+
+function headingPattern(names: readonly string[]): string {
+  return [...names].sort((left, right) => right.length - left.length)
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+}
+
 function extractSection(description: string | null, names: readonly string[]): string | null {
   if (description === null) return null;
-  const heading = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const match = new RegExp(`(?:〖|【|\\[)?(?:${heading})(?:〗|】|\\])?\\s*[:：]?\\s*([\\s\\S]*?)(?=〖|【|\\[|$)`, "i").exec(description);
+  const heading = headingPattern(names);
+  // 无括号标题必须有冒号；标题按最长优先匹配，避免把“及副作用”误当正文。
+  const start = `(?:[〖【\\[](?:${heading})[〗】\\]]\\s*[:：]?|(?:^|[\\s。；;])(?:${heading})\\s*[:：])`;
+  const end = `(?=[〖【\\[]|(?:${headingPattern(LEAFLET_HEADINGS)})\\s*[:：]|$)`;
+  const match = new RegExp(`${start}\\s*([\\s\\S]*?)${end}`, "i").exec(description);
   return cleanText(match?.[1], 1000);
 }
 
@@ -85,10 +101,15 @@ const PURPOSE_KEYWORDS: ReadonlyArray<readonly [PurposeTag, RegExp]> = [
 
 function derivePurposeTags(purposeText: string | null): PurposeTag[] {
   if (purposeText === null) return [];
+  // 对否定、禁慎用或无效描述不推断用途。混合肯否定的同一句也保守放弃；
+  // 不拆逗号，以免“不得用于发热，咳嗽等”后半句重新进入候选。
+  const affirmativeText = purposeText.split(/[。；;！？!?]/)
+    .filter((sentence) => !/不(?:适用|适于|宜|可|能|应|得|用|推荐|建议|具|属于|是|治疗|缓解)|[勿禁慎忌]|避免|无效|无.{0,20}(?:疗效|作用)|未.{0,8}(?:证明|证实|推荐)|非(?:适应症|用于)|不良反应|副作用/.test(sentence))
+    .join("。");
   const tags: PurposeTag[] = [];
   for (const [tag, pattern] of PURPOSE_KEYWORDS) {
     if (tags.length >= 3) break;
-    if (pattern.test(purposeText)) tags.push(tag);
+    if (pattern.test(affirmativeText)) tags.push(tag);
   }
   return tags;
 }

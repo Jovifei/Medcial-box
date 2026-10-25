@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadPage, makePageContext } from "./runtime.mjs";
 import { ownedPhotoFixture } from "./support/owned-photo-fixture.mjs";
+import { harness, select } from "./photo-queue-test-harness.mjs";
 
 function pageFor(api = {}, wx = {}) {
   const { definition } = loadPage("pages/medicine-edit/medicine-edit.ts", {
@@ -117,6 +118,17 @@ test("catalog candidates cannot revive purpose tags explicitly cleared by the us
   assert.equal(writes, 0, "采纳候选仍需要人工保存");
 });
 
+test("starting recognition after manually clearing purpose tags preserves the empty choice", async () => {
+  const page = pageFor({ recognizeMedicine: async () => ({
+    draft: { name: "合成候选", purposeTags: ["pain"] }, warnings: [], requiresConfirmation: true,
+  }) });
+  const toggle = { currentTarget: { dataset: { kind: "other" } } };
+  page.onTogglePurposeTag(toggle);
+  page.onTogglePurposeTag(toggle);
+  await page.onRecognizePhoto("camera");
+  assert.deepEqual([...page.data.purposeTags], []);
+});
+
 test("catalog candidate purpose tags are whitelisted, unique and limited before entering the draft", () => {
   const page = pageFor();
   const candidate = { name: "合成候选", activeIngredients: [], leaflet: null,
@@ -128,4 +140,47 @@ test("catalog candidate purpose tags are whitelisted, unique and limited before 
   assert.equal(page.data.purposeChips.filter(chip => chip.selected).length, 3);
   assert.equal(page.data.classificationExpanded, true);
   assert.equal(page.data.verified, false);
+});
+
+test("manually cleared purpose tags stay empty after a photo draft is persisted and reopened", () => {
+  const h = harness();
+  const original = h.draft("manual-empty");
+  h.seed([original]);
+  h.attach(h.a, [original]);
+  const toggle = { currentTarget: { dataset: { kind: "other" } } };
+  h.a.onTogglePurposeTag(toggle);
+  h.a.onTogglePurposeTag(toggle);
+  assert.deepEqual(h.read()[0].fields.purposeTags, []);
+
+  const reopened = h.page();
+  h.attach(reopened, h.read());
+  select(reopened, original.id);
+  const candidate = { name: "合成候选", activeIngredients: [], purposeTags: ["pain"], leaflet: null };
+  reopened.setData({ candidate, candidates: [candidate] });
+  reopened.onApplyCandidate();
+  assert.deepEqual([...reopened.data.purposeTags], []);
+  assert.deepEqual(h.read()[0].fields.purposeTags, []);
+  assert.equal(h.calls.create, 0);
+});
+
+test("manual purpose edits belong to their own photo draft when switching A to B and back", () => {
+  const h = harness();
+  const first = h.draft("manual-A");
+  const second = h.draft("untouched-B");
+  h.seed([first, second]);
+  h.attach(h.a, [first, second], first.id);
+  const toggle = { currentTarget: { dataset: { kind: "other" } } };
+  h.a.onTogglePurposeTag(toggle);
+  h.a.onTogglePurposeTag(toggle);
+  const candidate = { name: "合成候选", activeIngredients: [], purposeTags: ["pain"], leaflet: null };
+
+  select(h.a, second.id);
+  h.a.setData({ candidate, candidates: [candidate] });
+  h.a.onApplyCandidate();
+  assert.deepEqual([...h.a.data.purposeTags], ["pain"], "A的人工清空不影响B");
+  select(h.a, first.id);
+  h.a.setData({ candidate, candidates: [candidate] });
+  h.a.onApplyCandidate();
+  assert.deepEqual([...h.a.data.purposeTags], [], "返回A仍保留明确清空");
+  assert.equal(h.calls.create, 0);
 });

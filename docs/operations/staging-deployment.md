@@ -23,14 +23,53 @@
 ```bash
 chmod 600 deploy/.env.staging
 npm run check:staging -- --env-file deploy/.env.staging
-docker compose --env-file deploy/.env.staging -f deploy/docker-compose.staging.yml config --quiet
-docker compose --env-file deploy/.env.staging -f deploy/docker-compose.staging.yml up -d --build
-curl --fail --silent http://127.0.0.1:3301/api/v1/health/ready
 ```
 
-若服务器只提供独立版 `docker-compose`，将上面的 `docker compose` 换成 `docker-compose`。Compose 使用 `medbox-staging` 独立项目、独立数据库卷和回环 API 端口；不会改动现有站点。`ready` 必须返回数据库就绪，不以进程运行或 HTTP 存活代替。未确认端口空闲时不要启动。
+既有环境更新使用下节受控入口，需要 Node.js 22+、Docker Compose v2、Bash 与 GNU coreutils。`deploy/docker-compose.staging.yml` 的普通命名卷可在项目名改变时创建另一套空卷，不能直接执行不带已核项目身份的 `compose up --build`；48 号回执记录过这一误切。新建环境的首次建库需单独批准的初始化方案，本节不自动创建新 DB 或卷。`ready` 的数据库就绪不能证明是原家庭所在的实例、卷或源码。
 
 `deploy/nginx.staging.conf.example` 仅作反向代理参考。填入实际测试域名、证书路径和已核对的回环端口后，先执行 `nginx -t`，再按主机现有运维流程加载配置。通过 `https://<测试域名>/api/v1/health/ready` 验证外部 TLS 与 API；微信小程序管理后台的 request 合法域名应为该 HTTPS 域名。域名或证书未就绪时，不用“关闭域名校验”代替真机验收。
+
+## 既有部署身份门禁（2026-10-25）
+
+本轮完成代码、合成回归和 CI 接入；**真实服务器的新 binding 审定、受控备份和 API 替换均为 NOT_RUN**。不得把合成 PASS 写成现役切换回执。历史现役源码/部署信息以 48 号及后续明确授权回执为准。本入口不会停止现役 API、处理真实家庭，或扩大部署许可。
+
+门禁要求人工保存并审定一份绑定：本机 Docker socket 与 daemon ID、明确 Compose 项目名、原 API/DB 容器完整 ID 与镜像 ID、两只卷的名称/创建时间/挂载点/driver/options/labels、既有网络 ID、DB system identifier/数据库名/用户/OID/public schema/迁移账本指纹，以及 Compose 输入及其解析结果摘要。普通卷没有不可变 ID，这些是身份元数据指纹，不等于照片内容校验或灾备证明。旧现役镜像按原 image ID 绑定即可，无需伪造新的来源标签。
+
+先在获准维护窗口停止 API 及同进程任务，保持原 DB 运行，排除其他 DB client、活动卷使用者和未纳入支持范围的网络 peer。当前窄入口仅支持一条明确 bridge 网络、原 DB/私照命名卷和默认 public schema；额外网络、host/DNS 覆写、PGOPTIONS/DATABASE_URL、生命周期 hook、卷 subpath、改写照片目录等均拒绝。现有 GPU bridge 等额外 peer 需要另行审定方案；本门禁不会自动停用、删除或接管它们。
+
+`deploy/existing-stack.override.example.yml` 给出 **external** 原卷/网络模板。把其中四个非秘密身份值与独立保留的部署、备份记录核对后写入私有配置，并把实际 override 一并列入下述 `--file`。缺少原 external 资源会失败，不为恢复名称而自动新建空资源。
+
+以下命令中的绝对路径、项目名、完整 SHA、候选 tag 和 HTTPS origin 都必须替换成已核值；不能直接照抄占位符运行。不要将私有 env、binding 原件、DB dump 或照片放入 Git/聊天/CI。
+
+```bash
+node scripts/build-api-candidate.mjs --sha FULL_40_HEX_SHA --tag medbox-api:candidate-UNIQUE_TAG --api-origin https://APPROVED_API_ORIGIN --output /absolute/private/api-candidate.json
+node scripts/deployment-guard.mjs inspect --endpoint unix:///var/run/docker.sock --project REVIEWED_EXISTING_PROJECT --file /absolute/project/deploy/docker-compose.staging.yml --file /absolute/private/existing-stack.override.yml --env-file /absolute/private/staging.env --api-origin https://APPROVED_API_ORIGIN --output /absolute/private/binding-proposal.json
+```
+
+构建器从指定 Git 对象导出临时源码，忽略工作区未提交文件，显式传入 revision/source tree/API tree，核镜像 ID 与四个来源 label，再写全新本地候选回执。默认只使用本机 `/var/run/docker.sock`，不复用环境中的远程 Docker context 或 Docker 登录配置。回执/label 是本地来源证据，不是签名或生产授权；必须与该 SHA 的独立 CI/源码记录核对。
+
+`inspect` 仅执行配置/身份读取及 DB 只读 SELECT，输出 `UNREVIEWED`。缺失或未初始化账本不能生成可用绑定；已经迁移但空白的另一实例仍有不同 system identifier，不能匹配原绑定。**自动发现不能证明发现的是原家庭数据库。** Owner 应逐项对照先前独立留存的记录，确认原实例与原卷，才在私有 binding 中将 `review.status` 设为 `OWNER_REVIEWED`、填写可追溯的 `review.reference`，另存人工审定文件。脚本没有自动 capture/approve 命令；不能用刚发现的任意栈自行授权。
+
+```bash
+node scripts/deployment-guard.mjs --binding /absolute/private/reviewed-binding.json --candidate /absolute/private/api-candidate.json
+bash scripts/staging-backup.sh /absolute/private/staging.env /absolute/private/backups /absolute/private/reviewed-binding.json
+```
+
+不写模式名时默认 `preflight`。预检不创建/停启 Docker 资源，只检查原对象、私有配置摘要、只读 DB 指纹和候选来源。原接口缺少第三个 binding 参数时会明确拒绝备份。备份在采集前后重复核身份，通过固定 daemon 和 DB 容器 ID、清空 libpq 连接覆写、显式 `127.0.0.1:5432` 导出；不靠环境里的 Compose 项目或 `db` 服务名找库。已有镜像的无网络只读 tar 读取器采集原照片卷。
+
+只有另经明确授权的维护窗口，才执行更新：
+
+```bash
+node scripts/deployment-guard.mjs apply --binding /absolute/private/reviewed-binding.json --candidate /absolute/private/api-candidate.json --apply
+```
+
+`apply` 要求候选配置中的 `WECHAT_REMINDER_SCHEDULER_ENABLED`、`WECHAT_DOSE_REMINDER_SCHEDULER_ENABLED`、`LEAFLET_PHOTO_CLEANUP_ENABLED` 三项全部显式为字符串 `false`，避免恢复正常入口时提前启动写库或照片清理任务；缺项也拒绝。单纯 inspect/旧镜像备份不要求改写原配置。它首先用候选镜像运行没有挂载、无 provider 环境、只读根文件系统的 SELECT 探针，核同一 DB/public schema/迁移账本；不会先运行 `server.js` 或 migration 入口。随后重读 binding/候选文件/实时原对象，生成只含 API、既有 external 私照卷与网络的临时配置，以明确项目名执行 `up -d --no-deps --no-build --pull never --force-recreate api`。新旧迁移账本须完全一致，本入口不批准 schema 升级。Docker probe 的密码文件与 Compose 的空 env 文件分离，已解析配置的 `$` 字面值统一保留，避免二次解析重定向配置。
+
+返回 `API_REPLACED_HEALTH_AND_REAL_DATA_NOT_VERIFIED` 仅说明受控替换与身份检查；需要另外核 ready、原双家庭数据/私照/批次/备份、实际 API 来源和真机行为，才能形成部署回执。原 binding 不会自动改写为新容器；失败时也不自动回滚、删除卷或覆盖审定文件。成功后的新容器身份须连同原 DB/卷保全证据由 Owner 重新审定后用于下一轮。
+
+Docker 多条命令不是原子锁。复检能发现观察到的漂移，不能阻止两次检查之间的外部管理员操作、卷被删后重建或写入者启动后立即退出；最后复检与 Compose 执行之间仍有 TOCTOU 窗口。必须保持独占维护窗口，不能以通过本入口声称约束了所有 Docker 管理操作。
+
+合成 CI 命令为 `node scripts/test-deployment-guard-docker.mjs`，仅允许 GitHub 托管 Linux runner；它自建随机项目/内部网络/假数据，记录自身资源完整身份后才清理。`var/deployment-guard/result.json` 和绑定备份身份摘要是可复核产物，真实数据和凭据不在其中。卷名/创建时间反例验证的是审定元数据不匹配，不冒称在真实环境删除重建原卷。原 `test-staging-backup-docker.mjs` 继续验证真实 Docker 配对备份/恢复，新增身份回执一起保存于合成备份证据。
 
 ## 生成开发者工具项目与验收
 
@@ -55,10 +94,10 @@ npm run check:miniprogram:package -- $miniProject
 
 这些状态检查可以发现观察到的重启，并不能锁住 Docker 或主机：两次检查间的启动后又停止、直接写数据库/卷、其他 Docker daemon/主机写入均必须由独占运维窗口排除。发现无法排除的写入者时停止备份，不把检查通过当作并发环境中的原子快照保证。
 
-成功结果位于 `.local-data/backups/medbox-时间-PID/`，内含 `database.dump`、`photos.tar.gz`、`SHA256SUMS`。两次采集和摘要生成都成功后，才用同一文件系统的一次目录重命名发布整组；目标已存在时不覆盖。失败/SIGINT/SIGTERM仅清理本次创建的未发布临时文件，保留原备份和其他文件。强制终止或断电可能留下隐藏临时目录，应保留并另行核对，不能视为成功备份；此流程不声称断电持久性。目录/文件默认0700/0600，禁止将数据库或照片加入Git或报告。
+成功结果位于 `.local-data/backups/medbox-时间-PID/`，内含 `database.dump`、`photos.tar.gz`、`deployment-identity.json`、`SHA256SUMS`。身份摘要仅含绑定/DB 指纹及固定容器、镜像、照片卷标识，三份内容统一校验。两次采集和摘要生成都成功后，才用同一文件系统的一次目录重命名发布整组；目标已存在时不覆盖。失败/SIGINT/SIGTERM仅清理本次创建的未发布临时文件，保留原备份和其他文件。强制终止或断电可能留下隐藏临时目录，应保留并另行核对，不能视为成功备份；此流程不声称断电持久性。目录/文件默认0700/0600，禁止将数据库或照片加入Git或报告。
 
 ```bash
-bash scripts/staging-backup.sh deploy/.env.staging .local-data/backups
+bash scripts/staging-backup.sh deploy/.env.staging .local-data/backups /absolute/private/reviewed-binding.json
 bash scripts/verify-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID/database.dump
 bash scripts/verify-photo-backup.sh /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID/photos.tar.gz
 (cd /absolute/path/to/medbox-YYYYMMDDTHHMMSSZ-PID && sha256sum -c SHA256SUMS)

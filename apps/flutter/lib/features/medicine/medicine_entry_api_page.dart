@@ -120,6 +120,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   int recognitionSeconds = 0;
   final populationTags = <String>{};
   final purposeTags = <String>{};
+  bool purposeTagsTouched = false;
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
     isCurrent: () => mounted && _isDraftIdentityCurrent,
@@ -269,6 +270,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           medicinePurposeLabels.containsKey,
         ),
       );
+    purposeTagsTouched = json['purposeTagsTouched'] == true;
     // Legacy booleans cannot prove which content was confirmed. Keep the draft,
     // but require reconfirmation unless its stored content binding matches.
     _verifiedIngredientContent =
@@ -363,6 +365,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       'purpose': purposeController.text,
       'populationTags': populationTags.toList(),
       'purposeTags': purposeTags.toList(),
+      'purposeTagsTouched': purposeTagsTouched,
       'ingredientsVerified': ingredientsVerified,
       'verifiedIngredientContent': ingredientsVerified
           ? _verifiedIngredientContent
@@ -1067,7 +1070,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             draft.purposeCategory != null) {
           purposeController.text = draft.purposeCategory!;
         }
-        if (purposeTags.isEmpty) {
+        if (purposeTags.isEmpty && !purposeTagsTouched) {
           purposeTags.addAll(
             draft.purposeTags.where(medicinePurposeLabels.containsKey),
           );
@@ -1371,6 +1374,19 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     final leaflet = candidate['leaflet'];
     if (leaflet is Map<String, dynamic>) {
       fill(purposeController, leaflet['purposeSummary']);
+    }
+    final candidatePurposeTags = candidate['purposeTags'];
+    if (purposeTags.isEmpty &&
+        !purposeTagsTouched &&
+        candidatePurposeTags is List) {
+      purposeTags.addAll(
+        candidatePurposeTags
+            .whereType<String>()
+            .where(medicinePurposeLabels.containsKey)
+            .toSet()
+            .take(3),
+      );
+      if (purposeTags.isNotEmpty) categoryExpanded = true;
     }
     // 用户采纳待核验候选后主动展开隐藏字段，必须核对但不会自行保存。
     if (mounted) setState(() => moreExpanded = true);
@@ -2296,6 +2312,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           MedicineTagFields(
                             populations: populationTags,
                             purposes: purposeTags,
+                            onPurposeChanged: () => purposeTagsTouched = true,
                             onChanged: () {
                               setState(() {});
                               _markDirty();
