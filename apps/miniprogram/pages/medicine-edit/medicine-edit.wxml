@@ -53,15 +53,12 @@
   </view>
 
   <view class="card">
-    <view class="section-title">核对包装信息</view>
+    <view class="section-title">药品名称与规格</view>
     <view class="field">
       <view class="field-label">药品名称（唯一必填）</view>
       <input disabled="{{attemptedPayload !== null}}" class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
     </view>
-    <view class="field"><view class="field-label">包装品牌（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：包装上的品牌标识" /></view>
-    <view class="field"><view class="field-label">生产厂家（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /></view>
     <view class="field"><view class="field-label">包装规格（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒/盒" /><view class="field-hint">每盒粒数与药效时长不同；这里不代表家中实际余量。</view></view>
-    <view class="field-hint">数量和有效期不知道也可以保存，之后在详情中补全。</view>
   </view>
 
   <view class="card">
@@ -117,6 +114,13 @@
         <view class="field-hint">没有可靠依据时保持“不记录”。开封期限与包装有效期分别管理。</view>
       </view>
     </view>
+    <view class="field-hint">数量和有效期不知道也可以保存，之后在详情中补全。</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">包装品牌与厂家（选填）</view>
+    <view class="field"><view class="field-label">包装品牌（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：芬必得" /></view>
+    <view class="field"><view class="field-label">生产厂家（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /></view>
   </view>
 
   <view class="card">

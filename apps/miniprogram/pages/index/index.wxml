@@ -1,14 +1,30 @@
 <view class="page home-page">
   <view class="home-header">
     <view class="family-row">
-      <view>
-        <view class="family-caption">当前家庭</view>
-        <view class="family-name">{{familyName || "家庭药箱"}}</view>
+      <view class="family-capsule" bindtap="onTapFamily">
+        <text class="family-icon">🏠</text>
+        <text class="family-name">{{familyName || "家庭药箱"}}</text>
+        <text class="family-arrow">▾</text>
       </view>
-      <view class="family-link" bindtap="onTapFamily">我的家庭 ›</view>
+      <view class="quick-add-btn" bindtap="onTapAdd">＋ 录入</view>
     </view>
-    <view class="title">家里的药，心里有数</view>
-    <view class="subtitle">管理库存、有效期与开封后的期限。</view>
+  </view>
+
+  <view class="action-board" wx:if="{{errorMessage === '' && allItems.length > 0}}">
+    <view class="action-card action-card-urgent {{filterKind === 'expiring' ? 'active' : ''}}" data-kind="expiring" bindtap="onSelectFilter">
+      <view class="action-card-header">
+        <text class="action-card-dot red"></text>
+        <text class="action-card-title">临期/过期</text>
+      </view>
+      <view class="action-card-num {{expiringCount + expiredCount > 0 ? 'alert' : ''}}">{{expiringCount + expiredCount}}<text class="unit"> 盒</text></view>
+    </view>
+    <view class="action-card action-card-pending {{filterKind === 'unknown' ? 'active' : ''}}" data-kind="unknown" bindtap="onSelectFilter">
+      <view class="action-card-header">
+        <text class="action-card-dot yellow"></text>
+        <text class="action-card-title">待核对/补资料</text>
+      </view>
+      <view class="action-card-num">{{lowStockCount + missingInfoCount}}<text class="unit"> 盒</text></view>
+    </view>
   </view>
 
   <view class="search-box">
@@ -35,7 +51,7 @@
   </view>
 
   <view class="empty-card" wx:if="{{errorMessage === '' && allItems.length === 0}}">
-    <view class="empty-mark">＋</view>
+    <view class="empty-mark empty-icon-wrap"><view class="empty-pill-art"></view></view>
     <view class="section-title">还没有药品</view>
     <view class="hint">可以拍照识别；识别结果核对后再保存，也可以只填药名。</view>
     <view class="btn btn-primary" bindtap="onTapAdd">录入第一种药</view>
@@ -50,7 +66,7 @@
     <view class="medicine-card-head">
       <view class="medicine-thumb-box">
         <image wx:if="{{item.coverPhotoPath !== ''}}" class="medicine-thumb" src="{{item.coverPhotoPath}}" mode="aspectFill" />
-        <view wx:else class="medicine-thumb placeholder">📦</view>
+        <view wx:else class="medicine-thumb placeholder"><view class="pill-svg-icon"></view></view>
       </view>
       <view class="medicine-head-main">
         <view class="medicine-topline">
@@ -73,11 +89,9 @@
       <text wx:if="{{item.isArchived}}" class="status-pill archived">已归档</text>
       <text wx:if="{{item.openedText !== ''}}" class="status-pill opened">{{item.openedText}}</text>
     </view>
-    <view class="stock-warning" wx:if="{{item.stockState === 'low'}}">库存不足</view>
-    <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown'}}">库存待核对</view>
-    <view class="medicine-location" wx:if="{{item.locationText !== ''}}">存放位置：{{item.locationText}}</view>
-    <view class="purpose-text">用途：{{item.purpose}}</view>
-    <view class="detail-hint">查看批次与说明书 ›</view>
+    <view class="stock-warning" wx:if="{{item.stockState === 'low' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存不足</view>
+    <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存待核对</view>
+    <view class="medicine-location" wx:if="{{item.locationText !== ''}}"><text class="loc-pin">📍</text>{{item.locationText}}</view>
   </view>
 
   <view class="safety-note">清单只用于家庭库存管理；库存存在不等于适合服用。请以药品说明书及医生或药师指导为准。</view>

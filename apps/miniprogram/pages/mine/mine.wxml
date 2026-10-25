@@ -40,7 +40,7 @@
     </view>
     <view class="menu-card" bindtap="onOpenItem" data-route="account"><view><view class="menu-title">账号设置</view><view class="menu-hint">显示名与退出登录</view></view><view class="menu-arrow">›</view></view>
     <view class="menu-card" bindtap="onOpenItem" data-route="app"><view><view class="menu-title">连接 Android App</view><view class="menu-hint">确认 App 的临时连接码</view></view><view class="menu-arrow">›</view></view>
-    <view class="menu-card" bindtap="onOpenItem" data-route="release"><view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}</view></view><view class="menu-arrow">›</view></view>
+    <view class="menu-card" bindtap="onTapReleaseItem" data-route="release"><view><view class="menu-title">版本与更新</view><view class="menu-hint">当前版本 {{appVersion}}</view></view><view class="menu-arrow">›</view></view>
   </view>
   <view class="safety-note">药箱内容仅用于家庭库存管理，不提供诊断、选药或个人剂量建议。</view>
 </view>

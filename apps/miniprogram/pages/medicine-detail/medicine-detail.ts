@@ -74,6 +74,10 @@ interface MedicineDetailPageData {
   /** 人群/用途整理标签（R2-d）：kind 决定配色，蓝=成人、绿=儿童、紫=用途。 */
   displayTags: Array<{ kind: string; label: string }>;
   metaText: string;
+  brandText: string;
+  manufacturerText: string;
+  leafletUsage: string;
+  leafletPurpose: string;
   leafletText: string;
   leafletBadge: string;
   leafletPhotos: LeafletPhotoView[];
@@ -83,6 +87,8 @@ interface MedicineDetailPageData {
   coverPhotoError: string;
   /** 折叠区域（方案 §5.6）：说明书与来源、个人备注、低库存设置。 */
   sections: { leaflet: boolean; notes: boolean; stock: boolean };
+  /** 更多操作折叠（UI重构：归档、删除、变更记录、导出）。 */
+  moreExpanded: boolean;
   photoLoading: boolean;
   photoUploading: boolean;
   photoBusyId: string;
@@ -235,6 +241,10 @@ Page({
     specText: "",
     displayTags: [] as Array<{ kind: string; label: string }>,
     metaText: "",
+    brandText: "",
+    manufacturerText: "",
+    leafletUsage: "",
+    leafletPurpose: "",
     leafletText: "",
     leafletBadge: "",
     leafletPhotos: [] as LeafletPhotoView[],
@@ -242,6 +252,7 @@ Page({
     coverPhotoLoading: false,
     coverPhotoError: "",
     sections: { leaflet: false, notes: false, stock: false },
+    moreExpanded: false,
     photoLoading: false,
     photoUploading: false,
     photoBusyId: "",
@@ -372,7 +383,6 @@ Page({
     if (medicine.activeIngredients.length > 0) {
       metaParts.push(`成分：${medicine.activeIngredients.join("、")}`);
     }
-    if (medicine.purposeCategory !== null) metaParts.push(`用途分类：${purposeCategoryLabel(medicine.purposeCategory)}`);
     const leaflet = leafletDescription(medicine);
     const threshold = medicine.lowStockThreshold ?? null;
     const stockLabel: Record<string, string> = {
@@ -386,6 +396,10 @@ Page({
       name: medicine.name,
       specText: medicine.specification ?? "规格未记录",
       displayTags: buildDisplayTags(medicine),
+      brandText: medicine.brand ? `品牌：${medicine.brand}` : "",
+      manufacturerText: medicine.manufacturer ? `厂家：${medicine.manufacturer}` : "",
+      leafletUsage: medicine.leaflet.packageUsageSummary ?? "",
+      leafletPurpose: medicine.leaflet.purposeSummary ?? "",
       metaText: metaParts.length === 0 ? "暂无补充资料" : metaParts.join("；"),
       leafletText: leaflet.text,
       leafletBadge: leaflet.badge,
@@ -932,6 +946,10 @@ Page({
     if (section !== "leaflet" && section !== "notes" && section !== "stock") return;
     const sections = (this.data as MedicineDetailPageData).sections;
     this.setData({ [`sections.${section}`]: !sections[section] });
+  },
+
+  onToggleMore(): void {
+    this.setData({ moreExpanded: !this.data.moreExpanded });
   },
 
   async onDeleteMedicine(): Promise<void> {

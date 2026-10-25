@@ -3,7 +3,7 @@
 }
 
 .home-header {
-  padding: 12rpx 0 24rpx;
+  padding: 8rpx 0 16rpx;
   text-align: left;
 }
 
@@ -11,22 +11,91 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
 }
 
-.family-caption { color: #7c867e; font-size: 22rpx; text-align: left; }
-.family-name { margin-top: 4rpx; font-size: 30rpx; font-weight: 700; text-align: left; }
-.family-link {
-  padding: 12rpx 20rpx;
-  border: 1rpx solid #dfe7df;
+.family-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 10rpx 24rpx;
+  border: 1rpx solid #d1fae5;
   border-radius: 999rpx;
-  background: #fff;
-  color: #3f7d5c;
-  font-size: 22rpx;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.family-icon { font-size: 24rpx; }
+.family-arrow { font-size: 20rpx; color: #059669; }
+
+.quick-add-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  background: #047857;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 600;
 }
 
-.title { font-size: 36rpx; font-weight: 700; line-height: 1.35; text-align: left; }
-.subtitle { margin-top: 8rpx; color: #718078; font-size: 26rpx; text-align: left; }
+/* 顶部行动看板（两格可点击状态条） */
+.action-board {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.action-card {
+  flex: 1;
+  padding: 16rpx 20rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+  border: 1rpx solid #e2e8f0;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.03);
+  transition: all 0.2s ease;
+}
+
+.action-card.active {
+  border-color: #047857;
+  background: #f0fdf4;
+}
+
+.action-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 6rpx;
+}
+
+.action-card-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+}
+.action-card-dot.red { background: #ef4444; }
+.action-card-dot.yellow { background: #f59e0b; }
+
+.action-card-title {
+  color: #475569;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.action-card-num {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+.action-card-num.alert { color: #dc2626; }
+.action-card-num .unit {
+  font-size: 22rpx;
+  font-weight: normal;
+  color: #64748b;
+  margin-left: 4rpx;
+}
 
 .search-box {
   display: flex;
@@ -86,9 +155,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1rpx dashed #d6ddd6;
-  color: #b4bcb4;
-  font-size: 40rpx;
+  border: 1rpx solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.pill-svg-icon {
+  width: 44rpx;
+  height: 22rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(to right, #047857 50%, #cbd5e1 50%);
+  transform: rotate(-30deg);
+}
+
+.empty-pill-art {
+  width: 72rpx;
+  height: 36rpx;
+  margin: 0 auto 12rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(to right, #047857 50%, #cbd5e1 50%);
+  transform: rotate(-15deg);
 }
 .medicine-head-main { flex: 1; min-width: 0; text-align: left; }
 .medicine-status-row { display: flex; flex-wrap: wrap; gap: 8rpx; margin-top: 12rpx; }
