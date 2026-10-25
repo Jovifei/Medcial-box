@@ -617,18 +617,28 @@ class _MedicineCard extends StatelessWidget {
                     _CoverThumb(medicine: medicine, workflow: workflow),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        medicine.name,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            medicine.name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.ink,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            medicine.specificationDisplay,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.muted,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                     _MedicineStatus(medicine: medicine, batch: batch),
                   ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  medicine.specificationDisplay,
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -637,7 +647,10 @@ class _MedicineCard extends StatelessWidget {
                   children: [
                     Text(
                       '余量：${_totalDisplay(inCabinet)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                          ),
                     ),
                     Text(
                       '最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}',
@@ -650,13 +663,47 @@ class _MedicineCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  medicine.purpose,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.leafDeep),
-                ),
+                if (medicine.purposeTags.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: medicine.purposeTags
+                        .take(3)
+                        .map(
+                          (tag) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ] else if (medicine.purpose.isNotEmpty &&
+                    medicine.purpose != '用途待补充') ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    medicine.purpose,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.leafDeep,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

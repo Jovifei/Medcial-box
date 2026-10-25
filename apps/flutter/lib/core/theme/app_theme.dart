@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const paper = Color(0xFFF5F7F4);
-  static const ink = Color(0xFF24352C);
-  static const muted = Color(0xFF718078);
-  static const leaf = Color(0xFF3F7D5C);
-  static const leafDeep = Color(0xFF315F46);
-  static const mist = Color(0xFFE7F0E9);
-  static const line = Color(0xFFE4EBE5);
-  static const terracotta = Color(0xFFA45437);
-  static const amber = Color(0xFF9A6B21);
+  static const paper = Color(0xFFF8FAFC);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const leaf = Color(0xFF047857);
+  static const leafDeep = Color(0xFF065F46);
+  static const mist = Color(0xFFDCFCE7);
+  static const line = Color(0xFFE2E8F0);
+  static const terracotta = Color(0xFFB91C1C);
+  static const amber = Color(0xFFB45309);
 }
 
 ThemeData get appTheme {

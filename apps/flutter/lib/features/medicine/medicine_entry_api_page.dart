@@ -2097,7 +2097,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           onChanged: (_) => _markDirty(),
                           decoration: const InputDecoration(labelText: '厂家'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         Text(
                           '库存与有效期（选填）',
                           style: Theme.of(context).textTheme.titleMedium,
@@ -2166,6 +2166,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             expiryImage == null ? '补拍有效期照片' : '已保留有效期照片（可补拍）',
                           ),
                         ),
+
                         if (expiryController.text.isNotEmpty)
                           Align(
                             alignment: Alignment.centerLeft,

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -53,6 +55,17 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
       if (mounted) setState(() { notes = result; notesFailure = null; });
     } catch (error) {
       if (mounted) setState(() => notesFailure = error);
+    }
+  }
+
+  Future<Uint8List?> _loadCover(MedicineRecord medicine) async {
+    final coverId = medicine.coverPhotoId;
+    if (coverId == null) return null;
+    try {
+      final photo = await widget.workflow.readLeafletPhoto(medicine.id, coverId);
+      return photo.bytes;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -341,18 +354,49 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
               child: ListView(
                 children: [
                   AppCard(
-                    color: const Color(0xFFE9F1EB),
+                    color: const Color(0xFFF0FDF4),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(medicine.name, style: Theme.of(context).textTheme.headlineSmall),
+                        if (medicine.coverPhotoId != null)
+                          FutureBuilder<Uint8List?>(
+                            future: _loadCover(medicine),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.memory(
+                                      snapshot.data!,
+                                      height: 180,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        Text(medicine.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 6),
-                        Text(medicine.specificationDisplay),
-                        const SizedBox(height: 12),
+                        Text(medicine.specificationDisplay, style: const TextStyle(color: AppColors.muted)),
+                        if (medicine.brand?.isNotEmpty == true || medicine.manufacturer?.isNotEmpty == true) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            [
+                              if (medicine.brand?.isNotEmpty == true) '品牌：${medicine.brand}',
+                              if (medicine.manufacturer?.isNotEmpty == true) '厂家：${medicine.manufacturer}',
+                            ].join(' · '),
+                            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
                         InkWell(
                           onTap: submitting ? null : () => _editTags(medicine),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
                                 Expanded(
@@ -372,13 +416,46 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                                         ?.copyWith(color: AppColors.leafDeep),
                                   ),
                                 ),
-                                const Icon(Icons.edit_outlined),
+                                const Icon(Icons.edit_outlined, size: 18),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text('资料状态：${_leafletStatus(medicine.leaflet.reviewStatus)}'),
+                        if (medicine.leaflet.packageUsageSummary?.isNotEmpty == true ||
+                            medicine.leaflet.purposeSummary?.isNotEmpty == true)
+                          Container(
+                            margin: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: const Color(0xFFBBF7D0)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.assignment_outlined, size: 16, color: Color(0xFF166534)),
+                                    SizedBox(width: 6),
+                                    Text('包装用法用量摘要', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                  ],
+                                ),
+                                if (medicine.leaflet.purposeSummary?.isNotEmpty == true) ...[
+                                  const SizedBox(height: 6),
+                                  Text('【功能主治/用途】${medicine.leaflet.purposeSummary!}', style: const TextStyle(fontSize: 13, color: AppColors.ink, height: 1.4)),
+                                ],
+                                if (medicine.leaflet.packageUsageSummary?.isNotEmpty == true) ...[
+                                  const SizedBox(height: 6),
+                                  Text('【用法用量】${medicine.leaflet.packageUsageSummary!}', style: const TextStyle(fontSize: 13, color: AppColors.ink, height: 1.4)),
+                                ],
+                                const SizedBox(height: 8),
+                                const Divider(height: 1, color: Color(0xFFCBD5E1)),
+                                const SizedBox(height: 6),
+                                const Text('【说明书摘录 · 仅供参考】未核验，具体以实物包装与医护人员指导为准。', style: TextStyle(fontSize: 11, color: AppColors.muted, height: 1.3)),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
