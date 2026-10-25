@@ -321,11 +321,11 @@ void main() {
     await f.switchDraft(tester, '新建一份草稿');
     await f.search(tester);
     await f.selectCandidate(tester);
-    expect(f.state(tester).purposeTags, {'pain'}, '新草稿仍允许填充未编辑的标签');
+    expect(f.state(tester).purposeTags, {'pain'}, reason: '新草稿仍允许填充未编辑的标签');
     await f.switchDraft(tester, 'Synthetic');
     await f.search(tester);
     await f.selectCandidate(tester);
-    expect(f.state(tester).purposeTags, isEmpty, '恢复原草稿保留明确清空的选择');
+    expect(f.state(tester).purposeTags, isEmpty, reason: '恢复原草稿保留明确清空的选择');
     expect((await f.save(tester))['purposeTags'], isEmpty);
   });
 
