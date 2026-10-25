@@ -36,7 +36,7 @@ function unitIndexFromText(text: string | null | undefined): number | null {
   const value = typeof text === "string" ? text : "";
   if (value === "") return null;
   const keywords: Array<[string, number]> = [
-    ["片", 0], ["粒", 1], ["袋", 2], ["条", 2], ["瓶", 3], ["板", 5], ["毫升", 6], ["支", 8],
+    ["片", 0], ["粒", 1], ["袋", 2], ["条", 2], ["瓶", 3], ["板", 5], ["毫升", 6], ["ml", 6], ["mL", 6], ["支", 8],
   ];
   let hit: number | null = null;
   for (const [keyword, unitIndex] of keywords) {
@@ -1197,9 +1197,11 @@ Page({
    * 规格文本暗示的批次单位（袋/支/粒等）：仅当用户没有改过单位、
    * 数量仍为空且当前是默认"盒"时预填；返回 null 表示不预填。
    */
-  prefillBatchUnit(text: string | null | undefined): number | null {
+  prefillBatchUnit(text: string | null | undefined, specWillFill: boolean): number | null {
     const unitIndex = unitIndexFromText(text);
     if (unitIndex === null || unitIndex === 4) return null;
+    // 单位暗示来自候选规格：用户已写自己的规格时不预填，避免与用户规格不符。
+    if (!specWillFill) return null;
     const first = (this.data as MedicineEditPageData).batches[0];
     if (!first) return null;
     if (first.quantity.trim() !== "" || first.unitIndex !== 4) return null;
@@ -1220,7 +1222,8 @@ Page({
     if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
     if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
     if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
-    const unitIndex = this.prefillBatchUnit(candidate.specification);
+    const specWillFill = data.specification.trim() === "" && candidate.specification !== null;
+    const unitIndex = this.prefillBatchUnit(candidate.specification, specWillFill);
     if (unitIndex !== null) fields["batches[0].unitIndex"] = unitIndex;
     // 候选只填未编辑的空标签；明确全取消也是人工选择。外部资料仍须经过白名单。
     const candidatePurposeTags = Array.isArray(candidate.purposeTags)
@@ -1502,7 +1505,10 @@ Page({
           ? `识别完成，请逐项核对。${result.warnings.join("；")}`
           : "识别完成，请对照包装核对后保存。有效期在另一面时可再拍一次。",
       };
-      const recognitionUnitIndex = unitIndexFromText(typeof draft.specification === "string" ? draft.specification : null);
+      const recognitionSpecWillFill = untouched("specification") && current.specification.trim() === "" &&
+        typeof draft.specification === "string" && draft.specification !== "";
+      const recognitionUnitIndex = recognitionSpecWillFill
+        ? unitIndexFromText(draft.specification) : null;
       for (const key of ["name", "brand", "specification", "manufacturer", "approvalNumber", "purposeCategory"] as const) {
         if (untouched(key) && current[key].trim() === "" && typeof draft[key] === "string" && draft[key] !== "") {
           fields[key] = draft[key];

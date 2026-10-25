@@ -202,6 +202,31 @@ test("candidate specification prefills the batch unit when untouched", () => {
   assert.equal(tube.data.batches[0].unitIndex, 8, "支 maps to tube");
 });
 
+test("english ml specification prefills the ml unit", () => {
+  const page = pageFor();
+  const candidate = { name: "口服液", specification: "500ml", manufacturer: null, approvalNumber: null,
+    activeIngredients: [], leaflet: null, source: "synthetic", sourceUpdatedAt: null, matchReasons: [] };
+  page.setData({ candidate, candidates: [candidate] });
+  page.onApplyCandidate();
+  assert.equal(page.data.batches[0].unitIndex, 6, "500ml should prefill 毫升");
+  const mixed = pageFor();
+  const c2 = { ...candidate, specification: "10ml×6支" };
+  mixed.setData({ candidate: c2, candidates: [c2] });
+  mixed.onApplyCandidate();
+  assert.equal(mixed.data.batches[0].unitIndex, 8, "包装单位(支) still wins over inner ml");
+});
+
+test("unit prefill follows the spec actually being filled, not a user-entered spec", () => {
+  const page = pageFor();
+  page.onFieldInput({ currentTarget: { dataset: { field: "specification" } }, detail: { value: "我的自定义规格" } });
+  const candidate = { name: "合成药", specification: "3克×10袋", manufacturer: null, approvalNumber: null,
+    activeIngredients: [], leaflet: null, source: "synthetic", sourceUpdatedAt: null, matchReasons: [] };
+  page.setData({ candidate, candidates: [candidate] });
+  page.onApplyCandidate();
+  assert.equal(page.data.batches[0].unitIndex, 4, "user already wrote a spec: candidate unit must not prefill");
+  assert.equal(page.data.specification, "我的自定义规格");
+});
+
 test("manual unit choice survives a later candidate apply", () => {
   const page = pageFor();
   const candidate = { name: "合成药", specification: "3克×10袋", manufacturer: null, approvalNumber: null,
