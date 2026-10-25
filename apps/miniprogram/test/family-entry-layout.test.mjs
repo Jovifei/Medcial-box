@@ -72,19 +72,39 @@ test('invite code prefill or preview or error keeps the add section visible', as
 test('toggle keeps invite input, preview and error; manual expansion survives refresh', async () => {
   const { page, writes } = pageFor({ families: [{ familyId: 'f-a', name: '家庭A', role: 'member', isCurrent: false }] });
   await page.refresh();
+  page.onToggleAdd(); // 手动展开
   page.onInviteInput({ detail: { value: 'code-1' } });
   page.setData({ preview: { code: 'code-1', familyName: 'A', expiresAt: '2099-01-01 00:00' }, errorMessage: '上次预览失败' });
   page.onToggleAdd();
-  assert.equal(page.data.addExpanded, true);
-  page.onToggleAdd();
-  assert.equal(page.data.addExpanded, false);
+  assert.equal(page.data.addExpanded, true, 'pending preview/error must keep the section visible (58号)');
   assert.equal(page.data.inviteInput, 'code-1', 'toggle must not clear the invite input');
   assert.notEqual(page.data.preview, null, 'toggle must not clear the preview');
   assert.notEqual(page.data.errorMessage, '', 'toggle must not clear the error');
   assert.equal(writes.length, 0, 'expansion is page-local UI state, never persisted');
+  // 清空输入与错误后才能收起；收起不清输入字段本身以外的任何值。
+  page.onInviteInput({ detail: { value: '' } });
+  page.setData({ preview: null, errorMessage: '' });
+  page.onToggleAdd();
+  assert.equal(page.data.addExpanded, false);
   page.onToggleAdd();
   await page.refresh();
   assert.equal(page.data.addExpanded, true, 'manual expansion survives onShow refresh');
+});
+
+test('collapse is blocked while invite input, preview or error is pending (58号: 不得折叠遮住)', async () => {
+  const { page } = pageFor({ families: [{ familyId: 'f-a', name: '家庭A', role: 'member', isCurrent: false }] });
+  await page.refresh();
+  page.onToggleAdd(); // 先手动展开
+  assert.equal(page.data.addExpanded, true);
+  page.onInviteInput({ detail: { value: 'code-1' } });
+  page.setData({ errorMessage: '邀请码无效或已被撤销' });
+  page.onToggleAdd(); // 有未完成邀请操作时尝试收起
+  assert.equal(page.data.addExpanded, true, 'pending invite activity must keep the section visible');
+  assert.notEqual(page.data.errorMessage, '');
+  page.onInviteInput({ detail: { value: '' } });
+  page.setData({ errorMessage: '' });
+  page.onToggleAdd();
+  assert.equal(page.data.addExpanded, false, 'without pending activity collapse works normally');
 });
 
 test('family rows keep the original switch contract and disabled state', async () => {

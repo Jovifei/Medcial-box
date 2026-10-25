@@ -57,8 +57,14 @@ Page({
   },
 
   onToggleAdd(): void {
+    const data = this.data as FamilyEntryPageData;
+    // 58号设计：邀请码已填/预览已出/有错误时，展开区不得被折叠遮住。
+    if (data.addExpanded && (data.inviteInput.trim() !== "" || data.preview !== null || data.errorMessage !== "")) {
+      wx.showToast({ title: "邀请码操作未完成，暂不能收起", icon: "none" });
+      return;
+    }
     this.addExpandedManually = true;
-    this.setData({ addExpanded: !(this.data as FamilyEntryPageData).addExpanded });
+    this.setData({ addExpanded: !data.addExpanded });
   },
 
   onShow(): void {
