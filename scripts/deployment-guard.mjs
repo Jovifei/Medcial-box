@@ -162,9 +162,10 @@ function validateService(config, binding, updating = false) {
 
 async function readDatabase(docker, binding) {
   const result = await docker(['exec', binding.db.id, 'sh', '-c',
-    'exec env -i PATH="$PATH" PGPASSWORD="$POSTGRES_PASSWORD" psql -X -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -A -t -v ON_ERROR_STOP=1 -c "$1"', 'sh', `BEGIN READ ONLY; ${identitySql} COMMIT;`]);
-  const line = result.stdout.trim().split('\n').find(value => value.startsWith('{'));
-  return databaseIdentity(json(line ?? 'null', 'database probe'));
+    'exec env -i PATH="$PATH" PGPASSWORD="$POSTGRES_PASSWORD" psql -X -q -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -A -t -v ON_ERROR_STOP=1 -c "$1"', 'sh', `BEGIN READ ONLY; ${identitySql} COMMIT;`]);
+  // json_agg(record) can span lines. Quiet mode suppresses command tags; parse
+  // the entire response strictly so neither truncation nor extra output passes.
+  return databaseIdentity(json(result.stdout.trim(), 'database probe'));
 }
 
 // Discovery is evidence collection only. A proposal can never authorize backup/apply.

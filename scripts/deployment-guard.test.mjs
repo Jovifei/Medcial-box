@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {writeFile, readFile} from 'node:fs/promises';
 import {digest} from './build-api-candidate.mjs';
-import {preflight, applyCandidate, apiOnlyConfig, validateBinding, discoverBinding} from './deployment-guard.mjs';
+import {preflight, applyCandidate, apiOnlyConfig, validateBinding, discoverBinding, databaseIdentity} from './deployment-guard.mjs';
 import {deploymentFixture, fakeDocker} from './test-support/deployment-fixture.mjs';
 
 const dangerous = calls => calls.filter(args => ['run', 'start', 'stop', 'rm', 'pull', 'build', 'create'].includes(args[0]) || args.includes('up') || args.includes('down'));
@@ -17,6 +17,45 @@ test('reviewed stopped existing stack preflight is read-only and emits no privat
     assert(fake.calls.filter(args => args[0] === 'compose').every(args => args.includes('--project-name') && args.includes(f.binding.project)));
     assert(fake.calls.filter(args => args[0] === 'exec').every(args => args[1] === f.binding.db.id));
   } finally { await f.close(); }
+});
+
+test('read-only DB probe parses all 36 migration records from real multiline psql JSON', async () => {
+  // Captured using PostgreSQL 17.6, BEGIN READ ONLY and synthetic generate_series;
+  // trailing line spaces normalized for the repository, record newlines retained.
+  // json_agg(composite rows) emits newlines even with psql's unaligned tuples mode.
+  const bytes = await readFile(new URL('./test-support/deployment-identity-multiline.json', import.meta.url), 'utf8');
+  const probe = JSON.parse(bytes);
+  assert.equal(probe.migrations.length, 36); assert(bytes.trim().split('\n').length > 1);
+  const f = await deploymentFixture(), fake = fakeDocker(f.state);
+  try {
+    f.binding.database = databaseIdentity(probe);
+    f.candidate.migrationsSha256 = f.binding.database.migrationsSha256;
+    f.candidate.migrationCount = 36;
+    const docker = async args => {
+      const result = await fake.docker(args);
+      if (args[0] !== 'exec') return result;
+      assert(args.at(-1).startsWith('BEGIN READ ONLY;'));
+      // Also reproduce real psql's command tags unless quiet mode suppresses them.
+      return {stdout: /(?:^|\s)-q(?:\s|$)/.test(args[4]) ? bytes : `BEGIN\n${bytes}COMMIT\n`};
+    };
+    const result = await preflight({...f, docker});
+    assert.equal(result.receipt.databaseFingerprint, digest(JSON.stringify(f.binding.database)));
+    assert.deepEqual(dangerous(fake.calls), []);
+  } finally { await f.close(); }
+});
+
+test('DB probe refuses truncated JSON and unexpected trailing stdout', async () => {
+  for (const corrupt of [value => value.slice(0, -1), value => `${value}\nUNEXPECTED OUTPUT`]) {
+    const f = await deploymentFixture(), fake = fakeDocker(f.state);
+    try {
+      const docker = async args => {
+        const result = await fake.docker(args);
+        return args[0] === 'exec' ? {stdout: corrupt(result.stdout)} : result;
+      };
+      await assert.rejects(preflight({...f, docker}), /Invalid database probe JSON/);
+      assert.deepEqual(dangerous(fake.calls), []);
+    } finally { await f.close(); }
+  }
 });
 
 const cases = {
