@@ -95,6 +95,8 @@ const reviewedSourceTrees = new Set([
   '8a9555c3d1c3a71ec6693633218f3057a1f80010',
   // 2026-10-25 follow-up: collapse blocked while invite activity pending (design rule 58); UI state only.
   '51b0e81f74d0be6a138137c4609b65ba49270555',
+  // 2026-10-25 review fixes: ml keyword unit prefill and spec-gated consistency; UI state only.
+  '11d85bfaed8c1b165148224a345051009131ab5d',
   // 2026-10-25 build 10 独立复审：人工用途标签编辑/清空随各自草稿保存，
   // 候选只填未编辑空值并限制有效标签；版本说明及合成回归同步。
   // 42 个生产 TS 文件的 wx/fs 库存重新核验，无新增原生、网络或文件能力。
