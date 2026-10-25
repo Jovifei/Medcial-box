@@ -14,6 +14,8 @@ interface FamilyEntryPageData {
   submitting: boolean;
   errorMessage: string;
   families: { familyId: string; name: string; role: string; isCurrent: boolean }[];
+  /** 58号设计：创建/加入区的页面内展开状态；不持久化、不写存储。 */
+  addExpanded: boolean;
 }
 
 function decode(value: string | undefined): string {
@@ -43,11 +45,20 @@ Page({
     submitting: false,
     errorMessage: "",
     families: [] as { familyId: string; name: string; role: string; isCurrent: boolean }[],
+    addExpanded: false,
   },
+
+  /** 用户手动展开/收起后，onShow 的自动规则不再覆盖本次访问的选择。 */
+  addExpandedManually: false,
 
   onLoad(options: Record<string, string | undefined>): void {
     const code = decode(options.code).trim();
     if (code !== "") this.setData({ inviteInput: code });
+  },
+
+  onToggleAdd(): void {
+    this.addExpandedManually = true;
+    this.setData({ addExpanded: !(this.data as FamilyEntryPageData).addExpanded });
   },
 
   onShow(): void {
@@ -59,6 +70,7 @@ Page({
       await ensureLoggedIn({ allowInteractive: false });
       const result = await api.listFamilies();
       this.setData({ families: result.families });
+      this.applyAddExpandedRule();
       if (this.data.inviteInput !== "") await this.onPreviewInvitation();
     } catch (error) {
       if (error instanceof ApiError && error.code === "FAMILY_NOT_FOUND") return;
@@ -68,6 +80,17 @@ Page({
       }
       showError(this, error);
     }
+  },
+
+  /**
+   * 58号设计：无家庭、邀请码已填、预览已出现或有错误时展开创建/加入区；
+   * 已有家庭的默认态收起（家庭列表优先）。手动展开在本次访问内不被覆盖。
+   */
+  applyAddExpandedRule(): void {
+    const data = this.data as FamilyEntryPageData;
+    const expanded = this.addExpandedManually === true || data.families.length === 0 ||
+      data.inviteInput.trim() !== "" || data.preview !== null || data.errorMessage !== "";
+    this.setData({ addExpanded: expanded });
   },
 
   onInviteInput(event: { detail: { value: string } }): void {

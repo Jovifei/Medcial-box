@@ -1,35 +1,58 @@
-<view class="card" wx:if="{{families.length}}"><view class="section-title">选择当前家庭</view><button wx:for="{{families}}" wx:key="familyId" data-family-id="{{item.familyId}}" bindtap="onSwitchFamily" disabled="{{submitting}}">{{item.name}} · {{item.role === "owner" ? "管理员" : "成员"}}{{item.isCurrent ? "（当前）" : ""}}</button></view>
 <view class="page">
-  <view class="hero">
-    <view class="eyebrow">欢迎使用家庭药箱</view>
-    <view class="title">先选择你的家庭</view>
-    <view class="subtitle">一个账号可以创建自己的药箱，也可以用家人发来的邀请码加入其他家庭；可同时属于多个家庭，使用时在设置里切换当前家庭。</view>
+  <view class="card family-list-card" wx:if="{{families.length}}">
+    <view class="section-title">选择当前家庭</view>
+    <view class="page-hint">选择后只显示该家庭的药品；家庭之间不混合。</view>
+    <button
+      wx:for="{{families}}"
+      wx:key="familyId"
+      class="family-row {{item.isCurrent ? 'family-row-current' : ''}}"
+      data-family-id="{{item.familyId}}"
+      bindtap="onSwitchFamily"
+      disabled="{{submitting}}"
+    >
+      <view class="family-row-main">
+        <view class="family-name">{{item.name}}{{item.isCurrent ? "（当前）" : ""}}</view>
+        <view class="family-role">{{item.role === "owner" ? "管理员" : "成员"}}</view>
+      </view>
+      <view class="family-arrow">›</view>
+    </button>
   </view>
 
-  <view class="card">
-    <view class="section-title">创建家庭药箱</view>
-    <view class="hint">创建后你会成为管理员，可以邀请家人一起维护库存。</view>
-    <view class="btn btn-primary" bindtap="onCreateFamily">创建家庭</view>
+  <view class="hero hero-compact" wx:else>
+    <view class="title">创建或加入家庭</view>
+    <view class="subtitle">一个账号可以创建自己的药箱，也可以用家人发来的邀请码加入其他家庭。</view>
   </view>
 
-  <view class="card">
-    <view class="section-title">加入家人的药箱</view>
-    <view class="hint">先预览家庭名称和有效期，确认后才会消耗一次性邀请码。</view>
-    <view class="field">
-      <view class="field-label">邀请码</view>
-      <input class="input" placeholder="粘贴家人发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" maxlength="120" />
+  <view class="card add-card">
+    <view class="add-toggle" bindtap="onToggleAdd">
+      <view class="section-title">添加或加入家庭</view>
+      <view class="toggle-label">{{addExpanded ? "收起" : "展开"}}</view>
     </view>
-    <view class="btn btn-ghost {{previewing ? 'disabled' : ''}}" bindtap="onPreviewInvitation" wx:if="{{preview === null}}">
-      {{previewing ? "查询中…" : "预览邀请"}}
-    </view>
-    <view class="preview" wx:if="{{preview !== null}}">
-      <view class="preview-title">{{preview.familyName}}</view>
-      <view class="hint">有效期至：{{preview.expiresAt}}</view>
-      <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
-        {{submitting ? "加入中…" : "确认加入"}}
+    <view wx:if="{{addExpanded}}">
+      <view class="add-block">
+        <view class="field-label">创建家庭药箱</view>
+        <view class="hint">创建后你会成为管理员，可以邀请家人一起维护库存。</view>
+        <view class="btn btn-primary" bindtap="onCreateFamily">创建家庭</view>
+      </view>
+      <view class="add-block">
+        <view class="field-label">用邀请码加入</view>
+        <view class="hint">先预览家庭名称和有效期，确认后才会消耗一次性邀请码。</view>
+        <view class="field">
+          <input class="input" placeholder="粘贴家人发来的邀请码" value="{{inviteInput}}" bindinput="onInviteInput" maxlength="120" />
+        </view>
+        <view class="btn btn-ghost {{previewing ? 'disabled' : ''}}" bindtap="onPreviewInvitation" wx:if="{{preview === null}}">
+          {{previewing ? "查询中…" : "预览邀请"}}
+        </view>
+        <view class="preview" wx:if="{{preview !== null}}">
+          <view class="preview-title">{{preview.familyName}}</view>
+          <view class="hint">有效期至：{{preview.expiresAt}}</view>
+          <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onAcceptInvitation">
+            {{submitting ? "加入中…" : "确认加入"}}
+          </view>
+        </view>
+        <view class="error" wx:if="{{errorMessage !== ''}}">{{errorMessage}}</view>
       </view>
     </view>
-    <view class="error" wx:if="{{errorMessage !== ''}}">{{errorMessage}}</view>
   </view>
 
   <view class="safety-note hint">家庭药箱仅用于库存管理，库存存在不代表适合任何人服用。</view>

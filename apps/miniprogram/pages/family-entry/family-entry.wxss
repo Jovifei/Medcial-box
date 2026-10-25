@@ -56,3 +56,105 @@
 .disabled {
   opacity: 0.6;
 }
+
+/* ===== 58号设计：家庭列表优先 + 渐进展开 ===== */
+.page-hint {
+  margin-top: 8rpx;
+  color: #718078;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.family-row {
+  width: 100%;
+  min-height: 96rpx;
+  margin-top: 16rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  text-align: left;
+  border: 1rpx solid #e1e9e2;
+  border-radius: 20rpx;
+  background: #fff;
+  color: #24352c;
+  font-size: 30rpx;
+  line-height: 1.35;
+}
+
+.family-row::after {
+  border: none;
+}
+
+.family-row-current {
+  border-color: #9cc7ab;
+  background: #f2f8f3;
+}
+
+.family-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.family-name {
+  font-weight: 680;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.family-role {
+  margin-top: 6rpx;
+  color: #718078;
+  font-size: 23rpx;
+}
+
+.family-arrow {
+  color: #7c8b80;
+  font-size: 40rpx;
+}
+
+.hero-compact {
+  padding: 8rpx 8rpx 6rpx;
+}
+
+.hero-compact .title {
+  margin-top: 0;
+  font-size: 36rpx;
+}
+
+.hero-compact .subtitle {
+  margin-top: 10rpx;
+}
+
+.add-card {
+  padding: 8rpx 24rpx 20rpx;
+}
+
+.add-toggle {
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.toggle-label {
+  color: #3f7d5c;
+  font-size: 25rpx;
+  font-weight: 650;
+}
+
+.add-block {
+  padding: 18rpx 0 6rpx;
+  border-top: 1rpx solid #eef3ef;
+}
+
+.add-block .btn {
+  margin-top: 16rpx;
+}
+
+.add-block .field {
+  margin-top: 14rpx;
+}
