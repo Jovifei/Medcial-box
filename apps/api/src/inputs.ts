@@ -57,7 +57,7 @@ const STOCKTAKE_OUTCOMES = ["unchanged", "adjusted", "empty", "handled", "deferr
 const RESTOCK_STATUSES: readonly RestockStatus[] = ["needed", "purchased", "dismissed"];
 
 const POPULATION_TAGS = ["adult", "child"] as const;
-const PURPOSE_TAGS = ["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "itch", "eye", "oral", "constipation", "diarrhea", "other"] as const;
+const PURPOSE_TAGS = ["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "antiinfective", "itch", "eye", "oral", "constipation", "diarrhea", "other"] as const;
 
 /** 标签数组：去重、去空、白名单校验；空数组表示"未标注"。 */
 function tagList<T extends string>(value: unknown, field: string, allowed: readonly T[]): T[] {

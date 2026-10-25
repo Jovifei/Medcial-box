@@ -28,6 +28,24 @@ const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
 const PRECISION_LABELS = ["年、月、日", "仅年、月", "未知"];
 const PURPOSE_OPTIONS = ["未分类", "解热镇痛", "感冒咳嗽", "胃肠消化", "过敏", "外用", "其他"];
 
+/**
+ * 从规格/品名文本按最后一个非"盒"的包装单位关键词预填批次单位（Jovi 2026-10-25）：
+ * "3克×10袋"→袋、"0.3g×20粒"→粒、"10ml×6支"→支；识别不到保持默认"盒"。
+ */
+function unitIndexFromText(text: string | null | undefined): number | null {
+  const value = typeof text === "string" ? text : "";
+  if (value === "") return null;
+  const keywords: Array<[string, number]> = [
+    ["片", 0], ["粒", 1], ["袋", 2], ["条", 2], ["瓶", 3], ["板", 5], ["毫升", 6], ["支", 8],
+  ];
+  let hit: number | null = null;
+  for (const [keyword, unitIndex] of keywords) {
+    const at = value.lastIndexOf(keyword);
+    if (at >= 0) hit = unitIndex;
+  }
+  return hit;
+}
+
 interface BatchForm {
   /** 已有批次标识（编辑时从详情带入，保存时随 payload 回传）；null = 新增。 */
   id: string | null;
@@ -1175,6 +1193,20 @@ Page({
     }
   },
 
+  /**
+   * 规格文本暗示的批次单位（袋/支/粒等）：仅当用户没有改过单位、
+   * 数量仍为空且当前是默认"盒"时预填；返回 null 表示不预填。
+   */
+  prefillBatchUnit(text: string | null | undefined): number | null {
+    const unitIndex = unitIndexFromText(text);
+    if (unitIndex === null || unitIndex === 4) return null;
+    const first = (this.data as MedicineEditPageData).batches[0];
+    if (!first) return null;
+    if (first.quantity.trim() !== "" || first.unitIndex !== 4) return null;
+    if ((this.touchedFields["batches[0].unitIndex"] ?? 0) !== 0) return null;
+    return unitIndex;
+  },
+
   onApplyCandidate(event?: { currentTarget?: { dataset?: { index?: string } } }): void {
     if (this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
@@ -1188,6 +1220,8 @@ Page({
     if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
     if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
     if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
+    const unitIndex = this.prefillBatchUnit(candidate.specification);
+    if (unitIndex !== null) fields["batches[0].unitIndex"] = unitIndex;
     // 候选只填未编辑的空标签；明确全取消也是人工选择。外部资料仍须经过白名单。
     const candidatePurposeTags = Array.isArray(candidate.purposeTags)
       ? [...new Set(candidate.purposeTags.filter((tag) => PURPOSE_TAG_OPTIONS.some((option) => option.kind === tag)))].slice(0, 3)
@@ -1468,6 +1502,7 @@ Page({
           ? `识别完成，请逐项核对。${result.warnings.join("；")}`
           : "识别完成，请对照包装核对后保存。有效期在另一面时可再拍一次。",
       };
+      const recognitionUnitIndex = unitIndexFromText(typeof draft.specification === "string" ? draft.specification : null);
       for (const key of ["name", "brand", "specification", "manufacturer", "approvalNumber", "purposeCategory"] as const) {
         if (untouched(key) && current[key].trim() === "" && typeof draft[key] === "string" && draft[key] !== "") {
           fields[key] = draft[key];
@@ -1476,6 +1511,10 @@ Page({
             if (optionIndex >= 0) fields.purposeIndex = optionIndex;
           }
         }
+      }
+      if (recognitionUnitIndex !== null && untouched("batches[0].unitIndex") &&
+        first && first.quantity.trim() === "" && first.unitIndex === 4) {
+        fields["batches[0].unitIndex"] = recognitionUnitIndex;
       }
       if (untouched("purposeTags") && !current.purposeTagsTouched && current.purposeTags.length === 0 && draft.purposeTags?.length) {
         fields.purposeTags = draft.purposeTags;
@@ -1634,6 +1673,7 @@ Page({
     const nextUnit = UNIT_VALUES[nextIndex];
     const currentUnit = UNIT_VALUES[batch.unitIndex];
     if (nextUnit === undefined || nextUnit === currentUnit) return;
+    this.markFieldTouched(`batches[${index}].unitIndex`);
     // 单位切换守卫（与 batch-edit 一致）：数字不换算，由用户确认后生效。
     const hasValue = batch.quantity.trim() !== "" || batch.confirmedUnits.trim() !== "";
     if (!hasValue) {
@@ -1893,6 +1933,27 @@ Page({
     const drafts = this.data.photoDrafts.map((item) => item.id === this.data.activePhotoDraftId ? { ...item, status, failureCode } : item);
     this.setData({ photoDrafts: drafts });
     this.persistPhotoDrafts();
+  },
+  /**
+   * 保存成功后退役与本份保存无关的未完成草稿（review/recognizing/failed）：
+   * 上一次保存已成功，旧草稿不应再次触发"导入草稿"提醒（Jovi 2026-10-25）。
+   * photo_pending 草稿承载照片补传重试，必须保留；excludeId 供补传路径排除活动草稿。
+   */
+  discardUnfinishedPhotoDrafts(excludeId = ""): void {
+    const queue = this.photoDraftQueueForWrite();
+    if (!queue) return;
+    let changed = false;
+    for (const draft of queue) {
+      if (draft.id === excludeId) continue;
+      if (draft.status === "review" || draft.status === "recognizing" || draft.status === "failed") {
+        draft.status = "cleanup_pending";
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    if (!this.writePhotoDraftQueue(queue)) return;
+    this.setData({ photoDrafts: this.visiblePhotoDrafts(queue) });
+    void this.cleanupPhotoDrafts();
   },
   onSelectPhotoDraft(event: { currentTarget: { dataset: { id?: string } } }): void {
     if (this.data.recognizing || this.data.submitting) return;
@@ -2170,10 +2231,12 @@ Page({
           if (!this.entryScopeIsCurrent(originalScope)) return;
           this.setPhotoDraftStatus("photo_pending");
           this.persistPhotoDrafts();
+          this.discardUnfinishedPhotoDrafts(this.data.activePhotoDraftId);
           wx.showToast({ title: "药品已保存，照片待补；点击保存可重试照片", icon: "none", duration: 3500 });
           return;
         }
       }
+      this.discardUnfinishedPhotoDrafts();
       this.removeStoredDraft();
       this.discardingDraft = true;
       this.setData({ isDirty: false });

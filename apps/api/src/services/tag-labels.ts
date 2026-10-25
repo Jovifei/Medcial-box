@@ -10,6 +10,7 @@ const PURPOSE_TAG_LABELS: Record<string, string> = {
   pain: "疼痛",
   topical: "外用",
   allergy: "抗过敏",
+  antiinfective: "抗感染",
   itch: "止痒",
   eye: "眼部",
   oral: "口腔",

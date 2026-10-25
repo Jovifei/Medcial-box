@@ -38,16 +38,10 @@ export function parseMedicineBarcode(input: string): ParsedBarcodeResult {
   }
 
   // 2. 清理常见条码枪/扫描仪的 AIM Symbology 标识符（如 ]C1, ]d2, ]Q3, ]e0）
-  const gs1Symbology = /^\](?:C1|d2)/.test(raw);
   const clean = raw.replace(/^\][A-Za-z0-9]{2}/, "").trim();
 
-  // 20 位纯数字没有足够的结构证据，不能把内部的 01/69 误当成 GS1 商品码。
-  if (!gs1Symbology && /^[0-9]{20}$/.test(clean)) {
-    return { raw, queryBarcode: null, kind: "traceability_unextracted", statusText: UNSUPPORTED_CATALOG_CODE };
-  }
-
   // 3. GS1 AI (应用标识符) 结构化条码解析
-  // 支持括号形式 (01)...(17)...(10)... 以及连续无括号形式 01...17...10...
+  // 支持括号形式 (01)...(17)...(10)... 以及连续无括号形式 01...17...10/21...
   let gs1Gtin: string | null = null;
   let gs1Expiry: { value: string; precision: "day" | "month" } | undefined;
   let gs1Lot: string | undefined;
@@ -65,10 +59,16 @@ export function parseMedicineBarcode(input: string): ParsedBarcodeResult {
     }
     if (paren10) gs1Lot = paren10[1];
   } else if (/^01[0-9]{14}/.test(clean)) {
-    // 连续无括号 GS1: 01 后紧跟 14 位 GTIN
+    // 连续无括号 GS1: 01 后紧跟 14 位 GTIN。变长 AI 只能是最后一段：
+    // 批号(10)或序列号(21)。序列号不是批号，不回填批次字段。
     gs1Gtin = clean.slice(2, 16);
     const rest = clean.slice(16);
-    if (!/^(?:17[0-9]{6})?(?:10[a-zA-Z0-9_-]{1,20})?$/.test(rest)) {
+    if (!/^(?:17[0-9]{6})?(?:10[a-zA-Z0-9_-]{1,20}|21[a-zA-Z0-9_-]{1,24})?$/.test(rest)) {
+      // 结构不完整时不再直接拒绝：药盒常把商品码与序列号印在同一条码上
+      // （Jovi 2026-10-25 决策）。只要 01 后 14 位通过 GTIN 校验位就提取
+      // 商品码查询候选，其余内容仅作提示核对，不回填批次/有效期。
+      const extracted = extractLeadingGtin(raw, clean);
+      if (extracted) return extracted;
       return { raw, queryBarcode: null, kind: "unsupported", statusText: UNSUPPORTED_CATALOG_CODE };
     }
     const dateMatch = rest.match(/17([0-9]{6})/);
@@ -78,6 +78,13 @@ export function parseMedicineBarcode(input: string): ParsedBarcodeResult {
     }
     const lotMatch = rest.match(/10([a-zA-Z0-9_-]{1,20})/);
     if (lotMatch) gs1Lot = lotMatch[1];
+  } else if (/^[0-9]{15,48}$/.test(clean)) {
+    // 无 01 前缀的长数字串：追溯码常见形态是"14 位商品码 + 序列号"。
+    // 只有前 14 位通过 GTIN 校验位才提取（Jovi 2026-10-25 决策），
+    // 校验不过仍按追溯码保留原码，不猜测内部片段。
+    const extracted = extractLeadingGtin(raw, clean);
+    if (extracted) return extracted;
+    return { raw, queryBarcode: null, kind: "traceability_unextracted", statusText: UNSUPPORTED_CATALOG_CODE };
   }
 
   if (gs1Gtin) {
@@ -111,6 +118,27 @@ export function parseMedicineBarcode(input: string): ParsedBarcodeResult {
     kind: "unsupported",
     statusText: UNSUPPORTED_CATALOG_CODE,
   };
+}
+
+/**
+ * 长数字串的商品码提取：优先按 AI(01)+14 位读，其次按"前 14 位即 GTIN-14"读。
+ * 只有 GTIN 校验位通过才返回提取结果；序列号等其余内容不回填任何批次字段。
+ */
+function extractLeadingGtin(raw: string, clean: string): ParsedBarcodeResult | null {
+  const candidates: string[] = [];
+  if (/^01[0-9]{14}/.test(clean)) candidates.push(clean.slice(2, 16));
+  if (/^[0-9]{14}/.test(clean)) candidates.push(clean.slice(0, 14));
+  for (const gtin of candidates) {
+    if (!hasValidGtinCheckDigit(gtin)) continue;
+    const query = gtin.startsWith("0") ? gtin.slice(1) : gtin;
+    return {
+      raw,
+      queryBarcode: query,
+      kind: "gs1",
+      statusText: `已从追溯码中提取商品码 ${query}（请核对包装）；正在查询候选…`,
+    };
+  }
+  return null;
 }
 
 function hasValidGtinCheckDigit(digits: string): boolean {

@@ -158,19 +158,19 @@
 .sheet-option {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  margin-top: 16rpx;
-  padding: 22rpx 20rpx;
+  gap: 20rpx;
+  margin-top: 20rpx;
+  padding: 30rpx 26rpx;
   border: 1rpx solid #e1e9e2;
   border-radius: 20rpx;
   background: #fff;
 }
-.sheet-icon { width: 66rpx; height: 66rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #e3f0e7; color: #315f46; font-size: 34rpx; }
+.sheet-icon { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #e3f0e7; color: #315f46; font-size: 40rpx; }
 .sheet-icon.album { background: #f6ead4; }
 .sheet-icon.scan { background: #e8eef4; }
 .sheet-option-main { flex: 1; min-width: 0; }
-.sheet-option-title { color: #24352c; font-size: 29rpx; font-weight: 680; }
-.sheet-option-hint { margin-top: 6rpx; color: #718078; font-size: 21rpx; line-height: 1.45; }
+.sheet-option-title { color: #24352c; font-size: 33rpx; font-weight: 680; }
+.sheet-option-hint { margin-top: 8rpx; color: #718078; font-size: 24rpx; line-height: 1.45; }
 .sheet-arrow { color: #7c8b80; font-size: 42rpx; }
 
 /* —— 人群/用途整理标签（R2-b）：蓝=成人、绿=儿童、紫=用途，灰=+N；状态同时用文字表达 —— */

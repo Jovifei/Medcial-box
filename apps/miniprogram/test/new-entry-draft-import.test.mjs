@@ -123,5 +123,8 @@ test("an isolated new entry reuses inventory and photo receipt identities after 
   assert.equal(uploads, 2);
   assert.equal(inventory.size, 1);
   assert.equal(photos.size, 1);
-  assert.deepEqual(h.read().find(entry => entry.id === old.id), old);
+  // Jovi 2026-10-25：保存成功后未完成的旧草稿一并退役，不再触发导入提醒。
+  const retired = h.read().find(entry => entry.id === old.id);
+  assert.equal(retired === undefined || retired.status === "cleanup_pending", true,
+    "old failed draft must be retired once the save fully succeeds");
 });

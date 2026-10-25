@@ -102,6 +102,17 @@ test("indication text maps to conservative purpose tags; ingredient text never d
     "〖功能主治〗用于感冒引起的症状。", null));
   const coldOnly = await ambiguous.search({ barcode: "6900000000012", consentToShare: true });
   assert.deepEqual(coldOnly.candidates[0].purposeTags, [], "泛用途词（感冒）不得映射");
+
+  const antibiotic = new JisuMedicineCatalogProvider("test-key", detailWith(
+    "〖功能主治〗用于敏感菌引起的细菌感染；民间常称消炎药。", null));
+  const tagged2 = await antibiotic.search({ barcode: "6900000000012", consentToShare: true });
+  assert.ok(tagged2.candidates[0].purposeTags.includes("antiinfective"), "消炎/抗菌文本应映射抗感染标签");
+
+  const nsaid = new JisuMedicineCatalogProvider("test-key", detailWith(
+    "〖功能主治〗本品具抗炎、镇痛作用。", null));
+  const nsaidOnly = await nsaid.search({ barcode: "6900000000012", consentToShare: true });
+  assert.ok(!nsaidOnly.candidates[0].purposeTags.includes("antiinfective"), "NSAID 的抗炎不得映射为抗感染");
+  assert.deepEqual(nsaidOnly.candidates[0].purposeTags, ["pain"]);
 });
 
 async function candidateForDescription(desc) {

@@ -149,7 +149,8 @@
 
 .photo-action,
 .save-action {
-  min-height: 88rpx;
+  min-height: 104rpx;
+  font-size: 32rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -167,7 +168,8 @@
 }
 
 .scan-action {
-  min-height: 80rpx;
+  min-height: 104rpx;
+  font-size: 32rpx;
 }
 
 .candidate-card {

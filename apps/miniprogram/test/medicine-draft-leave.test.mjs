@@ -218,14 +218,16 @@ test("next medicine cannot reset an unsaved current form or start a parallel pho
   assert.match(f.toasts.at(-1), /先保存当前药品/);
 });
 
-test("successful save removes only the current photo draft and cannot recreate form draft on leave", async () => {
+test("successful save retires all unfinished photo drafts and cannot recreate form draft on leave", async () => {
   const f = fixture({ api: { createMedicine: async () => ({ id: "saved", batches: [] }) },
     wxOverrides: { switchTab() {} } });
   await f.page.checkEntrySession();
   f.page.setData({ photoDrafts: [photoDraft(f.page), photoDraft(f.page, "older")], activePhotoDraftId: "current" });
   await f.page.onSubmit();
   assert.equal(f.storage.has(DRAFT_KEY), false);
-  assert.deepEqual(f.storage.get(PHOTO_KEY).map(item => item.id), ["older"]);
+  const remaining = (f.storage.get(PHOTO_KEY) ?? []).map(item => item.id);
+  assert.equal(remaining.includes("current"), false, "current draft must be resolved");
+  assert.equal(remaining.includes("older"), false, "older unfinished drafts are retired too (Jovi 2026-10-25: 保存成功后不再保留草稿提醒)");
   assert.equal(f.page.data.activePhotoDraftId, "");
   f.page.onHide(); f.page.onUnload();
   assert.equal(f.storage.has(DRAFT_KEY), false);

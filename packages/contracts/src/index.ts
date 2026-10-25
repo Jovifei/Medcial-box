@@ -43,6 +43,7 @@ export type PurposeTag =
   | "pain"
   | "topical"
   | "allergy"
+  | "antiinfective"
   | "itch"
   | "eye"
   | "oral"

@@ -94,6 +94,8 @@ const PURPOSE_KEYWORDS: ReadonlyArray<readonly [PurposeTag, RegExp]> = [
   ["diarrhea", /腹泻|止泻/],
   ["constipation", /便秘|通便/],
   ["allergy", /过敏|荨麻疹/],
+  // 消炎/抗感染类：刻意不含"抗炎"——布洛芬等解热镇痛药的"抗炎"不是抗生素。
+  ["antiinfective", /消炎|抗感染|抗菌|抗生素|细菌感染|敏感菌/],
   ["itch", /瘙痒|止痒/],
   ["eye", /结膜炎|眼疲劳|干眼/],
   ["oral", /口腔溃疡|口疮|牙龈(炎|肿痛)/],

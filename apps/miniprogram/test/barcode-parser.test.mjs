@@ -45,11 +45,39 @@ test("20-digit code without 69 barcode remains unsupported but preserves raw", (
   assert.equal(res.statusText, UNSUPPORTED_CATALOG_CODE);
 });
 
-test("20-digit traceability code starting with 01 and a valid GTIN is still not GS1", () => {
+test("flat digits whose leading 14 fail the GTIN check digit are never queried", () => {
+  for (const code of ["81093690127825858280", "12345678901234567890", "9901234567890123456789"]) {
+    const res = parseMedicineBarcode(code);
+    assert.equal(res.queryBarcode, null);
+    assert.equal(res.kind, "traceability_unextracted");
+  }
+});
+
+test("flat 20-digit NMPA traceability code extracts leading GTIN when check digit validates", () => {
+  // 06901848010012 是真实校验位合法的 GTIN-14（既有用例已证明），补序列段构成 20 位。
+  const raw = "06901848010012123456";
+  const res = parseMedicineBarcode(raw);
+  assert.equal(res.queryBarcode, "6901848010012");
+  assert.equal(res.kind, "gs1");
+  assert.match(res.statusText, /追溯码|商品码/);
+});
+
+test("20-digit traceability 01+GTIN+serial extracts the product code (Jovi 2026-10-25 decision)", () => {
   const raw = "01069018480100121234";
   const res = parseMedicineBarcode(raw);
-  assert.equal(res.queryBarcode, null);
-  assert.equal(res.kind, "traceability_unextracted");
+  assert.equal(res.queryBarcode, "6901848010012");
+  assert.equal(res.kind, "gs1");
+  assert.match(res.statusText, /追溯码|商品码/);
+  assert.equal(res.extractedLotNumber, undefined, "serial is not a batch number");
+});
+
+test("serial number in flattened GS1 (01+17+21) is recognized without becoming a batch", () => {
+  const raw = "01069018480100121726083121SERIAL77";
+  const res = parseMedicineBarcode(raw);
+  assert.equal(res.queryBarcode, "6901848010012");
+  assert.equal(res.kind, "gs1");
+  assert.equal(res.extractedExpiry?.value, "2026-08-31");
+  assert.equal(res.extractedLotNumber, undefined, "21-serial must not fill the batch field");
 });
 
 test("AIM GS1 prefix makes a 20-digit structured code unambiguous", () => {

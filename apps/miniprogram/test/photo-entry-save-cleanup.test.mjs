@@ -35,3 +35,11 @@ test('replacing an unsaved null-id batch at the same length must not reassign an
   const saved=h.read()[0].fields.batches;
   assert.equal(saved.find(b=>b.lotNumber==='SECOND')?.quantity,'7','quantity edited for deleted FIRST batch must never move onto SECOND');
 });
+
+test("successful manual save retires unfinished photo drafts so the import prompt does not reappear",async()=>{
+  const h=harness();const stale=h.draft('photo-300-stale','review');h.seed([stale]);h.attach(h.a,[stale],'');
+  edit(h.a,'name','新保存的药品');const saving=h.a.onSubmit();await tick();await tick();await saving;await tick();await tick();
+  assert.equal(h.calls.create,1);
+  assert.equal(h.read().length,0,'unfinished drafts must be retired once a save succeeds');
+  assert.equal(h.files.size,0,'retired draft photo files must be cleaned up');
+});

@@ -79,9 +79,9 @@ function requestFailure(error: unknown): RecognitionUnavailableError {
   return new RecognitionUnavailableError("vision provider request failed", timedOut ? "timeout" : "provider_unavailable");
 }
 
-const OCR_PROMPT = "识别这张中国药品包装照片。只返回 JSON 对象，键为 name,brand,specification,manufacturer,approvalNumber,purposeCategory,purposeTags,populationTags,lotNumber,expiryValue。purposeTags 根据包装明确的用途或适应症选择以下库存分类：fever发热、cough咳嗽、throat咽喉、nasal鼻部、gastro胃肠、pain疼痛、topical外用、allergy过敏、itch止痒、eye眼部、oral口腔、constipation便秘、diarrhea腹泻、other其他；未看清用途时返回空数组，不推断成人儿童适用或推荐服用。若照片明确印有“药品名称”，name 必须取该字段的值；不要把测试、示例或警示标题当作药名。无法看清的字段填 null。brand为可见商标，manufacturer为可见厂家，两者不得混用。specification仅记录明确包装规格，如20粒装；12小时、24小时是持续时间，不能当粒数。populationTags仅根据明确的成人或儿童适用文字填写adult或child，不凭药名推断。purposeCategory 仅在包装明确写出用途或适应症时填简短分类；包装上的测试、示例、勿服用或警示文字不是用途，填 null。expiryValue 仅用 YYYY-MM-DD 或 YYYY-MM，保持原有精度；不要推断未见的日期、数量、服用剂量或个人用药建议。";
+const OCR_PROMPT = "识别这张中国药品包装照片。只返回 JSON 对象，键为 name,brand,specification,manufacturer,approvalNumber,purposeCategory,purposeTags,populationTags,lotNumber,expiryValue。purposeTags 根据包装明确的用途或适应症选择以下库存分类：fever发热、cough咳嗽、throat咽喉、nasal鼻部、gastro胃肠、pain疼痛、topical外用、allergy过敏、antiinfective抗感染、itch止痒、eye眼部、oral口腔、constipation便秘、diarrhea腹泻、other其他；未看清用途时返回空数组，不推断成人儿童适用或推荐服用。若照片明确印有“药品名称”，name 必须取该字段的值；不要把测试、示例或警示标题当作药名。无法看清的字段填 null。brand为可见商标，manufacturer为可见厂家，两者不得混用。specification仅记录明确包装规格，如20粒装；12小时、24小时是持续时间，不能当粒数。populationTags仅根据明确的成人或儿童适用文字填写adult或child，不凭药名推断。purposeCategory 仅在包装明确写出用途或适应症时填简短分类；包装上的测试、示例、勿服用或警示文字不是用途，填 null。expiryValue 仅用 YYYY-MM-DD 或 YYYY-MM，保持原有精度；不要推断未见的日期、数量、服用剂量或个人用药建议。";
 
-const LEAFLET_PROMPT = "逐字识别这张说明书照片，只返回JSON对象。键name,brand,manufacturer,purposeTags,populationTags,leaflet。leaflet的键text,purposeSummary,packageUsageSummary,contraindicationsSummary,precautionsSummary，分别保留原文、用途、用法用量、禁忌、注意事项。不可见内容填null，不补充医学建议，不推断包装数量或有效期。品牌与厂家分开。populationTags只按明确成人/儿童文字填写adult/child，否则[]。purposeTags只按可见用途选择fever发热,cough咳嗽,throat咽喉,nasal鼻部,gastro胃肠,pain疼痛,topical外用,allergy过敏,itch止痒,eye眼部,oral口腔,constipation便秘,diarrhea腹泻,other其他，否则[]。";
+const LEAFLET_PROMPT = "逐字识别这张说明书照片，只返回JSON对象。键name,brand,manufacturer,purposeTags,populationTags,leaflet。leaflet的键text,purposeSummary,packageUsageSummary,contraindicationsSummary,precautionsSummary，分别保留原文、用途、用法用量、禁忌、注意事项。不可见内容填null，不补充医学建议，不推断包装数量或有效期。品牌与厂家分开。populationTags只按明确成人/儿童文字填写adult/child，否则[]。purposeTags只按可见用途选择fever发热,cough咳嗽,throat咽喉,nasal鼻部,gastro胃肠,pain疼痛,topical外用,allergy过敏,antiinfective抗感染,itch止痒,eye眼部,oral口腔,constipation便秘,diarrhea腹泻,other其他，否则[]。";
 
 const FIELDS = ["brand", "name", "specification", "manufacturer", "approvalNumber", "purposeCategory", "lotNumber"] as const;
 
@@ -128,7 +128,7 @@ function cleanDraft(value: unknown, purpose: "box_front" | "leaflet"): MedicineR
     draft.expiryPrecision = null;
   }
   if (Array.isArray(source.purposeTags)) {
-    const allowed = new Set<unknown>(["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "itch", "eye", "oral", "constipation", "diarrhea", "other"]);
+    const allowed = new Set<unknown>(["fever", "cough", "throat", "nasal", "gastro", "pain", "topical", "allergy", "itch", "eye", "oral", "constipation", "diarrhea", "antiinfective", "other"]);
     draft.purposeTags = [...new Set(source.purposeTags.filter((tag: unknown): tag is PurposeTag => allowed.has(tag)))];
     if (draft.purposeTags.length) warnings.push("AI 用途标签仅作整理草稿，请对照包装或说明书核对");
   }

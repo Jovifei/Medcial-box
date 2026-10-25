@@ -17,6 +17,7 @@ export const PURPOSE_TAG_OPTIONS: readonly { kind: PurposeTag; label: string }[]
   { kind: "pain", label: "疼痛" },
   { kind: "topical", label: "外用" },
   { kind: "allergy", label: "抗过敏" },
+  { kind: "antiinfective", label: "抗感染" },
   { kind: "itch", label: "止痒" },
   { kind: "eye", label: "眼部" },
   { kind: "oral", label: "口腔" },

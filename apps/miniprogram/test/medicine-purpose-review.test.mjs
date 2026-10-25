@@ -184,3 +184,30 @@ test("manual purpose edits belong to their own photo draft when switching A to B
   assert.deepEqual([...h.a.data.purposeTags], [], "返回A仍保留明确清空");
   assert.equal(h.calls.create, 0);
 });
+
+test("candidate specification prefills the batch unit when untouched", () => {
+  const spec = (unit) => ({ name: "合成药", specification: unit, manufacturer: null, approvalNumber: null,
+    activeIngredients: [], leaflet: null, source: "synthetic", sourceUpdatedAt: null, matchReasons: [] });
+  const sachet = pageFor();
+  sachet.setData({ candidate: spec("3克×10袋"), candidates: [spec("3克×10袋")] });
+  sachet.onApplyCandidate();
+  assert.equal(sachet.data.batches[0].unitIndex, 2, "袋 maps to sachet");
+  const capsule = pageFor();
+  capsule.setData({ candidate: spec("0.3g×20粒"), candidates: [spec("0.3g×20粒")] });
+  capsule.onApplyCandidate();
+  assert.equal(capsule.data.batches[0].unitIndex, 1, "粒 maps to capsule");
+  const tube = pageFor();
+  tube.setData({ candidate: spec("10ml×6支"), candidates: [spec("10ml×6支")] });
+  tube.onApplyCandidate();
+  assert.equal(tube.data.batches[0].unitIndex, 8, "支 maps to tube");
+});
+
+test("manual unit choice survives a later candidate apply", () => {
+  const page = pageFor();
+  const candidate = { name: "合成药", specification: "3克×10袋", manufacturer: null, approvalNumber: null,
+    activeIngredients: [], leaflet: null, source: "synthetic", sourceUpdatedAt: null, matchReasons: [] };
+  page.onBatchUnitChange({ currentTarget: { dataset: { index: "0" } }, detail: { value: 8 } });
+  page.setData({ candidate, candidates: [candidate] });
+  page.onApplyCandidate();
+  assert.equal(page.data.batches[0].unitIndex, 8, "manually selected unit must not be overridden");
+});
