@@ -16,14 +16,14 @@
         <text class="action-card-dot red"></text>
         <text class="action-card-title">临期/过期</text>
       </view>
-      <view class="action-card-num {{expiringCount + expiredCount > 0 ? 'alert' : ''}}">{{expiringCount + expiredCount}}<text class="unit"> 盒</text></view>
+      <view class="action-card-num {{expiringCount + expiredCount > 0 ? 'alert' : ''}}">{{expiringCount + expiredCount}}<text class="unit"> 种</text></view>
     </view>
-    <view class="action-card action-card-pending {{filterKind === 'unknown' ? 'active' : ''}}" data-kind="unknown" bindtap="onSelectFilter">
+    <view class="action-card action-card-pending {{filterKind === 'pending' ? 'active' : ''}}" data-kind="pending" bindtap="onSelectFilter">
       <view class="action-card-header">
         <text class="action-card-dot yellow"></text>
         <text class="action-card-title">待核对/补资料</text>
       </view>
-      <view class="action-card-num">{{lowStockCount + missingInfoCount}}<text class="unit"> 盒</text></view>
+      <view class="action-card-num">{{pendingCount}}<text class="unit"> 种</text></view>
     </view>
   </view>
 

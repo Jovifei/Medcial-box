@@ -1,6 +1,6 @@
 <view class="page">
   <view class="card current-card">
-    <view class="section-title">当前版本 {{appVersion}}</view>
+    <view class="section-title" bindtap="onTapDebugTrigger">当前版本 {{appVersion}}</view>
     <view class="hint">小程序在新版本就绪后会提示重启；重启前请先保存未完成的录入。App 使用受控发布入口，确认后才安装。</view>
   </view>
 

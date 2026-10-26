@@ -58,17 +58,6 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
     }
   }
 
-  Future<Uint8List?> _loadCover(MedicineRecord medicine) async {
-    final coverId = medicine.coverPhotoId;
-    if (coverId == null) return null;
-    try {
-      final photo = await widget.workflow.readLeafletPhoto(medicine.id, coverId);
-      return photo.bytes;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<void> _editTags(MedicineRecord medicine) async {
     final populations = medicine.populationTags.toSet();
     final purposes = medicine.purposeTags.toSet();
@@ -358,27 +347,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (medicine.coverPhotoId != null)
-                          FutureBuilder<Uint8List?>(
-                            future: _loadCover(medicine),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Image.memory(
-                                      snapshot.data!,
-                                      height: 180,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
+                        _MedicineCoverHero(medicine: medicine, workflow: widget.workflow),
                         Text(medicine.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 6),
                         Text(medicine.specificationDisplay, style: const TextStyle(color: AppColors.muted)),
@@ -396,7 +365,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                         InkWell(
                           onTap: submitting ? null : () => _editTags(medicine),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             child: Row(
                               children: [
                                 Expanded(
@@ -452,7 +421,12 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                                 const SizedBox(height: 8),
                                 const Divider(height: 1, color: Color(0xFFCBD5E1)),
                                 const SizedBox(height: 6),
-                                const Text('【说明书摘录 · 仅供参考】未核验，具体以实物包装与医护人员指导为准。', style: TextStyle(fontSize: 11, color: AppColors.muted, height: 1.3)),
+                                Text(
+                                  medicine.leaflet.reviewStatus == 'user_confirmed'
+                                      ? '【说明书摘录 · 本人已核对】具体以实物包装与医护人员指导为准。'
+                                      : '【说明书摘录 · 仅供参考】未核验，具体以实物包装与医护人员指导为准。',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.muted, height: 1.3),
+                                ),
                               ],
                             ),
                           ),
@@ -985,4 +959,73 @@ bool _validExpiry(String value, String precision) {
   final date = DateTime.tryParse(value);
   if (precision != 'day' || date == null || value.length != 10) return false;
   return _date(date) == value;
+}
+
+class _MedicineCoverHero extends StatelessWidget {
+  const _MedicineCoverHero({
+    required this.medicine,
+    required this.workflow,
+  });
+  final MedicineRecord medicine;
+  final ApiWorkflowRepository workflow;
+
+  static final Map<String, Future<Uint8List?>> _coverCache = {};
+
+  Future<Uint8List?> _loadCover() {
+    final coverId = medicine.coverPhotoId;
+    if (coverId == null) return Future<Uint8List?>.value(null);
+    final key = '${medicine.id}:$coverId';
+    return _coverCache.putIfAbsent(key, () async {
+      try {
+        final photo = await workflow.readLeafletPhoto(medicine.id, coverId);
+        return photo.bytes;
+      } catch (_) {
+        _coverCache.remove(key);
+        return null;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (medicine.coverPhotoId == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 180,
+          width: double.infinity,
+          color: AppColors.mist,
+          child: FutureBuilder<Uint8List?>(
+            future: _loadCover(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
+              final bytes = snapshot.data;
+              if (bytes == null) {
+                return const Center(
+                  child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 36),
+                );
+              }
+              return Image.memory(
+                bytes,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }

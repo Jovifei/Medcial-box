@@ -44,7 +44,17 @@ interface CabinetItem {
   isArchived: boolean;
 }
 
-type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted";
+type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted" | "pending";
+
+function isPendingItem(item: CabinetItem): boolean {
+  return !item.isArchived && (
+    item.needsInfo ||
+    item.stockState === "unknown" ||
+    item.state === "unknown" ||
+    item.stockState === "low" ||
+    item.stockState === "exhausted"
+  );
+}
 
 const UNIT_SHORT: Record<QuantityUnit, string> = {
   tablet: "片",
@@ -179,6 +189,7 @@ interface IndexPageData {
   isFiltered: boolean;
   expiringCount: number;
   expiredCount: number;
+  pendingCount: number;
   lowStockCount: number;
   missingInfoCount: number;
   keyword: string;
@@ -209,6 +220,7 @@ Page({
     isFiltered: false,
     expiringCount: 0,
     expiredCount: 0,
+    pendingCount: 0,
     lowStockCount: 0,
     missingInfoCount: 0,
     keyword: "",
@@ -354,7 +366,9 @@ Page({
     this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
     const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted").length;
     const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
+    const pendingCount = currentItems.filter(isPendingItem).length;
     this.setData({
+      pendingCount,
       lowStockCount,
       missingInfoCount,
       filters: [
@@ -453,7 +467,8 @@ Page({
         (data.filterKind === "opened" && item.openedText !== "") ||
         (data.filterKind === "archived" && item.isArchived) ||
         (data.filterKind === "unknown" && (item.stockState === "unknown" || item.state === "unknown")) ||
-        (data.filterKind === "exhausted" && item.stockState === "exhausted")) && matchesArchive;
+        (data.filterKind === "exhausted" && item.stockState === "exhausted") ||
+        (data.filterKind === "pending" && isPendingItem(item))) && matchesArchive;
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
         item.populationTags.some((tag) => data.selectedPopulations.includes(tag.kind));
@@ -472,7 +487,7 @@ Page({
       return data.sortKey === "deadline_desc" ? -compared : compared;
     });
     const tagFiltersActive = data.selectedPopulations.length > 0 || data.selectedPurposes.length > 0 || data.sortKey !== "deadline_asc";
-    const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "待补资料", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完" };
+    const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "待补资料", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完", pending: "待核对/补资料" };
     this.setData({ items, filterLabel: labels[data.filterKind], isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
   },
 

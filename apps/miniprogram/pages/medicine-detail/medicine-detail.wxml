@@ -15,22 +15,22 @@
     <view class="tag-row" wx:if="{{displayTags.length > 0}}">
       <text class="medicine-tag {{tag.kind}}" wx:for="{{displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
     </view>
-    <view class="med-company" wx:if="{{brandText || manufacturerText}}">
+    <view class="med-company" wx:if="{{medicineSummary && (brandText || manufacturerText)}}">
       <text wx:if="{{brandText}}">{{brandText}}</text>
       <text class="company-sep" wx:if="{{brandText && manufacturerText}}"> · </text>
       <text wx:if="{{manufacturerText}}">{{manufacturerText}}</text>
     </view>
-    <view class="med-meta" wx:if="{{metaText !== '暂无补充资料'}}">{{metaText}}</view>
+    <view class="med-meta" wx:if="{{medicineSummary && metaText !== '暂无补充资料'}}">{{metaText}}</view>
 
     <!-- 说明书用法用量摘录（只读指引） -->
-    <view class="usage-guide-card" wx:if="{{leafletUsage || leafletPurpose}}">
+    <view class="usage-guide-card" wx:if="{{medicineSummary && (leafletUsage || leafletPurpose)}}">
       <view class="usage-guide-title">
         <text class="usage-guide-icon">📋</text>
         <text>包装用法用量摘要</text>
       </view>
       <view class="usage-guide-text" wx:if="{{leafletPurpose}}"><text class="guide-tag">功能主治</text>{{leafletPurpose}}</view>
       <view class="usage-guide-text" wx:if="{{leafletUsage}}"><text class="guide-tag">用法用量</text>{{leafletUsage}}</view>
-      <view class="usage-guide-disclaimer">【说明书摘录 · 仅供参考】未核验，具体以实物说明书及医生/药师指导为准</view>
+      <view class="usage-guide-disclaimer">{{leafletBadge === '本人已核对' ? '【说明书摘录 · 本人已核对】具体以实物说明书及医生/药师指导为准' : '【说明书摘录 · 仅供参考】未核验，具体以实物说明书及医生/药师指导为准'}}</view>
     </view>
   </view>
 

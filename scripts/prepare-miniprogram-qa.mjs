@@ -140,6 +140,13 @@ const reviewedSourceTrees = new Set([
   // 已显示身份，18 项真实 transport/auth 合成回归覆盖无 onShow 的切家。
   // 只复用既有 wx/fs 能力；精确树已核验，其他未审树仍 fail closed。
   '1214bcbfd220684835bf46fa4667d2bd74379ba0',
+  // 2026-10-26 UI 重构整改复审：
+  // 1. 修复 R01：medicine-detail 同步清空 brandText/manufacturerText/leafletUsage/leafletPurpose
+  // 2. 修复 R02：首页待核对卡片去重统计并与 pending 筛选集合对齐，避免盒数硬编码
+  // 3. 修复 R05：消除品牌厂家及说明书摘要多重重复展示，核验状态动态化
+  // 4. 修复 R11：调试日志 5 连击后门移至版本说明页静态版本号，不干扰普通菜单点击
+  // 原生能力新增 wx.setEnableDebug（用于默认关闭移动端 vConsole，需 5 击激活）。
+  'faaafb3e50a7a8c953015e2cd9024c77d7a88ead',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -170,6 +177,7 @@ const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'compressImage
   'enableAlertBeforeUnload', 'env', 'getFileSystemManager', 'getMenuButtonBoundingClientRect', 'getStorageSync',
   'getFileInfo', 'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'previewImage', 'reLaunch',
   'redirectTo', 'removeStorageSync', 'request', 'requestSubscribeMessage', 'scanCode', 'setClipboardData',
+  'setEnableDebug',
   'setStorageSync', 'shareFileMessage', 'showActionSheet', 'showModal', 'showToast', 'stopPullDownRefresh', 'switchTab']);
 const reviewedFs = new Set(['readFile', 'writeFile', 'unlink', 'open', 'write', 'close']);
 const excluded = /(^|\/)(test|typings|node_modules|dist|compiled)(\/|$)|(^|\/)(package|tsconfig|project\.private\.config|private\.config)\.json$|(^|\/)\.|\.map$/;

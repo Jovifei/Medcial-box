@@ -25,8 +25,6 @@ Page({
     familyName: "", roleLabel: "", loading: true, errorMessage: "", appVersion: APP_VERSION,
     devices: [] as DeviceView[], devicesLoading: true, devicesError: "", revokingDeviceId: "", deviceExpanded: false,
   },
-  debugTapCount: 0,
-  debugTapTimer: 0,
 
   onShow(): void { void this.refresh(); },
 
@@ -56,32 +54,6 @@ Page({
   onOpenItem(event: { currentTarget: { dataset: { route?: string } } }): void {
     const route = ROUTES[event.currentTarget.dataset.route ?? ""];
     if (route) wx.navigateTo({ url: route });
-  },
-
-  onTapReleaseItem(event: { currentTarget: { dataset: { route?: string } } }): void {
-    const now = Date.now();
-    if (now - this.debugTapTimer > 3000) {
-      this.debugTapCount = 1;
-    } else {
-      this.debugTapCount++;
-    }
-    this.debugTapTimer = now;
-    if (this.debugTapCount >= 5) {
-      this.debugTapCount = 0;
-      const current = wx.getStorageSync("medbox_debug_enabled") === true;
-      const next = !current;
-      wx.setStorageSync("medbox_debug_enabled", next);
-      if (typeof wx.setEnableDebug === "function") {
-        try {
-          wx.setEnableDebug({ enableDebug: next });
-        } catch {
-          // ignore
-        }
-      }
-      wx.showToast({ title: next ? "已开启调试日志" : "已关闭调试日志", icon: "none" });
-      return;
-    }
-    this.onOpenItem(event);
   },
 
   async onRevokeDevice(event: { currentTarget: { dataset: { id?: string } } }): Promise<void> {

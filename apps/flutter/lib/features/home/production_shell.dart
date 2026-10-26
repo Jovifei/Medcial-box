@@ -669,7 +669,7 @@ class _MedicineCard extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 4,
                     children: medicine.purposeTags
-                        .take(3)
+                        .take(1)
                         .map(
                           (tag) => Container(
                             padding: const EdgeInsets.symmetric(
@@ -681,7 +681,7 @@ class _MedicineCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              tag,
+                              medicinePurposeLabels[tag] ?? tag,
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.muted,

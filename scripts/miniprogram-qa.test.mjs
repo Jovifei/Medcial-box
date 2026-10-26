@@ -19,7 +19,7 @@ const dangerous = ['getStorageSync', 'setStorageSync', 'removeStorageSync', 'cle
   'connectSocket', 'login', 'checkSession', 'chooseMedia', 'compressImage', 'getFileInfo', 'chooseImage', 'scanCode', 'previewImage', 'setClipboardData',
   'shareFileMessage', 'chooseMessageFile', 'requestSubscribeMessage', 'getUpdateManager', 'base64ToArrayBuffer'];
 const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab',
-  'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu'];
+  'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
 function harness({ project, mutateNative, mockOverride } = {}) {
   const counts = {};
   const uiCalls = [];

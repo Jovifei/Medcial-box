@@ -1,4 +1,4 @@
-import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
+import { PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import {
@@ -317,6 +317,7 @@ Page({
       notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
       coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
       coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "",
+      brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "",
       loading: false });
   },
 
@@ -334,7 +335,8 @@ Page({
         leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
         notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
         coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
-        coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "" });
+        coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "",
+        brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "" });
     }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;
@@ -377,8 +379,6 @@ Page({
 
   applyData(medicine: MedicationSummary, notes: DosageNoteSummary[]): void {
     const metaParts: string[] = [];
-    if (medicine.brand) metaParts.push(`品牌：${medicine.brand}`);
-    if (medicine.manufacturer !== null) metaParts.push(`厂家：${medicine.manufacturer}`);
     if (medicine.approvalNumber !== null) metaParts.push(`批准文号：${medicine.approvalNumber}`);
     if (medicine.activeIngredients.length > 0) {
       metaParts.push(`成分：${medicine.activeIngredients.join("、")}`);
