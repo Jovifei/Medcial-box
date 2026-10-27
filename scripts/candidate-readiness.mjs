@@ -1,4 +1,4 @@
-// Offline 1.0.6 engineering-candidate intake; does not grant platform/production release.
+// Offline engineering-candidate intake; does not grant platform/production release.
 // Signed platform receipts and human verification are deliberately out of scope.
 import { readFile, lstat, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -29,7 +29,7 @@ export function assessCandidateReadiness(manifest, receipt) {
   must(exactSha(manifest.sourceSha) && exactSha(manifest.sourceTree) &&
     exactSha(manifest.miniTree) && exactDigest(manifest.packageSha256),
     'Invalid candidate source digest');
-  must(object(manifest.version) && manifest.version.version === '1.0.6' &&
+  must(object(manifest.version) && /^\d+\.\d+\.\d+$/.test(manifest.version.version) &&
     manifest.version.channel === 'candidate' &&
     Number.isSafeInteger(manifest.version.androidBuild) &&
     manifest.version.androidBuild > 0, 'Wrong candidate version');

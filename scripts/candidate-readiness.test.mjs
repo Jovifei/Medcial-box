@@ -21,7 +21,7 @@ const fixture = () => ({
     attestation:'UNSIGNED_CI_RECEIPT_NOT_A_SIGNATURE',stages:{...unverifiedStages},
   },
 });
-test('1.0.6 intake retains the fixed identity and forbids declaring untested deployment ready',()=>{
+test('candidate intake retains the exact version and forbids declaring untested deployment ready',()=>{
   const {manifest,receipt}=fixture();
   const report=assessCandidateReadiness(manifest,receipt);
   assert.equal(report.sourceSha,sha);
@@ -40,7 +40,7 @@ test('cross-SHA, failed prerequisite, rogue client and false device/production c
     p=>{p.receipt.prerequisites.verify='failure';},
     p=>{delete p.receipt.prerequisites.flutter;},
     p=>{p.manifest.client.apiBase='http://private.invalid';},
-    p=>{p.manifest.version.version='1.0.5';},
+    p=>{p.manifest.version.version='not-a-version';},
     p=>{p.manifest.stages.realDevice='PASS';},
     p=>{p.receipt.stages.formalRelease='PASS';},
     p=>{p.receipt.attestation='SIGNED';},
