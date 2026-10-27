@@ -67,6 +67,16 @@ class SessionIdentityState {
   VerifiedOwnerContext? _owner;
   bool needsPersistenceRetry = false;
   final ValueNotifier<String?> warningSignal = ValueNotifier(null);
+
+  /// Changes whenever the validated private-data scope changes or closes.
+  final ValueNotifier<String?> scopeSignal = ValueNotifier(null);
+  void _notifyScope() {
+    final current = owner;
+    scopeSignal.value = current?.familyId == null
+        ? null
+        : '${scopeForOwner(current!)}:${current.generation}';
+  }
+
   String? get warning => warningSignal.value;
   set warning(String? value) => warningSignal.value = value;
   void retainSignOutWarning(SignOutIntent intent, String? value) {
@@ -135,6 +145,7 @@ class SessionIdentityState {
     _accepted = false;
     _token = null;
     _owner = null;
+    _notifyScope();
     needsPersistenceRetry = true;
     warning = const SessionPersistenceException().toString();
     onBlocked?.call();
@@ -226,6 +237,7 @@ class SessionIdentityState {
       _owner = context;
       _token = envelope['token'] as String;
       _accepted = true;
+      _notifyScope();
       needsPersistenceRetry = false;
       warning = null;
     } catch (_) {
@@ -277,6 +289,7 @@ class SessionIdentityState {
     _accepted = false;
     _owner = null;
     _token = null;
+    _notifyScope();
     _link = null;
     _generation = _nonce();
     return SignOutIntent._(_revision, _generation!, oldToken);
@@ -358,6 +371,7 @@ class SessionIdentityState {
     _accepted = false;
     _owner = null;
     _token = null;
+    _notifyScope();
     _generation = generation;
     try {
       // Fence the previous session before any secure replacement ACK.
@@ -425,6 +439,7 @@ class SessionIdentityState {
           _generation == expectedGeneration &&
           isCurrent()) {
         _owner = context;
+        _notifyScope();
       }
     } catch (_) {
       await _sealFailedCommit(revision);
@@ -446,6 +461,7 @@ class SessionIdentityState {
             userId: userId,
             familyId: null,
           );
+    _notifyScope();
     final context = _owner;
     return _serial(() async {
       if (revision != _revision || !_accepted || generation == null) return;

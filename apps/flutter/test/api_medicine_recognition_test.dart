@@ -57,6 +57,9 @@ void main() {
                   'purposeCategory': '外用',
                   'brand': '包装品牌',
                   'manufacturer': '包装厂家',
+                  'approvalNumber': '合成批准文号',
+                  'lotNumber': '合成批号',
+                  'expiryPrecision': 'month',
                   'populationTags': ['adult'],
                   'leaflet': {'precautionsSummary': '对照说明书核对'},
                 },
@@ -76,6 +79,9 @@ void main() {
         expect(draft.purposeCategory, '外用');
         expect(draft.brand, '包装品牌');
         expect(draft.manufacturer, '包装厂家');
+        expect(draft.approvalNumber, '合成批准文号');
+        expect(draft.lotNumber, '合成批号');
+        expect(draft.expiryPrecision, 'month');
         expect(draft.populationTags, ['adult']);
         expect(draft.leaflet['precautionsSummary'], '对照说明书核对');
         expect(draft.purposeTags, isEmpty);

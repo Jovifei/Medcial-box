@@ -6,7 +6,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_medicine_flutter/core/widgets/app_surfaces.dart';
 // Test adapter for the interface provided by the existing image_picker dependency.
 // ignore: depend_on_referenced_packages
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
@@ -142,6 +141,8 @@ void main() {
           final covers = <String>[];
           var creates = 0;
           var lost = false;
+          var medicineVersion = 1;
+          String? coverPhotoId;
           if (mode == 'legacy') {
             await store.saveDraft(
               'medicine-entry',
@@ -189,6 +190,8 @@ void main() {
                 return json({
                   'id': 'created',
                   'name': 'Synthetic medicine',
+                  'version': medicineVersion,
+                  'coverPhotoId': coverPhotoId,
                   'batches': [],
                 }, 201);
               }
@@ -196,7 +199,32 @@ void main() {
                 return json({
                   'id': 'created',
                   'name': 'Synthetic medicine',
+                  'version': medicineVersion,
+                  'coverPhotoId': coverPhotoId,
                   'batches': [],
+                });
+              }
+              if (request.url.path.endsWith('/recognition-evidence')) {
+                if (request.method == 'GET') {
+                  return json({
+                    'evidence': null,
+                    'capabilities': {'coverPhotoVersionGuard': true},
+                  });
+                }
+                final body = jsonDecode(request.body) as Map<String, dynamic>;
+                return json({
+                  'evidence': {
+                    'schemaVersion': 1,
+                    'revision': 1,
+                    'medicineVersion': body['medicineVersion'],
+                    'currentMedicineVersion': medicineVersion,
+                    'stale': false,
+                    'photos': [
+                      for (final item in body['photos'] as List)
+                        {...item as Map<String, dynamic>, 'available': true},
+                    ],
+                    'fieldSources': body['fieldSources'],
+                  },
                 });
               }
               if (request.url.path.endsWith('/leaflet-photos')) {
@@ -226,10 +254,15 @@ void main() {
                 }, 201);
               }
               if (request.url.path.endsWith('/cover-photo')) {
-                covers.add(
-                  (jsonDecode(request.body) as Map)['photoId'] as String,
-                );
-                return json({});
+                final body = jsonDecode(request.body) as Map;
+                expect(body['version'], medicineVersion);
+                coverPhotoId = body['photoId'] as String;
+                covers.add(coverPhotoId!);
+                medicineVersion++;
+                return json({
+                  'coverPhotoId': coverPhotoId,
+                  'version': medicineVersion,
+                });
               }
               throw StateError('Unexpected synthetic request ${request.url}');
             }),
@@ -279,7 +312,21 @@ void main() {
           var captures = 0;
           Future<void> capture({bool ackFailure = false}) async {
             captures++;
-            await tester.ensureVisible(find.text('从相册选择'));
+            final entry = find.text('扫码 / 相册').evaluate().isNotEmpty
+                ? find.text('扫码 / 相册')
+                : find.text('继续补拍');
+            await Scrollable.ensureVisible(
+              tester.element(entry),
+              alignment: 0.35,
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(entry);
+            await tester.pumpAndSettle();
+            await Scrollable.ensureVisible(
+              tester.element(find.text('从相册选择')),
+              alignment: 0.5,
+            );
+            await tester.pumpAndSettle();
             await tester.tap(find.text('从相册选择'));
             for (
               var i = 0;
@@ -528,7 +575,7 @@ void main() {
           }
           expect(
             covers,
-            mode == 'no-cover'
+            mode == 'no-cover' || mode == 'reserved-restart'
                 ? isEmpty
                 : mode == 'legacy'
                 ? ['photo-1']
@@ -611,6 +658,9 @@ void main() {
           var copied = false;
           await IOOverrides.runZoned(
             () async {
+              await tester.ensureVisible(find.text('扫码 / 相册'));
+              await tester.tap(find.text('扫码 / 相册'));
+              await tester.pumpAndSettle();
               await tester.ensureVisible(find.text('从相册选择'));
               await tester.tap(find.text('从相册选择'));
               for (var i = 0; i < 100; i++) {
@@ -766,17 +816,7 @@ void main() {
         await tester.pumpAndSettle();
         final queueBefore = store.drafts['medicine-entry-queue.v1'];
         tester
-            .widget<PrimaryButton>(find.widgetWithText(PrimaryButton, '拍药盒'))
-            .onPressed
-            ?.call();
-        await tester.pumpAndSettle();
-        tester
-            .widget<SoftButton>(find.widgetWithText(SoftButton, '扫码读取药盒编码'))
-            .onPressed
-            ?.call();
-        await tester.pumpAndSettle();
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '从相册选择'))
+            .widget<TextButton>(find.widgetWithText(TextButton, '继续补拍'))
             .onPressed
             ?.call();
         await tester.pumpAndSettle();

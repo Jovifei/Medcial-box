@@ -81,6 +81,7 @@ interface MedicationPlansPageData {
   reminderTemplateId: string;
   reminderReason: string;
   reminderSubscribing: boolean;
+  reminderExpanded: boolean;
   reminderStatusText: string;
   deliveries: DoseReminderDelivery[];
 }
@@ -144,6 +145,7 @@ Page({
     reminderTemplateId: "",
     reminderReason: "",
     reminderSubscribing: false,
+    reminderExpanded: false,
     reminderStatusText: "",
     deliveries: [] as DoseReminderDelivery[],
   } as MedicationPlansPageData,
@@ -265,6 +267,8 @@ Page({
    * 服药提醒授权必须由用户主动触发：没有模板就如实说明，
    * 不做"打开开关即可每日收到"的承诺。
    */
+  onToggleReminder(): void { this.setData({ reminderExpanded: !this.data.reminderExpanded }); },
+
   onSubscribeDoseReminder(): void {
     const data = this.data as MedicationPlansPageData;
     if (data.reminderSubscribing) return;

@@ -173,6 +173,11 @@ class _Fixture {
 
   Future<void> toggleTag(WidgetTester tester, String label) async {
     final chip = find.widgetWithText(FilterChip, label);
+    if (chip.evaluate().isEmpty) {
+      await tester.ensureVisible(find.text('用途与人群（请核对）'));
+      await tester.tap(find.text('用途与人群（请核对）'));
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(chip);
     await tester.pumpAndSettle();
     final selected = tester.widget<FilterChip>(chip).selected;
@@ -265,7 +270,9 @@ void main() {
       expect(f.state(tester).purposeTags, {'fever', 'pain', 'cough'});
       for (final label in ['发热', '疼痛', '咳嗽']) {
         expect(
-          tester.widget<FilterChip>(find.widgetWithText(FilterChip, label)).selected,
+          tester
+              .widget<FilterChip>(find.widgetWithText(FilterChip, label))
+              .selected,
           isTrue,
         );
       }
@@ -287,7 +294,10 @@ void main() {
         if (clearSelection) await f.toggleTag(tester, '其他');
         await f.search(tester);
         await f.selectCandidate(tester);
-        expect(f.state(tester).purposeTags, clearSelection ? <String>{} : {'other'});
+        expect(
+          f.state(tester).purposeTags,
+          clearSelection ? <String>{} : {'other'},
+        );
         f.expectNoSave();
         final body = await f.save(tester);
         expect(body['purposeTags'], clearSelection ? [] : ['other']);
@@ -296,19 +306,20 @@ void main() {
     );
   }
 
-  testWidgets('editing population tags does not mark untouched purpose tags as manual', (
-    tester,
-  ) async {
-    final f = _Fixture();
-    f.candidateWithPurposeTags(['pain']);
-    await f.open(tester);
-    await f.toggleTag(tester, '成人');
-    await f.search(tester);
-    await f.selectCandidate(tester);
-    final body = await f.save(tester);
-    expect(body['purposeTags'], ['pain']);
-    expect(body['populationTags'], ['adult']);
-  });
+  testWidgets(
+    'editing population tags does not mark untouched purpose tags as manual',
+    (tester) async {
+      final f = _Fixture();
+      f.candidateWithPurposeTags(['pain']);
+      await f.open(tester);
+      await f.toggleTag(tester, '成人');
+      await f.search(tester);
+      await f.selectCandidate(tester);
+      final body = await f.save(tester);
+      expect(body['purposeTags'], ['pain']);
+      expect(body['populationTags'], ['adult']);
+    },
+  );
 
   testWidgets('manual empty purpose selection belongs to its persisted draft', (
     tester,
@@ -329,19 +340,22 @@ void main() {
     expect((await f.save(tester))['purposeTags'], isEmpty);
   });
 
-  testWidgets('verified A cleared then candidate B saves B as unverified', (
-    tester,
-  ) async {
-    final f = _Fixture();
-    await f.open(tester);
-    await f.edit(tester, 'compound-A');
-    await f.verify(tester);
-    await f.edit(tester, '');
-    await f.search(tester);
-    await f.selectCandidate(tester);
-    // Assert the actual outgoing payload, not just a cosmetic checkbox reset.
-    f.expectStatus(await f.save(tester), 'compound-B', false);
-  });
+  testWidgets(
+    'verified A cleared remains empty after selecting a catalog candidate',
+    (tester) async {
+      final f = _Fixture();
+      await f.open(tester);
+      await f.edit(tester, 'compound-A');
+      await f.verify(tester);
+      await f.edit(tester, '');
+      await f.search(tester);
+      await f.selectCandidate(tester);
+      // Assert the actual outgoing payload, not just a cosmetic checkbox reset.
+      final body = await f.save(tester);
+      expect(body['activeIngredients'], isEmpty);
+      expect(body['leaflet']['reviewStatus'], 'unverified');
+    },
+  );
 
   testWidgets('manual ingredient replacement invalidates its confirmation', (
     tester,
@@ -567,15 +581,21 @@ void main() {
         expect(find.text('选择候选资料'), findsOneWidget);
         if (changedIdentity) {
           f.api.invalidateIdentity();
+          await tester.pump();
+          expect(find.text('Candidate B'), findsNothing);
+          expect(find.text('家庭身份已变化，原资料已隐藏。'), findsOneWidget);
+          expect(f.state(tester).ingredientController.text, isEmpty);
+          expect(f.state(tester).ingredientsVerified, isFalse);
+          f.expectNoSave();
         } else {
           // A callback updates the field while the sheet is open, then clears it.
           f.state(tester).ingredientController.text = 'compound-A';
           f.state(tester).ingredientsVerified = true;
           f.state(tester).ingredientController.clear();
+          await f.selectCandidate(tester);
+          expect(f.state(tester).ingredientController.text, isEmpty);
+          expect(f.checked(tester), isFalse);
         }
-        await f.selectCandidate(tester);
-        expect(f.state(tester).ingredientController.text, isEmpty);
-        expect(f.checked(tester), isFalse);
       },
     );
   }

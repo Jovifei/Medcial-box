@@ -15,6 +15,7 @@ import { registerDosageNoteRoutes } from "./routes/dosage-notes.js";
 import { registerExportRoutes } from "./routes/exports.js";
 import { registerInvitationRoutes } from "./routes/invitations.js";
 import { registerRecognitionRoutes } from "./routes/recognitions.js";
+import { registerRecognitionEvidenceRoutes } from "./routes/recognition-evidence.js";
 import { registerInventoryRoutes } from "./routes/inventory.js";
 import { createDefaultMedicineRecognitionProvider, type MedicineRecognitionProvider } from "./services/medicine-recognition.js";
 import { registerMedicineCatalogRoutes } from "./routes/medicine-catalog.js";
@@ -66,6 +67,7 @@ export async function buildServer(options: BuildServerOptions) {
   await registerExportRoutes(app, options.database);
   await registerInvitationRoutes(app, options.database);
   await registerRecognitionRoutes(app, options.medicineRecognitionProvider ?? createDefaultMedicineRecognitionProvider());
+  await registerRecognitionEvidenceRoutes(app, options.database);
   await registerInventoryRoutes(app, options.database);
   await registerMedicineCatalogRoutes(app, options.medicineCatalogProvider ?? createDefaultMedicineCatalogProvider(), options.database);
   await registerReminderRoutes(app, options.database, options.reminderTemplateConfig ?? createDefaultReminderTemplateConfig());

@@ -8,7 +8,7 @@ import '../../data/api_plan_repository.dart';
 import '../../data/dose_confirmation_operations.dart';
 import '../../models/plan_models.dart';
 
-/// 用药计划首页（第 4 个导航）：今日安排 + 计划列表。
+/// 用药计划首页：今日安排与计划列表在页内切换。
 /// 「今日」日期来自服务端上海日历，客户端不本地猜日期（对齐 R11）。
 class PlansPage extends StatefulWidget {
   const PlansPage({super.key, required this.repository, this.onScheduleLoaded});
@@ -30,6 +30,7 @@ class _PlansPageState extends State<PlansPage> {
   int _loadSequence = 0;
   int? _scheduleEpoch;
   bool _loading = true;
+  bool _showAll = false;
 
   @override
   void initState() {
@@ -232,9 +233,17 @@ class _PlansPageState extends State<PlansPage> {
                   color: const Color(0xFFFFF2ED),
                   child: Text(friendlyApiError(_failure!)),
                 ),
-              _todaySection(context),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('今天')),
+                  ButtonSegment(value: true, label: Text('全部计划')),
+                ],
+                selected: {_showAll},
+                onSelectionChanged: (value) =>
+                    setState(() => _showAll = value.single),
+              ),
               const SizedBox(height: 16),
-              _plansSection(context),
+              if (_showAll) _plansSection(context) else _todaySection(context),
             ],
           ),
         );

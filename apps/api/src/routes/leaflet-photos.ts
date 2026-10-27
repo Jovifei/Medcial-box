@@ -4,9 +4,10 @@ import { authenticateRequest, requireFamily } from "../auth/session.js";
 import { findMedicineInFamily, lockMedicineInFamily } from "../repositories/medicines.js";
 import { privatePhotoStorageKey, PrivatePhotoStore } from "../services/private-photo-store.js";
 import { isCanonicalBase64 } from "../services/base64-validation.js";
+import { lockFamilyIdentity } from "../services/locked-family-identity.js";
 import type { PrivatePhotoType } from "../services/private-photo-store.js";
 import type { Database } from "../types.js";
-import { errorBody, toIso } from "../types.js";
+import { errorBody, toIso, TransactionConflictError } from "../types.js";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const MAX_FAMILY_PHOTOS = 100;
@@ -27,6 +28,7 @@ class PhotoStoreRemovalError extends Error {}
 class PhotoMedicineNotFoundError extends Error {}
 class PhotoBatchNotFoundError extends Error {}
 class PhotoNotEligibleAsCoverError extends Error {}
+class PhotoCoverVersionConflictError extends Error {}
 class PhotoReservationMissingError extends Error {}
 class PhotoIntentConflictError extends Error {}
 
@@ -226,11 +228,7 @@ export async function registerLeafletPhotoRoutes(
       let pendingIntent = false;
       try {
         await database.withTransaction(async (tx) => {
-          const lockedFamily = await tx.query<{ id: string }>(
-            "SELECT id FROM families WHERE id = $1 FOR UPDATE",
-            [ctx.familyId],
-          );
-          if (lockedFamily.rowCount === 0) throw new PhotoFamilyNotFoundError();
+          await lockFamilyIdentity(tx, ctx, request);
           const medicine = await lockMedicineInFamily(tx, request.params.medicineId, ctx.familyId);
           if (medicine === null) throw new PhotoMedicineNotFoundError();
           // The family lock serializes both new reservations and retries from this household.
@@ -286,6 +284,7 @@ export async function registerLeafletPhotoRoutes(
           if (reservation.rowCount === 0) throw new PhotoReservationMissingError();
         });
       } catch (error) {
+        if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
         if (error instanceof PhotoIntentConflictError) {
           return reply.code(409).send(errorBody("VERSION_CONFLICT", "该照片上传标识已用于不同内容或已删除的图片，请核对记录"));
         }
@@ -329,11 +328,7 @@ export async function registerLeafletPhotoRoutes(
 
       try {
         const inserted = await database.withTransaction(async (tx) => {
-          const lockedFamily = await tx.query<{ id: string }>(
-            "SELECT id FROM families WHERE id = $1 FOR UPDATE",
-            [ctx.familyId],
-          );
-          if (lockedFamily.rowCount === 0) throw new PhotoFamilyNotFoundError();
+          await lockFamilyIdentity(tx, ctx, request);
           const medicine = await lockMedicineInFamily(tx, request.params.medicineId, ctx.familyId);
           if (medicine === null) throw new PhotoMedicineNotFoundError();
           const activated = await tx.query<LeafletPhotoRow>(
@@ -351,6 +346,7 @@ export async function registerLeafletPhotoRoutes(
         await purgePendingPhotoStorage(database, store, ctx.familyId, id).catch(() => {
           request.log.error("reserved private leaflet photo cleanup failed");
         });
+        if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
         if (error instanceof PhotoMedicineNotFoundError) return reply.code(404).send(NOT_FOUND);
         if (error instanceof PhotoBatchNotFoundError) {
           return reply.code(404).send(errorBody("NOT_FOUND", "库存批次不存在或不属于该药品"));
@@ -405,10 +401,16 @@ export async function registerLeafletPhotoRoutes(
         return reply.code(400).send(errorBody("VALIDATION_ERROR", "photoId 需为照片 id 或 null"));
       }
       const photoId = typeof raw === "string" && raw.trim() !== "" ? raw.trim() : null;
+      const version = body?.version;
+      if (version !== undefined && (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1)) {
+        return reply.code(400).send(errorBody("VALIDATION_ERROR", "version 必须为正整数"));
+      }
       try {
-        const coverPhotoId = await database.withTransaction(async (tx) => {
+        const result = await database.withTransaction(async (tx) => {
+          await lockFamilyIdentity(tx, ctx, request);
           const medicine = await lockMedicineInFamily(tx, request.params.medicineId, ctx.familyId);
           if (medicine === null) throw new PhotoMedicineNotFoundError();
+          if (version !== undefined && version !== medicine.version) throw new PhotoCoverVersionConflictError();
           if (photoId !== null) {
             const photo = await tx.query<{ id: string }>(
               `SELECT id FROM medicine_leaflet_photos
@@ -420,17 +422,21 @@ export async function registerLeafletPhotoRoutes(
           }
           // 回读实际写入值：只有数据库确实更新成功才向客户端报告已设置封面，
           // 避免"界面说设好了、其实没有"。
-          const updated = await tx.query<{ cover_photo_id: string | null }>(
+          const updated = await tx.query<{ cover_photo_id: string | null; version: number }>(
             `UPDATE medicines SET cover_photo_id = $3, updated_by = $4, version = version + 1, updated_at = now()
-             WHERE id = $1 AND family_id = $2 RETURNING cover_photo_id`,
+             WHERE id = $1 AND family_id = $2 RETURNING cover_photo_id, version`,
             [medicine.id, ctx.familyId, photoId, ctx.userId],
           );
           if (updated.rowCount === 0) throw new PhotoMedicineNotFoundError();
-          return updated.rows[0].cover_photo_id ?? null;
+          return { coverPhotoId: updated.rows[0].cover_photo_id ?? null, version: updated.rows[0].version };
         });
-        return { coverPhotoId };
+        return result;
       } catch (error) {
+        if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
         if (error instanceof PhotoMedicineNotFoundError) return reply.code(404).send(NOT_FOUND);
+        if (error instanceof PhotoCoverVersionConflictError) {
+          return reply.code(409).send(errorBody("VERSION_CONFLICT", "药品已被修改，请刷新后重试"));
+        }
         if (error instanceof PhotoNotEligibleAsCoverError) {
           return reply.code(400).send(errorBody("VALIDATION_ERROR", "只有该药品自己的药盒正面照片可以设为封面"));
         }
@@ -478,11 +484,9 @@ export async function registerLeafletPhotoRoutes(
       if (ctx === null) return;
       try {
         const deleted = await database.withTransaction(async (tx) => {
-          const family = await tx.query<{ id: string }>(
-            "SELECT id FROM families WHERE id = $1 FOR UPDATE",
-            [ctx.familyId],
-          );
-          if (family.rowCount === 0) throw new PhotoFamilyNotFoundError();
+          await lockFamilyIdentity(tx, ctx, request);
+          const medicine = await lockMedicineInFamily(tx, request.params.medicineId, ctx.familyId);
+          if (medicine === null) throw new PhotoMedicineNotFoundError();
           const selected = await tx.query<{ id: string }>(
             `SELECT id FROM medicine_leaflet_photos
              WHERE id = $1 AND family_id = $2 AND medicine_id = $3
@@ -509,6 +513,8 @@ export async function registerLeafletPhotoRoutes(
         }
         return reply.code(204).send();
       } catch (error) {
+        if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
+        if (error instanceof PhotoMedicineNotFoundError) return reply.code(404).send(NOT_FOUND);
         if (error instanceof PhotoFamilyNotFoundError) {
           return reply.code(404).send(errorBody("FAMILY_NOT_FOUND", "家庭不存在或无法访问"));
         }

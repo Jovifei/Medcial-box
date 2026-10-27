@@ -2,14 +2,14 @@
   <!-- Layer 1: 药品核心身份卡 -->
   <view class="card hero-card">
     <view class="cover-box" wx:if="{{coverPhotoPath !== ''}}">
-      <image class="cover-image" src="{{coverPhotoPath}}" mode="aspectFill" />
+      <image class="cover-image" src="{{coverPhotoPath}}" mode="aspectFit" bindtap="onPreviewCover" />
     </view>
     <view class="cover-box cover-placeholder" wx:elif="{{coverPhotoLoading}}">正在读取药盒封面…</view>
     <view class="hint" wx:if="{{coverPhotoError !== ''}}">{{coverPhotoError}}</view>
 
     <view class="hero-header">
       <view class="med-name">{{name}}</view>
-      <view class="hero-edit-link" bindtap="onTapEditMedicine">编辑资料 ›</view>
+      <view class="hero-edit-link" bindtap="onToggleMore">{{moreExpanded ? '收起更多' : '更多'}} ›</view>
     </view>
     <view class="med-spec">{{specText}}</view>
     <view class="tag-row" wx:if="{{displayTags.length > 0}}">
@@ -20,27 +20,15 @@
       <text class="company-sep" wx:if="{{brandText && manufacturerText}}"> · </text>
       <text wx:if="{{manufacturerText}}">{{manufacturerText}}</text>
     </view>
-    <view class="med-meta" wx:if="{{medicineSummary && metaText !== '暂无补充资料'}}">{{metaText}}</view>
-
-    <!-- 说明书用法用量摘录（只读指引） -->
-    <view class="usage-guide-card" wx:if="{{medicineSummary && (leafletUsage || leafletPurpose)}}">
-      <view class="usage-guide-title">
-        <text class="usage-guide-icon">📋</text>
-        <text>包装用法用量摘要</text>
-      </view>
-      <view class="usage-guide-text" wx:if="{{leafletPurpose}}"><text class="guide-tag">功能主治</text>{{leafletPurpose}}</view>
-      <view class="usage-guide-text" wx:if="{{leafletUsage}}"><text class="guide-tag">用法用量</text>{{leafletUsage}}</view>
-      <view class="usage-guide-disclaimer">{{leafletBadge === '本人已核对' ? '【说明书摘录 · 本人已核对】具体以实物说明书及医生/药师指导为准' : '【说明书摘录 · 仅供参考】未核验，具体以实物说明书及医生/药师指导为准'}}</view>
-    </view>
   </view>
 
   <!-- Layer 2: 库存批次卡 -->
   <view class="card">
     <view class="row batch-header-row">
       <view class="section-title">库存批次</view>
-      <view class="link-btn" bindtap="onTapAddBatch">＋ 新增批次</view>
+      <view class="link-btn" bindtap="onTapAddBatch">＋ 新增一份库存</view>
     </view>
-    <view wx:if="{{batches.length === 0}}" class="hint">暂无批次记录，点击"新增批次"录入第一盒。</view>
+    <view wx:if="{{batches.length === 0}}" class="hint">暂无库存记录，可新增一份库存。</view>
     <view wx:for="{{batches}}" wx:key="id" class="batch-card" bindtap="onTapEditBatch" data-id="{{item.id}}">
       <view class="row">
         <view class="batch-title">{{item.title}}</view>
@@ -96,27 +84,24 @@
       </view>
       <view class="batch-edit-hint">点击编辑本批次 ›</view>
     </view>
-    <view class="quick-row">
-      <view class="quick-action" bindtap="onTapAddBatch">＋ 新增库存</view>
-      <view class="quick-action" bindtap="onTapCreatePlan">创建用药计划</view>
-    </view>
   </view>
 
   <!-- Layer 3: 折叠资料区 -->
   <view class="card leaflet-photo-section">
     <view class="row section-header" data-section="leaflet" bindtap="onToggleSection">
       <view>
-        <view class="section-title">说明书与来源</view>
+        <view class="section-title">照片与资料</view>
         <view class="hint">{{leafletPhotos.length}} 张照片 · {{leafletBadge}}</view>
       </view>
       <view class="section-toggle">{{sections.leaflet ? "收起" : "展开"}}</view>
     </view>
     <view class="hint">{{leafletText}}</view>
+    <view class="photo-action" bindtap="onTapMedicinePhotos">查看照片与资料</view>
+    <view class="photo-status" wx:if="{{photoStatus}}">{{photoStatus}}</view>
+    <view class="photo-error" wx:if="{{photoError}}">{{photoError}} <text class="photo-retry" bindtap="refreshLeafletPhotos">重新读取</text></view>
     <block wx:if="{{sections.leaflet}}">
-      <view class="hint">照片只在你主动选择并确认上传后保存到家庭私有图片空间；不会自动发给识别模型或联网资料服务。</view>
-      <view class="btn btn-ghost photo-upload {{photoUploading || photoBusyId !== '' ? 'disabled' : ''}}" bindtap="onAddLeafletPhoto">{{photoUploading ? "正在处理照片…" : "＋ 拍摄 / 选择说明书照片"}}</view>
-      <view class="photo-status" wx:if="{{photoStatus}}">{{photoStatus}}</view>
-      <view class="photo-error" wx:if="{{photoError}}">{{photoError}} <text class="photo-retry" bindtap="refreshLeafletPhotos">重新读取</text></view>
+      <view class="hint">照片在你主动选择后用于识别，保存时进入家庭私有资料；已保存照片不会自动再次发送识别。</view>
+      <view class="med-meta" wx:if="{{medicineSummary && metaText !== '暂无补充资料'}}">包装与成分资料：{{metaText}}</view>
       <view class="hint photo-loading" wx:if="{{photoLoading}}">正在读取照片列表…</view>
       <view class="hint photo-empty" wx:if="{{!photoLoading && !photoError && leafletPhotos.length === 0}}">还没有保存的说明书照片。</view>
       <view wx:for="{{leafletPhotos}}" wx:key="id" class="leaflet-photo-row">
@@ -132,7 +117,8 @@
     </block>
   </view>
 
-  <view class="card">
+  <block wx:if="{{moreExpanded}}">
+  <view class="card" id="more-actions">
     <view class="row section-header" data-section="notes" bindtap="onToggleSection">
       <view class="section-title">个人剂量备注</view>
       <view class="section-toggle">{{sections.notes ? "收起" : "展开"}}</view>
@@ -188,28 +174,23 @@
     </block>
   </view>
 
-  <!-- 更多操作与高级管理折叠面板 -->
+  <!-- 更多操作与高级管理 -->
   <view class="card more-card">
-    <view class="row section-header" bindtap="onToggleMore">
-      <view>
-        <view class="section-title">更多操作与记录</view>
-        <view class="hint">导出清单、修改历史、归档与删除</view>
-      </view>
-      <view class="section-toggle">{{moreExpanded ? "收起" : "展开"}}</view>
-    </view>
-    <block wx:if="{{moreExpanded}}">
       <view class="menu-list">
-        <view class="menu-card" bindtap="onTapEditMedicine"><view><view class="menu-title">编辑药品资料</view><view class="menu-hint">名称、规格、厂家与说明书</view></view><view class="menu-arrow">›</view></view>
-        <view class="menu-card" bindtap="onTapExport"><view><view class="menu-title">导出 Markdown</view><view class="menu-hint">生成可分享的药箱清单</view></view><view class="menu-arrow">›</view></view>
-        <view class="menu-card" bindtap="onTapAudit"><view><view class="menu-title">变更记录</view><view class="menu-hint">查看家庭对该药品的修改记录</view></view><view class="menu-arrow">›</view></view>
+        <view class="menu-card" bindtap="onTapCreatePlan"><view><view class="menu-title">创建用药计划</view><view class="menu-hint">自行填写剂量与时间</view></view><view class="menu-arrow">›</view></view>
+        <view class="menu-card" bindtap="onTapExport"><view><view class="menu-title">导出药箱清单</view><view class="menu-hint">预览并分享整个药箱</view></view><view class="menu-arrow">›</view></view>
+        <view class="menu-card" bindtap="onTapAudit"><view><view class="menu-title">家庭变更记录</view><view class="menu-hint">查看家庭修改历史</view></view><view class="menu-arrow">›</view></view>
         <view class="more-actions-row">
           <view class="btn btn-ghost more-action-btn" bindtap="onArchiveMedicine">归档该药品</view>
           <view class="btn btn-danger more-action-btn" bindtap="onDeleteMedicine">删除该药品</view>
         </view>
+        <view class="btn btn-ghost" bindtap="onToggleMore">收起更多</view>
       </view>
-    </block>
   </view>
+  </block>
+  <view class="detail-actions-spacer"></view>
 </view>
 
 <view class="quantity-mask" wx:if="{{quantityPanelId}}"><view class="quantity-sheet"><view class="section-title">修改这份库存的余量</view><input class="input" type="digit" value="{{quantityPanelInput}}" bindinput="onQuantityPanelInput" placeholder="留空表示未知，0表示已用完" /><view class="btn btn-primary" bindtap="onSaveQuantityPanel">{{quantityPanelBusy ? "保存中…" : "保存余量"}}</view><view class="btn btn-ghost" bindtap="onCancelQuantityPanel">取消</view></view></view>
+<view class="detail-actions"><view class="btn btn-ghost" bindtap="onAddLeafletPhoto">{{photoUploading ? '正在处理照片…' : '补拍'}}</view><view class="btn btn-primary" bindtap="onTapEditMedicine">编辑资料</view></view>
 <business-nav />

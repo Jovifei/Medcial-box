@@ -24,25 +24,28 @@ test('real transport captures household A; switch invalidates its late recogniti
   await assert.rejects(old,e=>e.code==='STALE_SESSION');await assert.rejects(old401,e=>e.code==='STALE_SESSION');
   assert.equal(api.readToken(),'synthetic-token');assert.equal(scope.readSessionScope().familyId,'family-B');
 });
-test('all non-tab product pages register shared bottom navigation; four primary tabs stay unchanged',()=>{
+test('non-editor product pages register shared bottom navigation; three primary tabs remain',()=>{
   const root=new URL('../',import.meta.url);const cfg=JSON.parse(fs.readFileSync(new URL('app.json',root)));const tabs=cfg.tabBar.list.map(x=>x.pagePath);
-  assert.equal(tabs.length,4);
-  for(const page of cfg.pages.filter(p=>!tabs.includes(p))) {
+  assert.equal(tabs.length,3);
+  for(const page of cfg.pages.filter(p=>!tabs.includes(p) && p !== 'pages/medicine-edit/medicine-edit')) {
     assert.match(fs.readFileSync(new URL(page+'.wxml',root),'utf8'), /<business-nav(?:\s[^>]*)?\s*\/>/, page);
     assert.equal(JSON.parse(fs.readFileSync(new URL(page+'.json',root))).usingComponents['business-nav'],'../../components/business-nav/business-nav');
   }
 });
-test('business footer stays fixed with native disabled buttons; editor shares its save bar',()=>{
+test('business footer stays fixed with disabled buttons; editor keeps its save and protected return',()=>{
   const root=new URL('../',import.meta.url);
   const nav=fs.readFileSync(new URL('components/business-nav/business-nav.wxml',root),'utf8');
-  assert.equal((nav.match(/<button\b/g)||[]).length,4);
-  assert.equal((nav.match(/disabled="\{\{busy\}\}"/g)||[]).length,4);
+  assert.equal((nav.match(/<button\b/g)||[]).length,3);
+  assert.equal((nav.match(/disabled="\{\{busy\}\}"/g)||[]).length,3);
   assert.match(nav,/business-nav-spacer/);
   const css=fs.readFileSync(new URL('components/business-nav/business-nav.wxss',root),'utf8');
   assert.match(css,/position:\s*fixed/);
   assert.match(css,/\.business-nav-wrapper\.embedded\s*\{\s*position:\s*static/);
   const editor=fs.readFileSync(new URL('pages/medicine-edit/medicine-edit.wxml',root),'utf8');
-  assert.match(editor,/<view class="save-bar">[\s\S]*?<business-nav embedded="\{\{true\}\}"\s*\/>\s*<\/view>/);
+  assert.match(editor,/<view class="save-bar">[\s\S]*?bindtap="onSubmit"/);
+  assert.match(editor,/bindtap="onRequestLeave"/);
+  assert.match(editor,/bindtap="onLeaveChoice"/);
+  assert.doesNotMatch(editor,/<business-nav/);
 });
 test('batch footer saves original household input and stale submit never moves it to B',async()=>{
   const scope=makeSessionScopeModule({userId:'u',familyId:'a'});

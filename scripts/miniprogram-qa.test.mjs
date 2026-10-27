@@ -19,7 +19,7 @@ const dangerous = ['getStorageSync', 'setStorageSync', 'removeStorageSync', 'cle
   'connectSocket', 'login', 'checkSession', 'chooseMedia', 'compressImage', 'getFileInfo', 'chooseImage', 'scanCode', 'previewImage', 'setClipboardData',
   'shareFileMessage', 'chooseMessageFile', 'requestSubscribeMessage', 'getUpdateManager', 'base64ToArrayBuffer'];
 const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab',
-  'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
+  'pageScrollTo', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
 function harness({ project, mutateNative, mockOverride } = {}) {
   const counts = {};
   const uiCalls = [];
@@ -151,6 +151,16 @@ test('non-synthetic file path, cloud API and unverified hook installation are fa
   const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.cloud.callFunction(), /unknown cloud/); assertNoOriginals(h);
   const bad = harness({ mutateNative: native => { delete native.showModal; } });
   assert.throws(() => bad.install(), /unverifiable native UI hook/); assert.throws(() => bad.runtime.bindings(), /before every product module/); assertNoOriginals(bad);
+});
+
+test('reviewed page scrolling remains a UI-only hook and missing support fails closed', () => {
+  const h = harness(); h.install();
+  h.runtime.bindings().wx.pageScrollTo({ selector: '#more-actions', duration: 200 });
+  assert.equal(h.uiCalls.at(-1).name, 'pageScrollTo');
+  assert.equal(h.uiCalls.at(-1).options.selector, '#more-actions');
+  assertNoOriginals(h);
+  const missing = harness({ mutateNative: native => { delete native.pageScrollTo; } });
+  assert.throws(() => missing.install(), /unverifiable native UI hook/);
 });
 
 test('redirect response is rejected without any native request being invoked', async () => {

@@ -76,7 +76,10 @@ Page({
     selectedFileName: "",
   },
 
-  async onCreateBackup(): Promise<void> {
+  async onCreateBackup(): Promise<void> { await this.createBackup(true); },
+  async onCreateInventoryBackup(): Promise<void> { await this.createBackup(false); },
+
+  async createBackup(includeRecognitionEvidence: boolean): Promise<void> {
     this.clearInvalidatedView();
     if (this.data.busy) return;
     const identity = captureSessionIdentity();
@@ -84,7 +87,8 @@ Page({
     if (scope === null) { this.setData({ errorMessage: "请先登录并选择家庭，再生成备份。" }); return; }
     this.pendingImportPayload = null;
     this.pendingConfirmationToken = null;
-    this.setData({ busy: true, errorMessage: "", statusText: "正在生成 JSON 备份…",
+    const backupLabel = includeRecognitionEvidence ? "药品与识别资料备份" : "仅库存备份";
+    this.setData({ busy: true, errorMessage: "", statusText: `正在生成${backupLabel}…`, backupJson: "", backupCreatedAt: "",
       importPreview: null, restoreAllowed: false, previewCountsText: "", conflictText: "" });
     let localFile = "";
     const epoch = ++this.backupLifecycleEpoch;
@@ -97,10 +101,10 @@ Page({
       ensureCurrent();
       await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
       ensureCurrent();
-      const backup = await api.createJsonBackup();
+      const backup = await api.createJsonBackup(includeRecognitionEvidence ? undefined : { includeRecognitionEvidence: false });
       ensureCurrent();
       const json = JSON.stringify(backup, null, 2);
-      const filename = `home-medicine-backup-${backup.backupId}.json`;
+      const filename = `home-medicine-${includeRecognitionEvidence ? "backup" : "inventory-only"}-${backup.backupId}.json`;
       const native = wx as unknown as FileSystemCapableWx;
       if (typeof native.shareFileMessage === "function") {
         localFile = `${wx.env.USER_DATA_PATH}/home-medicine-share-${Date.now()}-${Math.random().toString(36).slice(2, 12)}.json`;
@@ -119,12 +123,12 @@ Page({
           fail: (error) => reject(new Error(error.errMsg ?? "分享未完成")),
         }));
         ensureCurrent();
-        this.setData({ backupCreatedAt: backup.exportedAt, backupJson: "", statusText: "JSON 备份文件已交给微信分享。" });
+        this.setData({ backupCreatedAt: backup.exportedAt, backupJson: "", statusText: `${backupLabel}已交给微信分享。` });
       } else {
         ensureCurrent();
         this.backupCopyScope = scope;
         this.backupCopyIdentity = identity;
-        this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: "当前微信版本不支持文件分享。可复制下方 JSON 并保存为 .json 文件。" });
+        this.setData({ backupJson: json, backupCreatedAt: backup.exportedAt, statusText: `${backupLabel}已生成。当前微信版本不支持文件分享，可复制下方 JSON 并保存为 .json 文件。` });
       }
     } catch (error) {
       if (this.clearAfterSessionChange(error, epoch)) return;

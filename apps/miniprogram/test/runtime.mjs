@@ -14,10 +14,14 @@ export const TEST_SESSION_SCOPE = { userId: "test-user", familyId: "test-family"
 
 export function makeSessionScopeModule(scope = TEST_SESSION_SCOPE) {
   let active = scope;
+  const listeners = new Set();
+  const notify = () => { for (const listener of [...listeners]) listener(); };
   return {
     readSessionScope: () => (active === null ? null : { ...active }),
-    writeSessionScope: (next) => { active = next; },
-    clearSessionScope: () => { active = null; },
+    writeSessionScope: (next) => { const changed = active?.userId !== next?.userId || active?.familyId !== next?.familyId; active = next; if (changed) notify(); },
+    clearSessionScope: () => { const changed = active !== null; active = null; if (changed) notify(); },
+    subscribeSessionChanges: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    notifySessionChange: notify,
     scopedStorageKey: (namespace, entityId = "") =>
       active === null ? null : `${namespace}:${active.userId}:${active.familyId === "" ? "no-family" : active.familyId}:${entityId === "" ? "new" : entityId}`,
     __resetSessionScopeForTest: () => { active = null; },
@@ -65,6 +69,17 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
     }
     if (id.endsWith("photo-file-lifecycle")) return loadService("services/photo-file-lifecycle.ts", { wx: pageWx });
     if (id.endsWith("barcode-parser")) return loadService("services/barcode-parser.ts", { wx: pageWx });
+    if (id.endsWith("recognition-review")) return loadService("services/recognition-review.ts", { wx: pageWx });
+    if (id.endsWith("recognition-evidence-merge") && !Object.hasOwn(modules, id)) return loadService("services/recognition-evidence-merge.ts", { wx: pageWx });
+    if (id.endsWith("recognition-evidence-sync") && !Object.hasOwn(modules, id)) {
+      const apiModule = modules["../../services/api"] ?? {};
+      const scope = modules["../../services/session-scope"] ?? modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
+      return loadService("services/recognition-evidence-sync.ts", { wx: pageWx, modules: {
+        "./api": { captureSessionIdentity: () => ({ token: "synthetic-page-session", generation: 1 }),
+          isCurrentSession: identity => identity.token === "synthetic-page-session" && identity.generation === 1, ...apiModule },
+        "./session-scope": scope,
+      } });
+    }
     if (id.endsWith("medicine-tags")) return loadService("services/medicine-tags.ts", { wx: pageWx });
     if (id.endsWith("/services/api") && Object.hasOwn(modules, id)) {
       // Legacy page unit tests mock network methods but not identity transport.
@@ -76,8 +91,9 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
         ...modules[id],
       };
     }
+    if (id.endsWith(SESSION_SCOPE_ALIAS)) return { subscribeSessionChanges: () => () => {}, notifySessionChange: () => {},
+      ...(modules[id] ?? modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule()) };
     if (Object.hasOwn(modules, id)) return modules[id];
-    if (id.endsWith(SESSION_SCOPE_ALIAS)) return modules[SESSION_SCOPE_ALIAS] ?? makeSessionScopeModule();
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
     if (id.endsWith("app-update")) return loadService("services/app-update.ts", { wx: pageWx });
     if (id.endsWith("draft-guard")) return loadService("services/draft-guard.ts", { wx: pageWx });

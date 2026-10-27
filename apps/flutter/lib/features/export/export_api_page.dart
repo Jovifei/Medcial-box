@@ -193,12 +193,14 @@ class _ExportApiPageState extends State<ExportApiPage> {
     }
   }
 
-  Future<void> _createBackup() async {
+  Future<void> _createBackup({bool includeRecognitionEvidence = true}) async {
     if (busy || !_isCurrent) return;
     setState(() => busy = true);
     OwnedExportFile? owned;
     try {
-      final backup = await widget.workflow.createJsonBackup();
+      final backup = await widget.workflow.createJsonBackup(
+        includeRecognitionEvidence: includeRecognitionEvidence,
+      );
       if (!_isCurrent) return;
       owned = await widget.workflow.exportFiles.create(
         bytes: utf8.encode(const JsonEncoder.withIndent('  ').convert(backup)),
@@ -214,8 +216,10 @@ class _ExportApiPageState extends State<ExportApiPage> {
         send: (file) => ExportFileShare.share(
           file: file,
           mimeType: 'application/json',
-          subject: '家庭药箱 JSON 备份',
-          text: '该备份不包含登录令牌和个人剂量备注。请安全保存。',
+          subject: includeRecognitionEvidence ? '家庭药箱药品与识别资料备份' : '家庭药箱仅库存备份',
+          text: includeRecognitionEvidence
+              ? '备份包含药品及逐图识别资料，可能含个人信息，不包含照片原件、登录令牌或单独保存的个人剂量备注。请安全保存。'
+              : '仅库存备份包含药品资料和说明书摘要，不包含逐图识别资料、照片原件、登录令牌或单独保存的个人剂量备注。请安全保存。',
           isCurrent: () => _isCurrent,
         ),
       );
@@ -470,13 +474,21 @@ class _ExportApiPageState extends State<ExportApiPage> {
               ),
               const SizedBox(height: 6),
               const Text(
-                '备份包含药品、批次、开封期限、阈值和家庭盘点设置，不包含登录令牌与个人剂量备注。恢复前会预览，只新增数据，不覆盖当前药箱。',
+                '药品与识别资料备份包含药品、库存和逐图识别结果。仅库存备份不含逐图识别结果及来源，但仍包含药品资料和说明书摘要。两种备份都不含照片原件、登录令牌或单独保存的个人剂量备注；文字可能含个人信息，恢复后原图不可查看。',
               ),
               const SizedBox(height: 12),
               PrimaryButton(
-                label: busy ? '正在准备…' : '创建并分享备份',
+                label: busy ? '正在准备…' : '创建药品与识别资料备份',
                 icon: Icons.backup_outlined,
-                onPressed: busy ? null : _createBackup,
+                onPressed: busy ? null : () => _createBackup(),
+              ),
+              const SizedBox(height: 8),
+              SoftButton(
+                label: '创建仅库存备份',
+                icon: Icons.inventory_2_outlined,
+                onPressed: busy
+                    ? null
+                    : () => _createBackup(includeRecognitionEvidence: false),
               ),
               const SizedBox(height: 8),
               SoftButton(

@@ -7,6 +7,29 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_workflow_repository.dart';
+import '../../models/medicine_models.dart';
+
+const _evidenceLabels = <String, String>{
+  'name': '药名',
+  'brand': '品牌',
+  'specification': '规格',
+  'manufacturer': '厂家',
+  'approvalNumber': '批准文号',
+  'barcodeValue': '条码',
+  'activeIngredients': '成分',
+  'purposeCategory': '用途分类',
+  'lotNumber': '批号',
+  'expiryValue': '有效期',
+  'expiryPrecision': '有效期精度',
+  'populationTags': '人群',
+  'purposeTags': '用途',
+  'leafletText': '说明书原文',
+  'rawOcrText': '本机识别原文',
+  'purposeSummary': '功能与用途',
+  'packageUsageSummary': '用法用量原文',
+  'contraindicationsSummary': '禁忌',
+  'precautionsSummary': '注意事项',
+};
 
 abstract interface class LeafletImagePicker {
   Future<XFile?> pickImage(ImageSource source);
@@ -28,11 +51,13 @@ class LeafletPhotoPage extends StatefulWidget {
     required this.medicineId,
     required this.repository,
     this.imagePicker,
+    this.onPhotosChanged,
   });
 
   final String medicineId;
   final ApiWorkflowRepository repository;
   final LeafletImagePicker? imagePicker;
+  final VoidCallback? onPhotosChanged;
 
   @override
   State<LeafletPhotoPage> createState() => _LeafletPhotoPageState();
@@ -46,6 +71,23 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   bool loading = true;
   bool uploading = false;
   String? viewingPhotoId;
+  RecognitionEvidence? evidence;
+  bool evidenceUnavailable = false;
+  late final Object _identity = _identitySnapshot();
+  late final Listenable _identitySignals = Listenable.merge([
+    widget.repository.api.identityEpochSignal,
+    if (widget.repository.api.identityState != null)
+      widget.repository.api.identityState!.scopeSignal,
+  ]);
+  int _loadGeneration = 0;
+
+  Object _identitySnapshot() => (
+    widget.repository.api.identityEpoch,
+    widget.repository.api.identityState?.generation,
+    widget.repository.api.identityState?.owner?.userId,
+    widget.repository.api.identityState?.owner?.familyId,
+  );
+  bool get _current => mounted && _identity == _identitySnapshot();
 
   @override
   void initState() {
@@ -54,19 +96,34 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    bool current() => _current && generation == _loadGeneration;
     try {
       final result = await widget.repository.listLeafletPhotos(
         widget.medicineId,
+        isCurrent: current,
       );
-      if (mounted) {
+      RecognitionEvidence? loadedEvidence;
+      var unavailable = false;
+      try {
+        loadedEvidence = await widget.repository.getRecognitionEvidence(
+          widget.medicineId,
+          isCurrent: current,
+        );
+      } catch (_) {
+        unavailable = true;
+      }
+      if (current()) {
         setState(() {
           photos = result;
+          evidence = loadedEvidence;
+          evidenceUnavailable = unavailable;
           failure = null;
           loading = false;
         });
       }
     } catch (error) {
-      if (mounted) {
+      if (current()) {
         setState(() {
           failure = error;
           loading = false;
@@ -76,7 +133,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   }
 
   Future<void> _chooseAndUpload() async {
-    if (uploading) return;
+    if (uploading || !_current) return;
     final source = await showAppSheet<ImageSource>(
       context,
       title: '添加说明书照片',
@@ -100,16 +157,16 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
         ],
       ),
     );
-    if (source == null || !mounted) return;
+    if (source == null || !_current) return;
 
     XFile? selected;
     try {
       selected = await _imagePicker.pickImage(source);
     } catch (error) {
-      if (mounted) _showError(_pickerError(error));
+      if (_current) _showError(_pickerError(error));
       return;
     }
-    if (selected == null || !mounted) return;
+    if (selected == null || !_current) return;
 
     Uint8List bytes;
     String mimeType;
@@ -120,60 +177,74 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
         throw const FormatException('图片超过 8 MB，请缩小后重新选择。');
       }
     } catch (error) {
-      if (mounted) {
+      if (_current) {
         _showError(
           error is FormatException ? error.message : '无法读取这张图片，请重新选择。',
         );
       }
       return;
     }
-    if (!mounted) return;
+    if (!mounted || !_current) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('确认上传说明书照片'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 260,
-                height: 170,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.memory(
-                    bytes,
-                    fit: BoxFit.contain,
-                    semanticLabel: '待上传的说明书照片预览',
+      builder: (dialogContext) => AnimatedBuilder(
+        animation: _identitySignals,
+        builder: (_, _) => !_current
+            ? AlertDialog(
+                title: const Text('家庭身份已变化'),
+                content: const Text('照片预览已隐藏，请重新打开照片资料。'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('关闭'),
+                  ),
+                ],
+              )
+            : AlertDialog(
+                title: const Text('确认上传说明书照片'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 260,
+                        height: 170,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            bytes,
+                            fit: BoxFit.contain,
+                            semanticLabel: '待上传的说明书照片预览',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '照片将保存在家庭药箱的私有存储中，已加入该家庭的成员都可以查看。此流程不会把照片发送给 AI 或药品查询服务。请先确认照片中没有不希望家人看到的信息。',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${mimeType == 'image/png' ? 'PNG' : 'JPEG'} · ${_sizeLabel(bytes.length)}',
+                      ),
+                    ],
                   ),
                 ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('暂不上传'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('上传到家庭药箱'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              const Text(
-                '照片将保存在家庭药箱的私有存储中，已加入该家庭的成员都可以查看。此流程不会把照片发送给 AI 或药品查询服务。请先确认照片中没有不希望家人看到的信息。',
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${mimeType == 'image/png' ? 'PNG' : 'JPEG'} · ${_sizeLabel(bytes.length)}',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('暂不上传'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('上传到家庭药箱'),
-          ),
-        ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !_current) return;
 
     setState(() {
       uploading = true;
@@ -184,26 +255,31 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
         widget.medicineId,
         bytes,
         mimeType: mimeType,
+        isCurrent: () => _current,
       );
-      if (!mounted) return;
+      if (!mounted || !_current) return;
+      widget.onPhotosChanged?.call();
       setState(() => photos = [uploaded, ...photos]);
       _showMessage('说明书照片已保存到家庭药箱。');
     } catch (error) {
-      if (mounted) _showError(error);
+      if (_current) _showError(error);
     } finally {
-      if (mounted) setState(() => uploading = false);
+      if (_current) setState(() => uploading = false);
     }
   }
 
-  Future<void> _view(LeafletPhotoRecord photo) async {
-    if (viewingPhotoId != null) return;
-    setState(() => viewingPhotoId = photo.id);
+  Future<void> _view(LeafletPhotoRecord photo) => _viewById(photo.id);
+
+  Future<void> _viewById(String photoId) async {
+    if (viewingPhotoId != null || !_current) return;
+    setState(() => viewingPhotoId = photoId);
     try {
       final image = await widget.repository.readLeafletPhoto(
         widget.medicineId,
-        photo.id,
+        photoId,
+        isCurrent: () => _current,
       );
-      if (!mounted) return;
+      if (!mounted || !_current) return;
       if (!const {'image/jpeg', 'image/png'}.contains(image.contentType)) {
         throw const FormatException('服务器返回的图片格式无法显示。');
       }
@@ -219,26 +295,31 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
                 icon: const Icon(Icons.close_rounded),
               ),
             ),
-            body: Center(
-              child: InteractiveViewer(
-                child: Image.memory(
-                  image.bytes,
-                  fit: BoxFit.contain,
-                  semanticLabel: '家庭药箱说明书照片',
-                ),
-              ),
+            body: AnimatedBuilder(
+              animation: _identitySignals,
+              builder: (context, _) => !_current
+                  ? const Center(child: Text('家庭身份已变化，原图已关闭。'))
+                  : Center(
+                      child: InteractiveViewer(
+                        child: Image.memory(
+                          image.bytes,
+                          fit: BoxFit.contain,
+                          semanticLabel: '家庭药箱说明书照片',
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),
       );
     } catch (error) {
-      if (mounted) {
+      if (_current) {
         _showError(
           error is FormatException ? error.message : friendlyApiError(error),
         );
       }
     } finally {
-      if (mounted) setState(() => viewingPhotoId = null);
+      if (_current) setState(() => viewingPhotoId = null);
     }
   }
 
@@ -247,7 +328,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('删除这张说明书照片？'),
-        content: const Text('照片会从家庭药箱列表隐藏，不会影响药品和库存记录。'),
+        content: const Text('已保存资料保留，原图将不可查看。不会影响药品和库存记录。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -260,20 +341,26 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !_current) return;
     setState(() => uploading = true);
     try {
-      await widget.repository.deleteLeafletPhoto(widget.medicineId, photo.id);
-      if (mounted) {
+      await widget.repository.deleteLeafletPhoto(
+        widget.medicineId,
+        photo.id,
+        isCurrent: () => _current,
+      );
+      if (_current) {
+        widget.onPhotosChanged?.call();
         setState(
           () => photos = photos.where((item) => item.id != photo.id).toList(),
         );
         _showMessage('说明书照片已删除。');
+        unawaited(_load());
       }
     } catch (error) {
-      if (mounted) _showError(error);
+      if (_current) _showError(error);
     } finally {
-      if (mounted) setState(() => uploading = false);
+      if (_current) setState(() => uploading = false);
     }
   }
 
@@ -292,7 +379,14 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   void _showError(Object error) => _showMessage(friendlyApiError(error));
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _identitySignals,
+    builder: (context, _) => !_current
+        ? const Scaffold(body: Center(child: Text('家庭身份已变化，请重新打开照片资料。')))
+        : _buildPage(context),
+  );
+
+  Widget _buildPage(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('说明书照片')),
     body: AppPage(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
@@ -324,6 +418,68 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
               ),
             ),
             const SizedBox(height: 12),
+            if (!loading && evidenceUnavailable)
+              const AppCard(child: Text('逐图来源暂不可用或旧服务未记录；照片仍可查看。'))
+            else if (!loading && evidence == null)
+              const AppCard(child: Text('未记录逐图来源。'))
+            else if (!loading && evidence != null) ...[
+              if (evidence!.stale)
+                const AppCard(child: Text('药品资料已变化，请重新核对来源。')),
+              for (final photo in evidence!.photos)
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '图${photo.sequence} · ${photo.available ? '原图可查看' : '原图不可查看'}',
+                      ),
+                      Text(
+                        photo.status == 'recognized'
+                            ? '已识别，内容需核对'
+                            : photo.status == 'failed'
+                            ? '识别失败'
+                            : '待读取',
+                      ),
+                      for (final entry in photo.fields.entries)
+                        Text(
+                          '${_evidenceLabels[entry.key] ?? entry.key}：${entry.value is List ? (entry.value as List).join('、') : entry.value ?? '未记录'}',
+                        ),
+                      for (final warning in photo.warnings ?? const <String>[])
+                        Text('识别提醒：$warning'),
+                      if (photo.available)
+                        TextButton.icon(
+                          onPressed: viewingPhotoId == null
+                              ? () => _viewById(photo.photoId)
+                              : null,
+                          icon: const Icon(Icons.visibility_outlined),
+                          label: Text('查看图${photo.sequence}原图'),
+                        )
+                      else
+                        const Text('原图不可查看，识别资料仍保留。'),
+                      for (final entry in evidence!.fieldSources.entries)
+                        if (entry.value.photoIds.contains(photo.photoId))
+                          Text(
+                            '${_evidenceLabels[entry.key] ?? entry.key}：来自图${photo.sequence} · ${entry.value.reviewed ? '已核对' : '待核对'}',
+                          ),
+                    ],
+                  ),
+                ),
+              for (final entry in evidence!.fieldSources.entries)
+                if (entry.value.source == 'removed')
+                  Text(
+                    '${_evidenceLabels[entry.key] ?? entry.key}：原图已移除，已保存资料保留',
+                  ),
+              for (final source in evidence!.batchSources)
+                Text(
+                  '${source.field == 'expiry' ? '批次有效期' : '批号'}：${source.batchAvailable ? (source.source == 'recognized'
+                            ? '照片识别${source.reviewed ? ' · 已核对' : ' · 待核对'}'
+                            : source.source == 'manual'
+                            ? '人工填写或清空'
+                            : source.source == 'removed'
+                            ? '原图已移除'
+                            : '目录候选') : '所属批次不可核验'}',
+                ),
+            ],
             if (loading)
               const AppCard(
                 child: Center(

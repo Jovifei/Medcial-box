@@ -6,16 +6,17 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../data/app_services.dart';
-import '../../models/medicine_models.dart';
 
 class PendingPage extends StatefulWidget {
   const PendingPage({
     super.key,
     required this.services,
     this.restockOnly = false,
+    this.onBack,
   });
   final AppServices services;
   final bool restockOnly;
+  final VoidCallback? onBack;
   @override
   State<PendingPage> createState() => _PendingPageState();
 }
@@ -24,8 +25,10 @@ class _PendingPageState extends State<PendingPage> {
   Future<void>? loadFuture;
   FamilySettingsRecord? settings;
   List<Map<String, dynamic>> restock = const [];
+  List<Map<String, dynamic>> pending = const [];
   Map<String, dynamic>? stocktake;
   Object? failure;
+  int _loadSequence = 0;
 
   @override
   void initState() {
@@ -34,27 +37,49 @@ class _PendingPageState extends State<PendingPage> {
   }
 
   Future<void> _load() async {
+    final sequence = ++_loadSequence;
+    final api = widget.services.api!;
+    final epoch = api.identityEpoch;
+    final scope = api.identityState?.scopeSignal.value;
+    bool current() =>
+        mounted &&
+        sequence == _loadSequence &&
+        epoch == api.identityEpoch &&
+        scope == api.identityState?.scopeSignal.value;
     try {
       if (widget.restockOnly) {
-        restock = await widget.services.workflow!.listRestockItems();
+        final items = await widget.services.workflow!.listRestockItems();
+        if (!current()) return;
+        setState(() {
+          restock = items;
+          failure = null;
+        });
       } else {
-        await Future.wait([
+        final values = await Future.wait<Object?>([
           widget.services.medicines!.listMedicines(),
-          widget.services.workflow!.getSettings().then(
-            (value) => settings = value,
-          ),
-          widget.services.workflow!.listRestockItems().then(
-            (value) => restock = value,
-          ),
-          widget.services.workflow!.currentStocktake().then(
-            (value) => stocktake = value,
-          ),
+          widget.services.workflow!.getSettings(),
+          widget.services.workflow!.listRestockItems(),
+          widget.services.workflow!.currentStocktake(),
+          widget.services.workflow!.pendingNotifications(),
         ]);
+        if (!current()) return;
+        setState(() {
+          settings = values[1] as FamilySettingsRecord;
+          restock = values[2] as List<Map<String, dynamic>>;
+          stocktake = values[3] as Map<String, dynamic>?;
+          pending = values[4] as List<Map<String, dynamic>>;
+          failure = null;
+        });
       }
-      if (mounted) setState(() => failure = null);
     } catch (error) {
-      if (mounted) setState(() => failure = error);
+      if (current()) setState(() => failure = error);
     }
+  }
+
+  @override
+  void dispose() {
+    _loadSequence++;
+    super.dispose();
   }
 
   Future<void> _setInterval(String value) async {
@@ -113,7 +138,12 @@ class _PendingPageState extends State<PendingPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.restockOnly ? '补货清单' : '待处理事项')),
+    appBar: AppBar(
+      leading: widget.onBack == null
+          ? null
+          : BackButton(onPressed: widget.onBack),
+      title: Text(widget.restockOnly ? '补货清单' : '待处理事项'),
+    ),
     body: AnimatedBuilder(
       animation: widget.services.medicines!,
       builder: (context, _) => RefreshIndicator(
@@ -136,20 +166,11 @@ class _PendingPageState extends State<PendingPage> {
               const SizedBox(height: 6),
               const Text('提醒只说明需要核对，不代表药品适合服用。'),
               const SizedBox(height: 12),
-              _IssueSection(
-                title: '已过期 / 开封期限已到',
-                color: AppColors.terracotta,
-                items: _expired(widget.services.medicines!.medicines),
-              ),
-              _IssueSection(
-                title: '临期',
-                color: AppColors.amber,
-                items: _expiring(widget.services.medicines!.medicines),
-              ),
-              _IssueSection(
-                title: '库存不足',
-                color: AppColors.terracotta,
-                items: _low(widget.services.medicines!.medicines),
+              _PendingItems(
+                items: pending
+                    .where((item) => item['type'] != 'leaflet_missing')
+                    .toList(),
+                onStocktake: _openStocktake,
               ),
               AppCard(
                 child: Column(
@@ -199,15 +220,19 @@ class _PendingPageState extends State<PendingPage> {
               onDelete: _deleteRestock,
             ),
             if (!widget.restockOnly) ...[
-              _IssueSection(
-                title: '数量 / 日期待核对',
-                color: AppColors.amber,
-                items: _unknownInventory(widget.services.medicines!.medicines),
-              ),
-              _IssueSection(
-                title: '待补资料',
-                color: AppColors.leaf,
-                items: _missingInfo(widget.services.medicines!.medicines),
+              AppCard(
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('资料完善建议'),
+                  children: [
+                    _PendingItems(
+                      items: pending
+                          .where((item) => item['type'] == 'leaflet_missing')
+                          .toList(),
+                      onStocktake: _openStocktake,
+                    ),
+                  ],
+                ),
               ),
               AppCard(
                 color: const Color(0xFFE9F1EB),
@@ -247,158 +272,40 @@ class _PendingPageState extends State<PendingPage> {
   }
 }
 
-class _Issue {
-  const _Issue({
-    required this.medicineId,
-    required this.title,
-    required this.detail,
-    required this.batchId,
-  });
-  final String medicineId;
-  final String batchId;
-  final String title;
-  final String detail;
-}
-
-List<_Issue> _expired(List<MedicineRecord> medicines) => [
-  for (final medicine in medicines)
-    for (final batch in medicine.batches)
-      if (batch.dispositionStatus != 'handled' &&
-          (batch.isExpired || batch.managementExpiryState.state == 'expired'))
-        _Issue(
-          medicineId: medicine.id,
-          batchId: batch.id,
-          title: medicine.name,
-          detail: '批次期限已到：${batch.managementExpiryDate ?? batch.expiryDisplay}',
-        ),
-];
-
-List<_Issue> _expiring(List<MedicineRecord> medicines) => [
-  for (final medicine in medicines)
-    for (final batch in medicine.batches)
-      if (batch.dispositionStatus != 'handled' &&
-          !batch.isExpired &&
-          [
-            'due_this_month',
-            'expiring_soon',
-          ].contains(batch.managementExpiryState.state))
-        _Issue(
-          medicineId: medicine.id,
-          batchId: batch.id,
-          title: medicine.name,
-          detail:
-              '${batch.managementExpiryState.label.isEmpty ? '即将到期' : batch.managementExpiryState.label}：${batch.managementExpiryDate ?? batch.expiryDisplay}',
-        ),
-];
-
-List<_Issue> _low(List<MedicineRecord> medicines) => [
-  for (final medicine in medicines)
-    if (['low', 'exhausted'].contains(medicine.stockStatus))
-      _Issue(
-        medicineId: medicine.id,
-        batchId: '',
-        title: medicine.name,
-        detail: medicine.stockStatus == 'exhausted' ? '当前余量为 0' : '当前余量已达到提醒阈值',
-      ),
-];
-
-List<_Issue> _unknownInventory(List<MedicineRecord> medicines) {
-  final issues = <_Issue>[];
-  for (final medicine in medicines) {
-    final activeBatches = medicine.batches.where(
-      (batch) => batch.dispositionStatus != 'handled',
-    );
-    final hasUnknownPackageExpiry = activeBatches.any(
-      (batch) => batch.expiryValue == null,
-    );
-    final hasUnknownOpeningExpiry = activeBatches.any(
-      (batch) =>
-          batch.openedState == 'opened' &&
-          (batch.openedAt == null || batch.openedExpiryDate == null),
-    );
-    if ((medicine.stockStatus == 'unknown' && medicine.lowStockThreshold != null) ||
-        hasUnknownPackageExpiry ||
-        hasUnknownOpeningExpiry) {
-      issues.add(
-        _Issue(
-          medicineId: medicine.id,
-          batchId: '',
-          title: medicine.name,
-          detail: medicine.stockStatus == 'unknown'
-              ? '库存数量待核对'
-              : hasUnknownPackageExpiry
-              ? '有效期待补充'
-              : '开封期限待补充',
-        ),
-      );
-    }
-  }
-  return issues;
-}
-
-List<_Issue> _missingInfo(List<MedicineRecord> medicines) => [
-  for (final medicine in medicines)
-    if (medicine.specification == null ||
-        medicine.manufacturer == null ||
-        medicine.activeIngredients.isEmpty ||
-        medicine.leaflet.reviewStatus == 'unverified')
-      _Issue(
-        medicineId: medicine.id,
-        batchId: '',
-        title: medicine.name,
-        detail: medicine.leaflet.reviewStatus == 'unverified'
-            ? '说明书资料尚未核对'
-            : '规格、厂家或成分资料待补充',
-      ),
-];
-
-class _IssueSection extends StatelessWidget {
-  const _IssueSection({
-    required this.title,
-    required this.color,
-    required this.items,
-  });
-  final String title;
-  final Color color;
-  final List<_Issue> items;
+class _PendingItems extends StatelessWidget {
+  const _PendingItems({required this.items, required this.onStocktake});
+  final List<Map<String, dynamic>> items;
+  final VoidCallback onStocktake;
 
   @override
   Widget build(BuildContext context) => AppCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            StatusPill(
-              label: '${items.length}',
-              color: color,
-              background: color.withValues(alpha: .1),
-            ),
-          ],
-        ),
+        Text('需关注的事项', style: Theme.of(context).textTheme.titleMedium),
         if (items.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text('目前没有需要处理的记录。'),
           )
         else
-          ...items
-              .take(8)
-              .map(
-                (item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.title),
-                  subtitle: Text(item.detail),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/medicine/${item.medicineId}'),
-                ),
-              ),
+          for (final item in items)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(item['medicineName'] as String? ?? '家庭药箱'),
+              subtitle: Text(item['message'] as String? ?? '请核对'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                final id = item['medicineId'] as String?;
+                if (id == null && item['action'] == 'stocktake') {
+                  onStocktake();
+                } else if (item['action'] == 'restock') {
+                  context.push('/restock');
+                } else if (id != null && id.isNotEmpty) {
+                  context.push('/medicine/$id');
+                }
+              },
+            ),
       ],
     ),
   );

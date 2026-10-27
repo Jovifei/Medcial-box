@@ -27,6 +27,23 @@ test("GET keeps no body and leaflet recognition sends its explicit purpose", asy
   assert.equal(client.requests[1].data.purpose, "leaflet");
 });
 
+test("bodyless member and photo DELETE requests reach a real Fastify parser", async () => {
+  const server = Fastify();
+  server.delete("/api/v1/families/members/:id", (_request, reply) => reply.code(204).send());
+  server.delete("/api/v1/medicines/:id/leaflet-photos/:photoId", (_request, reply) => reply.code(204).send());
+  try {
+    const client = loadApi();
+    await client.api.removeMember("synthetic-member");
+    await client.api.deleteLeafletPhoto("synthetic-medicine", "synthetic-photo");
+    for (const request of client.requests) {
+      assert.equal(request.data, "{}", "微信默认JSON类型；DELETE显式发送可解析的空对象字符串");
+      assert.equal(request.header["content-type"], "application/json");
+      const response = await server.inject({ method: request.method, url: new URL(request.url).pathname, headers: request.header, payload: request.data });
+      assert.equal(response.statusCode, 204);
+    }
+  } finally { await server.close(); }
+});
+
 test("deferring stocktake preserves known and unknown quantities without sending zero", async () => {
   const sent = [];
   const { definition } = loadPage("pages/stocktake/stocktake.ts", { modules: {

@@ -1,0 +1,4 @@
+{
+  "navigationBarTitleText": "照片与资料",
+  "usingComponents": { "business-nav": "../../components/business-nav/business-nav" }
+}

@@ -47,13 +47,12 @@ function medicine(overrides = {}) {
   };
 }
 
-test("app navigation exposes the four tabs including medication plans", () => {
+test("app navigation exposes three tabs including medication plans", () => {
   const config = JSON.parse(fs.readFileSync(appJsonPath, "utf8"));
-  assert.deepEqual(config.tabBar.list.map((item) => item.text), ["药箱", "用药计划", "待处理", "我的"]);
+  assert.deepEqual(config.tabBar.list.map((item) => item.text), ["药箱", "用药计划", "我的"]);
   assert.deepEqual(config.tabBar.list.map((item) => item.pagePath), [
     "pages/index/index",
     "pages/medication-plans/medication-plans",
-    "pages/pending/pending",
     "pages/mine/mine",
   ]);
 });
@@ -946,7 +945,7 @@ test("mini API keeps trash delete and archive as distinct medicine lifecycle act
   ]);
   assert.deepEqual(requests, [
     ["POST", "https://medicine.test/api/v1/medicines/medicine%20%2F%201/trash", {}],
-    ["DELETE", "https://medicine.test/api/v1/medicines/medicine%20%2F%201", null],
+    ["DELETE", "https://medicine.test/api/v1/medicines/medicine%20%2F%201", "{}"],
   ]);
 });
 
@@ -1072,7 +1071,7 @@ test("leaflet photo API uses authenticated private endpoints and only uploads ex
   assert.deepEqual(requests, [
     ["GET", "https://medicine.test/api/v1/medicines/medicine-1/leaflet-photos", null],
     ["POST", "https://medicine.test/api/v1/medicines/medicine-1/leaflet-photos", { imageBase64: "/9j/AAEC/9k=", mimeType: "image/jpeg", source: "package_leaflet" }],
-    ["DELETE", "https://medicine.test/api/v1/medicines/medicine-1/leaflet-photos/photo-1", null],
+    ["DELETE", "https://medicine.test/api/v1/medicines/medicine-1/leaflet-photos/photo-1", "{}"],
   ]);
 });
 
@@ -1263,7 +1262,7 @@ test("mini API uses the family scoped restock routes and optimistic version", as
     ["GET", "https://medicine.test/api/v1/families/restock", null],
     ["POST", "https://medicine.test/api/v1/families/restock", { medicineId: "medicine-1", desiredQuantity: 2, unit: "box" }],
     ["PUT", "https://medicine.test/api/v1/families/restock/restock-1", { status: "purchased", version: 3 }],
-    ["DELETE", "https://medicine.test/api/v1/families/restock/restock-1", null],
+    ["DELETE", "https://medicine.test/api/v1/families/restock/restock-1", "{}"],
   ]);
 });
 
@@ -1283,6 +1282,12 @@ test("purchased restock item opens its medicine details for batch intake", () =>
 
 test("mini API backup calls preview without writing and restores only after explicit confirmation", async () => {
   const service = loadApi();
+  service.wx.request = options => {
+    service.requests.push(options);
+    options.success({ statusCode: 200, data: options.url.endsWith("/backups/json")
+      ? { schemaVersion: 2, contentScope: "inventory_and_recognition_evidence", medicines: [] }
+      : { approved: true } });
+  };
   const backup = {
     schemaVersion: 1,
     backupId: "backup-1",

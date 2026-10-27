@@ -156,6 +156,13 @@ void _expectProtected(WidgetTester tester, String name) {
   );
 }
 
+void _expectIdentityProtected(WidgetTester tester, String name) {
+  final dynamic state = tester.state(find.byType(MedicineEntryApiPage));
+  expect(state.nameController.text, name);
+  expect(find.byType(TextField, skipOffstage: false), findsNothing);
+  expect(find.text('家庭身份已变化，请重新打开药品录入。'), findsOneWidget);
+}
+
 Future<void> _capture(WidgetTester tester, String name) async {
   const directory = String.fromEnvironment('BACK_TEST_CAPTURE');
   if (directory.isEmpty) return;
@@ -406,6 +413,7 @@ void main() {
         final store = IdentityLocalStore(raw);
         final fixture = await _openEntry(tester, store);
         await _edit(tester, '旧身份草稿');
+        final oldField = tester.widget<TextField>(find.byType(TextField).first);
         final gate = raw.readGate = Completer<void>();
         await _leave(tester, action);
         fixture.api.invalidateIdentity();
@@ -419,8 +427,10 @@ void main() {
           {'id': 'new', 'name': '新身份草稿'},
         ]);
         expect(jsonDecode(raw.drafts[_legacyKey]!)['name'], '新身份草稿');
-        _expectProtected(tester, '旧身份草稿');
-        await _edit(tester, '已失效页面再次编辑');
+        _expectIdentityProtected(tester, '旧身份草稿');
+        oldField.controller!.text = '已失效页面再次编辑';
+        oldField.onChanged!('已失效页面再次编辑');
+        await tester.pump(const Duration(milliseconds: 250));
         expect(jsonDecode(raw.drafts[_legacyKey]!)['name'], '新身份草稿');
         expect(jsonDecode(raw.drafts[MedicineDraftQueue.storageKey]!), [
           {'id': 'new', 'name': '新身份草稿'},
@@ -450,7 +460,7 @@ void main() {
         {'id': 'new', 'name': '新身份草稿'},
       ]);
       expect(jsonDecode(raw.drafts[_legacyKey]!)['name'], '新身份草稿');
-      _expectProtected(tester, '旧身份自动保存草稿');
+      _expectIdentityProtected(tester, '旧身份自动保存草稿');
     },
   );
 
@@ -470,7 +480,7 @@ void main() {
       await cleanup;
       expect(raw.drafts, isEmpty);
       expect(raw.writes.where((key) => key == _legacyKey), isEmpty);
-      _expectProtected(tester, '旧身份进行中');
+      _expectIdentityProtected(tester, '旧身份进行中');
     },
   );
 
@@ -505,7 +515,7 @@ void main() {
       await tester.tap(find.text('保留草稿'));
       await tester.pumpAndSettle();
       expect(store.writes.length, writes);
-      _expectProtected(tester, '原家庭草稿');
+      _expectIdentityProtected(tester, '原家庭草稿');
     },
   );
   for (final failure in ['false', 'throw']) {

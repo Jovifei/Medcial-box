@@ -5,6 +5,8 @@
     <view class="nav-placeholder" style="width: {{navRightGap}}px; flex-basis: {{navRightGap}}px;"></view>
   </view>
 </view>
+<view wx:if="{{scopeInvalidated}}" class="page" style="padding-top: {{navBarHeight + 12}}px;"><view class="card"><view class="section-title">家庭或登录状态已变化</view><view class="field-hint">本页面内容已隐藏。返回后可在原家庭重新打开已保存的草稿。</view></view></view>
+<block wx:if="{{!scopeInvalidated}}">
 <view class="edit-loading-mask" wx:if="{{medicineLoading}}" catchtap="noop">
   <view class="card edit-loading-card"><view class="section-title">正在读取药品</view><view class="field-hint">请稍候，加载完成后可以修改。</view></view>
 </view>
@@ -23,13 +25,55 @@
   </view>
   <view class="card photo-card">
     <view class="section-title">{{isEdit ? "编辑药品" : "添加家里的药"}}</view>
-    <view class="field-hint">一次添加一种药品，核对名称和有效期后保存，再添加下一种。</view>
-    <view class="photo-actions">
-      <view class="btn btn-primary photo-action {{recognizing ? 'disabled' : ''}}" data-source="camera" bindtap="onRecognizePhoto">{{recognizing ? "正在识别，请稍候…" : "📷 拍药盒"}}</view>
-      <view class="btn btn-ghost photo-action {{recognizing ? 'disabled' : ''}}" data-source="album" bindtap="onRecognizePhoto">🖼 从相册选择</view>
+    <view class="field-hint">先拍照或扫码，也可以直接填写药名。</view>
+    <view class="capture-grid" wx:if="{{photoReviewItems.length === 0}}">
+      <button class="capture-option primary" data-source="camera" data-purpose="box_front" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">拍药盒</button>
+      <button class="capture-option" data-source="camera" data-purpose="leaflet" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">拍说明书</button>
+      <button class="capture-option" bindtap="onChooseCaptureSource" disabled="{{recognizing || submitting || attemptedPayload !== null}}">扫码 / 相册</button>
     </view>
-    <view class="btn btn-ghost scan-action {{recognizing ? 'disabled' : ''}}" bindtap="onScanCode">▦ 扫药码</view>
-    <view wx:if="{{photoDrafts.length > 0}}" class="photo-drafts"><view class="hint">当前药品照片：补拍会追加保留，保存时全部入库。</view><view wx:for="{{photoDrafts}}" wx:key="id" class="photo-draft-row"><image class="draft-thumb" src="{{item.thumbnail}}" mode="aspectFill" data-id="{{item.id}}" bindtap="onSelectPhotoDraft" /><view data-id="{{item.id}}" bindtap="onSelectPhotoDraft">{{item.fields.name || "待核对药盒"}} · {{item.photos.length}} 张 · {{item.status === 'cleanup_pending' ? '本机照片待清理' : item.status === 'saved' ? '已保存，清理待确认' : item.status === 'photo_pending' ? '照片待补' : item.status === 'failed' ? (item.failureCode === 'local_read' ? '照片读取失败，可重拍' : item.failureCode === 'local_storage' ? '本机保存失败，请核对草稿' : item.failureCode === 'network' ? '网络连接失败，可重试' : item.failureCode === 'recognition_service' ? '识别服务失败，可重试' : '识别失败，原因未确认，可手填') : item.status === 'recognizing' ? '识别中' : '待核对'}}</view><view data-id="{{item.id}}" bindtap="onPreviewEntryPhoto">查看原图</view><view data-id="{{item.id}}" bindtap="onDeletePhotoDraft">删除</view></view><view class="btn btn-ghost" data-source="camera" data-purpose="expiry" bindtap="onRecognizePhoto">补拍本份库存的有效期</view><view class="row"><view>用最近上传的药盒正面作封面</view><switch disabled="{{attemptedPayload !== null}}" checked="{{usePhotoAsCover}}" bindchange="onCoverChoice" /></view><view class="hint">关闭封面开关不会修改现有封面。拍照识别会将所选图片发送到药箱识别服务，仅回传待确认草稿；确认保存药品时才会另存到家庭私有图片空间。未提交的本机草稿不会自动入库。</view></view>
+    <view wx:if="{{photoDrafts.length > 0 && photoReviewItems.length === 0 && !activePhotoDraftId}}" class="photo-drafts">
+      <view wx:for="{{photoDrafts}}" wx:key="id" class="photo-draft-row">
+        <image class="draft-thumb" src="{{item.thumbnail}}" mode="aspectFill" data-id="{{item.id}}" bindtap="onSelectPhotoDraft" />
+        <view data-id="{{item.id}}" bindtap="onSelectPhotoDraft">{{item.fields.name || "未完成的照片草稿"}} · {{item.photos.length}} 张</view>
+        <button class="review-link" data-id="{{item.id}}" bindtap="onSelectPhotoDraft">打开</button>
+        <button class="review-link danger" data-id="{{item.id}}" bindtap="onDeletePhotoDraft">删除草稿</button>
+      </view>
+    </view>
+    <view wx:if="{{photoReviewItems.length > 0}}" class="photo-drafts">
+      <view class="photo-strip">
+        <button wx:for="{{photoReviewItems}}" wx:key="clientPhotoId" wx:for-item="reviewPhoto" class="photo-tile {{selectedReviewPhotoId === reviewPhoto.clientPhotoId && photoReviewExpanded ? 'selected' : ''}}" data-photo-id="{{reviewPhoto.clientPhotoId}}" bindtap="onSelectReviewPhoto" aria-label="查看{{reviewPhoto.numberLabel}}识别内容">
+          <image class="review-thumb" src="{{reviewPhoto.path}}" mode="aspectFill" />
+          <view>{{reviewPhoto.numberLabel}} · {{reviewPhoto.kindLabel}}</view>
+          <view class="photo-review-status">{{reviewPhoto.statusLabel}}</view>
+        </button>
+      </view>
+      <view class="capture-more">
+        <button class="review-link" data-source="camera" data-purpose="box_front" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">补拍药盒</button>
+        <button class="review-link" data-source="camera" data-purpose="leaflet" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">补拍说明书</button>
+        <button class="review-link" bindtap="onChooseCaptureSource" disabled="{{recognizing || submitting || attemptedPayload !== null}}">扫码 / 相册</button>
+      </view>
+      <view class="review-panel" wx:if="{{selectedReviewPhoto && photoReviewExpanded}}">
+        <view class="row"><view class="review-title">{{selectedReviewPhoto.numberLabel}} · {{selectedReviewPhoto.kindLabel}}</view><button class="review-link" bindtap="onPreviewReviewPhoto">查看原图</button></view>
+        <button class="review-link danger" data-photo-id="{{selectedReviewPhoto.clientPhotoId}}" bindtap="onRemoveReviewPhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">移除此照片</button>
+        <view class="field-hint">{{selectedReviewPhoto.statusLabel}}；识别内容请对照原图。</view>
+        <view wx:if="{{selectedReviewPhoto.batchLabel}}" class="field-hint">{{selectedReviewPhoto.batchLabel}}</view>
+        <view wx:for="{{selectedReviewPhoto.fields}}" wx:key="field" wx:for-item="reviewField" class="review-field">
+          <view class="review-field-label">{{reviewField.label}}</view>
+          <text selectable="true">{{reviewField.value}}</text>
+          <button wx:if="{{reviewField.field !== 'leafletText' && reviewField.field !== 'rawOcrText'}}" class="review-link" data-field="{{reviewField.field}}" data-photo-id="{{selectedReviewPhoto.clientPhotoId}}" bindtap="onUsePhotoField" disabled="{{recognizing || submitting || attemptedPayload !== null}}">使用这项</button>
+        </view>
+        <view class="field-hint" wx:if="{{selectedReviewPhoto.fields.length === 0}}">此图没有可展示的识别内容，可重拍或手动填写。</view>
+      </view>
+      <view class="row cover-choice"><view>使用最近的药盒照片作为封面</view><switch disabled="{{attemptedPayload !== null}}" checked="{{usePhotoAsCover}}" bindchange="onCoverChoice" /></view>
+      <view class="field-hint">照片识别只产生待核对内容，保存时照片才进入家庭私有资料。</view>
+      <view class="field-hint" wx:if="{{isEdit}}">本次照片先单独编号；保存后接在已有照片图号之后。</view>
+    </view>
+    <view wx:for="{{reviewConflicts}}" wx:key="field" wx:for-item="conflict" class="conflict-card">
+      <view class="review-title">{{conflict.label}}有不同识别结果</view>
+      <view class="field-hint">请选择一项，或留空后手动填写。</view>
+      <button wx:for="{{conflict.choices}}" wx:key="index" wx:for-item="choice" wx:for-index="choiceIndex" class="conflict-choice" data-field="{{conflict.field}}" data-batch-key="{{conflict.batchKey}}" data-index="{{choiceIndex}}" bindtap="onChooseReviewConflict">{{choice.label}} · {{choice.sourceLabel}}</button>
+      <button class="review-link" data-field="{{conflict.field}}" data-batch-key="{{conflict.batchKey}}" data-index="-1" bindtap="onChooseReviewConflict">暂不记录</button>
+    </view>
     <view class="barcode-info" wx:if="{{scannedBarcode}}">
       <view class="barcode-label">已扫描的码</view>
       <text class="barcode-value" selectable="true">{{scannedBarcode}}</text>
@@ -53,12 +97,12 @@
   </view>
 
   <view class="card">
-    <view class="section-title">药品名称与规格</view>
+    <view class="section-title">药品名称</view>
     <view class="field">
       <view class="field-label">药品名称（唯一必填）</view>
       <input disabled="{{attemptedPayload !== null}}" class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
+      <view class="source-label" wx:if="{{sourceLabels.name}}">{{sourceLabels.name}}</view>
     </view>
-    <view class="field"><view class="field-label">包装规格（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒/盒" /><view class="field-hint">每盒粒数与药效时长不同；这里不代表家中实际余量。</view></view>
   </view>
 
   <view class="card">
@@ -78,6 +122,8 @@
       <view class="field">
         <view class="field-label">有效期至</view>
         <medicine-date-field clearable="{{true}}" allow-precision="{{true}}" disabled="{{attemptedPayload !== null}}" value="{{batch.expiryValue}}" precision="{{batch.precisionIndex === 2 ? 'unknown' : batch.precisionIndex === 1 ? 'month' : 'day'}}" label="选择包装有效期" data-index="{{index}}" bindchange="onExpiryDateChange" />
+        <view class="source-label" wx:if="{{batchSourceLabels[index + '.expiry']}}">{{batchSourceLabels[index + '.expiry']}}</view>
+        <button class="review-link" data-source="camera" data-purpose="expiry" data-batch-index="{{index}}" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">拍摄这份药的有效期</button>
       </view>
       <view class="opening-toggle" data-index="{{index}}" bindtap="onToggleOpeningInfo">{{batch.openingExpanded ? "收起开封信息" : "＋ 开封管理（选填）"}}</view>
       <view wx:if="{{batch.openingExpanded}}">
@@ -118,16 +164,11 @@
   </view>
 
   <view class="card">
-    <view class="section-title">包装品牌与厂家（选填）</view>
-    <view class="field"><view class="field-label">包装品牌（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：芬必得" /></view>
-    <view class="field"><view class="field-label">生产厂家（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /></view>
-  </view>
-
-  <view class="card">
     <view class="row" bindtap="onToggleClassification"><view class="section-title">用途与人群</view><view>{{classificationExpanded ? "收起" : "展开"}}</view></view>
     <view class="field-hint">识别建议可增删；未看清时保持待确认，对照包装或说明书填写。</view>
     <view wx:if="{{classificationExpanded}}">    <view class="field">
       <view class="field-label">适用人群（选填，可多选）</view>
+      <view class="source-label" wx:if="{{sourceLabels.populationTags}}">{{sourceLabels.populationTags}}</view>
       <view class="tag-picker population-picker">
         <view
           wx:for="{{populationChips}}"
@@ -140,6 +181,7 @@
     </view>
     <view class="field">
       <view class="field-label">用途分类（选填，可多选）</view>
+      <view class="source-label" wx:if="{{sourceLabels.purposeTags}}">{{sourceLabels.purposeTags}}</view>
       <view class="tag-picker purpose-picker">
         <view
           wx:for="{{purposeChips}}"
@@ -157,12 +199,14 @@
 
   <view class="card">
     <view class="row" bindtap="onToggleOptional">
-      <view class="section-title">说明书与更多资料（选填）</view>
+      <view class="section-title">包装、成分与说明书（选填）</view>
       <view class="btn-ghost-mini">{{optionalExpanded ? "收起" : "展开"}}</view>
     </view>
-    <view class="btn btn-ghost" data-source="camera" data-purpose="leaflet" bindtap="onRecognizePhoto">拍说明书，识别文字</view>
-    <view class="field-hint" wx:if="{{!optionalExpanded && (approvalNumber || ingredients || leafletPurpose || leafletText)}}">还有已识别的批准文号、成分或说明书资料，请展开核对原图；收起不代表已确认。</view>
+    <view class="field-hint" wx:if="{{!optionalExpanded && (brand || manufacturer || specification || approvalNumber || ingredients || leafletPurpose || leafletUsage || leafletContraindications || leafletPrecautions || leafletText)}}">已有包装或说明书资料，请展开核对；收起不代表已确认。</view>
     <view wx:if="{{optionalExpanded}}">
+      <view class="field"><view class="field-label">包装规格</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒/盒" /><view class="source-label" wx:if="{{sourceLabels.specification}}">{{sourceLabels.specification}}</view><view class="field-hint">包装规格不代表家中实际余量。</view></view>
+      <view class="field"><view class="field-label">包装品牌</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：芬必得" /><view class="source-label" wx:if="{{sourceLabels.brand}}">{{sourceLabels.brand}}</view></view>
+      <view class="field"><view class="field-label">生产厂家</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /><view class="source-label" wx:if="{{sourceLabels.manufacturer}}">{{sourceLabels.manufacturer}}</view></view>
       <view class="field" wx:if="{{leafletText}}"><view class="field-label">说明书识别原文（请核对原图）</view><text class="leaflet-text" selectable="true">{{leafletText}}</text></view>
       <view class="field"><view class="field-label">批准文号</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="approvalNumber" bindinput="onFieldInput" value="{{approvalNumber}}" /></view>
       <view class="field"><view class="field-label">包装码（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="barcodeValue" bindinput="onFieldInput" value="{{barcodeValue}}" placeholder="扫码后会自动保留，可手动修改" /><view class="field-hint">保留包装上的码值；资料查询仅支持8–14位数字商品条码，追溯码不用于此查询。</view></view>
@@ -177,8 +221,8 @@
       <view class="field"><view class="field-label">每包装换算数（确认后填写）</view><input disabled="{{attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="confirmedUnits" bindinput="onBatchFieldInput" value="{{batch.confirmedUnits}}" placeholder="例如：24" /></view>
       </view>
       </view>
-      <view class="field"><view class="field-label">用途摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" /></view>
-      <view class="field"><view class="field-label">说明书用法用量摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" /></view>
+      <view class="field"><view class="field-label">用途摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" /><view class="source-label" wx:if="{{sourceLabels.purposeSummary}}">{{sourceLabels.purposeSummary}}</view></view>
+      <view class="field"><view class="field-label">说明书用法用量摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" /><view class="source-label" wx:if="{{sourceLabels.packageUsageSummary}}">{{sourceLabels.packageUsageSummary}}</view></view>
       <view class="field"><view class="field-label">禁忌摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletContraindications" bindinput="onFieldInput" value="{{leafletContraindications}}" /></view>
       <view class="field"><view class="field-label">注意事项摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPrecautions" bindinput="onFieldInput" value="{{leafletPrecautions}}" /></view>
       <view class="field"><view class="field-label">摘要来源</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="leafletSource" bindinput="onFieldInput" value="{{leafletSource}}" placeholder="例如：包装内说明书" /></view>
@@ -189,7 +233,6 @@
   <view wx:if="{{attemptedPayload !== null}}" class="hint">本次提交内容已锁定，重试仅确认原请求和补传照片；成功后可在药品详情继续修改。</view><view class="save-bar"><view class="btn btn-primary save-action {{submitting || recognizing ? 'disabled' : ''}}" bindtap="onSubmit">
     {{submitting ? "保存中…" : (isEdit ? "保存修改" : "保存药品")}}
   </view>
-  <business-nav embedded="{{true}}" />
   </view>
   <view class="hint footnote">药品资料用于家庭库存管理；识别内容须人工核对，不代表适合服用。</view>
 </view>
@@ -205,3 +248,4 @@
     <view class="btn btn-ghost" data-choice="continue" bindtap="onLeaveChoice">继续编辑</view>
   </view>
 </view>
+</block>

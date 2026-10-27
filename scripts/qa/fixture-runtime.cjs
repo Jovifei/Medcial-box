@@ -195,7 +195,7 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
   api.downloadFile = options => request(options, true);
   // The original transport is intentionally NEVER captured or called: wx.request
   // redirect control is unverified. In-memory dispatch is fail-closed and works offline.
-  const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
+  const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab', 'pageScrollTo', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
   const nativeUi = {};
   for (const name of uiNames) {
     if (typeof native[name] !== 'function') throw new Error('QA unverifiable native UI hook: ' + name);

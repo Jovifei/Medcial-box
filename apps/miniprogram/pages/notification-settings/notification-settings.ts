@@ -111,5 +111,5 @@ Page({
     }
   },
 
-  onOpenPending(): void { wx.switchTab({ url: "/pages/pending/pending" }); },
+  onOpenPending(): void { wx.navigateTo({ url: "/pages/pending/pending" }); },
 });

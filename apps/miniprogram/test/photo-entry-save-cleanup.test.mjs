@@ -4,7 +4,7 @@ import {setImmediate as tick} from 'node:timers/promises';
 import {harness,edit,select,remove} from './photo-queue-test-harness.mjs';
 
 for(const outcome of ['success','failure'])test(`cleanup of another draft during ${outcome} upload retains local association and receipt progress`,async()=>{
-  let unlink,upload;const h=harness({unlink:(o,done)=>{if(o.filePath.includes('photo-200-second'))unlink=done;else done();},upload:result=>new Promise((resolve,reject)=>{upload=()=>outcome==='success'?resolve(result):reject(Error('synthetic upload failure'));})});
+  let unlink,upload;const h=harness({create:result=>({...result,version:1}),evidence:()=>({evidence:null,capabilities:{coverPhotoVersionGuard:true}}),unlink:(o,done)=>{if(o.filePath.includes('photo-200-second'))unlink=done;else done();},upload:result=>new Promise((resolve,reject)=>{upload=()=>outcome==='success'?resolve(result):reject(Error('synthetic upload failure'));})});
   const x=h.draft(),y=h.draft('photo-200-second','cleanup_pending');h.seed([x,y]);h.attach(h.a,[x,y],x.id);h.a.loadPhotoDrafts();await tick();
   h.a.data.usePhotoAsCover=true;const saving=h.a.onSubmit();await tick();assert.equal(h.calls.create,1);assert.equal(h.calls.upload,1);
   unlink();await tick();upload();await saving;
@@ -36,10 +36,11 @@ test('replacing an unsaved null-id batch at the same length must not reassign an
   assert.equal(saved.find(b=>b.lotNumber==='SECOND')?.quantity,'7','quantity edited for deleted FIRST batch must never move onto SECOND');
 });
 
-test("successful manual save retires unfinished photo drafts so the import prompt does not reappear",async()=>{
+test("successful manual save leaves unrelated unfinished photo drafts and originals intact",async()=>{
   const h=harness();const stale=h.draft('photo-300-stale','review');h.seed([stale]);h.attach(h.a,[stale],'');
   edit(h.a,'name','新保存的药品');const saving=h.a.onSubmit();await tick();await tick();await saving;await tick();await tick();
   assert.equal(h.calls.create,1);
-  assert.equal(h.read().length,0,'unfinished drafts must be retired once a save succeeds');
-  assert.equal(h.files.size,0,'retired draft photo files must be cleaned up');
+  assert.equal(h.read().length,1,'an unrelated unfinished draft must remain');
+  assert.equal(h.read()[0].id,'photo-300-stale');
+  assert.equal(h.files.size,1,'an unrelated draft original must not be removed');
 });

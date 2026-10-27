@@ -151,7 +151,11 @@ class ApiMedicineRepository extends ChangeNotifier {
     return medicine;
   }
 
-  Future<MedicineRecord> updateMedicine(MedicineRecord medicine) async {
+  Future<MedicineRecord> updateMedicine(
+    MedicineRecord medicine, {
+    bool Function()? isCurrent,
+  }) async {
+    _requireIntent(isCurrent);
     final session = _session;
     final payload = <String, Object?>{
       'name': medicine.name,
@@ -174,9 +178,12 @@ class ApiMedicineRepository extends ChangeNotifier {
     final json = await api.put(
       '/api/v1/medicines/${medicine.id}',
       payload,
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
     ) as Map<String, dynamic>;
+    _requireIntent(isCurrent);
     final updated = MedicineRecord.fromJson(json);
-    await _upsertMedicine(updated, session: session);
+    await _upsertMedicine(updated, session: session, isCurrent: isCurrent);
     return updated;
   }
 

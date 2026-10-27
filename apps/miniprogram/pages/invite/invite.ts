@@ -149,6 +149,7 @@ Page({
   },
 
   onExitInvite(): void { wx.reLaunch({ url: "/pages/family-entry/family-entry" }); },
+  onReturnCabinet(): void { wx.switchTab({ url: "/pages/index/index" }); },
   onOpenFamily(): void { wx.navigateTo({ url: "/pages/family-settings/family-settings" }); },
 
   onNicknameInput(event: { detail: { value: string } }): void {

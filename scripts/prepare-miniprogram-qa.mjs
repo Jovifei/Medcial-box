@@ -147,6 +147,10 @@ const reviewedSourceTrees = new Set([
   // 4. 修复 R11：调试日志 5 连击后门移至版本说明页静态版本号，不干扰普通菜单点击
   // 原生能力新增 wx.setEnableDebug（用于默认关闭移动端 vConsole，需 5 击激活）。
   'faaafb3e50a7a8c953015e2cd9024c77d7a88ead',
+  // 2026-10-27 双端大修：46 个生产 TS 源文件与组件声明通过静态能力清点；
+  // 仅新增已审的 pageScrollTo 视图滚动钩子，照片文件生命周期指纹不变。
+  // 来源同步、身份失效和草稿恢复经独立复审与合成测试；仅信任此精确树。
+  'df7fdd26a7860fb664f0a7e54dfb256010912d75',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -175,7 +179,7 @@ export function assertReviewedComponents(filename, usingComponents) {
 // explicitly covers base64ToArrayBuffer plus ArrayBuffer open/write/close semantics.
 const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'compressImage', 'chooseMessageFile', 'disableAlertBeforeUnload', 'downloadFile',
   'enableAlertBeforeUnload', 'env', 'getFileSystemManager', 'getMenuButtonBoundingClientRect', 'getStorageSync',
-  'getFileInfo', 'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'previewImage', 'reLaunch',
+  'getFileInfo', 'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'pageScrollTo', 'previewImage', 'reLaunch',
   'redirectTo', 'removeStorageSync', 'request', 'requestSubscribeMessage', 'scanCode', 'setClipboardData',
   'setEnableDebug',
   'setStorageSync', 'shareFileMessage', 'showActionSheet', 'showModal', 'showToast', 'stopPullDownRefresh', 'switchTab']);

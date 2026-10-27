@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="heading"><view class="back" bindtap="onBack">‹ 返回</view><view class="title">照片与资料</view></view>
+  <view class="hint">识别内容来自照片，使用前请核对原包装；用法用量不是个人服药方案。</view>
+  <view class="notice" wx:if="{{evidenceNotice}}">{{evidenceNotice}}</view>
+  <view class="notice" wx:if="{{photoNotice}}">{{photoNotice}}</view>
+  <view class="notice" wx:if="{{syncNotice}}">{{syncNotice}}</view>
+  <view class="pending" wx:if="{{pendingSync}}">
+    <view>来源资料还有待同步的记录，药品和照片的保存状态不受此提示影响。<view wx:if="{{pendingAcknowledged}}">此前请求已提交，但现在的资料已变化；原始请求仍在本机。</view></view>
+    <view><view class="action" bindtap="onRetrySync">{{syncBusy ? '处理中…' : '重试原请求'}}</view><view class="action" bindtap="onReviewRecovery">核对并恢复同步</view></view>
+  </view>
+  <view class="sources" wx:for="{{pendingIntents}}" wx:for-item="intent" wx:key="index">
+    <view class="section-title">{{intent.title}} · 药品版本 {{intent.version}}</view>
+    <view class="hint">这是本机保留的来源意图，需与当前药品和库存核对。</view>
+    <view wx:for="{{intent.photos}}" wx:for-item="pendingPhoto" wx:key="id" class="pending-photo">
+      <view class="photo-heading"><view><view class="photo-title">{{pendingPhoto.numberLabel}}</view><view class="hint">{{pendingPhoto.statusLabel}}</view></view>
+        <view wx:if="{{pendingPhoto.available}}" class="action" data-id="{{pendingPhoto.id}}" bindtap="onPreviewPhoto">查看原图</view><view wx:else class="hint">原图不可查看</view>
+      </view>
+      <view wx:for="{{pendingPhoto.fields}}" wx:for-item="pendingField" wx:key="label" class="field"><text class="field-label">{{pendingField.label}}：</text>{{pendingField.value}}</view>
+      <view wx:for="{{pendingPhoto.warnings}}" wx:for-item="pendingWarning" wx:key="*this" class="warning">{{pendingWarning}}</view>
+    </view>
+    <view wx:for="{{intent.sources}}" wx:for-item="pendingSource" wx:key="index" class="source"><view>{{pendingSource.label}}</view><view class="hint">{{pendingSource.detail}}</view></view>
+  </view>
+  <view class="sources" wx:if="{{recoveryReady}}"><view class="section-title">核对当前资料</view><view class="notice">{{recoveryVersion}}</view>
+    <view wx:for="{{recoveryValues}}" wx:key="index" class="field"><text class="field-label">{{item.label}}：</text>{{item.value}}</view>
+    <view class="action" bindtap="onConfirmRecovery">已核对，确认重新同步</view>
+  </view>
+  <view class="hint" wx:if="{{loading}}">正在读取照片与资料…</view>
+  <view class="hint" wx:if="{{!loading && !photos.length && !photoNotice}}">暂无照片。</view>
+  <view wx:for="{{photos}}" wx:key="id" class="photo-card">
+    <view class="photo-heading"><view><view class="photo-title">{{item.numberLabel}}</view><view class="hint">{{item.statusLabel}}</view></view>
+      <view wx:if="{{item.available}}" class="action" data-id="{{item.id}}" bindtap="onPreviewPhoto">{{photoBusyId === item.id ? '读取中…' : '查看原图'}}</view>
+      <view wx:else class="hint">原图不可查看</view>
+    </view>
+    <view wx:for="{{item.fields}}" wx:for-item="field" wx:key="label" class="field"><text class="field-label">{{field.label}}：</text>{{field.value}}</view>
+    <view wx:for="{{item.warnings}}" wx:for-item="warning" wx:key="*this" class="warning">{{warning}}</view>
+  </view>
+  <view class="sources" wx:if="{{sources.length}}"><view class="section-title">已保存资料的来源</view>
+    <view wx:for="{{sources}}" wx:key="index" class="source"><view>{{item.label}}</view><view class="hint">{{item.detail}}</view></view>
+  </view>
+  <business-nav />
+</view>

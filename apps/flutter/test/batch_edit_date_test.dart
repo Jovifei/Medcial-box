@@ -38,7 +38,8 @@ Future<List<http.Request>> open(WidgetTester tester) async {
 }
 Finder field(String label) => find.byWidgetPredicate((w) => w is TextField && w.decoration?.labelText == label);
 Future<void> tap(WidgetTester tester,String text) async {
-  await tester.ensureVisible(find.text(text).first);
+  await Scrollable.ensureVisible(tester.element(find.text(text).first), alignment: .5);
+  await tester.pumpAndSettle();
   await tester.tap(find.text(text).first);
   await tester.pumpAndSettle();
 }

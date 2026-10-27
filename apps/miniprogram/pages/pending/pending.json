@@ -1,1 +1,1 @@
-{"navigationBarTitleText":"待处理","enablePullDownRefresh":true}
+{"navigationBarTitleText":"需关注","enablePullDownRefresh":true,"usingComponents":{"business-nav":"../../components/business-nav/business-nav"}}

@@ -11,8 +11,9 @@ import '../../models/medicine_models.dart';
 import 'release_notes_page.dart';
 
 class MyPage extends StatefulWidget {
-  const MyPage({super.key, required this.services});
+  const MyPage({super.key, required this.services, this.familyManagementRequest = 0});
   final AppServices services;
+  final int familyManagementRequest;
   @override
   State<MyPage> createState() => _MyPageState();
 }
@@ -43,10 +44,16 @@ class _MyPageState extends State<MyPage> {
     _loadWechatTemplates();
   }
 
-  void _expandSection(ExpansibleController controller, GlobalKey key) {
-    controller.expand();
-    if (key.currentContext != null) {
-      Scrollable.ensureVisible(key.currentContext!);
+  @override
+  void didUpdateWidget(covariant MyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final request = widget.familyManagementRequest;
+    if (request != oldWidget.familyManagementRequest && request > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.familyManagementRequest == request) {
+          familyController.expand();
+        }
+      });
     }
   }
 
@@ -348,31 +355,34 @@ class _MyPageState extends State<MyPage> {
           children: [
             AppCard(
               color: const Color(0xFFE9F1EB),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                key: familyKey,
+                controller: familyController,
+                initiallyExpanded: widget.familyManagementRequest > 0,
+                title: const Text('家庭管理'),
+                subtitle: Text(family?.name ?? '家庭药箱'),
                 children: [
-                  Text(
-                    family?.name ?? '家庭药箱',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.swap_horiz),
+                    title: const Text('切换、创建或加入家庭'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/family-choice'),
                   ),
-                  const SizedBox(height: 4),
-                  Text(family?.role == 'owner' ? '管理员' : '家庭成员'),
-                  TextButton(
-                    onPressed: () => context.push('/family-choice'),
-                    child: const Text('选择或加入其他家庭'),
-                  ),
-                  const SizedBox(height: 10),
                   if (family == null && snapshot.hasError)
                     Text(friendlyApiError(snapshot.error!))
                   else if (snapshot.connectionState != ConnectionState.done)
                     const LinearProgressIndicator()
-                  else
+                  else if (family != null) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(family.role == 'owner' ? '管理员' : '家庭成员'),
+                    ),
                     ExpansionTile(
                       tilePadding: EdgeInsets.zero,
-                      key: familyKey,
-                      controller: familyController,
-                      title: const Text('我的家庭'),
-                      subtitle: Text('${family!.members.length} 位家庭成员'),
+                      title: const Text('家庭成员'),
+                      subtitle: Text('${family.members.length} 位家庭成员'),
                       children: family.members
                           .map(
                             (member) => ListTile(
@@ -392,6 +402,7 @@ class _MyPageState extends State<MyPage> {
                           )
                           .toList(),
                     ),
+                  ],
                   if (family?.role == 'owner') ...[
                     const SizedBox(height: 6),
                     PrimaryButton(
@@ -404,35 +415,32 @@ class _MyPageState extends State<MyPage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('常用入口', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            _EntryGrid(
-              children: [
-                _EntryTile(
-                  title: '我的家庭',
-                  hint: '成员与角色',
-                  icon: Icons.home_outlined,
-                  onTap: () => _expandSection(familyController, familyKey),
-                ),
-                _EntryTile(
-                  title: '照护对象',
-                  hint: '本人、孩子与老人',
-                  icon: Icons.people_outline,
-                  onTap: () => context.push('/care-profiles'),
-                ),
-                _EntryTile(
-                  title: '提醒设置',
-                  hint: '本地通知与时间',
-                  icon: Icons.notifications_outlined,
-                  onTap: () => _expandSection(reminderController, reminderKey),
-                ),
-                _EntryTile(
-                  title: '补货清单',
-                  hint: '需要补充的库存',
-                  icon: Icons.shopping_bag_outlined,
-                  onTap: () => context.push('/restock'),
-                ),
-              ],
+            AppCard(
+              child: ListTile(
+                leading: const Icon(Icons.people_outline),
+                title: const Text('用药的人'),
+                subtitle: const Text('照护对象与权限'),
+                onTap: () => context.push('/care-profiles'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppCard(
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('药箱工具'),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.shopping_bag_outlined),
+                    title: const Text('补货清单'),
+                    onTap: () => context.push('/restock'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.fact_check_outlined),
+                    title: const Text('药箱盘点与频率'),
+                    onTap: () => context.go('/home?tab=pending'),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             AppCard(
@@ -498,35 +506,35 @@ class _MyPageState extends State<MyPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Text('数据管理', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            _EntryGrid(
-              children: [
-                _EntryTile(
-                  title: '导出清单',
-                  hint: 'Markdown / CSV / PDF',
-                  icon: Icons.ios_share_rounded,
-                  onTap: () => context.push('/export'),
-                ),
-                _EntryTile(
-                  title: '备份与恢复',
-                  hint: 'JSON 保存与恢复',
-                  icon: Icons.backup_outlined,
-                  onTap: () => context.push('/export?section=backup'),
-                ),
-                _EntryTile(
-                  title: '最近删除',
-                  hint: '恢复药品与批次',
-                  icon: Icons.delete_outline_rounded,
-                  onTap: () => context.push('/trash'),
-                ),
-                _EntryTile(
-                  title: '变更记录',
-                  hint: '查看家庭修改',
-                  icon: Icons.history_rounded,
-                  onTap: () => context.push('/audit'),
-                ),
-              ],
+            AppCard(
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('数据管理'),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.ios_share_rounded),
+                    title: const Text('导出清单'),
+                    subtitle: const Text('Markdown / CSV / PDF'),
+                    onTap: () => context.push('/export'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.backup_outlined),
+                    title: const Text('备份与恢复'),
+                    subtitle: const Text('JSON 保存与恢复'),
+                    onTap: () => context.push('/export?section=backup'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline_rounded),
+                    title: const Text('最近删除'),
+                    onTap: () => context.push('/trash'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history_rounded),
+                    title: const Text('变更记录'),
+                    onTap: () => context.push('/audit'),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             AppCard(
@@ -565,7 +573,10 @@ class _MyPageState extends State<MyPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Text('其他设置', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '账号与设备 · 版本与帮助',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 10),
             AppCard(
               child: Column(
@@ -662,60 +673,3 @@ class _NicknameFormState extends State<_NicknameForm> {
 
 String _formatDate(String value) =>
     value.length >= 10 ? value.substring(0, 10) : value;
-
-class _EntryGrid extends StatelessWidget {
-  const _EntryGrid({required this.children});
-  final List<Widget> children;
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final width = (constraints.maxWidth - 12) / 2;
-      return Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: children
-            .map((child) => SizedBox(width: width, child: child))
-            .toList(),
-      );
-    },
-  );
-}
-
-class _EntryTile extends StatelessWidget {
-  const _EntryTile({
-    required this.title,
-    required this.hint,
-    required this.icon,
-    required this.onTap,
-  });
-  final String title;
-  final String hint;
-  final IconData icon;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: AppColors.leaf),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              hint,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: AppColors.muted),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}

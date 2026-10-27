@@ -51,7 +51,7 @@ test('cross-SHA, failed prerequisite, rogue client and false device/production c
     assert.throws(()=>assessCandidateReadiness(pair.manifest,pair.receipt));
   }
 });
-test('candidate intake writes a new immutable report and rejects replacing an existing one',async()=>{
+test('candidate intake writes a new immutable report and rejects replacing an existing one',async(t)=>{
   const fs=await import('node:fs/promises');
   const root=await mkdtemp(join(tmpdir(),'medbox-readiness-'));
   try{
@@ -64,8 +64,14 @@ test('candidate intake writes a new immutable report and rejects replacing an ex
     assert.equal(report.releaseAllowed,false);
     assert.equal(JSON.parse(await readFile(outputPath,'utf8')).sourceSha,sha);
     await assert.rejects(writeReadiness({manifestPath,receiptPath,outputPath}),/EEXIST/);
-    const target=join(root,'real.json'),link=join(root,'manifest-link.json');
-    await writeFile(target,JSON.stringify(manifest));await symlink(target,link);
-    await assert.rejects(writeReadiness({manifestPath:link,receiptPath,outputPath:join(root,'never.json')}),/regular JSON/);
+    await t.test('a symlink manifest is rejected when the host permits creating one',async(subtest)=>{
+      const target=join(root,'real.json'),link=join(root,'manifest-link.json');
+      await writeFile(target,JSON.stringify(manifest));
+      try { await symlink(target,link); } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES') { subtest.skip('host does not permit creating a symlink'); return; }
+        throw error;
+      }
+      await assert.rejects(writeReadiness({manifestPath:link,receiptPath,outputPath:join(root,'never.json')}),/regular JSON/);
+    });
   } finally {await fs.rm(root,{recursive:true,force:true});}
 });

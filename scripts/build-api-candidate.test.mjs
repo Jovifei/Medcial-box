@@ -13,7 +13,10 @@ test('candidate build uses exact Git bytes despite a dirty checkout and binds so
     await writeFile(join(root, 'apps/api/db/migrations/001_synthetic.sql'), sql);
     await writeFile(join(root, 'apps/api/Dockerfile'), '# Synthetic build adapter\n');
     const git = args => command('git', args, {cwd: root});
-    await git(['init', '--quiet']); await git(['add', '.']);
+    await git(['init', '--quiet']);
+    // Keep fixture bytes independent of the host's global core.autocrlf setting.
+    await git(['config', 'core.autocrlf', 'false']);
+    await git(['add', '.']);
     await git(['-c', 'user.name=Synthetic Test', '-c', 'user.email=synthetic@example.invalid', 'commit', '-qm', '合成固定源码']);
     const sha = (await git(['rev-parse', 'HEAD'])).stdout.trim();
     const source = await sourceIdentity(root, sha);

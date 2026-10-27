@@ -76,6 +76,12 @@ void main() {
   }
 
   Future<void> gallery(WidgetTester tester) async {
+    final entry = find.text('扫码 / 相册').evaluate().isNotEmpty
+        ? find.text('扫码 / 相册')
+        : find.text('继续补拍');
+    await tester.ensureVisible(entry);
+    await tester.tap(entry);
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('从相册选择'));
     await tester.tap(find.text('从相册选择'));
     await tester.pumpAndSettle();
@@ -189,8 +195,10 @@ void main() {
   }
 
   Future<void> scan(WidgetTester tester, List<Barcode> codes) async {
-    await tester.ensureVisible(find.text('扫码读取药盒编码'));
-    await tester.tap(find.text('扫码读取药盒编码'));
+    await tester.ensureVisible(find.text('扫码 / 相册'));
+    await tester.tap(find.text('扫码 / 相册'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('扫码'));
     await tester.pumpAndSettle();
     tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
       BarcodeCapture(barcodes: codes),

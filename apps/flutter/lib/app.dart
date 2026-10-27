@@ -75,6 +75,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
   @override
   void dispose() {
     activeServices?.reminders.onNotificationTap = null;
+    activeServices?.privateMedicineImages?.dispose();
     notificationTaps?.dispose();
     router?.dispose();
     super.dispose();
@@ -124,10 +125,12 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
               services: services,
               initialTab: switch (state.uri.queryParameters['tab']) {
                 'plans' => 1,
-                'pending' => 2,
-                'my' => 3,
+                'my' => 2,
                 _ => 0,
               },
+              initialAttention: state.uri.queryParameters['tab'] == 'pending',
+              initialFamilyManagement: state.uri.queryParameters['tab'] == 'my' &&
+                  state.uri.queryParameters['section'] == 'family',
             ),
           ),
         ),
@@ -148,6 +151,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
               repository: services.medicines!,
               workflow: services.workflow!,
               medicineId: state.pathParameters['id']!,
+              imageLoader: services.privateMedicineImages,
             ),
           ),
         ),
@@ -158,6 +162,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             LeafletPhotoPage(
               repository: services.workflow!,
               medicineId: state.pathParameters['id']!,
+              onPhotosChanged: services.privateMedicineImages?.invalidatePhotos,
             ),
           ),
         ),

@@ -93,6 +93,7 @@ class _Fixture {
   bool familyMissing = false;
   bool notificationVisible = true;
   List<Map<String, Object?>>? medicines;
+  List<Map<String, Object?>> pending = const [];
 
   Map<String, Object?> get family => {
     'id': 'family-a',
@@ -261,6 +262,8 @@ class _Fixture {
         return _json({'stocktake': null});
       case '/api/v1/notifications/templates':
         return _json({'templates': []});
+      case '/api/v1/notifications/pending':
+        return _json({'items': pending});
       case '/api/v1/care-profiles':
         return _json({
           'careProfiles': [
@@ -334,7 +337,7 @@ void main() {
   });
 
   testWidgets(
-    'My page keeps two-column actions and collapses reminder controls until requested',
+    'My page groups family and tools and keeps reminder controls reachable',
     (tester) async {
       final f = _Fixture();
       await f.accepted();
@@ -343,12 +346,30 @@ void main() {
       GoRouter.of(tester.element(find.byType(ProductionShell)))
           .go('/home?tab=my');
       await _pump(tester);
-      expect(find.text('照护对象'), findsOneWidget);
-      expect(find.text('提醒设置'), findsOneWidget);
-      final care = tester.getTopLeft(find.text('提醒设置'));
-      final nickname = tester.getTopLeft(find.text('补货清单'));
-      expect(care.dy, nickname.dy);
-      expect(care.dx, lessThan(nickname.dx));
+      expect(find.text('用药的人'), findsOneWidget);
+      expect(find.text('家庭管理'), findsOneWidget);
+      expect(find.text('生成邀请'), findsNothing);
+      await tester.tap(find.text('家庭管理'));
+      await _pump(tester);
+      expect(find.text('生成邀请'), findsOneWidget);
+      expect(find.text('切换、创建或加入家庭'), findsOneWidget);
+      await tester.tap(find.text('家庭管理'));
+      await _pump(tester);
+      expect(find.text('生成邀请'), findsNothing);
+      await tester.tap(find.text('用药的人'));
+      await _pump(tester);
+      expect(find.text('照护对象与权限'), findsOneWidget);
+      expect(f.requests.any((request) => request.url.path == '/api/v1/care-profiles'), isTrue);
+      GoRouter.of(tester.element(find.text('照护对象与权限'))).pop();
+      await _pump(tester);
+      await tester.tap(find.text('药箱工具'));
+      await _pump(tester);
+      expect(find.text('补货清单'), findsOneWidget);
+      await tester.tap(find.text('补货清单'));
+      await _pump(tester);
+      expect(f.requests.any((request) => request.url.path == '/api/v1/families/restock'), isTrue);
+      GoRouter.of(tester.element(find.text('补货清单'))).pop();
+      await _pump(tester);
       expect(find.text('开启本地通知'), findsNothing);
       await tester.ensureVisible(
         find.widgetWithText(ExpansionTile, 'Android 本地提醒'),
@@ -391,7 +412,7 @@ void main() {
   );
 
   testWidgets(
-    'home status counters match filters and unknown stock stays separate',
+    'home attention count and status filters keep unknown stock separate',
     (tester) async {
       final f = _Fixture();
       Map<String, Object?> medicine(
@@ -418,43 +439,26 @@ void main() {
         medicine('缺成分', 'normal', missing: true),
         medicine('资料完整', 'normal'),
       ];
+      f.pending = [
+        {'type': 'low_stock', 'medicineId': '低库存'},
+        {'type': 'low_stock', 'medicineId': '用完'},
+        {'type': 'leaflet_missing', 'medicineId': '缺成分'},
+      ];
       await f.accepted();
       await _mount(tester, f);
-      final low = find.text('库存不足').first;
-      final missing = find.text('待补资料').first;
-      final lowBox = find.ancestor(
-        of: low,
-        matching: find.byWidgetPredicate(
-          (w) => w.runtimeType.toString() == '_StatusBox',
-        ),
-      );
-      final missingBox = find.ancestor(
-        of: missing,
-        matching: find.byWidgetPredicate(
-          (w) => w.runtimeType.toString() == '_StatusBox',
-        ),
-      );
-      expect(
-        find.descendant(of: lowBox, matching: find.text('2')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: missingBox, matching: find.text('1')),
-        findsOneWidget,
-      );
-      await tester.tap(low);
+      expect(find.text('需关注 2 种'), findsOneWidget);
+      await tester.tap(find.text('状态 ▾'));
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(FilterChip, '库存不足'));
       await _pump(tester);
       expect(find.text('低库存'), findsOneWidget);
       expect(find.text('用完'), findsOneWidget);
       expect(find.text('数量未知'), findsNothing);
-      await tester.tap(missing);
+      await tester.tap(find.widgetWithText(FilterChip, '待补资料'));
       await _pump(tester);
       expect(find.text('缺成分'), findsOneWidget);
       expect(find.text('资料完整'), findsNothing);
       expect(find.text('低库存'), findsNothing);
-      expect(find.widgetWithText(FilterChip, '数量/日期未知'), findsNothing);
-      await tester.tap(find.text('状态 ▾'));
-      await _pump(tester);
       await tester.tap(find.widgetWithText(FilterChip, '数量/日期未知'));
       await _pump(tester);
       expect(find.text('数量未知'), findsOneWidget);

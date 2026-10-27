@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const paper = Color(0xFFF8FAFC);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const leaf = Color(0xFF047857);
-  static const leafDeep = Color(0xFF065F46);
-  static const mist = Color(0xFFDCFCE7);
-  static const line = Color(0xFFE2E8F0);
+  static const paper = Color(0xFFF7F8F4);
+  static const ink = Color(0xFF203A30);
+  static const muted = Color(0xFF536C60);
+  static const leaf = Color(0xFF24664D);
+  static const leafDeep = Color(0xFF194D3A);
+  static const mist = Color(0xFFE6F0E9);
+  static const line = Color(0xFFD8E2D9);
   static const terracotta = Color(0xFFB91C1C);
   static const amber = Color(0xFFB45309);
 }
@@ -49,13 +49,13 @@ ThemeData get appTheme {
         color: AppColors.ink,
       ),
       titleMedium: TextStyle(
-        fontSize: 17,
+        fontSize: 18,
         height: 1.3,
         fontWeight: FontWeight.w700,
         color: AppColors.ink,
       ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: AppColors.ink),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.45, color: AppColors.muted),
+      bodyMedium: TextStyle(fontSize: 16, height: 1.45, color: AppColors.muted),
       labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
     ),
     appBarTheme: const AppBarTheme(

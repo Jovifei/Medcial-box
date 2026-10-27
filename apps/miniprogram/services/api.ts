@@ -1,7 +1,7 @@
 // 统一网络层：Bearer 令牌注入、统一错误 shape 解析（{ error: { code, message } }）、
 // 401 自动清除本地令牌。所有页面经由本模块访问后端，不直接调用 wx.request。
 import { API_BASE } from "./config";
-import { clearSessionScope, readSessionScope } from "./session-scope";
+import { clearSessionScope, notifySessionChange, readSessionScope } from "./session-scope";
 import type {
   FamilyListResponse,
   SwitchFamilyResponse,
@@ -50,6 +50,8 @@ import type {
   RestoreJsonBackupResponse,
   QuantityUnit,
   LeafletPhotoSummary,
+  RecognitionEvidenceResponse,
+  RecognitionEvidenceSave,
   SplitBatchPayload,
   SplitBatchResponse,
 } from "./api-types";
@@ -92,7 +94,9 @@ export function isCurrentSession(identity: SessionIdentity): boolean {
 /** A new login/logout intent invalidates older callbacks before any async work. */
 export function beginSessionTransition(): SessionIdentity {
   sessionGeneration += 1;
-  return captureSessionIdentity();
+  const identity = captureSessionIdentity();
+  notifySessionChange?.();
+  return identity;
 }
 
 export function staleSessionError(): ApiError {
@@ -113,10 +117,16 @@ export function readToken(): string {
 }
 
 export function storeToken(token: string): void {
+  const previousScope = readSessionScope();
   sessionGeneration += 1;
+  // Let an open form retain its last edits under the still-current old scope
+  // before clearing that scope; the increment already invalidates old requests.
+  if (previousScope !== null) notifySessionChange?.();
   memoryToken = token;
   tokenLoaded = true;
   clearSessionScope();
+  // Clearing an existing scope already notified; a token-only transition still must notify.
+  if (previousScope === null) notifySessionChange?.();
   try {
     if (token === "") {
       wx.removeStorageSync(TOKEN_STORAGE_KEY);
@@ -147,6 +157,7 @@ export function __resetTokenMemoryForTest(): void {
   memoryToken = "";
   tokenLoaded = false;
   sessionGeneration += 1;
+  notifySessionChange?.();
 }
 
 interface RequestOptions {
@@ -206,7 +217,9 @@ export function request<T>(options: RequestOptions): Promise<T> {
     wx.request({
       url: `${API_BASE}${options.path}`,
       method: options.method as unknown as WechatMiniprogram.RequestOption["method"],
-      data: options.payload ?? (options.method === "POST" ? {} : undefined),
+      // WeChat defaults to JSON even when the header is omitted. A bodyless
+      // DELETE would otherwise reach Fastify as invalid empty JSON.
+      data: options.payload ?? (options.method === "POST" ? {} : options.method === "DELETE" ? "{}" : undefined),
       header,
       timeout: options.timeoutMs ?? 10000,
       success: (response) => {
@@ -252,6 +265,13 @@ export const api = {
     return request({ method: "GET", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/leaflet-photos` });
   },
 
+  getRecognitionEvidence(medicineId: string): Promise<RecognitionEvidenceResponse> {
+    return request({ method: "GET", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/recognition-evidence` });
+  },
+  saveRecognitionEvidence(medicineId: string, payload: RecognitionEvidenceSave): Promise<RecognitionEvidenceResponse> {
+    return request({ method: "POST", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/recognition-evidence`, payload: toPayload(payload) });
+  },
+
   uploadLeafletPhoto(
     medicineId: string,
     imageBase64: string,
@@ -269,8 +289,8 @@ export const api = {
     });
   },
 
-  setMedicineCover(medicineId: string, photoId: string | null): Promise<{ coverPhotoId: string | null }> {
-    return request({ method: "POST", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/cover-photo`, payload: { photoId } });
+  setMedicineCover(medicineId: string, photoId: string | null, version?: number): Promise<{ coverPhotoId: string | null; version?: number }> {
+    return request({ method: "POST", path: `/api/v1/medicines/${encodeURIComponent(medicineId)}/cover-photo`, payload: { photoId, ...(version === undefined ? {} : { version }) } });
   },
   downloadLeafletPhoto(medicineId: string, photoId: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
@@ -647,8 +667,17 @@ export const api = {
     return request({ method: "GET", path: "/api/v1/families/audit" });
   },
 
-  createJsonBackup(): Promise<CreateJsonBackupResponse> {
-    return request({ method: "POST", path: "/api/v1/backups/json", payload: {} });
+  async createJsonBackup(options?: { includeRecognitionEvidence?: boolean }): Promise<CreateJsonBackupResponse> {
+    const inventoryOnly = options?.includeRecognitionEvidence === false;
+    const backup = await request<CreateJsonBackupResponse>({ method: "POST", path: "/api/v1/backups/json",
+      payload: inventoryOnly ? { includeRecognitionEvidence: false } : {} });
+    const expected = inventoryOnly ? "inventory_only" : "inventory_and_recognition_evidence";
+    if (!backup || backup.contentScope !== expected || !Array.isArray(backup.medicines) ||
+        (inventoryOnly && (backup.schemaVersion !== 2 || backup.medicines.some(medicine =>
+          medicine === null || typeof medicine !== "object" || Object.hasOwn(medicine, "recognitionEvidence"))))) {
+      throw new ApiError("BACKUP_SCOPE_UNCONFIRMED", "当前服务无法确认所选备份范围，未生成分享文件；请更新服务后重试。", 502);
+    }
+    return backup;
   },
 
   previewJsonBackup(backup: FamilyMedicineBackup): Promise<PreviewJsonBackupResponse> {

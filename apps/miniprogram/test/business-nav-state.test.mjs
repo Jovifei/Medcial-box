@@ -10,8 +10,8 @@ const app = JSON.parse(read("app.json"));
 const route = name => `pages/${name}/${name}`;
 const expected = {
   login: "mine", "family-entry": "mine", index: "index", "family-create": "mine",
-  "medicine-edit": "index", "medicine-detail": "index", "batch-edit": "index",
-  "export-preview": "mine", invite: "mine", pending: "pending", "medication-plans": "plans",
+  "medicine-edit": "index", "medicine-detail": "index", "medicine-photos": "index", "batch-edit": "index",
+  "export-preview": "mine", invite: "mine", pending: "index", "medication-plans": "plans",
   "plan-detail": "plans", "plan-create": "plans", "release-notes": "mine", "care-profiles": "mine",
   mine: "mine", "family-settings": "mine", "app-link": "mine", stocktake: "index", restock: "mine",
   trash: "mine", audit: "mine", "backup-restore": "mine", "notification-settings": "mine", "account-settings": "mine",
@@ -42,8 +42,8 @@ function fixture({ pages = [], dirty = null, confirm = true } = {}) {
     show: () => definition.pageLifetimes.show.call(component), setStack(value) { stack = value; } };
 }
 
-test("all 25 registered routes have explicit direct-entry highlight ownership", () => {
-  assert.equal(app.pages.length, 25);
+test("all 26 registered routes have explicit direct-entry highlight ownership", () => {
+  assert.equal(app.pages.length, 26);
   assert.deepEqual([...app.pages].sort(), Object.keys(expected).map(route).sort());
   for (const [name, tab] of Object.entries(expected)) {
     const f = fixture({ pages: [{ route: route(name) }] });
@@ -53,7 +53,7 @@ test("all 25 registered routes have explicit direct-entry highlight ownership", 
 });
 
 test("subpages retain the nearest primary tab and refresh on every show", () => {
-  const tabs = { index: "index", "medication-plans": "plans", pending: "pending", mine: "mine" };
+  const tabs = { index: "index", "medication-plans": "plans", mine: "mine" };
   const f = fixture();
   f.attach();
   for (const [primary, tab] of Object.entries(tabs)) {
@@ -66,7 +66,7 @@ test("subpages retain the nearest primary tab and refresh on every show", () => 
   f.setStack([{ route: route("mine") }, { route: route("invite") }]); f.show();
   assert.equal(f.component.data.activeTab, "mine");
   f.setStack([{ route: route("pending") }]); f.show();
-  assert.equal(f.component.data.activeTab, "pending");
+  assert.equal(f.component.data.activeTab, "index");
 });
 
 test("empty, unknown and unavailable page stacks fail safely to home", () => {
@@ -114,12 +114,12 @@ test("native and business tabs share legible colors and retain footer structure"
   assert.ok(contrast(normal, "#ffffff") >= 4.5);
   assert.ok(contrast(active, "#ffffff") >= 4.5);
   assert.doesNotMatch(css, /!important/);
-  assert.match(css, /\.business-nav-tab\s*\{[^}]*width:\s*25%[^}]*min-height:\s*96rpx/);
+  assert.match(css, /\.business-nav-tab\s*\{[^}]*width:\s*33\.333%[^}]*min-height:\s*96rpx/);
   assert.match(css, /flex-wrap:\s*nowrap/);
   assert.match(css, /padding-bottom:\s*env\(safe-area-inset-bottom\)/);
   assert.match(css, /\.business-nav-wrapper\s*\{\s*position:\s*fixed/);
   assert.match(css, /\.business-nav-wrapper\.embedded\s*\{\s*position:\s*static/);
   const markup = read("components/business-nav/business-nav.wxml");
-  assert.equal((markup.match(/<button\b/g) ?? []).length, 4);
-  assert.equal((markup.match(/disabled="\{\{busy\}\}"/g) ?? []).length, 4);
+  assert.equal((markup.match(/<button\b/g) ?? []).length, 3);
+  assert.equal((markup.match(/disabled="\{\{busy\}\}"/g) ?? []).length, 3);
 });

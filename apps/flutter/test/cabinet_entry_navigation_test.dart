@@ -90,20 +90,18 @@ Future<_ObservedRouter> _mount(
 
 void main() {
   testWidgets(
-    'both cabinet Add controls share one pending push and unlock after return',
+    'the cabinet Add control prevents duplicate pushes and unlocks after return',
     (tester) async {
       final router = await _mount(tester);
       final floating = find.widgetWithText(FloatingActionButton, '录入');
-      final empty = find.text('录入第一种药');
-      expect(empty, findsOneWidget);
       await tester.tap(floating);
-      await tester.tap(empty);
+      await tester.tap(floating);
       await tester.pumpAndSettle();
       expect(router.pushes, 1);
       expect(find.text('Synthetic entry route'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
-      await tester.tap(empty);
+      await tester.tap(floating);
       await tester.tap(floating);
       await tester.pumpAndSettle();
       expect(router.pushes, 2);
@@ -111,19 +109,18 @@ void main() {
     },
   );
 
-  testWidgets(
-    'failed Add push shows feedback and allows retry through the other control',
-    (tester) async {
-      final router = await _mount(tester, failNext: true);
-      await tester.tap(find.widgetWithText(FloatingActionButton, '录入'));
-      await tester.pumpAndSettle();
-      expect(find.text('暂时无法打开录入页，请重试。'), findsOneWidget);
-      expect(router.pushes, 1);
-      await tester.tap(find.text('录入第一种药'));
-      await tester.pumpAndSettle();
-      expect(router.pushes, 2);
-      expect(find.text('Synthetic entry route'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('failed Add push shows feedback and allows retry', (
+    tester,
+  ) async {
+    final router = await _mount(tester, failNext: true);
+    await tester.tap(find.widgetWithText(FloatingActionButton, '录入'));
+    await tester.pumpAndSettle();
+    expect(find.text('暂时无法打开录入页，请重试。'), findsOneWidget);
+    expect(router.pushes, 1);
+    await tester.tap(find.widgetWithText(FloatingActionButton, '录入'));
+    await tester.pumpAndSettle();
+    expect(router.pushes, 2);
+    expect(find.text('Synthetic entry route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

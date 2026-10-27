@@ -6,6 +6,7 @@ import type {
   ExpiryState,
   MedicationSummary,
   QuantityUnit,
+  PendingNotificationSummary,
 } from "../../services/api-types";
 
 interface CabinetItem {
@@ -45,16 +46,6 @@ interface CabinetItem {
 }
 
 type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted" | "pending";
-
-function isPendingItem(item: CabinetItem): boolean {
-  return !item.isArchived && (
-    item.needsInfo ||
-    item.stockState === "unknown" ||
-    item.state === "unknown" ||
-    item.stockState === "low" ||
-    item.stockState === "exhausted"
-  );
-}
 
 const UNIT_SHORT: Record<QuantityUnit, string> = {
   tablet: "片",
@@ -177,10 +168,9 @@ function chipOptions(base: Array<{ value: string; label: string }>, selected: st
 
 function withDisplayTags(item: CabinetItem): CabinetItem {
   const merged = [
-    ...item.populationTags.map((tag) => ({ kind: `pop-${tag.kind}`, label: tag.label })),
     ...item.purposeTags.map((label) => ({ kind: "purpose", label })),
   ];
-  return { ...item, displayTags: merged.slice(0, 3), extraTagCount: Math.max(0, merged.length - 3) };
+  return { ...item, displayTags: merged.slice(0, 1), extraTagCount: 0 };
 }
 
 interface IndexPageData {
@@ -190,11 +180,16 @@ interface IndexPageData {
   expiringCount: number;
   expiredCount: number;
   pendingCount: number;
+  attentionMedicineCount: number;
+  attentionMedicineIds: string[];
+  attentionStocktake: boolean;
+  attentionUnavailable: boolean;
   lowStockCount: number;
   missingInfoCount: number;
   keyword: string;
   filterKind: CabinetFilter;
   filterLabel: string;
+  filterSummary: string;
   filters: Array<{ id: CabinetFilter; label: string; count: number }>;
   selectedPopulations: string[];
   selectedPurposes: string[];
@@ -210,7 +205,6 @@ interface IndexPageData {
   highlightedId: string;
   savedMessage: string;
   filterPanel: string;
-  entrySheetVisible: boolean;
 }
 
 Page({
@@ -221,11 +215,16 @@ Page({
     expiringCount: 0,
     expiredCount: 0,
     pendingCount: 0,
+    attentionMedicineCount: 0,
+    attentionMedicineIds: [] as string[],
+    attentionStocktake: false,
+    attentionUnavailable: false,
     lowStockCount: 0,
     missingInfoCount: 0,
     keyword: "",
     filterKind: "all" as CabinetFilter,
     filterLabel: "全部",
+    filterSummary: "全部",
     filters: [] as Array<{ id: CabinetFilter; label: string; count: number }>,
     /** 人群多选：空数组 = 不筛选；同维度任一匹配即命中。 */
     selectedPopulations: [] as string[],
@@ -244,7 +243,6 @@ Page({
     highlightedId: "",
     savedMessage: "",
     filterPanel: "",
-    entrySheetVisible: false,
   },
 
   redirecting: false,
@@ -272,8 +270,9 @@ Page({
     this.coverCacheOwner = "";
     this.coverCache = null;
     this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
-      highlightedId: "", savedMessage: "", entrySheetVisible: false,
-      expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+      highlightedId: "", savedMessage: "",
+      expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
+      attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
   },
 
   async refresh(): Promise<void> {
@@ -286,7 +285,8 @@ Page({
       this.coverCacheOwner = "";
       this.coverCache = null;
       this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
-        expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0 });
+        expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
+        attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
     }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity);
     if (readToken() === "") {
@@ -337,6 +337,28 @@ Page({
       }
       this.applyMedicines(list.medicines, family.family.name);
       void this.loadCovers();
+      if (typeof api.getPendingNotifications === "function") {
+        try {
+          const pending = await api.getPendingNotifications();
+          if (!current()) return;
+          this.applyAttention(pending.items);
+        } catch (error) {
+          if (!acceptFailure(error)) return;
+          if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+            this.clearPrivateView();
+            wx.reLaunch({ url: "/pages/login/login" });
+            return;
+          }
+          if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+            this.clearPrivateView();
+            wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+            return;
+          }
+          this.setData({ attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false,
+            pendingCount: 0, attentionUnavailable: true });
+          this.applyFilter();
+        }
+      }
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
@@ -366,9 +388,7 @@ Page({
     this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
     const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted").length;
     const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
-    const pendingCount = currentItems.filter(isPendingItem).length;
     this.setData({
-      pendingCount,
       lowStockCount,
       missingInfoCount,
       filters: [
@@ -390,6 +410,15 @@ Page({
     if (id) this.setData({ highlightedId: id });
     this.applyFilter();
     if (id) this.setData({ savedMessage: this.data.items.some((item) => item.id === id) ? "已添加，药品在下方突出显示；可继续添加或点开查看。" : "已保存，当前筛选未显示；可点击查看，筛选保持原样。" });
+  },
+
+  applyAttention(items: PendingNotificationSummary[]): void {
+    const actionable = items.filter((item) => item.type !== "leaflet_missing");
+    const ids = [...new Set(actionable.map((item) => item.medicineId).filter((id): id is string => typeof id === "string" && id !== ""))];
+    this.setData({ attentionMedicineIds: ids, attentionMedicineCount: ids.length, pendingCount: ids.length,
+      attentionStocktake: actionable.some((item) => item.type === "stocktake_due" && item.medicineId === null),
+      attentionUnavailable: false });
+    this.applyFilter();
   },
 
   /**
@@ -449,6 +478,11 @@ Page({
       expiringCount: 0,
       lowStockCount: 0,
       missingInfoCount: 0,
+      pendingCount: 0,
+      attentionMedicineCount: 0,
+      attentionMedicineIds: [],
+      attentionStocktake: false,
+      attentionUnavailable: false,
       errorMessage: message,
     });
   },
@@ -468,7 +502,7 @@ Page({
         (data.filterKind === "archived" && item.isArchived) ||
         (data.filterKind === "unknown" && (item.stockState === "unknown" || item.state === "unknown")) ||
         (data.filterKind === "exhausted" && item.stockState === "exhausted") ||
-        (data.filterKind === "pending" && isPendingItem(item))) && matchesArchive;
+        (data.filterKind === "pending" && data.attentionMedicineIds.includes(item.id))) && matchesArchive;
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
         item.populationTags.some((tag) => data.selectedPopulations.includes(tag.kind));
@@ -487,8 +521,10 @@ Page({
       return data.sortKey === "deadline_desc" ? -compared : compared;
     });
     const tagFiltersActive = data.selectedPopulations.length > 0 || data.selectedPurposes.length > 0 || data.sortKey !== "deadline_asc";
-    const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "待补资料", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完", pending: "待核对/补资料" };
-    this.setData({ items, filterLabel: labels[data.filterKind], isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
+    const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "资料完善建议", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完", pending: "需关注" };
+    const populations = POPULATION_CHIPS.filter((chip) => data.selectedPopulations.includes(chip.value)).map((chip) => chip.label);
+    const summary = [labels[data.filterKind], ...populations, ...data.selectedPurposes, data.sortLabels[data.sortIndex]].join(" · ");
+    this.setData({ items, filterLabel: labels[data.filterKind], filterSummary: summary, isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
   },
 
   onTogglePopulation(event: { currentTarget: { dataset: { value?: string } } }): void {
@@ -545,7 +581,7 @@ Page({
   },
 
   onClearFilters(): void {
-    this.setData({ keyword: "", filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0 });
+    this.setData({ filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0 });
     this.syncFilterChips();
     this.applyFilter();
   },
@@ -565,35 +601,7 @@ Page({
     wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
   },
 
-  onCloseEntrySheet(): void {
-    this.setData({ entrySheetVisible: false });
-  },
-
-  onSelectEntry(event: { currentTarget: { dataset: { action?: string } } }): void {
-    const action = event.currentTarget.dataset.action;
-    this.setData({ entrySheetVisible: false });
-    if (action === "camera" || action === "album") {
-      wx.navigateTo({ url: `/pages/medicine-edit/medicine-edit?capture=${action}` });
-      return;
-    }
-    if (action === "scan") {
-      wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit?scan=1" });
-      return;
-    }
-    if (action === "manual") wx.navigateTo({ url: "/pages/medicine-edit/medicine-edit" });
-  },
-
-  noop(): void {
-    // 遮罩层阻止触摸事件穿透到底部页面。
-  },
-
-  onTapExport(): void {
-    wx.navigateTo({ url: "/pages/export-preview/export-preview" });
-  },
-
-  onTapInvite(): void {
-    wx.navigateTo({ url: "/pages/invite/invite" });
-  },
+  onOpenAttention(): void { wx.navigateTo({ url: "/pages/pending/pending" }); },
 
   onTapFamily(): void {
     wx.navigateTo({ url: "/pages/family-settings/family-settings" });
