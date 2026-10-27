@@ -318,7 +318,7 @@ test('real generated photo create/upload/cover/detail flow and synthetic cleanup
   const edit = makePageContext(h.page); edit.onLoad({}); await tick(); await edit.onRecognizePhoto('camera');
   edit.setData({ usePhotoAsCover: true }); await edit.onSubmit();
   const medicines = (await api.listMedicines()).medicines;
-  assert.equal(medicines.length, 2); assert.equal(medicines[1].coverPhotoId, 'qa-photo-1');
+  assert.equal(medicines.length, 2); assert.equal(medicines[1].coverPhotoId, '00000000-0000-4000-8000-000000000001');
   assert.equal(edit.data.photoDrafts.length, 0);
   h.load(join(generated.projectRoot, 'pages/medicine-detail/medicine-detail.js'));
   const detail = makePageContext(h.page); detail.onLoad({ id: medicines[1].id }); await detail.refresh();

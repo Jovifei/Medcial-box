@@ -2,6 +2,7 @@
 // MEDICINE_QA_ONLY: pure in-process mock. Never imports a transport or uses real data.
 const ORIGIN = 'http://127.0.0.1:43187';
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+const QA_PHOTO_ID = '00000000-0000-4000-8000-000000000001';
 const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 const routes = [
   ['POST', /^\/api\/v1\/auth\/(wechat|logout)$/],
@@ -18,8 +19,8 @@ const routes = [
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/dosage-notes$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
-  ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/qa-photo-\d+$/],
-  ['DELETE', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/qa-photo-\d+$/],
+  ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/[0-9a-f-]{36}$/],
+  ['DELETE', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/[0-9a-f-]{36}$/],
   ['POST', /^\/api\/v1\/recognitions\/medicine$/],
   ['POST', /^\/api\/v1\/medicine-catalog\/candidates$/],
 ];
@@ -80,7 +81,7 @@ function createMock() {
       if (method === 'GET') return ok({ medicines: db.medicines });
       if (data?.idempotencyKey && db.creates.has(data.idempotencyKey)) return ok(db.creates.get(data.idempotencyKey));
       const saved = medicine('qa-medicine-' + nextMedicine++, data);
-      saved.batches = (data?.batches ?? []).map((batch, index) => ({ ...batch, id: 'qa-batch-' + (index + 1), version: 1,
+      saved.batches = (data?.batches ?? []).map((batch, index) => ({ ...batch, id: index === 0 ? '00000000-0000-4000-8000-000000000002' : `00000000-0000-4000-8000-${String(index + 2).padStart(12, '0')}`, version: 1,
         expiry: batch.expiry ?? { precision: 'unknown', value: null }, expiryState: { state: 'unknown', effectiveDate: null, daysRemaining: null },
         quantity: batch.quantity ?? null, unit: batch.unit ?? 'box', confirmedUnitsPerPackage: null, storageLocation: null }));
       db.medicines.push(saved);
@@ -167,7 +168,7 @@ function createMock() {
           return ok({ photo: prior.photo }, 200);
         }
       }
-      const photo = { id: 'qa-photo-' + nextPhoto++, medicineId: id, mimeType: 'image/png', purpose: data.purpose ?? 'leaflet', source: 'QA synthetic', createdAt: time, byteSize: 68 };
+      const photo = { id: nextPhoto++ === 1 ? QA_PHOTO_ID : `00000000-0000-4000-8000-${String(nextPhoto).padStart(12, '0')}`, medicineId: id, mimeType: 'image/png', purpose: data.purpose ?? 'leaflet', source: 'QA synthetic', createdAt: time, byteSize: 68 };
       db.photos.push(photo);
       if (data.uploadIntentKey) db.photoIntents.set(data.uploadIntentKey, {
         photo, fingerprint: JSON.stringify([id, data.imageBase64, data.mimeType, data.source, data.purpose, data.batchId ?? null]),
