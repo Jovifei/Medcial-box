@@ -151,6 +151,9 @@ const reviewedSourceTrees = new Set([
   // 仅新增已审的 pageScrollTo 视图滚动钩子，照片文件生命周期指纹不变。
   // 来源同步、身份失效和草稿恢复经独立复审与合成测试；仅信任此精确树。
   'df7fdd26a7860fb664f0a7e54dfb256010912d75',
+  // 2026-10-27 候选 1.1.1：识别来源 QA mock、录入低频区收口、首页状态筛选
+  // 渐进展开和保存后照片草稿视图回读；沿用已审 wx/fs/network 能力集合。
+  '53e030a9247e79399416f2ef0ea3f10dba201a91',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
