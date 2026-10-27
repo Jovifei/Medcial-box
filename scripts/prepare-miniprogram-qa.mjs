@@ -154,6 +154,8 @@ const reviewedSourceTrees = new Set([
   // 2026-10-27 候选 1.1.1：识别来源 QA mock、录入低频区收口、首页状态筛选
   // 渐进展开和保存后照片草稿视图回读；沿用已审 wx/fs/network 能力集合。
   '53e030a9247e79399416f2ef0ea3f10dba201a91',
+  // 2026-10-27 候选 1.1.1 版本说明收口：小程序版本说明保持最多三项。
+  'c35059b7a9d0f25ab4f017b43418727887eda084',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
