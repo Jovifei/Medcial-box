@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.0.6";
+export const APP_VERSION = "1.1.1";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,15 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.1.1",
+    date: "2026-10-27",
+    items: [
+      "药箱、用药计划和我的三个入口更清晰，家庭操作集中到家庭管理。",
+      "录入和详情突出照片、库存与有效期，多个识别结果可逐图核对。",
+      "识别后只展开需要核对的资料，低频字段、首页状态筛选和来源备份范围收纳清楚。",
+    ],
+  },
   {
     version: "1.0.6",
     date: "2026-10-25",

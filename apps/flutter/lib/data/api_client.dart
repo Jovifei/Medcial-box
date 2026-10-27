@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:http/http.dart' as http;
 
 import 'session_identity_state.dart';
@@ -140,7 +141,11 @@ class ApiClient {
   }
 
   int identityEpoch = 0;
-  void invalidateIdentity() => identityEpoch++;
+  final ValueNotifier<int> identityEpochSignal = ValueNotifier(0);
+  void invalidateIdentity() {
+    identityEpoch++;
+    identityEpochSignal.value = identityEpoch;
+  }
 
   /// Used only after auth/me explicitly and consistently reports no family.
   /// Shares the error-response cleanup barrier with auth/family transitions.
@@ -195,12 +200,15 @@ class ApiClient {
   Future<ApiBinaryResponse> getBinary(
     String path, {
     bool authenticated = true,
+    bool Function()? isCurrent,
   }) async {
     final response = await _sendRequest(
       'GET',
       path,
       authenticated: authenticated,
       accept: 'image/jpeg, image/png',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
     );
     final decodedError = response.statusCode >= 200 && response.statusCode < 300
         ? null
@@ -247,7 +255,16 @@ class ApiClient {
     responseIsCurrent: responseIsCurrent,
   );
 
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> delete(
+    String path, {
+    bool Function()? isCurrent,
+    bool Function()? responseIsCurrent,
+  }) => _send(
+    'DELETE',
+    path,
+    isCurrent: isCurrent,
+    responseIsCurrent: responseIsCurrent,
+  );
 
   Future<dynamic> _send(
     String method,

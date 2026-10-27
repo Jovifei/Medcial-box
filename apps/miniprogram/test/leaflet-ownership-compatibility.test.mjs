@@ -26,8 +26,11 @@ function fixture({ medicineId = "", choose, failUnlink = false } = {}) {
       "../../services/auth": { ensureLoggedIn: async () => {} },
       "../../services/api": { ApiError: class extends Error {}, api: {
         recognizeMedicine: async (...args) => { calls.recognize.push(args); return { warnings: [], draft: { name: null, specification: null, manufacturer: null, approvalNumber: null, purposeCategory: null } }; },
-        createMedicine: async () => ({ id: "synthetic-saved", batches: [] }),
-        uploadLeafletPhoto: async (...args) => { calls.upload.push(args); return { photo: { id: "synthetic-uploaded" } }; },
+        createMedicine: async () => ({ id: "synthetic-saved", version: 1, batches: [] }),
+        uploadLeafletPhoto: async (...args) => { calls.upload.push(args); return { photo: { id: "11111111-1111-4111-8111-111111111111" } }; },
+        getRecognitionEvidence: async () => ({ evidence: null, capabilities: { coverPhotoVersionGuard: true } }),
+        saveRecognitionEvidence: async (_id, body) => ({ evidence: { ...body, revision: body.revision + 1,
+          currentMedicineVersion: body.medicineVersion, stale: false, photos: body.photos.map(photo => ({ ...photo, available: true })) } }),
       } },
     }, wx: { env: { USER_DATA_PATH: "/synthetic-leaflet-owned" }, getSystemInfoSync: () => ({ SDKVersion: "3.17.3" }),
       getFileSystemManager: () => native, base64ToArrayBuffer: () => new Uint8Array([1, 2, 3, 4]).buffer,

@@ -202,7 +202,7 @@ for (const action of ['create-failure', 'preview-cancel']) {
       chooseMessageFile: options => options.fail({ errMsg: 'synthetic cancel' }),
     });
     f.holdMutation(options => options.success({ statusCode: 200,
-      data: { backupId: 'A-private', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
+      data: { backupId: 'A-private', contentScope: 'inventory_and_recognition_evidence', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
     await page.onCreateBackup();
     assert.match(page.data.backupJson, /A-private/);
     f.setServerFamily('B');
@@ -228,7 +228,7 @@ test('old backup busy cannot block B operation or let its late failure overwrite
   f.transport.beginSessionTransition();
   f.scope.writeSessionScope({ userId: 'synthetic-user', familyId: 'B' });
   f.holdMutation(options => options.success({ statusCode: 200,
-    data: { backupId: 'B-current', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
+    data: { backupId: 'B-current', contentScope: 'inventory_and_recognition_evidence', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
   await page.onCreateBackup();
   oldRequest.success({ statusCode: 500, data: { error: { code: 'UNAVAILABLE', message: 'synthetic A failure' } } });
   await oldOperation;
@@ -279,7 +279,7 @@ test('a late A backup response clears its old export and busy after external B s
   const f = fixture();
   const page = f.pageFor('pages/backup-restore/backup-restore.ts');
   f.holdMutation(options => options.success({ statusCode: 200,
-    data: { backupId: 'A-private-export', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
+    data: { backupId: 'A-private-export', contentScope: 'inventory_and_recognition_evidence', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } }));
   await page.onCreateBackup();
   assert.match(page.data.backupJson, /A-private-export/);
   let oldRequest;
@@ -290,7 +290,7 @@ test('a late A backup response clears its old export and busy after external B s
   f.transport.beginSessionTransition();
   f.scope.writeSessionScope({ userId: 'synthetic-user', familyId: 'B' });
   oldRequest.success({ statusCode: 200,
-    data: { backupId: 'A-late-export', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } });
+    data: { backupId: 'A-late-export', contentScope: 'inventory_and_recognition_evidence', exportedAt: '2026-10-24T00:00:00Z', medicines: [] } });
   await pending;
   assert.equal(page.data.backupJson, '');
   assert.equal(page.data.busy, false);

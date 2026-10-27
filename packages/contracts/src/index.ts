@@ -125,6 +125,71 @@ export interface MedicineRecognitionResponse {
   requiresConfirmation: true;
 }
 
+/** 单张照片的原始识别候选；status 不代表已经由用户核对。 */
+export type RecognitionEvidenceField =
+  | "name" | "brand" | "specification" | "manufacturer" | "approvalNumber"
+  | "barcodeValue" | "activeIngredients" | "purposeCategory" | "lotNumber"
+  | "expiryValue" | "expiryPrecision" | "populationTags" | "purposeTags"
+  | "leafletText" | "rawOcrText" | "purposeSummary" | "packageUsageSummary"
+  | "contraindicationsSummary" | "precautionsSummary";
+
+export interface RecognitionEvidencePhoto {
+  photoId: string;
+  sequence: number;
+  status: "pending" | "recognized" | "failed";
+  fields: Partial<Record<RecognitionEvidenceField, string | string[] | null>>;
+  /** 逐图识别警告，最多 20 条，每条不超过 500 字符。 */
+  warnings?: string[];
+}
+
+export interface RecognitionEvidenceFieldSource {
+  /** removed 表示采用后在上传前移除的原图，不声称仍能查看。 */
+  source: "manual" | "recognized" | "catalog" | "removed";
+  photoIds: string[];
+  reviewed: boolean;
+}
+
+/** 库存来源按批次 ID 绑定；历史无绑定项只可保留或移除。 */
+export interface RecognitionEvidenceBatchSource extends RecognitionEvidenceFieldSource {
+  batchId: string | null;
+  historicalBatchRef?: string;
+  field: "expiry" | "lotNumber";
+}
+
+export interface RecognitionEvidenceDocument {
+  schemaVersion: 1;
+  photos: RecognitionEvidencePhoto[];
+  fieldSources: Partial<Record<RecognitionEvidenceField, RecognitionEvidenceFieldSource>>;
+  batchSources?: RecognitionEvidenceBatchSource[];
+}
+
+export interface RecognitionEvidenceSaveRequest extends RecognitionEvidenceDocument {
+  /** 首次保存为 0；后续使用上次读取的 revision。 */
+  revision: number;
+  medicineVersion: number;
+  idempotencyKey: string;
+}
+
+export interface RecognitionEvidence extends Omit<RecognitionEvidenceDocument, "photos" | "batchSources"> {
+  revision: number;
+  /** 恢复备份后的来源尚未与新药品核对时为 null。 */
+  medicineVersion: number | null;
+  currentMedicineVersion: number;
+  /** true 表示药品已更改、备份尚未核对，或此幂等回执已被新的来源版本取代。 */
+  stale: boolean;
+  photos: Array<RecognitionEvidencePhoto & { available: boolean }>;
+  batchSources?: Array<RecognitionEvidenceBatchSource & { batchAvailable: boolean }>;
+}
+
+export interface RecognitionEvidenceResponse {
+  evidence: RecognitionEvidence | null;
+}
+
+/** GET always includes this explicit capability even when no evidence exists. */
+export interface RecognitionEvidenceReadResponse extends RecognitionEvidenceResponse {
+  capabilities: { coverPhotoVersionGuard: true };
+}
+
 // ---------------------------------------------------------------------------
 // 认证与会话
 // ---------------------------------------------------------------------------
@@ -483,6 +548,18 @@ export interface MedicineLeafletPhotoSummary {
   url: string;
 }
 
+export interface SetMedicineCoverPhotoRequest {
+  photoId: string | null;
+  /** 提供时要求与当前药品版本一致；旧客户端可省略。 */
+  version?: number;
+}
+
+export interface SetMedicineCoverPhotoResponse {
+  coverPhotoId: string | null;
+  /** 此次成功更新后的药品聚合版本。 */
+  version: number;
+}
+
 export interface WechatReminderTemplate {
   templateId: string;
   title: string;
@@ -518,21 +595,42 @@ export interface PendingReminderItem {
 export interface BackupBatchInput extends CreateBatchInput {
   /** 缺省视为 active（旧版备份兼容）；handled 批次恢复后不参与正常库存。 */
   dispositionStatus?: DispositionStatus;
+  /** 本份备份内用于精确重映射来源的批次引用。 */
+  backupBatchRef?: string;
+}
+
+export interface RecognitionEvidenceBackupBatchSource extends RecognitionEvidenceFieldSource {
+  backupBatchRef: string;
+  batchState: "bound" | "removed";
+  field: "expiry" | "lotNumber";
+}
+
+export interface RecognitionEvidenceBackupDocument extends Omit<RecognitionEvidenceDocument, "batchSources"> {
+  batchSources?: RecognitionEvidenceBackupBatchSource[];
 }
 
 export interface BackupMedicineInput extends Omit<CreateMedicineInput, "batches"> {
   isArchived?: boolean;
   batches?: BackupBatchInput[];
+  /** 不含照片原件；恢复后仅保留不可查看的历史来源。 */
+  recognitionEvidence?: RecognitionEvidenceBackupDocument;
 }
 
 export interface FamilyMedicineBackup {
   /** v1：整数数量与旧单位；v2：定点数量（ml 三位小数）与 ml/blister 单位。 */
   schemaVersion: 1 | 2;
+  /** 缺省为旧版备份；新导出明确区分完整来源与仅库存。 */
+  contentScope?: "inventory_only" | "inventory_and_recognition_evidence";
   backupId: string;
   exportedAt: string;
   familyName: string;
   medicines: BackupMedicineInput[];
   inventorySettings: FamilyInventorySettings;
+}
+
+export interface CreateFamilyMedicineBackupRequest {
+  /** 默认包含来源；false 是用户显式选择的仅库存备份。 */
+  includeRecognitionEvidence?: boolean;
 }
 
 export interface BackupPreviewResponse {

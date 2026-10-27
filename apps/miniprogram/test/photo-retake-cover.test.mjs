@@ -20,8 +20,9 @@ function fixture({ loseAck = false, switchDuringUpload = false, failRetake = fal
           if (++calls.recognition === 1 || failRetake) throw new Error("synthetic recognition outage");
           return { draft: {}, warnings: [] };
         },
-        createMedicine: async () => { calls.create++; return { id: "cover-medicine", batches: [{ id: "cover-batch" }] }; },
-        getMedicine: async () => ({ id: "cover-medicine", batches: [{ id: "cover-batch" }] }),
+        createMedicine: async () => { calls.create++; return { id: "cover-medicine", version: 1, batches: [{ id: "cover-batch" }] }; },
+        getMedicine: async () => ({ id: "cover-medicine", version: 1, batches: [{ id: "cover-batch" }] }),
+        getRecognitionEvidence: async () => ({ evidence: null, capabilities: { coverPhotoVersionGuard: true } }),
         uploadLeafletPhoto: async (...args) => {
           calls.uploads.push(args);
           const intent = args[5];
@@ -33,7 +34,7 @@ function fixture({ loseAck = false, switchDuringUpload = false, failRetake = fal
           }
           return { photo: { id: remote.get(intent) } };
         },
-        setMedicineCover: async (...args) => { calls.covers.push(args); },
+        setMedicineCover: async (...args) => { calls.covers.push(args); return { coverPhotoId: args[1], version: args[2] + 1 }; },
       } },
     },
     wx: {
@@ -70,7 +71,7 @@ test("retake uploads both retained photos and uses the latest front only with co
     assert.equal(h.calls.create, 1);
     assert.equal(h.calls.uploads.length, 2);
     assert.deepEqual(h.calls.uploads.map(args => args[4].purpose), ["box_front", "box_front"]);
-    assert.deepEqual(h.calls.covers, enabled ? [["cover-medicine", "uploaded-2"]] : []);
+    assert.deepEqual(h.calls.covers, enabled ? [["cover-medicine", "uploaded-2", 1]] : []);
     assert.equal(h.remote.size, before.photos.length, "both photos remain in the synthetic server");
   }
 });
@@ -87,7 +88,7 @@ test("lost upload ACK retries the same intent and still selects the latest retai
   assert.equal(h.calls.uploads.length, 3);
   assert.equal(h.calls.uploads[0][5], h.calls.uploads[1][5]);
   assert.equal(h.remote.size, 2);
-  assert.deepEqual(h.calls.covers, [["cover-medicine", "uploaded-2"]]);
+  assert.deepEqual(h.calls.covers, [["cover-medicine", "uploaded-2", 1]]);
 });
 
 test("switching family during upload cannot set a cover or copy receipts to the new family", async () => {

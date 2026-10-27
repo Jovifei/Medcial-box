@@ -5,8 +5,8 @@
    - 8rpx 网格：卡片圆角 24rpx，控件圆角 16rpx，标准间距 16rpx / 24rpx / 32rpx
 */
 page {
-  background: #f5f7f4;
-  color: #24352c;
+  background: #f8fafc;
+  color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 30rpx;
   line-height: 1.5;
@@ -15,9 +15,10 @@ page {
 .card {
   margin-bottom: 24rpx;
   padding: 24rpx;
-  border: 1rpx solid #e9ede8;
+  border: 1rpx solid #e2e8f0;
   border-radius: 24rpx;
-  background: #fff;
+  background: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.03);
   box-sizing: border-box;
 }
 
@@ -26,7 +27,7 @@ page {
   font-size: 36rpx;
   font-weight: 650;
   line-height: 1.4;
-  color: #24352c;
+  color: #0f172a;
   text-align: left;
 }
 
@@ -36,7 +37,7 @@ page {
 
 .field-label {
   margin-bottom: 12rpx;
-  color: #52685c;
+  color: #334155;
   font-size: 26rpx;
   font-weight: 600;
   line-height: 1.5;
@@ -45,7 +46,7 @@ page {
 
 .field-hint {
   margin-top: 8rpx;
-  color: #52685c;
+  color: #64748b;
   font-size: 26rpx;
   line-height: 1.5;
   text-align: left;
@@ -57,12 +58,12 @@ page {
   box-sizing: border-box;
   min-height: 88rpx;
   padding: 20rpx 24rpx;
-  border: 1rpx solid #dfe5df;
+  border: 1rpx solid #cbd5e1;
   border-radius: 16rpx;
-  background: #fbfcfb;
+  background: #ffffff;
   font-size: 30rpx;
   line-height: 1.45;
-  color: #24352c;
+  color: #0f172a;
   text-align: left;
 }
 
@@ -74,10 +75,10 @@ page {
   min-height: 88rpx;
   box-sizing: border-box;
   padding: 20rpx 24rpx;
-  border: 1rpx solid #dfe5df;
+  border: 1rpx solid #cbd5e1;
   border-radius: 16rpx;
-  background: #fbfcfb;
-  color: #24352c;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 30rpx;
   line-height: 1.45;
   text-align: left;
@@ -99,20 +100,21 @@ page {
 }
 
 .btn-primary {
-  background: #3f7d5c;
+  background: #047857;
   color: #fff;
+  box-shadow: 0 4rpx 12rpx rgba(4, 120, 87, 0.2);
 }
 
 .btn-ghost {
-  border: 1rpx solid #c8d4ca;
+  border: 1rpx solid #cbd5e1;
   background: #fff;
-  color: #3f7d5c;
+  color: #047857;
 }
 
 .btn-danger {
-  border: 1rpx solid #e3c1b5;
-  background: #fff7f4;
-  color: #a45437;
+  border: 1rpx solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .btn[disabled] {
@@ -131,32 +133,32 @@ page {
 }
 
 .badge-expired {
-  background: #f7e3da;
-  color: #a45437;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .badge-due {
-  background: #f9ecd7;
-  color: #9a6b21;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .badge-soon {
-  background: #f9ecd7;
-  color: #9a6b21;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .badge-ok {
-  background: #e2efe6;
-  color: #3f7d5c;
+  background: #ecfdf5;
+  color: #065f46;
 }
 
 .badge-unknown {
-  background: #edf0ec;
-  color: #778279;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .hint {
-  color: #52685c;
+  color: #64748b;
   font-size: 26rpx;
   line-height: 1.5;
   text-align: left;

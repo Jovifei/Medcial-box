@@ -19,7 +19,7 @@ const dangerous = ['getStorageSync', 'setStorageSync', 'removeStorageSync', 'cle
   'connectSocket', 'login', 'checkSession', 'chooseMedia', 'compressImage', 'getFileInfo', 'chooseImage', 'scanCode', 'previewImage', 'setClipboardData',
   'shareFileMessage', 'chooseMessageFile', 'requestSubscribeMessage', 'getUpdateManager', 'base64ToArrayBuffer'];
 const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab',
-  'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu'];
+  'pageScrollTo', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
 function harness({ project, mutateNative, mockOverride } = {}) {
   const counts = {};
   const uiCalls = [];
@@ -151,6 +151,16 @@ test('non-synthetic file path, cloud API and unverified hook installation are fa
   const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.cloud.callFunction(), /unknown cloud/); assertNoOriginals(h);
   const bad = harness({ mutateNative: native => { delete native.showModal; } });
   assert.throws(() => bad.install(), /unverifiable native UI hook/); assert.throws(() => bad.runtime.bindings(), /before every product module/); assertNoOriginals(bad);
+});
+
+test('reviewed page scrolling remains a UI-only hook and missing support fails closed', () => {
+  const h = harness(); h.install();
+  h.runtime.bindings().wx.pageScrollTo({ selector: '#more-actions', duration: 200 });
+  assert.equal(h.uiCalls.at(-1).name, 'pageScrollTo');
+  assert.equal(h.uiCalls.at(-1).options.selector, '#more-actions');
+  assertNoOriginals(h);
+  const missing = harness({ mutateNative: native => { delete native.pageScrollTo; } });
+  assert.throws(() => missing.install(), /unverifiable native UI hook/);
 });
 
 test('redirect response is rejected without any native request being invoked', async () => {
@@ -308,7 +318,7 @@ test('real generated photo create/upload/cover/detail flow and synthetic cleanup
   const edit = makePageContext(h.page); edit.onLoad({}); await tick(); await edit.onRecognizePhoto('camera');
   edit.setData({ usePhotoAsCover: true }); await edit.onSubmit();
   const medicines = (await api.listMedicines()).medicines;
-  assert.equal(medicines.length, 2); assert.equal(medicines[1].coverPhotoId, 'qa-photo-1');
+  assert.equal(medicines.length, 2); assert.equal(medicines[1].coverPhotoId, '00000000-0000-4000-8000-000000000001');
   assert.equal(edit.data.photoDrafts.length, 0);
   h.load(join(generated.projectRoot, 'pages/medicine-detail/medicine-detail.js'));
   const detail = makePageContext(h.page); detail.onLoad({ id: medicines[1].id }); await detail.refresh();

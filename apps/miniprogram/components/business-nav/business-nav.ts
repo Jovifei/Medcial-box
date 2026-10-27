@@ -1,19 +1,20 @@
 import { peekDirtyDraft } from "../../services/draft-guard";
 
-type Tab = "index" | "plans" | "pending" | "mine";
+type Tab = "index" | "plans" | "mine";
 const PRIMARY_TABS: Record<string, Tab> = {
   "pages/index/index": "index",
   "pages/medication-plans/medication-plans": "plans",
-  "pages/pending/pending": "pending",
   "pages/mine/mine": "mine",
 };
 const ROUTE_TABS: Record<string, Tab> = {
   ...PRIMARY_TABS,
+  "pages/pending/pending": "index",
   "pages/login/login": "mine",
   "pages/family-entry/family-entry": "mine",
   "pages/family-create/family-create": "mine",
   "pages/medicine-edit/medicine-edit": "index",
   "pages/medicine-detail/medicine-detail": "index",
+  "pages/medicine-photos/medicine-photos": "index",
   "pages/batch-edit/batch-edit": "index",
   "pages/export-preview/export-preview": "mine",
   "pages/invite/invite": "mine",

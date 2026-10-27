@@ -6,6 +6,7 @@
     "pages/family-create/family-create",
     "pages/medicine-edit/medicine-edit",
     "pages/medicine-detail/medicine-detail",
+    "pages/medicine-photos/medicine-photos",
     "pages/batch-edit/batch-edit",
     "pages/export-preview/export-preview",
     "pages/invite/invite",
@@ -45,10 +46,6 @@
       {
         "pagePath": "pages/medication-plans/medication-plans",
         "text": "用药计划"
-      },
-      {
-        "pagePath": "pages/pending/pending",
-        "text": "待处理"
       },
       {
         "pagePath": "pages/mine/mine",

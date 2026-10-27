@@ -4,19 +4,6 @@
     <view class="view-tab {{view === 'all' ? 'active' : ''}}" data-view="all" bindtap="onSwitchView">全部计划</view>
   </view>
 
-  <view class="card reminder-card">
-    <view class="section-title">服药提醒</view>
-    <view class="hint">{{reminderReason}}</view>
-    <view class="reminder-actions" wx:if="{{reminderAvailable}}">
-      <view class="action-btn primary" bindtap="onSubscribeDoseReminder">{{reminderSubscribing ? "等待授权…" : "订阅服药提醒"}}</view>
-    </view>
-    <view class="hint" wx:if="{{reminderStatusText !== ''}}">{{reminderStatusText}}</view>
-    <view class="delivery-row" wx:for="{{deliveries}}" wx:key="date">
-      <view class="delivery-when">{{item.date}} {{item.time}}</view>
-      <view class="delivery-status {{item.status}}">{{item.statusLabel}}</view>
-    </view>
-  </view>
-
   <view class="card error-card" wx:if="{{errorMessage !== ''}}">
     <view class="section-title">暂时无法加载</view>
     <view class="hint">{{errorMessage}}</view>
@@ -100,6 +87,20 @@
     </view>
   </block>
 
+  <view class="card reminder-card">
+    <view class="section-title" bindtap="onToggleReminder">服药提醒与送达状态 {{reminderExpanded ? '收起' : '展开'}}</view>
+    <block wx:if="{{reminderExpanded}}">
+      <view class="hint">{{reminderReason}}</view>
+      <view class="reminder-actions" wx:if="{{reminderAvailable}}">
+        <view class="action-btn primary" bindtap="onSubscribeDoseReminder">{{reminderSubscribing ? "等待授权…" : "订阅服药提醒"}}</view>
+      </view>
+      <view class="hint" wx:if="{{reminderStatusText !== ''}}">{{reminderStatusText}}</view>
+      <view class="delivery-row" wx:for="{{deliveries}}" wx:key="date">
+        <view class="delivery-when">{{item.date}} {{item.time}}</view>
+        <view class="delivery-status {{item.status}}">{{item.statusLabel}}</view>
+      </view>
+    </block>
+  </view>
   <view class="safety-note">服药记录只用于家庭提醒整理，不自动扣减库存，也不替代医嘱。</view>
   <view class="bottom-spacer"></view>
   <view class="floating-add" bindtap="onOpenCreateForm">＋ 创建计划</view>

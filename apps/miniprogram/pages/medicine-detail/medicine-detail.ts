@@ -1,4 +1,4 @@
-import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
+import { PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import {
@@ -74,6 +74,10 @@ interface MedicineDetailPageData {
   /** 人群/用途整理标签（R2-d）：kind 决定配色，蓝=成人、绿=儿童、紫=用途。 */
   displayTags: Array<{ kind: string; label: string }>;
   metaText: string;
+  brandText: string;
+  manufacturerText: string;
+  leafletUsage: string;
+  leafletPurpose: string;
   leafletText: string;
   leafletBadge: string;
   leafletPhotos: LeafletPhotoView[];
@@ -83,6 +87,8 @@ interface MedicineDetailPageData {
   coverPhotoError: string;
   /** 折叠区域（方案 §5.6）：说明书与来源、个人备注、低库存设置。 */
   sections: { leaflet: boolean; notes: boolean; stock: boolean };
+  /** 更多操作折叠（UI重构：归档、删除、变更记录、导出）。 */
+  moreExpanded: boolean;
   photoLoading: boolean;
   photoUploading: boolean;
   photoBusyId: string;
@@ -159,9 +165,6 @@ function toBatchView(batch: MedicationBatchSummary): BatchView {
 
 function leafletDescription(medicine: MedicationSummary): { text: string; badge: string } {
   const leaflet = medicine.leaflet;
-  if (leaflet.reviewStatus === "unverified") {
-    return { text: "说明书摘要未核验：未对照包装内说明书前，不作为用药依据。", badge: "未核验" };
-  }
   const parts: string[] = [];
   const push = (title: string, value: string | null): void => {
     if (value !== null && value !== "") parts.push(`${title}：${value}`);
@@ -171,8 +174,9 @@ function leafletDescription(medicine: MedicationSummary): { text: string; badge:
   push("禁忌", leaflet.contraindicationsSummary);
   push("注意事项", leaflet.precautionsSummary);
   const source = leaflet.source === null ? "" : `（来源：${leaflet.source}）`;
-  const status = leaflet.reviewStatus === "user_confirmed" ? "本人已核对" : "资料匹配";
-  const text = parts.length === 0 ? "已核对，暂无摘要内容。" : `${status}${source}：${parts.join("；")}`;
+  const status = leaflet.reviewStatus === "unverified" ? "未核验" : leaflet.reviewStatus === "user_confirmed" ? "本人已核对" : "资料匹配";
+  const summary = parts.length === 0 ? "暂无摘要内容。" : `${parts.join("；")}。`;
+  const text = `${status}${source}：${summary}${leaflet.reviewStatus === "unverified" ? "未对照实物说明书前，不作为用药依据。" : "具体以实物说明书及医生或药师指导为准。"}`;
   return { text, badge: status };
 }
 
@@ -235,6 +239,10 @@ Page({
     specText: "",
     displayTags: [] as Array<{ kind: string; label: string }>,
     metaText: "",
+    brandText: "",
+    manufacturerText: "",
+    leafletUsage: "",
+    leafletPurpose: "",
     leafletText: "",
     leafletBadge: "",
     leafletPhotos: [] as LeafletPhotoView[],
@@ -242,6 +250,7 @@ Page({
     coverPhotoLoading: false,
     coverPhotoError: "",
     sections: { leaflet: false, notes: false, stock: false },
+    moreExpanded: false,
     photoLoading: false,
     photoUploading: false,
     photoBusyId: "",
@@ -290,9 +299,10 @@ Page({
   displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   displayedMedicineId: "",
   photoSeq: 0,
+  photoActionSeq: 0,
   coverSeq: 0,
   onHide(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
-  onUnload(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
+  onUnload(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; },
   onShow(): void {
     if ((this.data as MedicineDetailPageData).medicineId !== "") {
       void this.refresh();
@@ -300,12 +310,13 @@ Page({
   },
 
   clearPrivateView(): void {
-    ++this.photoSeq; ++this.coverSeq;
+    ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq;
     this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
       leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
       notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
       coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
-      coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "",
+      coverPhotoLoading: false, photoStatus: "", photoUploading: false, photoBusyId: "", openingSplitBatchId: "", openingSplitPreview: "",
+      brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "",
       loading: false });
   },
 
@@ -318,12 +329,14 @@ Page({
         this.displayedMedicineId !== medicineId) {
       this.displayedIdentity = identity;
       this.displayedMedicineId = medicineId;
+      ++this.photoActionSeq;
       // 已离开原家庭或已换药品：清理旧详情在内存中的完整展示投影，不动原数据。
       this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
         leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
         notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
         coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
-        coverPhotoLoading: false, photoStatus: "", openingSplitBatchId: "", openingSplitPreview: "" });
+        coverPhotoLoading: false, photoStatus: "", photoUploading: false, photoBusyId: "", openingSplitBatchId: "", openingSplitPreview: "",
+        brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "" });
     }
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;
@@ -366,13 +379,10 @@ Page({
 
   applyData(medicine: MedicationSummary, notes: DosageNoteSummary[]): void {
     const metaParts: string[] = [];
-    if (medicine.brand) metaParts.push(`品牌：${medicine.brand}`);
-    if (medicine.manufacturer !== null) metaParts.push(`厂家：${medicine.manufacturer}`);
     if (medicine.approvalNumber !== null) metaParts.push(`批准文号：${medicine.approvalNumber}`);
     if (medicine.activeIngredients.length > 0) {
       metaParts.push(`成分：${medicine.activeIngredients.join("、")}`);
     }
-    if (medicine.purposeCategory !== null) metaParts.push(`用途分类：${purposeCategoryLabel(medicine.purposeCategory)}`);
     const leaflet = leafletDescription(medicine);
     const threshold = medicine.lowStockThreshold ?? null;
     const stockLabel: Record<string, string> = {
@@ -386,6 +396,10 @@ Page({
       name: medicine.name,
       specText: medicine.specification ?? "规格未记录",
       displayTags: buildDisplayTags(medicine),
+      brandText: medicine.brand ? `品牌：${medicine.brand}` : "",
+      manufacturerText: medicine.manufacturer ? `厂家：${medicine.manufacturer}` : "",
+      leafletUsage: medicine.leaflet.packageUsageSummary ?? "",
+      leafletPurpose: medicine.leaflet.purposeSummary ?? "",
       metaText: metaParts.length === 0 ? "暂无补充资料" : metaParts.join("；"),
       leafletText: leaflet.text,
       leafletBadge: leaflet.badge,
@@ -422,6 +436,20 @@ Page({
     }
   },
 
+  onPreviewCover(): void {
+    const data = this.data as MedicineDetailPageData;
+    const path = data.coverPhotoPath;
+    if (!path || this.displayedIdentity === null) return;
+    if (this.displayedMedicineId !== data.medicineId || !isCurrentSession(this.displayedIdentity)) { this.clearPrivateView(); return; }
+    wx.previewImage({ current: path, urls: [path] });
+  },
+
+  photoActionMatchesView(medicineId: string): boolean {
+    if (this.displayedIdentity === null || (this.displayedMedicineId === medicineId && isCurrentSession(this.displayedIdentity))) return true;
+    this.clearPrivateView();
+    return false;
+  },
+
   /**
    * 药盒封面：私有图片接口需要 Bearer 鉴权，<image> 无法直接带 header，
    * 因此用 wx.downloadFile 带授权头下载到本地临时文件再展示；
@@ -456,6 +484,12 @@ Page({
   async onAddLeafletPhoto(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
     if (data.medicineId === "" || data.photoUploading || data.photoBusyId !== "") return;
+    if (!this.photoActionMatchesView(data.medicineId)) return;
+    const medicineId = data.medicineId;
+    const identity = captureSessionIdentity();
+    const actionSeq = ++this.photoActionSeq;
+    const current = (): boolean => actionSeq === this.photoActionSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
     const mediaApi = wx as unknown as {
       showActionSheet?: (options: { itemList: string[]; success: (result: { tapIndex: number }) => void; fail: (error: unknown) => void }) => void;
       chooseMedia?: (options: { count: number; mediaType: string[]; sourceType: string[]; sizeType: string[]; success: (result: { tempFiles: Array<{ tempFilePath: string; size: number }> }) => void; fail: (error: unknown) => void }) => void;
@@ -471,6 +505,7 @@ Page({
         success: (result) => resolve(result.tapIndex),
         fail: () => resolve(null),
       }));
+      if (!current()) return;
       if (sourceIndex === null) return;
       if (sourceIndex !== 0 && sourceIndex !== 1) return;
       const source = sourceIndex === 0 ? "camera" : "album";
@@ -482,6 +517,7 @@ Page({
         success: resolve,
         fail: reject,
       }));
+      if (!current()) return;
       const file = selection.tempFiles[0];
       if (!file) {
         this.setData({ photoStatus: "没有选择照片；图片未上传。" });
@@ -497,6 +533,7 @@ Page({
         success: (result) => resolve(String(result.data)),
         fail: reject,
       }));
+      if (!current()) return;
       const mimeType = imageBase64.startsWith("/9j/") ? "image/jpeg" :
         imageBase64.startsWith("iVBORw0KGgo") ? "image/png" : null;
       if (mimeType === null) {
@@ -512,16 +549,20 @@ Page({
         success: (result) => resolve(result.confirm),
         fail: () => resolve(false),
       }));
+      if (!current()) return;
       if (!confirmed) {
         this.setData({ photoStatus: "已取消上传；照片仍只在本机，未上传。" });
         return;
       }
       this.setData({ photoStatus: "正在上传说明书照片到家庭私有图片空间…" });
-      await ensureLoggedIn();
-      await api.uploadLeafletPhoto(data.medicineId, imageBase64, mimeType, "package_leaflet");
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
+      await api.uploadLeafletPhoto(medicineId, imageBase64, mimeType, "package_leaflet");
+      if (!current()) return;
       this.setData({ photoStatus: "说明书照片已保存到家庭私有图片空间。" });
       await this.refreshLeafletPhotos();
     } catch (error) {
+      if (!current()) return;
       if (isUserCancelled(error)) {
         this.setData({ photoStatus: "已取消选择；照片未上传。" });
         return;
@@ -529,7 +570,8 @@ Page({
       const message = error instanceof ApiError ? error.message : "说明书照片上传失败，请稍后重试。";
       this.setData({ photoError: message, photoStatus: "" });
     } finally {
-      this.setData({ photoUploading: false });
+      if (current()) this.setData({ photoUploading: false });
+      else if (actionSeq === this.photoActionSeq && !isCurrentSession(identity) && (this.data as MedicineDetailPageData).medicineId === medicineId) this.clearPrivateView();
     }
   },
 
@@ -537,10 +579,18 @@ Page({
     const photoId = event.currentTarget.dataset.id;
     const data = this.data as MedicineDetailPageData;
     if (!photoId || data.photoBusyId !== "" || data.photoUploading) return;
+    if (!this.photoActionMatchesView(data.medicineId)) return;
+    const medicineId = data.medicineId;
+    const identity = captureSessionIdentity();
+    const actionSeq = ++this.photoActionSeq;
+    const current = (): boolean => actionSeq === this.photoActionSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
     this.setData({ photoBusyId: photoId, photoError: "" });
     try {
-      await ensureLoggedIn();
-      const localPath = await api.downloadLeafletPhoto(data.medicineId, photoId);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
+      const localPath = await api.downloadLeafletPhoto(medicineId, photoId);
+      if (!current()) return;
       await new Promise<void>((resolve, reject) => wx.previewImage({
         current: localPath,
         urls: [localPath],
@@ -548,10 +598,12 @@ Page({
         fail: reject,
       }));
     } catch (error) {
+      if (!current()) return;
       if (isUserCancelled(error)) return;
       this.setData({ photoError: error instanceof ApiError ? error.message : "说明书照片预览失败，请重试。" });
     } finally {
-      this.setData({ photoBusyId: "" });
+      if (current()) this.setData({ photoBusyId: "" });
+      else if (actionSeq === this.photoActionSeq && !isCurrentSession(identity) && (this.data as MedicineDetailPageData).medicineId === medicineId) this.clearPrivateView();
     }
   },
 
@@ -560,23 +612,36 @@ Page({
     const data = this.data as MedicineDetailPageData;
     const photo = data.leafletPhotos.find((item) => item.id === photoId);
     if (!photoId || photo === undefined || data.photoBusyId !== "" || data.photoUploading) return;
+    if (!this.photoActionMatchesView(data.medicineId)) return;
+    const medicineId = data.medicineId;
+    const identity = captureSessionIdentity();
+    const actionSeq = ++this.photoActionSeq;
+    const current = (): boolean => actionSeq === this.photoActionSeq && isCurrentSession(identity) &&
+      (this.data as MedicineDetailPageData).medicineId === medicineId;
     const confirmed = await new Promise<boolean>((resolve) => wx.showModal({
       title: "移除说明书照片",
-      content: "照片将从家庭可见列表中移除，不会删除药品或库存记录。确定移除？",
+      content: "移除后已保存的资料和库存保留，但这张原图将不可查看。确定移除？",
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
+    if (!current()) {
+      if (actionSeq === this.photoActionSeq && !isCurrentSession(identity) && (this.data as MedicineDetailPageData).medicineId === medicineId) this.clearPrivateView();
+      return;
+    }
     if (!confirmed) return;
     this.setData({ photoBusyId: photoId, photoError: "" });
     try {
-      await ensureLoggedIn();
-      await api.deleteLeafletPhoto(data.medicineId, photoId);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
+      await api.deleteLeafletPhoto(medicineId, photoId);
+      if (!current()) return;
       this.setData({ photoStatus: "说明书照片已移除。" });
       await this.refreshLeafletPhotos();
     } catch (error) {
-      this.setData({ photoError: error instanceof ApiError ? error.message : "说明书照片移除失败，请重试。" });
+      if (current()) this.setData({ photoError: error instanceof ApiError ? error.message : "说明书照片移除失败，请重试。" });
     } finally {
-      this.setData({ photoBusyId: "" });
+      if (current()) this.setData({ photoBusyId: "" });
+      else if (actionSeq === this.photoActionSeq && !isCurrentSession(identity) && (this.data as MedicineDetailPageData).medicineId === medicineId) this.clearPrivateView();
     }
   },
 
@@ -880,6 +945,11 @@ Page({
     wx.navigateTo({ url: `/pages/medicine-edit/medicine-edit?id=${id}` });
   },
 
+  onTapMedicinePhotos(): void {
+    const id = (this.data as MedicineDetailPageData).medicineId;
+    if (id) wx.navigateTo({ url: `/pages/medicine-photos/medicine-photos?id=${encodeURIComponent(id)}` });
+  },
+
   onTapAddBatch(): void {
     const id = (this.data as MedicineDetailPageData).medicineId;
     wx.navigateTo({ url: `/pages/batch-edit/batch-edit?medicineId=${id}` });
@@ -932,6 +1002,13 @@ Page({
     if (section !== "leaflet" && section !== "notes" && section !== "stock") return;
     const sections = (this.data as MedicineDetailPageData).sections;
     this.setData({ [`sections.${section}`]: !sections[section] });
+  },
+
+  onToggleMore(): void {
+    const expanded = !this.data.moreExpanded;
+    this.setData({ moreExpanded: expanded }, () => {
+      if (expanded && typeof wx.pageScrollTo === "function") wx.pageScrollTo({ selector: "#more-actions", duration: 200 });
+    });
   },
 
   async onDeleteMedicine(): Promise<void> {

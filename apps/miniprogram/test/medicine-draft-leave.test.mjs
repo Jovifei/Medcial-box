@@ -165,12 +165,15 @@ for (const [label, changedScope] of [
     choose(f.page, "keep");
     f.page.onHide();
     assert.equal(f.page.data.isDirty, true);
-    assert.equal(f.page.data.leaveSheetVisible, true);
+    assert.equal(f.page.data.scopeInvalidated, true);
+    assert.equal(f.page.data.leaveSheetVisible, false, "old family choices are hidden");
     assert.equal(f.page.data.name, "Unsaved medicine");
     assert.equal(f.writes.length, 0);
     assert.deepEqual(f.navigations, []);
     f.scope.writeSessionScope(OWNER);
     f.page.refreshDraftScope();
+    assert.equal(f.page.data.scopeInvalidated, false);
+    f.page.onRequestLeave();
     choose(f.page, "keep");
     const saved = f.storage.get(DRAFT_KEY);
     assert.equal(saved.fields.name, "Unsaved medicine");
@@ -218,7 +221,7 @@ test("next medicine cannot reset an unsaved current form or start a parallel pho
   assert.match(f.toasts.at(-1), /先保存当前药品/);
 });
 
-test("successful save retires all unfinished photo drafts and cannot recreate form draft on leave", async () => {
+test("successful save keeps unrelated unfinished photo drafts and cannot recreate the saved form draft", async () => {
   const f = fixture({ api: { createMedicine: async () => ({ id: "saved", batches: [] }) },
     wxOverrides: { switchTab() {} } });
   await f.page.checkEntrySession();
@@ -227,7 +230,7 @@ test("successful save retires all unfinished photo drafts and cannot recreate fo
   assert.equal(f.storage.has(DRAFT_KEY), false);
   const remaining = (f.storage.get(PHOTO_KEY) ?? []).map(item => item.id);
   assert.equal(remaining.includes("current"), false, "current draft must be resolved");
-  assert.equal(remaining.includes("older"), false, "older unfinished drafts are retired too (Jovi 2026-10-25: 保存成功后不再保留草稿提醒)");
+  assert.equal(remaining.includes("older"), true, "other unfinished drafts remain until explicitly deleted");
   assert.equal(f.page.data.activePhotoDraftId, "");
   f.page.onHide(); f.page.onUnload();
   assert.equal(f.storage.has(DRAFT_KEY), false);

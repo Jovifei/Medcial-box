@@ -31,7 +31,9 @@ for (const mode of ["family", "user", "unload", "session", "session ABA", "cance
       assert.equal(page.data.name, "Synthetic old owner draft");
       assert.equal(page.photoDraftsImported, true);
     } else {
-      assert.deepEqual(page.data, before);
+      // Page.setData values originate in a VM realm; compare the entire serialized
+      // data model without treating realm-specific object prototypes as state.
+      assert.deepEqual(structuredClone(page.data), before);
       assert.equal(JSON.stringify(page.pendingStoredDraft), pendingFields);
       assert.equal(page.photoDraftsImported, false);
       assert.equal(JSON.stringify([...h.storage.entries()]), storedBefore);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,12 +20,35 @@ import '../../data/app_stores.dart';
 import '../../data/medicine_draft_queue.dart';
 import '../../data/medicine_owned_photo.dart';
 import '../../domain/ingredient_match.dart';
+import '../../domain/recognition_review.dart';
 import '../../models/medicine_models.dart';
 
 enum _ImageAction { camera, gallery }
 
 bool _isProductBarcode(String code) => RegExp(r'^\d{8,14}$').hasMatch(code);
 bool _isTraceabilityCode(String code) => RegExp(r'^\d{20}$').hasMatch(code);
+
+const _fieldLabels = <String, String>{
+  'name': '药名',
+  'brand': '品牌',
+  'specification': '规格',
+  'manufacturer': '厂家',
+  'approvalNumber': '批准文号',
+  'barcodeValue': '条码',
+  'activeIngredients': '成分',
+  'purposeCategory': '用途分类',
+  'lotNumber': '批号',
+  'expiryValue': '有效期',
+  'expiryPrecision': '有效期精度',
+  'populationTags': '人群',
+  'purposeTags': '用途',
+  'leafletText': '说明书原文',
+  'rawOcrText': '本机识别原文',
+  'purposeSummary': '功能与用途',
+  'packageUsageSummary': '用法用量原文',
+  'contraindicationsSummary': '禁忌',
+  'precautionsSummary': '注意事项',
+};
 
 String _recognitionErrorMessage(Object error) {
   if (error is FileSystemException) return '无法读取本机照片，请重新选择或拍照。';
@@ -50,16 +74,79 @@ class _DraftSaveFailure implements Exception {
   const _DraftSaveFailure();
 }
 
+class _BatchIdentityUnconfirmed implements Exception {
+  const _BatchIdentityUnconfirmed();
+}
+
+Object? _recoveryComparable(Object? value, String field) {
+  if (value == null) return null;
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  if (value is List && value.every((item) => item is String)) {
+    final strings = value.cast<String>().map((item) => item.trim()).toList();
+    if (field == 'populationTags' || field == 'purposeTags') {
+      return strings.toSet().toList()..sort();
+    }
+    return strings;
+  }
+  throw const FormatException('资料格式无法核对。');
+}
+
+Object? _canonicalRecoverySnapshot(Object? value) {
+  if (value is List) return value.map(_canonicalRecoverySnapshot).toList();
+  if (value is Map) {
+    final keys = value.keys.cast<String>().toList()..sort();
+    return {
+      for (final key in keys) key: _canonicalRecoverySnapshot(value[key]),
+    };
+  }
+  return value;
+}
+
+Map<String, dynamic> _recoverySourceSnapshot(RecognitionEvidenceState state) {
+  final evidence = state.evidence;
+  return {
+    'coverPhotoVersionGuard': state.coverPhotoVersionGuard,
+    'evidence': evidence == null
+        ? null
+        : {
+            'revision': evidence.revision,
+            'medicineVersion': evidence.medicineVersion,
+            'currentMedicineVersion': evidence.currentMedicineVersion,
+            'stale': evidence.stale,
+            'photos': [
+              for (final photo in evidence.photos)
+                {...photo.toRequestJson(), 'available': photo.available},
+            ],
+            'fieldSources': {
+              for (final entry in evidence.fieldSources.entries)
+                entry.key: entry.value.toRequestJson(),
+            },
+            'batchSources': [
+              for (final source in evidence.batchSources)
+                {
+                  ...source.toRequestJson(),
+                  'batchAvailable': source.batchAvailable,
+                },
+            ],
+          },
+  };
+}
+
 class MedicineEntryApiPage extends StatefulWidget {
   const MedicineEntryApiPage({
     super.key,
     required this.repository,
     required this.workflow,
     required this.localStore,
+    this.localRecognition,
   });
   final ApiMedicineRepository repository;
   final ApiWorkflowRepository workflow;
   final LocalAppStore localStore;
+  final MedicineRecognitionRepository? localRecognition;
 
   @override
   State<MedicineEntryApiPage> createState() => _MedicineEntryApiPageState();
@@ -80,6 +167,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   final specificationController = TextEditingController();
   final quantityController = TextEditingController();
   final expiryController = TextEditingController();
+  final lotController = TextEditingController();
   final locationController = TextEditingController();
   final manufacturerController = TextEditingController();
   final approvalController = TextEditingController();
@@ -88,7 +176,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   final afterOpenValueController = TextEditingController();
   final afterOpenDateController = TextEditingController();
   final imagePicker = ImagePicker();
-  final recognition = MlKitMedicineRecognitionRepository();
+  late final MedicineRecognitionRepository recognition =
+      widget.localRecognition ?? MlKitMedicineRecognitionRepository();
 
   String unit = 'box';
   String expiryPrecision = 'unknown';
@@ -114,12 +203,15 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
 
   String cleanupMessage = "本机照片清理未完成，草稿已保留，请稍后重试。";
   bool openingExpanded = false;
-  bool categoryExpanded = true;
+  bool identityExpanded = false;
+  bool leafletExpanded = false;
+  bool categoryExpanded = false;
   bool locationExpanded = false;
   Timer? recognitionTimer;
   int recognitionSeconds = 0;
   final populationTags = <String>{};
   final purposeTags = <String>{};
+  String _populationSnapshot = '[]';
   bool purposeTagsTouched = false;
   late final MedicineDraftQueue draftQueue = MedicineDraftQueue(
     widget.localStore,
@@ -139,10 +231,26 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   );
   late final (ApiClient, LocalAppStore, String, int, String?, String?, String?)
   entryIdentity;
+  late final Listenable _identitySignals = Listenable.merge([
+    widget.repository.api.identityEpochSignal,
+    if (widget.repository.api.identityState != null)
+      widget.repository.api.identityState!.scopeSignal,
+  ]);
   Future<void> draftPersistence = Future.value();
   String draftId = DateTime.now().microsecondsSinceEpoch.toString();
   String? savedMedicineId;
+  int? savedMedicineVersion;
+  Map<String, dynamic>? coverIntent;
+  bool coverApplied = false;
+  Map<String, dynamic>? evidenceRequest;
+  bool evidenceSynced = false;
+  Map<String, dynamic>? evidenceAcknowledged;
+  final evidenceHistory = <Map<String, dynamic>>[];
+  RecognitionReview review = RecognitionReview();
+  int nextPhotoSequence = 1;
   String? savedBatchId;
+  bool savedBatchIdConfirmed = false;
+  int? savedBatchVersion;
   String? frontPhotoId;
   String? expiryPhotoId;
   XFile? expiryImage;
@@ -197,6 +305,130 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   Object? recognitionFailure;
   List<String> recognitionWarnings = const [];
 
+  String _newLocalId() => base64Url
+      .encode(List<int>.generate(18, (_) => Random.secure().nextInt(256)))
+      .replaceAll('=', '');
+
+  void _ensurePhotoIdentities(List<Map<String, dynamic>> photos) {
+    for (final photo in photos) {
+      photo['clientPhotoId'] ??= _newLocalId();
+      final sequence = photo['sequence'];
+      if (sequence is int && sequence >= nextPhotoSequence) {
+        nextPhotoSequence = sequence + 1;
+      }
+    }
+    for (final photo in photos) {
+      photo['sequence'] ??= nextPhotoSequence++;
+    }
+  }
+
+  Map<String, TextEditingController> get _reviewControllers => {
+    'name': nameController,
+    'brand': brandController,
+    'specification': specificationController,
+    'manufacturer': manufacturerController,
+    'approvalNumber': approvalController,
+    'expiryValue': expiryController,
+    'lotNumber': lotController,
+    'purposeCategory': purposeController,
+    ...leafletControllers,
+  };
+
+  void _manualField(String field) {
+    review.markManual(field);
+    _markDirty();
+  }
+
+  Map<String, dynamic> _recognitionFields(MedicineRecognitionDraft result) => {
+    if (result.name.trim().isNotEmpty) 'name': result.name.trim(),
+    if (result.brand?.trim().isNotEmpty == true) 'brand': result.brand!.trim(),
+    if (result.specification.trim().isNotEmpty)
+      'specification': result.specification.trim(),
+    if (result.manufacturer?.trim().isNotEmpty == true)
+      'manufacturer': result.manufacturer!.trim(),
+    if (result.approvalNumber?.trim().isNotEmpty == true)
+      'approvalNumber': result.approvalNumber!.trim(),
+    if (result.lotNumber?.trim().isNotEmpty == true)
+      'lotNumber': result.lotNumber!.trim(),
+    if (result.expiry != '待补充' && result.expiry.trim().isNotEmpty)
+      'expiryValue': result.expiry.trim(),
+    if (result.expiry != '待补充' && result.expiry.trim().isNotEmpty)
+      'expiryPrecision':
+          result.expiryPrecision ??
+          (result.expiry.trim().length == 7 ? 'month' : 'day'),
+    if (result.purposeCategory?.trim().isNotEmpty == true)
+      'purposeCategory': result.purposeCategory!.trim(),
+    if (result.populationTags.isNotEmpty)
+      'populationTags': result.populationTags,
+    if (result.purposeTags.isNotEmpty) 'purposeTags': result.purposeTags,
+    if (result.leaflet['text']?.trim().isNotEmpty == true)
+      'leafletText': result.leaflet['text']!.trim(),
+    if (result.rawText.isNotEmpty) 'rawOcrText': result.rawText,
+    for (final entry in result.leaflet.entries)
+      if (leafletControllers.containsKey(entry.key) &&
+          entry.value.trim().isNotEmpty)
+        entry.key: entry.value.trim(),
+  };
+
+  void _setReviewValue(String field, Object value) {
+    final controller = _reviewControllers[field];
+    if (controller != null && value is String) {
+      controller.text = value;
+      if (field == 'expiryValue') {
+        expiryPrecision = value.length == 7 ? 'month' : 'day';
+      }
+    } else if (field == 'populationTags' && value is List) {
+      populationTags
+        ..clear()
+        ..addAll(
+          value.whereType<String>().where(medicinePopulationLabels.containsKey),
+        );
+    } else if (field == 'purposeTags' && value is List) {
+      purposeTags
+        ..clear()
+        ..addAll(
+          value.whereType<String>().where(medicinePurposeLabels.containsKey),
+        );
+    }
+  }
+
+  void _refreshRecognizedSuggestions() {
+    for (final field in [
+      ..._reviewControllers.keys,
+      'populationTags',
+      'purposeTags',
+    ]) {
+      final options = review.candidates(field, photoDrafts);
+      if (!review.canAutoApply(field) || options.length != 1) continue;
+      _setReviewValue(field, options.single.value);
+      review.accept(field, options.single, photoDrafts, reviewed: false);
+    }
+    if ([
+      'brand',
+      'specification',
+      'manufacturer',
+      'lotNumber',
+    ].any((field) => review.requiresChoice(field, photoDrafts))) {
+      identityExpanded = true;
+    }
+    if (_hasMoreReviewConflicts) {
+      moreExpanded = true;
+    }
+    if (leafletControllers.keys.any(
+      (field) => review.requiresChoice(field, photoDrafts),
+    )) {
+      leafletExpanded = true;
+    }
+    if ([
+      'purposeCategory',
+      'populationTags',
+      'purposeTags',
+    ].any((field) => review.requiresChoice(field, photoDrafts))) {
+      categoryExpanded = true;
+    }
+    _populationSnapshot = jsonEncode(populationTags.toList()..sort());
+  }
+
   String get _draftKey => entryIdentity.$6 == null || entryIdentity.$7 == null
       ? 'medicine-entry'
       : 'medicine-entry.${base64Url.encode(utf8.encode(jsonEncode([entryIdentity.$3, entryIdentity.$6, entryIdentity.$7])))}';
@@ -224,7 +456,41 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     );
   }
 
-  bool get _isDraftIdentityCurrent => entryIdentity == _identitySnapshot();
+  bool get _isDraftIdentityCurrent =>
+      mounted && entryIdentity == _identitySnapshot();
+
+  Widget _protectPrivateSheet(Widget child) => AnimatedBuilder(
+    animation: _identitySignals,
+    builder: (_, _) =>
+        _isDraftIdentityCurrent ? child : const Text('家庭身份已变化，原资料已隐藏。'),
+  );
+
+  Widget _protectPrivateDialog(BuildContext dialogContext, Widget child) =>
+      AnimatedBuilder(
+        animation: _identitySignals,
+        builder: (_, _) => _isDraftIdentityCurrent
+            ? child
+            : AlertDialog(
+                title: const Text('家庭身份已变化'),
+                content: const Text('原资料已隐藏，请重新打开药品录入。'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('关闭'),
+                  ),
+                ],
+              ),
+      );
+
+  bool get _hasBlockingConflicts => [
+    ..._reviewControllers.keys,
+    'populationTags',
+    'purposeTags',
+  ].any((field) => review.requiresChoice(field, photoDrafts));
+
+  bool get _hasMoreReviewConflicts =>
+      review.requiresChoice('approvalNumber', photoDrafts) ||
+      review.requiresChoice('activeIngredients', photoDrafts);
 
   // Keep the queue and legacy draft writes in the same order, including
   // autosaves that were already running when the user chose to leave.
@@ -251,6 +517,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     specificationController.text = json['specification'] as String? ?? '';
     quantityController.text = json['quantity'] as String? ?? '';
     expiryController.text = json['expiry'] as String? ?? '';
+    lotController.text = json['lotNumber'] as String? ?? '';
     locationController.text = json['location'] as String? ?? '';
     manufacturerController.text = json['manufacturer'] as String? ?? '';
     approvalController.text = json['approval'] as String? ?? '';
@@ -289,12 +556,38 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     openedAt = json['openedAt'] as String?;
     scannedCode = json['scannedCode'] as String?;
     openingExpanded = json['openingExpanded'] == true;
+    identityExpanded = json['identityExpanded'] == true;
+    leafletExpanded = json['leafletExpanded'] == true;
     moreExpanded = json['moreExpanded'] == true;
     draftId = json['id'] as String? ?? draftId;
     savedMedicineId = json['savedMedicineId'] as String?;
+    savedMedicineVersion = json['savedMedicineVersion'] as int?;
+    coverIntent = json['coverIntent'] is Map
+        ? Map<String, dynamic>.from(json['coverIntent'] as Map)
+        : null;
+    coverApplied = json['coverApplied'] == true;
+    evidenceRequest = json['evidenceRequest'] is Map
+        ? Map<String, dynamic>.from(json['evidenceRequest'] as Map)
+        : null;
+    evidenceSynced = json['evidenceSynced'] == true;
+    evidenceAcknowledged = json['evidenceAcknowledged'] is Map
+        ? Map<String, dynamic>.from(json['evidenceAcknowledged'] as Map)
+        : null;
+    evidenceHistory
+      ..clear()
+      ..addAll(
+        (json['evidenceHistory'] as List? ?? []).whereType<Map>().map(
+          (item) => Map<String, dynamic>.from(item),
+        ),
+      );
+    review = RecognitionReview.fromJson(json['recognitionSources']);
+    nextPhotoSequence = json['nextPhotoSequence'] as int? ?? 1;
     attemptedPayload = json['attemptedPayload'] as Map<String, dynamic>?;
     touchedExpiry = json['touchedExpiry'] == true;
     savedBatchId = json['savedBatchId'] as String?;
+    savedBatchIdConfirmed =
+        json['savedBatchIdConfirmed'] == true && savedBatchId != null;
+    savedBatchVersion = json['savedBatchVersion'] as int?;
     frontPhotoId = json['frontPhotoId'] as String?;
     expiryPhotoId = json['expiryPhotoId'] as String?;
     image = json['imagePath'] is String
@@ -324,6 +617,20 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       expiryImage = null;
     }
     _syncPhotoDrafts();
+    _ensurePhotoIdentities(photoDrafts);
+    if (json['recognitionSources'] == null) {
+      // Old drafts have no provenance; keep existing values instead of letting
+      // a later photo replace them. Do not invent recognized sources.
+      for (final entry in _reviewControllers.entries) {
+        if (entry.value.text.trim().isNotEmpty) review.markManual(entry.key);
+      }
+      if (populationTags.isNotEmpty) review.markManual('populationTags');
+      if (purposeTags.isNotEmpty || purposeTagsTouched) {
+        review.markManual('purposeTags');
+      }
+      if (json['touchedExpiry'] == true) review.markManual('expiryValue');
+    }
+    _populationSnapshot = jsonEncode(populationTags.toList()..sort());
     touchedName = false;
     restoredDraft = true;
   }
@@ -346,9 +653,13 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   Map<String, dynamic> _draftFields() {
+    _syncPhotoDrafts();
+    _ensurePhotoIdentities(photoDrafts);
     final photos = List<Map<String, dynamic>>.of(photoDrafts);
-    _syncPhotoDrafts(photos);
     return {
+      'recognitionSchemaVersion': 1,
+      'recognitionSources': review.toJson(),
+      'nextPhotoSequence': nextPhotoSequence,
       'name': nameController.text,
       'brand': brandController.text,
       'leaflet': {
@@ -358,6 +669,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       'specification': specificationController.text,
       'quantity': quantityController.text,
       'expiry': expiryController.text,
+      'lotNumber': lotController.text,
       'location': locationController.text,
       'manufacturer': manufacturerController.text,
       'approval': approvalController.text,
@@ -380,11 +692,22 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       'openedAt': openedAt,
       'scannedCode': scannedCode,
       'openingExpanded': openingExpanded,
+      'identityExpanded': identityExpanded,
+      'leafletExpanded': leafletExpanded,
       'moreExpanded': moreExpanded,
       'savedMedicineId': savedMedicineId,
+      'savedMedicineVersion': savedMedicineVersion,
+      'coverIntent': coverIntent,
+      'coverApplied': coverApplied,
+      'evidenceRequest': evidenceRequest,
+      'evidenceSynced': evidenceSynced,
+      'evidenceAcknowledged': evidenceAcknowledged,
+      'evidenceHistory': evidenceHistory,
       'attemptedPayload': attemptedPayload,
       'touchedExpiry': touchedExpiry,
       'savedBatchId': savedBatchId,
+      'savedBatchIdConfirmed': savedBatchIdConfirmed,
+      'savedBatchVersion': savedBatchVersion,
       'frontPhotoId': frontPhotoId,
       'expiryPhotoId': expiryPhotoId,
       'photos': photos
@@ -574,58 +897,60 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     final selected = await showAppSheet<Map<String, dynamic>>(
       context,
       title: '恢复未完成的药品录入',
-      builder: (context) => Material(
-        type: MaterialType.transparency,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ...drafts.map(
-              (draft) => ListTile(
-                title: Text(draft['name'] as String? ?? '未命名药品'),
-                subtitle: Text(
-                  draft['savedMedicineId'] != null
-                      ? '药已保存 · 照片待补'
-                      : '待核对 · 未入库',
-                ),
-                onTap: () => Navigator.pop(context, draft),
-                trailing: IconButton(
-                  tooltip: '删除草稿',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () async {
-                    if (!await _cleanupDraftPhotos(
-                      draft['id'] as String,
-                      draft,
-                    )) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(
-                          this.context,
-                        ).showSnackBar(SnackBar(content: Text(cleanupMessage)));
+      builder: (context) => _protectPrivateSheet(
+        Material(
+          type: MaterialType.transparency,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ...drafts.map(
+                (draft) => ListTile(
+                  title: Text(draft['name'] as String? ?? '未命名药品'),
+                  subtitle: Text(
+                    draft['savedMedicineId'] != null
+                        ? '药已保存 · 照片或来源待同步'
+                        : '待核对 · 未入库',
+                  ),
+                  onTap: () => Navigator.pop(context, draft),
+                  trailing: IconButton(
+                    tooltip: '删除草稿',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () async {
+                      if (!await _cleanupDraftPhotos(
+                        draft['id'] as String,
+                        draft,
+                      )) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text(cleanupMessage)),
+                          );
+                        }
+                        return;
                       }
-                      return;
-                    }
-                    await draftQueue.remove(draft['id'] as String);
-                    if (mounted && _isDraftIdentityCurrent) {
-                      await _deleteOwnLegacyDraft(draft['id'] as String);
-                      if (mounted &&
-                          _isDraftIdentityCurrent &&
-                          draftId == draft['id']) {
-                        recognitionRequest++;
-                        setState(() {
-                          _applyDraft({
-                            'id': DateTime.now().microsecondsSinceEpoch
-                                .toString(),
+                      await draftQueue.remove(draft['id'] as String);
+                      if (mounted && _isDraftIdentityCurrent) {
+                        await _deleteOwnLegacyDraft(draft['id'] as String);
+                        if (mounted &&
+                            _isDraftIdentityCurrent &&
+                            draftId == draft['id']) {
+                          recognitionRequest++;
+                          setState(() {
+                            _applyDraft({
+                              'id': DateTime.now().microsecondsSinceEpoch
+                                  .toString(),
+                            });
+                            dirty = false;
+                            restoredDraft = false;
                           });
-                          dirty = false;
-                          restoredDraft = false;
-                        });
+                        }
                       }
-                    }
-                    if (context.mounted) Navigator.pop(context);
-                  },
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -794,6 +1119,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     specificationController.dispose();
     quantityController.dispose();
     expiryController.dispose();
+    lotController.dispose();
     locationController.dispose();
     manufacturerController.dispose();
     approvalController.dispose();
@@ -810,6 +1136,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     bool expiryPhoto = false,
     bool leafletPhoto = false,
   }) async {
+    if (photoDrafts.length >= 100) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('每种药最多保留 100 张照片。')));
+      return;
+    }
     if (_isCleanupDraft) {
       _showCleanupHint();
       return;
@@ -917,6 +1248,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         'path': path,
         'purpose': purpose,
         'state': 'reserved',
+        'clientPhotoId': _newLocalId(),
+        'sequence': nextPhotoSequence++,
+        'recognitionStatus': 'pending',
         'ownedLocal': {
           'supportPath': support.path,
           'directory': ownedDirectory.path,
@@ -1047,43 +1381,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           return;
         }
         recognitionTimer?.cancel();
-        if (brandController.text.trim().isEmpty) {
-          brandController.text = draft.brand ?? '';
-        }
-        if (manufacturerController.text.trim().isEmpty) {
-          manufacturerController.text = draft.manufacturer ?? '';
-        }
-        if (populationTags.isEmpty) {
-          populationTags.addAll(
-            draft.populationTags.where(medicinePopulationLabels.containsKey),
-          );
-        }
-        for (final entry in leafletControllers.entries) {
-          if (entry.value.text.trim().isEmpty) {
-            entry.value.text = draft.leaflet[entry.key] ?? '';
-          }
-        }
-        if (!touchedName && nameController.text.trim().isEmpty) {
-          nameController.text = draft.name;
-        }
-        if (purposeController.text.trim().isEmpty &&
-            draft.purposeCategory != null) {
-          purposeController.text = draft.purposeCategory!;
-        }
-        if (purposeTags.isEmpty && !purposeTagsTouched) {
-          purposeTags.addAll(
-            draft.purposeTags.where(medicinePurposeLabels.containsKey),
-          );
-        }
-        if (specificationController.text.trim().isEmpty) {
-          specificationController.text = draft.specification;
-        }
-        if (!touchedExpiry &&
-            expiryController.text.trim().isEmpty &&
-            draft.expiry != '待补充') {
-          expiryController.text = draft.expiry;
-          expiryPrecision = draft.expiry.length == 7 ? 'month' : 'day';
-        }
+        pendingPhoto['recognitionStatus'] = 'recognized';
+        pendingPhoto['recognitionFields'] = _recognitionFields(draft);
+        pendingPhoto['recognitionWarnings'] = draft.warnings;
+        if (draft.rawText.isNotEmpty) pendingPhoto['rawText'] = draft.rawText;
+        _refreshRecognizedSuggestions();
         setState(() {
           recognizing = false;
           recognitionWarnings = draft.warnings;
@@ -1100,6 +1402,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         setState(() {
           recognizing = false;
           recognitionFailure = error;
+          pendingPhoto['recognitionStatus'] = 'failed';
         });
         if (error is _DraftSaveFailure) {
           _showDraftSaveFailure();
@@ -1214,7 +1517,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       return;
     }
     if (!_isProductBarcode(code) && !_isTraceabilityCode(code)) return;
-    setState(() => scannedCode = code);
+    setState(() {
+      scannedCode = code;
+      review.markManual('barcodeValue');
+    });
     _markDirty();
     await _searchCatalog(barcode: code);
   }
@@ -1306,34 +1612,36 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       final selected = await showAppSheet<Map<String, dynamic>>(
         context,
         title: '选择候选资料',
-        builder: (sheetContext) => ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: Text('联网资料尚未核验。只有你选择的字段会补入空白项，不会覆盖已填写内容。'),
-            ),
-            ...candidates.map((candidate) {
-              final leaflet = candidate['leaflet'] is Map<String, dynamic>
-                  ? candidate['leaflet']! as Map<String, dynamic>
-                  : const <String, dynamic>{};
-              return Card(
-                child: ListTile(
-                  title: Text(candidate['name'] as String? ?? '未命名候选'),
-                  subtitle: Text(
-                    [
-                      candidate['specification'] as String? ?? '',
-                      candidate['manufacturer'] as String? ?? '',
-                      candidate['approvalNumber'] as String? ?? '',
-                      leaflet['purposeSummary'] as String? ?? '',
-                    ].where((value) => value.isNotEmpty).join(' · '),
+        builder: (sheetContext) => _protectPrivateSheet(
+          ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Text('联网资料尚未核验。只有你选择的字段会补入空白项，不会覆盖已填写内容。'),
+              ),
+              ...candidates.map((candidate) {
+                final leaflet = candidate['leaflet'] is Map<String, dynamic>
+                    ? candidate['leaflet']! as Map<String, dynamic>
+                    : const <String, dynamic>{};
+                return Card(
+                  child: ListTile(
+                    title: Text(candidate['name'] as String? ?? '未命名候选'),
+                    subtitle: Text(
+                      [
+                        candidate['specification'] as String? ?? '',
+                        candidate['manufacturer'] as String? ?? '',
+                        candidate['approvalNumber'] as String? ?? '',
+                        leaflet['purposeSummary'] as String? ?? '',
+                      ].where((value) => value.isNotEmpty).join(' · '),
+                    ),
+                    trailing: const Icon(Icons.add_circle_outline_rounded),
+                    onTap: () => Navigator.pop(sheetContext, candidate),
                   ),
-                  trailing: const Icon(Icons.add_circle_outline_rounded),
-                  onTap: () => Navigator.pop(sheetContext, candidate),
-                ),
-              );
-            }),
-          ],
+                );
+              }),
+            ],
+          ),
         ),
       );
       if (selected == null || !mounted || !isCurrentSearch()) return;
@@ -1354,29 +1662,37 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }
 
   void _applyCandidate(Map<String, dynamic> candidate) {
-    void fill(TextEditingController controller, Object? value) {
-      if (controller.text.trim().isEmpty &&
+    void fill(String field, TextEditingController controller, Object? value) {
+      if (review.canAutoApply(field) &&
+          controller.text.trim().isEmpty &&
           value is String &&
           value.trim().isNotEmpty) {
         controller.text = value.trim();
+        review.markCatalog(field);
       }
     }
 
-    fill(nameController, candidate['name']);
-    fill(brandController, candidate['brand']);
-    fill(specificationController, candidate['specification']);
-    fill(manufacturerController, candidate['manufacturer']);
-    fill(approvalController, candidate['approvalNumber']);
+    fill('name', nameController, candidate['name']);
+    fill('brand', brandController, candidate['brand']);
+    fill('specification', specificationController, candidate['specification']);
+    fill('manufacturer', manufacturerController, candidate['manufacturer']);
+    fill('approvalNumber', approvalController, candidate['approvalNumber']);
     final ingredients = candidate['activeIngredients'];
-    if (ingredientController.text.trim().isEmpty && ingredients is List) {
+    if (review.canAutoApply('activeIngredients') &&
+        ingredientController.text.trim().isEmpty &&
+        ingredients is List) {
       ingredientController.text = ingredients.whereType<String>().join('，');
+      if (ingredientController.text.isNotEmpty) {
+        review.markCatalog('activeIngredients');
+      }
     }
     final leaflet = candidate['leaflet'];
     if (leaflet is Map<String, dynamic>) {
-      fill(purposeController, leaflet['purposeSummary']);
+      fill('purposeCategory', purposeController, leaflet['purposeSummary']);
     }
     final candidatePurposeTags = candidate['purposeTags'];
-    if (purposeTags.isEmpty &&
+    if (review.canAutoApply('purposeTags') &&
+        purposeTags.isEmpty &&
         !purposeTagsTouched &&
         candidatePurposeTags is List) {
       purposeTags.addAll(
@@ -1387,24 +1703,991 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             .take(3),
       );
       if (purposeTags.isNotEmpty) categoryExpanded = true;
+      if (purposeTags.isNotEmpty) review.markCatalog('purposeTags');
     }
-    // 用户采纳待核验候选后主动展开隐藏字段，必须核对但不会自行保存。
-    if (mounted) setState(() => moreExpanded = true);
     _markDirty();
   }
 
   Future<void> _pickOpenedDate() async {
     final initial = DateTime.tryParse(openedAt ?? '') ?? DateTime.now();
-    final date = await showExpiryDateWheelPicker(context, initialDate: initial);
-    if (date == null || !mounted) return;
+    final date = await showExpiryDateWheelPicker(
+      context,
+      initialDate: initial,
+      privacySignal: _identitySignals,
+      isCurrent: () => _isDraftIdentityCurrent,
+    );
+    if (date == null || !mounted || !_isDraftIdentityCurrent) return;
     setState(() => openedAt = _date(date));
     _markDirty();
   }
 
+  Future<void> _captureOptions({bool scanAndAlbumOnly = false}) async {
+    if (_isCleanupDraft || !_isDraftIdentityCurrent) return;
+    final choice = await showAppSheet<String>(
+      context,
+      title: scanAndAlbumOnly ? '扫码或相册' : '继续补拍',
+      builder: (sheetContext) => Column(
+        children: [
+          if (!scanAndAlbumOnly)
+            choiceTile(
+              sheetContext,
+              icon: Icons.camera_alt_outlined,
+              title: '拍药盒',
+              subtitle: '继续添加包装照片',
+              onTap: () => Navigator.pop(sheetContext, 'box'),
+            ),
+          if (!scanAndAlbumOnly)
+            choiceTile(
+              sheetContext,
+              icon: Icons.document_scanner_outlined,
+              title: '拍说明书',
+              subtitle: '添加说明书照片',
+              onTap: () => Navigator.pop(sheetContext, 'leaflet'),
+            ),
+          if (!scanAndAlbumOnly)
+            choiceTile(
+              sheetContext,
+              icon: Icons.event_outlined,
+              title: '拍有效期',
+              subtitle: '添加有效期照片',
+              onTap: () => Navigator.pop(sheetContext, 'expiry'),
+            ),
+          choiceTile(
+            sheetContext,
+            icon: Icons.qr_code_scanner,
+            title: '扫码',
+            subtitle: '读取药盒编码',
+            onTap: () => Navigator.pop(sheetContext, 'scan'),
+          ),
+          choiceTile(
+            sheetContext,
+            icon: Icons.photo_library_outlined,
+            title: '从相册选择',
+            subtitle: '添加已有照片',
+            onTap: () => Navigator.pop(sheetContext, 'gallery'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'box':
+        await _chooseImage(action: _ImageAction.camera);
+      case 'leaflet':
+        await _chooseImage(action: _ImageAction.camera, leafletPhoto: true);
+      case 'expiry':
+        await _chooseImage(action: _ImageAction.camera, expiryPhoto: true);
+      case 'scan':
+        await _scanCode();
+      case 'gallery':
+        await _chooseImage(action: _ImageAction.gallery);
+    }
+  }
+
+  Future<void> _removeDraftPhoto(Map<String, dynamic> photo) async {
+    if (recognizing ||
+        saving ||
+        photo['uploadedId'] != null ||
+        !_isDraftIdentityCurrent) {
+      return;
+    }
+    if (photo['ownedLocal'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('旧照片的本机归属未确认，已保留原图，请勿直接删除。')),
+      );
+      return;
+    }
+    final originalDraft = draftId;
+    bool current() =>
+        mounted &&
+        _isDraftIdentityCurrent &&
+        draftId == originalDraft &&
+        photoDrafts.contains(photo);
+    try {
+      photo['removePending'] = true;
+      await _requireDraftSave(legacy: false);
+      final support = await getApplicationSupportDirectory();
+      if (!current() ||
+          !await cleanupMedicinePhoto(
+            supportPath: support.path,
+            draftId: originalDraft,
+            photo: photo,
+            isCurrent: current,
+          )) {
+        throw StateError('照片清理未完成');
+      }
+      if (!current()) return;
+      review.removePhoto(photo['clientPhotoId'] as String);
+      if (image?.path == photo['path']) {
+        image = null;
+        frontPhotoId = null;
+      }
+      if (expiryImage?.path == photo['path']) {
+        expiryImage = null;
+        expiryPhotoId = null;
+      }
+      photoDrafts.remove(photo);
+      _refreshRecognizedSuggestions();
+      await _requireDraftSave(legacy: false);
+      if (mounted) setState(() {});
+      _markDirty();
+    } catch (_) {
+      if (mounted && _isDraftIdentityCurrent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('照片删除或草稿保存未完成；已保留清理记录，请重试。')),
+        );
+      }
+    }
+  }
+
+  Future<void> _retryPhotoRecognition(Map<String, dynamic> photo) async {
+    if (recognizing ||
+        saving ||
+        !_isDraftIdentityCurrent ||
+        photo['state'] != 'ready') {
+      return;
+    }
+    final entryDraftId = draftId;
+    final request = ++recognitionRequest;
+    bool current() =>
+        mounted &&
+        _isDraftIdentityCurrent &&
+        draftId == entryDraftId &&
+        request == recognitionRequest &&
+        photoDrafts.contains(photo) &&
+        !_isCleanupDraft;
+    final useServer = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('重新识别这张照片？'),
+        content: const Text('AI 识别会将这张照片发送到当前家庭药箱服务。识别建议需要核对。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('AI 识别'),
+          ),
+        ],
+      ),
+    );
+    if (useServer != true || !current()) return;
+    final oldStatus = photo['recognitionStatus'];
+    final oldFields = photo['recognitionFields'] is Map
+        ? Map<String, dynamic>.from(photo['recognitionFields'] as Map)
+        : null;
+    setState(() {
+      recognizing = true;
+      recognitionFailure = null;
+      if (oldStatus != 'recognized') photo['recognitionStatus'] = 'pending';
+      photo['retryStatus'] = 'pending';
+    });
+    try {
+      await _requireDraftSave(legacy: false);
+      final result = await ApiMedicineRecognitionRepository(
+        widget.repository.api,
+        purpose: photo['purpose'] == 'leaflet' ? 'leaflet' : 'box_front',
+        isCurrent: current,
+      ).recognize(XFile(photo['path'] as String));
+      if (!current()) return;
+      final newFields = _recognitionFields(result);
+      final id = photo['clientPhotoId'] as String;
+      final changesChosenResult =
+          oldFields != null &&
+          review.toJson().entries.any((entry) {
+            final source = entry.value as Map;
+            return source['source'] == 'recognized' &&
+                (source['photoIds'] as List).contains(id) &&
+                jsonEncode(oldFields[entry.key]) !=
+                    jsonEncode(newFields[entry.key]);
+          });
+      photo['recognitionStatus'] = 'recognized';
+      if (changesChosenResult) {
+        photo['retryFields'] = newFields;
+        photo['retryWarnings'] = result.warnings;
+        photo['retryStatus'] = 'review';
+      } else {
+        photo['recognitionFields'] = newFields;
+        photo['recognitionWarnings'] = result.warnings;
+        if (result.rawText.isNotEmpty) photo['rawText'] = result.rawText;
+        photo.remove('retryFields');
+        photo.remove('retryStatus');
+        _refreshRecognizedSuggestions();
+      }
+      await _requireDraftSave(legacy: false);
+    } catch (error) {
+      if (!current()) return;
+      photo['recognitionStatus'] = oldStatus == 'recognized'
+          ? oldStatus
+          : 'failed';
+      photo['retryStatus'] = 'failed';
+      recognitionFailure = error;
+      try {
+        await _requireDraftSave(legacy: false);
+      } catch (_) {
+        _showDraftSaveFailure();
+      }
+    } finally {
+      if (current()) setState(() => recognizing = false);
+    }
+  }
+
+  String _photoNumbers(Iterable<String> ids) => ids
+      .map((id) {
+        final matches = photoDrafts.where(
+          (photo) => photo['clientPhotoId'] == id,
+        );
+        return matches.isEmpty ? '原图已移除' : '图${matches.first['sequence']}';
+      })
+      .join('、');
+
+  Widget _photoReview() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final photo in photoDrafts)
+        Card(
+          child: ExpansionTile(
+            title: Text(
+              '图${photo['sequence']} · ${photo['purpose'] == 'leaflet'
+                  ? '说明书'
+                  : photo['purpose'] == 'expiry'
+                  ? '有效期'
+                  : '药盒'}',
+            ),
+            subtitle: Text(
+              photo['removePending'] == true
+                  ? '删除待完成'
+                  : photo['recognitionStatus'] == 'recognized'
+                  ? '待核对'
+                  : photo['recognitionStatus'] == 'failed'
+                  ? '识别失败，可重试'
+                  : '待读取',
+            ),
+            children: [
+              ListTile(
+                title: const Text('查看原图'),
+                leading: const Icon(Icons.image_outlined),
+                onTap: () {
+                  showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => AnimatedBuilder(
+                      animation: _identitySignals,
+                      builder: (_, _) => AlertDialog(
+                        title: Text(
+                          _isDraftIdentityCurrent
+                              ? '图${photo['sequence']} 原图'
+                              : '家庭身份已变化',
+                        ),
+                        content: _isDraftIdentityCurrent
+                            ? Image.file(
+                                File(photo['path'] as String),
+                                errorBuilder: (_, _, _) =>
+                                    const Text('原图不可查看。'),
+                              )
+                            : const Text('原图已隐藏，请重新打开照片资料。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: const Text('关闭'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (photo['recognitionFields'] is Map)
+                for (final entry in (photo['recognitionFields'] as Map).entries)
+                  ListTile(
+                    dense: true,
+                    title: Text(
+                      '${_fieldLabels[entry.key] ?? entry.key}：${entry.value is List ? (entry.value as List).join('、') : entry.value}',
+                    ),
+                  ),
+              if (photo['recognitionWarnings'] is List)
+                for (final warning
+                    in (photo['recognitionWarnings'] as List)
+                        .whereType<String>())
+                  ListTile(dense: true, title: Text(warning)),
+              if (photo['rawText'] is String &&
+                  (photo['rawText'] as String).isNotEmpty &&
+                  (photo['recognitionFields'] is! Map ||
+                      !(photo['recognitionFields'] as Map).containsKey(
+                        'rawOcrText',
+                      )))
+                ListTile(
+                  dense: true,
+                  title: Text('原始识别文字：${photo['rawText']}'),
+                ),
+              if (photo['retryFields'] is Map) ...[
+                const Text('重新识别得到不同结果：请选择要使用的字段，再完成核对。原结果和已填写值会保留。'),
+                if (photo['retryWarnings'] is List)
+                  for (final warning
+                      in (photo['retryWarnings'] as List).whereType<String>())
+                    Text('本次识别提醒：$warning'),
+                for (final entry in (photo['retryFields'] as Map).entries)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        final fields = Map<String, dynamic>.from(
+                          photo['recognitionFields'] as Map? ?? {},
+                        );
+                        fields[entry.key as String] = entry.value;
+                        photo['retryAccepted'] = true;
+                        photo['recognitionFields'] = fields;
+                        if (entry.key == 'expiryValue' &&
+                            (photo['retryFields'] as Map)['expiryPrecision'] !=
+                                null) {
+                          fields['expiryPrecision'] =
+                              (photo['retryFields'] as Map)['expiryPrecision'];
+                        }
+                        final candidates = review.candidates(
+                          entry.key as String,
+                          photoDrafts,
+                        );
+                        final matched = candidates.where(
+                          (candidate) => candidate.photoIds.contains(
+                            photo['clientPhotoId'],
+                          ),
+                        );
+                        if (matched.isNotEmpty &&
+                            (_reviewControllers.containsKey(entry.key) ||
+                                entry.key == 'populationTags' ||
+                                entry.key == 'purposeTags')) {
+                          _setReviewValue(
+                            entry.key as String,
+                            matched.first.value,
+                          );
+                          review.accept(
+                            entry.key as String,
+                            matched.first,
+                            photoDrafts,
+                            reviewed: true,
+                          );
+                          _populationSnapshot = jsonEncode(
+                            populationTags.toList()..sort(),
+                          );
+                        }
+                      });
+                      _markDirty();
+                    },
+                    child: Text(
+                      '使用本次${_fieldLabels[entry.key] ?? entry.key}：${entry.value is List ? (entry.value as List).join('、') : entry.value}',
+                    ),
+                  ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      if (photo['retryAccepted'] == true &&
+                          photo['retryWarnings'] is List) {
+                        final warnings = List<dynamic>.of(
+                          photo['recognitionWarnings'] as List? ?? [],
+                        );
+                        for (final warning in photo['retryWarnings'] as List) {
+                          if (!warnings.contains(warning)) {
+                            warnings.add(warning);
+                          }
+                        }
+                        photo['recognitionWarnings'] = warnings;
+                      }
+                      photo.remove('retryFields');
+                      photo.remove('retryWarnings');
+                      photo.remove('retryStatus');
+                      photo.remove('retryAccepted');
+                    });
+                    _markDirty();
+                  },
+                  child: const Text('完成重识别核对'),
+                ),
+              ],
+              Wrap(
+                children: [
+                  TextButton(
+                    onPressed: recognizing
+                        ? null
+                        : () => _retryPhotoRecognition(photo),
+                    child: const Text('重试此图'),
+                  ),
+                  TextButton(
+                    onPressed: recognizing || photo['uploadedId'] != null
+                        ? null
+                        : () => _removeDraftPhoto(photo),
+                    child: const Text('移除此图'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      for (final field in [
+        ..._reviewControllers.keys,
+        'populationTags',
+        'purposeTags',
+      ])
+        if (review.candidates(field, photoDrafts).isNotEmpty) ...[
+          Text(
+            '${_fieldLabels[field] ?? field}${review.requiresChoice(field, photoDrafts) ? ' · 存在冲突，请选择' : ''}',
+          ),
+          for (final candidate in review.candidates(field, photoDrafts))
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _setReviewValue(field, candidate.value);
+                  review.accept(field, candidate, photoDrafts, reviewed: true);
+                  _populationSnapshot = jsonEncode(
+                    populationTags.toList()..sort(),
+                  );
+                });
+                _markDirty();
+              },
+              child: Text(
+                '${candidate.value is List ? (candidate.value as List).join('、') : candidate.value} · ${_photoNumbers(candidate.photoIds)} · 使用此建议',
+              ),
+            ),
+        ],
+      for (final entry in review.toJson().entries)
+        if ((entry.value as Map)['source'] != 'recognized')
+          Text(
+            '${_fieldLabels[entry.key] ?? entry.key}：${(entry.value as Map)['source'] == 'manual'
+                ? '人工填写或清空'
+                : (entry.value as Map)['source'] == 'catalog'
+                ? '目录候选，待核对'
+                : '原图已移除'}',
+          ),
+    ],
+  );
+
+  Map<String, dynamic> _buildEvidenceRequest(
+    List<Map<String, dynamic>> photos,
+    int medicineVersion,
+    int revision,
+  ) {
+    final uploaded = photos
+        .where((photo) => photo['uploadedId'] is String)
+        .toList();
+    final byClientId = {
+      for (final photo in uploaded) photo['clientPhotoId'] as String: photo,
+    };
+    final fieldSources = <String, dynamic>{};
+    for (final entry in review.toJson().entries) {
+      if (!_fieldLabels.containsKey(entry.key) ||
+          const {
+            'lotNumber',
+            'expiryValue',
+            'expiryPrecision',
+            'leafletText',
+            'rawOcrText',
+          }.contains(entry.key)) {
+        continue;
+      }
+      final source = entry.value as Map;
+      var kind = source['source'] as String;
+      final ids = (source['photoIds'] as List)
+          .whereType<String>()
+          .map((id) => byClientId[id])
+          .whereType<Map<String, dynamic>>()
+          .where(
+            (photo) =>
+                photo['recognitionStatus'] == 'recognized' &&
+                photo['recognitionFields'] is Map &&
+                (photo['recognitionFields'] as Map)[entry.key] != null,
+          )
+          .map((photo) => photo['uploadedId'] as String)
+          .toList();
+      if (kind == 'recognized' &&
+          ids.length != (source['photoIds'] as List).length) {
+        throw StateError('已选来源与照片识别结果不一致');
+      }
+      fieldSources[entry.key] = {
+        'source': kind,
+        'photoIds': kind == 'recognized' ? ids : <String>[],
+        'reviewed':
+            source['reviewed'] == true &&
+            (kind != 'recognized' || !review.requiresChoice(entry.key, photos)),
+      };
+    }
+    final batchSources = <Map<String, dynamic>>[];
+    for (final batchField in [
+      ('expiryValue', 'expiry'),
+      ('lotNumber', 'lotNumber'),
+    ]) {
+      final field = batchField.$1;
+      final selected = review.source(field);
+      if (selected == null) continue;
+      if (savedBatchId == null || !savedBatchIdConfirmed) {
+        throw const _BatchIdentityUnconfirmed();
+      }
+      final source = selected.source;
+      final ids = selected.photoIds
+          .map((id) => byClientId[id])
+          .whereType<Map<String, dynamic>>()
+          .where(
+            (photo) =>
+                photo['recognitionStatus'] == 'recognized' &&
+                photo['recognitionFields'] is Map &&
+                (photo['recognitionFields'] as Map)[field] != null &&
+                (field != 'expiryValue' ||
+                    (photo['recognitionFields'] as Map)['expiryPrecision'] !=
+                        null),
+          )
+          .map((photo) => photo['uploadedId'] as String)
+          .toList();
+      if (source == 'recognized' && ids.length != selected.photoIds.length) {
+        throw StateError('批次来源与照片识别结果不一致');
+      }
+      batchSources.add({
+        'batchId': savedBatchId,
+        'field': batchField.$2,
+        'source': source,
+        'photoIds': source == 'recognized' ? ids : <String>[],
+        'reviewed':
+            selected.reviewed &&
+            (source != 'recognized' || !review.requiresChoice(field, photos)),
+      });
+    }
+    return {
+      'schemaVersion': 1,
+      'revision': revision,
+      'medicineVersion': medicineVersion,
+      'idempotencyKey': 'evidence_${_newLocalId()}',
+      'photos': [
+        for (final photo in uploaded)
+          {
+            'photoId': photo['uploadedId'],
+            'sequence': photo['sequence'],
+            'status':
+                const {
+                  'recognized',
+                  'failed',
+                }.contains(photo['recognitionStatus'])
+                ? photo['recognitionStatus']
+                : 'pending',
+            'fields': {
+              if (photo['recognitionFields'] is Map)
+                ...Map<String, dynamic>.from(photo['recognitionFields'] as Map),
+              if (photo['rawText'] is String &&
+                  (photo['rawText'] as String).isNotEmpty &&
+                  (photo['recognitionFields'] is! Map ||
+                      !(photo['recognitionFields'] as Map).containsKey(
+                        'rawOcrText',
+                      )))
+                'rawOcrText': photo['rawText'],
+            },
+            if (photo['recognitionWarnings'] is List)
+              'warnings': photo['recognitionWarnings'],
+          },
+      ],
+      'fieldSources': fieldSources,
+      if (batchSources.isNotEmpty) 'batchSources': batchSources,
+    };
+  }
+
+  ({bool matches, List<String> rows}) _compareRecoveryMedicine(
+    Map<String, dynamic> latest,
+  ) {
+    final original = attemptedPayload;
+    final rows = <String>[];
+    var matches =
+        original != null &&
+        latest['id'] == savedMedicineId &&
+        latest['version'] is int;
+    if (original == null) return (matches: false, rows: ['原始提交不可用，无法安全核对。']);
+    final fields = <String>{
+      'name',
+      'brand',
+      'specification',
+      'manufacturer',
+      'approvalNumber',
+      ...review.toJson().keys,
+    };
+    const simple = {
+      'name',
+      'brand',
+      'specification',
+      'manufacturer',
+      'approvalNumber',
+      'barcodeValue',
+      'activeIngredients',
+      'purposeCategory',
+      'populationTags',
+      'purposeTags',
+    };
+    String display(Object? value) =>
+        value is List ? value.join('、') : value?.toString() ?? '未填写';
+    void compare(String field, Map previous, Map current) {
+      if (!previous.containsKey(field) || !current.containsKey(field)) {
+        matches = false;
+        rows.add('${_fieldLabels[field] ?? field}：资料缺失，无法核对。');
+        return;
+      }
+      final oldValue = previous[field];
+      final newValue = current[field];
+      rows.add(
+        '${_fieldLabels[field] ?? field}：原录入 ${display(oldValue)}；当前药箱 ${display(newValue)}',
+      );
+      try {
+        if (jsonEncode(_recoveryComparable(oldValue, field)) !=
+            jsonEncode(_recoveryComparable(newValue, field))) {
+          matches = false;
+        }
+      } catch (_) {
+        matches = false;
+      }
+    }
+
+    for (final field in fields) {
+      if (simple.contains(field)) {
+        compare(field, original, latest);
+      } else if (leafletControllers.containsKey(field)) {
+        if (original['leaflet'] is! Map || latest['leaflet'] is! Map) {
+          matches = false;
+          rows.add('${_fieldLabels[field]}：资料缺失，无法核对。');
+        } else {
+          compare(field, original['leaflet'] as Map, latest['leaflet'] as Map);
+        }
+      } else if (field != 'expiryValue' && field != 'lotNumber') {
+        matches = false;
+        rows.add('${_fieldLabels[field] ?? field}：暂不能验证来源。');
+      }
+    }
+
+    final requiresBatch =
+        fields.contains('expiryValue') ||
+        fields.contains('lotNumber') ||
+        photoDrafts.any((photo) => photo['purpose'] == 'expiry');
+    if (requiresBatch) {
+      final oldBatches = original['batches'];
+      final currentBatches = latest['batches'];
+      final possible = currentBatches is List
+          ? currentBatches
+                .whereType<Map>()
+                .where((batch) => batch['id'] == savedBatchId)
+                .toList()
+          : <Map>[];
+      if (!savedBatchIdConfirmed ||
+          savedBatchId == null ||
+          savedBatchVersion == null ||
+          oldBatches is! List ||
+          oldBatches.length != 1 ||
+          oldBatches.single is! Map ||
+          possible.length != 1 ||
+          possible.single['version'] is! int ||
+          (possible.single['version'] as int) < savedBatchVersion! ||
+          !possible.single.containsKey('quantity') ||
+          (possible.single['quantity'] != null &&
+              possible.single['quantity'] is! num) ||
+          possible.single['unit'] is! String) {
+        matches = false;
+        rows.add('原批次或其版本无法确认；请在药品详情核对，原草稿会保留。');
+      } else {
+        final oldBatch = oldBatches.single as Map;
+        final currentBatch = possible.single;
+        rows.add(
+          '批次版本：原记录 $savedBatchVersion；当前 ${currentBatch['version']}。'
+          '当前余量：${display(currentBatch['quantity'])} ${unitLabel(currentBatch['unit'] as String)}',
+        );
+        compare('lotNumber', oldBatch, currentBatch);
+        if (oldBatch['expiry'] is! Map || currentBatch['expiry'] is! Map) {
+          matches = false;
+          rows.add('有效期资料缺失，无法核对。');
+        } else {
+          final oldExpiry = oldBatch['expiry'] as Map;
+          final newExpiry = currentBatch['expiry'] as Map;
+          if (!oldExpiry.containsKey('value') ||
+              !newExpiry.containsKey('value') ||
+              !oldExpiry.containsKey('precision') ||
+              !newExpiry.containsKey('precision')) {
+            matches = false;
+            rows.add('有效期精度缺失，无法核对。');
+          } else {
+            rows.add(
+              '有效期：原录入 ${display(oldExpiry['value'])}（${display(oldExpiry['precision'])}）；'
+              '当前药箱 ${display(newExpiry['value'])}（${display(newExpiry['precision'])}）',
+            );
+            if (oldExpiry['value'] != newExpiry['value'] ||
+                oldExpiry['precision'] != newExpiry['precision']) {
+              matches = false;
+            }
+          }
+        }
+      }
+    }
+    return (matches: matches, rows: rows);
+  }
+
+  Future<void> _reviewEvidenceRecovery() async {
+    if (saving ||
+        !_isDraftIdentityCurrent ||
+        savedMedicineId == null ||
+        attemptedPayload == null) {
+      return;
+    }
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final id = draftId;
+    final medicineId = savedMedicineId!;
+    bool current() =>
+        mounted &&
+        _isDraftIdentityCurrent &&
+        draftId == id &&
+        savedMedicineId == medicineId &&
+        route.isCurrent;
+    setState(() => saving = true);
+    try {
+      // Persist the old request and any genuine POST receipt before review.
+      await _requireDraftSave(legacy: false);
+      if (!current()) return;
+      final latest = await widget.workflow.api.get(
+        '/api/v1/medicines/$medicineId',
+        isCurrent: current,
+        responseIsCurrent: current,
+      ) as Map<String, dynamic>;
+      if (!current()) return;
+      final sourceState = await widget.workflow.getRecognitionEvidenceState(
+        medicineId,
+        isCurrent: current,
+      );
+      if (!current()) return;
+      final comparison = _compareRecoveryMedicine(latest);
+      final previousRequest = evidenceRequest;
+      final previousReceipt = evidenceAcknowledged;
+      final currentEvidence = sourceState.evidence;
+      bool hasReceipt(Map? request, Map? receipt) =>
+          request != null &&
+          receipt != null &&
+          request['revision'] is int &&
+          receipt['idempotencyKey'] == request['idempotencyKey'] &&
+          receipt['revision'] == (request['revision'] as int) + 1 &&
+          receipt['medicineVersion'] == request['medicineVersion'];
+      final acknowledged = hasReceipt(previousRequest, previousReceipt);
+      final historicalAck = evidenceHistory.any(
+        (entry) =>
+            entry['request'] is Map &&
+            entry['acknowledged'] is Map &&
+            hasReceipt(entry['request'] as Map, entry['acknowledged'] as Map),
+      );
+      var sourceSafe =
+          currentEvidence == null &&
+          !acknowledged &&
+          !historicalAck &&
+          (previousRequest == null || previousRequest['revision'] == 0);
+      if (currentEvidence != null) {
+        final matchesAcknowledged =
+            acknowledged && currentEvidence.matchesReceipt(previousRequest!);
+        final matchesHistory = evidenceHistory.any((entry) {
+          if (entry['request'] is! Map ||
+              entry['acknowledged'] is! Map ||
+              !hasReceipt(
+                entry['request'] as Map,
+                entry['acknowledged'] as Map,
+              )) {
+            return false;
+          }
+          return currentEvidence.matchesReceipt(
+            Map<String, dynamic>.from(entry['request'] as Map),
+          );
+        });
+        sourceSafe =
+            (matchesAcknowledged || matchesHistory) &&
+            currentEvidence.currentMedicineVersion == latest['version'] &&
+            currentEvidence.photos.every((photo) => photo.available) &&
+            currentEvidence.batchSources.every(
+              (source) => source.batchAvailable,
+            );
+      }
+      final allUploaded = photoDrafts.every(
+        (photo) => photo['uploadedId'] is String,
+      );
+      final historyRoom = evidenceHistory.length < 20;
+      final ready =
+          comparison.matches && sourceSafe && allUploaded && historyRoom;
+      final sourceMessage = sourceSafe
+          ? currentEvidence == null
+                ? '当前未发现来源资料，原请求及照片会保留；尚无回执的请求不能确认是否曾保存。'
+                : '当前来源与已收到的原回执一致，原请求及照片会保留。'
+          : '当前来源已变化或原请求尚无可核验回执；请先核对现有来源，不会覆盖。';
+      final rows = [
+        ...comparison.rows,
+        for (final photo in photoDrafts)
+          '图${photo['sequence']}：${jsonEncode(photo['recognitionFields'] ?? {})}'
+              '${photo['rawText'] is String && (photo['rawText'] as String).isNotEmpty ? '\n本机识别原文：${photo['rawText']}' : ''}'
+              '${photo['recognitionWarnings'] is List ? '\n识别提醒：${(photo['recognitionWarnings'] as List).join('、')}' : ''}',
+      ];
+      if (!mounted || !current()) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => _protectPrivateDialog(
+          dialogContext,
+          AlertDialog(
+            title: const Text('核对当前药品和来源'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '原药品版本：${savedMedicineVersion ?? '未记录'}；当前版本：${latest['version'] ?? '未记录'}。',
+                  ),
+                  Text(sourceMessage),
+                  if (!comparison.matches)
+                    const Text('药品字段或批次无法确认一致，请先在药品详情核对；不会覆盖当前来源。'),
+                  if (!allUploaded) const Text('仍有照片未上传，请先重试原提交。'),
+                  if (!historyRoom) const Text('历史请求已达本机保留上限，请先核对现有记录。'),
+                  if (usePhotoAsCover && !coverApplied)
+                    const Text('本次将保留当前封面，不重复修改封面。'),
+                  for (final row in rows)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(row),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('关闭'),
+              ),
+              if (ready)
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('确认并准备重试'),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !current() || !ready) return;
+      final confirmedMedicine = await widget.workflow.api.get(
+        '/api/v1/medicines/$medicineId',
+        isCurrent: current,
+        responseIsCurrent: current,
+      ) as Map<String, dynamic>;
+      if (!current()) return;
+      final confirmedSource = await widget.workflow.getRecognitionEvidenceState(
+        medicineId,
+        isCurrent: current,
+      );
+      if (!mounted || !current()) return;
+      if (jsonEncode(_canonicalRecoverySnapshot(latest)) !=
+              jsonEncode(_canonicalRecoverySnapshot(confirmedMedicine)) ||
+          jsonEncode(
+                _canonicalRecoverySnapshot(
+                  _recoverySourceSnapshot(sourceState),
+                ),
+              ) !=
+              jsonEncode(
+                _canonicalRecoverySnapshot(
+                  _recoverySourceSnapshot(confirmedSource),
+                ),
+              )) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('核对期间药品或来源发生变化，请重新核对；原请求和照片仍保留。')),
+        );
+        return;
+      }
+      final nextRevision = confirmedSource.evidence?.revision ?? 0;
+      final newVersion = confirmedMedicine['version'] as int;
+      final requiresBatch =
+          review.source('expiryValue') != null ||
+          review.source('lotNumber') != null ||
+          photoDrafts.any((photo) => photo['purpose'] == 'expiry');
+      int? confirmedBatchVersion;
+      if (requiresBatch) {
+        final batches = (confirmedMedicine['batches'] as List)
+            .whereType<Map>()
+            .where((batch) => batch['id'] == savedBatchId)
+            .toList();
+        if (batches.length != 1 || batches.single['version'] is! int) {
+          throw const _BatchIdentityUnconfirmed();
+        }
+        confirmedBatchVersion = batches.single['version'] as int;
+      }
+      final Map<String, dynamic> next;
+      if (previousRequest == null) {
+        next = _buildEvidenceRequest(photoDrafts, newVersion, nextRevision);
+      } else {
+        next = Map<String, dynamic>.from(
+          jsonDecode(jsonEncode(previousRequest)) as Map,
+        );
+        next['revision'] = nextRevision;
+        next['medicineVersion'] = newVersion;
+        next['idempotencyKey'] = 'evidence_${_newLocalId()}';
+      }
+      evidenceHistory.add({
+        'request': previousRequest == null
+            ? null
+            : jsonDecode(jsonEncode(previousRequest)),
+        'acknowledged': previousReceipt == null
+            ? null
+            : Map<String, dynamic>.from(previousReceipt),
+        'coverIntent': coverIntent == null
+            ? null
+            : Map<String, dynamic>.from(coverIntent!),
+        'medicineVersion': savedMedicineVersion,
+        'batchVersion': savedBatchVersion,
+      });
+      evidenceRequest = next;
+      evidenceAcknowledged = null;
+      evidenceSynced = false;
+      savedMedicineVersion = newVersion;
+      if (confirmedBatchVersion != null) {
+        savedBatchVersion = confirmedBatchVersion;
+      }
+      if (usePhotoAsCover && !coverApplied) {
+        usePhotoAsCover = false;
+        coverIntent = null;
+      }
+      await _requireDraftSave(legacy: false);
+      if (!mounted || !current()) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('核对结果已保留，请重试资料同步。')));
+    } catch (_) {
+      if (mounted && current()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前药品或来源暂时无法核对；原请求、照片和资料仍保留在本机草稿。')),
+        );
+      }
+    } finally {
+      if (mounted && draftId == id && _isDraftIdentityCurrent) {
+        setState(() => saving = false);
+      }
+    }
+  }
+
   Future<void> _save() async {
-    if (saving || handlingBack || !_isDraftIdentityCurrent) return;
+    if (saving || recognizing || handlingBack || !_isDraftIdentityCurrent) {
+      return;
+    }
     if (_isCleanupDraft) {
       _showCleanupHint();
+      return;
+    }
+    if (attemptedPayload == null &&
+        photoDrafts.any((photo) => photo['retryFields'] is Map)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先完成照片的重识别核对，原结果已保留。')));
+      return;
+    }
+    if (attemptedPayload == null && _hasBlockingConflicts) {
+      setState(() {
+        if (_reviewControllers.keys.any(
+          (field) => review.requiresChoice(field, photoDrafts),
+        )) {
+          identityExpanded = true;
+          leafletExpanded = true;
+        }
+        if (_hasMoreReviewConflicts) moreExpanded = true;
+        if (['purposeCategory', 'populationTags', 'purposeTags'].any(
+          (field) => review.requiresChoice(field, photoDrafts),
+        )) {
+          categoryExpanded = true;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('药品信息存在不同识别结果，请先在逐图核对中明确选择。')),
+      );
       return;
     }
     final route = ModalRoute.of(context);
@@ -1445,6 +2728,16 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
     }
 
+    Future<MedicineRecord> freshMedicine(String medicineId) async {
+      final response = await workflow.api.get(
+        '/api/v1/medicines/$medicineId',
+        isCurrent: isCurrentIntent,
+        responseIsCurrent: isCurrentIntent,
+      );
+      requireCurrentIntent();
+      return MedicineRecord.fromJson(response as Map<String, dynamic>);
+    }
+
     final name = nameController.text.trim();
     if (name.isEmpty) {
       setState(() => touchedName = true);
@@ -1475,6 +2768,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     final batch = <String, Object?>{
       'quantity': quantity,
       'unit': unit,
+      'lotNumber': _nullableText(lotController.text),
       'expiry': {
         'value': rawExpiry.isEmpty ? null : rawExpiry,
         'precision': rawExpiry.isEmpty ? 'unknown' : expiryPrecision,
@@ -1525,25 +2819,32 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     FocusScope.of(context).unfocus();
     setState(() => saving = true);
     try {
-      bool uploadPhotos = false;
+      bool uploadPhotos =
+          photos.isEmpty &&
+          review.toJson().values.any(
+            (source) => (source as Map)['source'] == 'removed',
+          );
       if (photos.isNotEmpty) {
         final consent = await showDialog<bool>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('保存药盒照片？'),
-            content: Text(
-              '已保留 ${photos.length} 张照片。确认后完整照片上传到此家庭的私有药品资料中；未完成照片保留在本机，可补拍。',
+          builder: (dialogContext) => _protectPrivateDialog(
+            dialogContext,
+            AlertDialog(
+              title: const Text('保存药盒照片？'),
+              content: Text(
+                '已保留 ${photos.length} 张照片。确认后完整照片上传到此家庭的私有药品资料中；未完成照片保留在本机，可补拍。',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('只保存库存'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('确认上传照片'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('只保存库存'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('确认上传照片'),
-              ),
-            ],
           ),
         );
         if (consent == null || !isCurrentIntent()) return;
@@ -1570,21 +2871,24 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         if (matches.isNotEmpty && mounted) {
           final proceed = await showDialog<bool>(
             context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: const Text('家中已有相同成分记录'),
-              content: Text(
-                '成分资料已核验的药品：${matches.map((item) => item.name).take(6).join('、')}。请对照包装核对，这只是重复成分提醒，不是选药建议。仍要保存库存吗？',
+            builder: (dialogContext) => _protectPrivateDialog(
+              dialogContext,
+              AlertDialog(
+                title: const Text('家中已有相同成分记录'),
+                content: Text(
+                  '成分资料已核验的药品：${matches.map((item) => item.name).take(6).join('、')}。请对照包装核对，这只是重复成分提醒，不是选药建议。仍要保存库存吗？',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('返回核对'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('仍然保存'),
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('返回核对'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('仍然保存'),
-                ),
-              ],
             ),
           );
           if (proceed != true || !isCurrentIntent()) return;
@@ -1599,28 +2903,56 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
       if (!await _saveDraft(legacy: false)) throw StateError('本机保存回执未确认，请重试。');
       requireCurrentIntent();
-      final medicine = savedMedicineId == null
+      final creating = savedMedicineId == null;
+      var medicine = creating
           ? await repository.createMedicine(
               attemptedPayload!,
               isCurrent: isCurrentIntent,
             )
-          : await repository.getMedicine(
-              savedMedicineId!,
-              isCurrent: isCurrentIntent,
-            );
+          : await freshMedicine(savedMedicineId!);
       requireCurrentIntent();
       savedMedicineId = medicine.id;
-      savedBatchId ??= medicine.batches.isEmpty
-          ? null
-          : medicine.batches.first.id;
+      if (creating) savedMedicineVersion = medicine.version;
+      if (creating && savedBatchId == null && medicine.batches.length == 1) {
+        savedBatchId = medicine.batches.single.id;
+        savedBatchIdConfirmed = true;
+      }
       if (!await _saveDraft(legacy: false)) throw StateError('本机保存回执未确认，请重试。');
       requireCurrentIntent();
+      if (creating &&
+          savedBatchIdConfirmed &&
+          (review.source('expiryValue') != null ||
+              review.source('lotNumber') != null ||
+              photos.any((photo) => photo['purpose'] == 'expiry'))) {
+        final latest = await workflow.api.get(
+          '/api/v1/medicines/${medicine.id}',
+          isCurrent: isCurrentIntent,
+          responseIsCurrent: isCurrentIntent,
+        ) as Map<String, dynamic>;
+        requireCurrentIntent();
+        final batches = (latest['batches'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .where((batch) => batch['id'] == savedBatchId)
+            .toList();
+        if (latest['version'] == savedMedicineVersion &&
+            batches.length == 1 &&
+            batches.single['version'] is int) {
+          savedBatchVersion = batches.single['version'] as int;
+          if (!await _saveDraft(legacy: false)) throw const _DraftSaveFailure();
+          requireCurrentIntent();
+        }
+      }
       if (uploadPhotos) {
         for (final photo in photos) {
           if (photo['state'] != null && photo['state'] != 'ready') continue;
           if (photo['uploadedId'] != null) continue;
           final path = photo['path'] as String;
           final purpose = photo['purpose'] as String;
+          if (purpose == 'expiry' &&
+              (savedBatchId == null || !savedBatchIdConfirmed) &&
+              photo['ownedLocal'] != null) {
+            throw const _BatchIdentityUnconfirmed();
+          }
           final file = image?.path == path
               ? image!
               : expiryImage?.path == path
@@ -1642,7 +2974,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                 : 'image/jpeg',
             source: 'user_capture',
             purpose: purpose,
-            batchId: purpose == 'expiry' ? savedBatchId : null,
+            batchId: purpose == 'expiry' && savedBatchIdConfirmed
+                ? savedBatchId
+                : null,
             uploadIntentKey: photo['uploadIntentKey'] as String,
             isCurrent: isCurrentIntent,
           );
@@ -1661,12 +2995,172 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               photo['uploadedId'] != null &&
               (photo['state'] == null || photo['state'] == 'ready'),
         );
-        if (setCover && fronts.isNotEmpty) {
-          await workflow.setCoverPhoto(
+        final allPhotosUploaded = photos.every(
+          (photo) => photo['uploadedId'] is String,
+        );
+        final needsEvidence =
+            allPhotosUploaded &&
+            (photos.any((photo) => photo['recognitionStatus'] != null) ||
+                review.toJson().values.any(
+                  (source) => (source as Map)['source'] == 'removed',
+                ));
+        final needsCover =
+            allPhotosUploaded && setCover && fronts.isNotEmpty && !coverApplied;
+        RecognitionEvidenceState? evidenceState;
+        if (needsCover ||
+            (needsEvidence && !evidenceSynced && evidenceRequest == null)) {
+          evidenceState = await workflow.getRecognitionEvidenceState(
             medicine.id,
-            fronts.last['uploadedId'] as String,
             isCurrent: isCurrentIntent,
           );
+          requireCurrentIntent();
+        }
+        if (needsCover) {
+          if (evidenceState?.coverPhotoVersionGuard != true ||
+              savedMedicineVersion == null) {
+            throw StateError('服务未确认支持封面版本保护');
+          }
+          final target = fronts.last['uploadedId'] as String;
+          medicine = await freshMedicine(medicine.id);
+          requireCurrentIntent();
+          if (coverIntent == null) {
+            if (medicine.version != savedMedicineVersion) {
+              throw StateError('药品已被其他成员修改');
+            }
+            if (medicine.coverPhotoId == target) {
+              coverApplied = true;
+            } else {
+              coverIntent = {
+                'photoId': target,
+                'version': savedMedicineVersion,
+              };
+            }
+            if (!await _saveDraft(legacy: false)) {
+              throw const _DraftSaveFailure();
+            }
+            requireCurrentIntent();
+          }
+          if (!coverApplied) {
+            final baseVersion = coverIntent!['version'] as int;
+            final desired = coverIntent!['photoId'] as String;
+            if (medicine.version == baseVersion + 1 &&
+                medicine.coverPhotoId == desired) {
+              // The desired current state is confirmed, without assuming which
+              // client performed an earlier write whose response was lost.
+              coverApplied = true;
+              savedMedicineVersion = medicine.version;
+            } else if (medicine.version == baseVersion &&
+                medicine.coverPhotoId != desired) {
+              await workflow.setCoverPhoto(
+                medicine.id,
+                desired,
+                version: baseVersion,
+                isCurrent: isCurrentIntent,
+              );
+              requireCurrentIntent();
+              medicine = await freshMedicine(medicine.id);
+              requireCurrentIntent();
+              if (medicine.version != baseVersion + 1 ||
+                  medicine.coverPhotoId != desired) {
+                throw StateError('封面或药品已发生并发修改');
+              }
+              coverApplied = true;
+              savedMedicineVersion = medicine.version;
+            } else {
+              throw StateError('封面或药品已发生并发修改');
+            }
+            if (!await _saveDraft(legacy: false)) {
+              throw const _DraftSaveFailure();
+            }
+            requireCurrentIntent();
+          }
+        }
+        if (needsEvidence && !evidenceSynced) {
+          if (evidenceRequest == null) {
+            if (savedMedicineVersion == null ||
+                evidenceState?.evidence != null) {
+              throw StateError('已有来源或药品版本未知，请先核对');
+            }
+            medicine = await freshMedicine(medicine.id);
+            requireCurrentIntent();
+            if (medicine.version != savedMedicineVersion) {
+              throw StateError('药品已被其他成员修改');
+            }
+            evidenceRequest = _buildEvidenceRequest(
+              photos,
+              savedMedicineVersion!,
+              0,
+            );
+            if (!await _saveDraft(legacy: false)) {
+              throw const _DraftSaveFailure();
+            }
+            requireCurrentIntent();
+          }
+          final pendingBatchSources =
+              evidenceRequest!['batchSources'] as List? ?? [];
+          if (pendingBatchSources.any(
+            (source) =>
+                source is! Map ||
+                !savedBatchIdConfirmed ||
+                source['batchId'] != savedBatchId,
+          )) {
+            throw const _BatchIdentityUnconfirmed();
+          }
+          final evidencePhotos = evidenceRequest!['photos'] as List;
+          if (evidencePhotos.length > 100 ||
+              evidencePhotos.any(
+                (photo) =>
+                    utf8.encode(jsonEncode(photo)).length > 32 * 1024 ||
+                    (photo['warnings'] is List &&
+                        ((photo['warnings'] as List).length > 20 ||
+                            (photo['warnings'] as List).any(
+                              (warning) =>
+                                  warning is! String ||
+                                  warning.runes.length > 500,
+                            ))),
+              ) ||
+              utf8
+                      .encode(
+                        jsonEncode({
+                          'schemaVersion': evidenceRequest!['schemaVersion'],
+                          'photos': evidencePhotos,
+                          'fieldSources': evidenceRequest!['fieldSources'],
+                          if (evidenceRequest!['batchSources'] != null)
+                            'batchSources': evidenceRequest!['batchSources'],
+                        }),
+                      )
+                      .length >
+                  256 * 1024) {
+            throw const FormatException('逐图资料超过大小上限，原文已保留在本机草稿。');
+          }
+          final savedEvidence = await workflow.saveRecognitionEvidence(
+            medicine.id,
+            evidenceRequest!,
+            isCurrent: isCurrentIntent,
+          );
+          requireCurrentIntent();
+          if (savedEvidence == null ||
+              !savedEvidence.matchesReceipt(evidenceRequest!)) {
+            throw StateError('资料来源需要重新核对');
+          }
+          evidenceAcknowledged = {
+            'idempotencyKey': evidenceRequest!['idempotencyKey'],
+            'revision': savedEvidence.revision,
+            'medicineVersion': savedEvidence.medicineVersion,
+          };
+          if (!savedEvidence.matchesSaveRequest(evidenceRequest!)) {
+            if (!await _saveDraft(legacy: false)) {
+              throw const _DraftSaveFailure();
+            }
+            requireCurrentIntent();
+            if (!mounted || !isCurrentIntent()) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('原版本资料已收到保存回执，但当前资料已变化；请核对后继续同步。')),
+            );
+            return;
+          }
+          evidenceSynced = true;
+          if (!await _saveDraft(legacy: false)) throw const _DraftSaveFailure();
           requireCurrentIntent();
         }
       }
@@ -1737,7 +3231,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           content: Text(
             savedMedicineId == null
                 ? friendlyApiError(error)
-                : '库存已保存，照片待补。草稿已保留，重试仅关联照片。',
+                : error is _BatchIdentityUnconfirmed
+                ? '库存已保存，批次身份尚未确认；资料已保留本机草稿，请核对原批次后重试。'
+                : error is FormatException &&
+                      error.message == '逐图资料超过大小上限，原文已保留在本机草稿。'
+                ? '库存已保存；逐图资料超过大小上限，原文已保留在本机草稿。'
+                : '库存已保存，照片、封面或资料来源待同步。草稿已保留，重试不会重复创建药品。',
           ),
         ),
       );
@@ -1775,6 +3274,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   );
 
   void _setExpiryPrecision(String precision) {
+    if (!_isDraftIdentityCurrent) return;
     final current = expiryController.text.trim();
     setState(() {
       expiryPrecision = precision;
@@ -1787,7 +3287,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
       touchedExpiry = true;
     });
-    _markDirty();
+    _manualField('expiryValue');
   }
 
   double _labelWidth(Iterable<String> labels, TextStyle? style) {
@@ -1873,7 +3373,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   );
 
   @override
-  Widget build(BuildContext context) => PopScope<Object?>(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _identitySignals,
+    builder: (context, _) => _isDraftIdentityCurrent
+        ? _buildEntry(context)
+        : const Scaffold(body: Center(child: Text('家庭身份已变化，请重新打开药品录入。'))),
+  );
+
+  Widget _buildEntry(BuildContext context) => PopScope<Object?>(
     key: const ValueKey('medicine-entry-pop-scope'),
     canPop: !dirty && !restoredDraft && !saving && !handlingBack,
     onPopInvokedWithResult: (didPop, _) {
@@ -1885,6 +3392,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       appBar: AppBar(
         title: const Text('添加药品'),
         actions: [
+          if (savedMedicineId != null && !evidenceSynced && !_isCleanupDraft)
+            IconButton(
+              tooltip: '核对来源同步',
+              onPressed: saving || handlingBack
+                  ? null
+                  : _reviewEvidenceRecovery,
+              icon: const Icon(Icons.fact_check_outlined),
+            ),
           IconButton(
             tooltip: '导入草稿',
             onPressed: saving || handlingBack ? null : _chooseDraft,
@@ -1898,32 +3413,48 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         ),
         child: SafeArea(
           minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: PrimaryButton(
-            label: saving
-                ? '正在保存…'
-                : attemptedPayload != null
-                ? '重试原提交'
-                : '核对后保存',
-            icon: Icons.check_rounded,
-            onPressed: saving || handlingBack ? null : _save,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (savedMedicineId != null &&
+                  !evidenceSynced &&
+                  !_isCleanupDraft)
+                TextButton(
+                  onPressed: saving || handlingBack
+                      ? null
+                      : _reviewEvidenceRecovery,
+                  child: const Text('核对当前药品与来源'),
+                ),
+              PrimaryButton(
+                label: saving
+                    ? '正在保存…'
+                    : attemptedPayload != null
+                    ? '重试原提交'
+                    : '核对后保存',
+                icon: Icons.check_rounded,
+                onPressed: saving || recognizing || handlingBack ? null : _save,
+              ),
+            ],
           ),
         ),
       ),
       body: Stack(
         children: [
           AbsorbPointer(
-            absorbing:
-                attemptedPayload != null ||
-                saving ||
-                recognizing ||
-                _isCleanupDraft,
+            absorbing: attemptedPayload != null || saving || _isCleanupDraft,
             child: AppPage(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
               child: ListView(
                 children: [
                   if (attemptedPayload != null)
-                    const AppCard(
-                      child: Text('原提交待确认，已锁定内容避免重复入库。请重试原提交；成功后在详情页修改。'),
+                    AppCard(
+                      child: Text(
+                        savedMedicineId == null
+                            ? '原提交待确认，已锁定内容避免重复入库。请重试原提交；成功后在详情页修改。'
+                            : evidenceAcknowledged != null
+                            ? '原版本资料已收到保存回执，但当前资料已变化。请核对来源后继续同步。'
+                            : '药品已保存，照片、封面或资料来源待同步。请重试原提交；不会重复创建药品。',
+                      ),
                     ),
                   if (restoringDraft)
                     const LinearProgressIndicator(semanticsLabel: '正在恢复本地草稿'),
@@ -1938,33 +3469,87 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '拍药盒，或直接填写药名',
+                          photoDrafts.isEmpty ? '拍照识别，或直接填写药名' : '照片与识别资料',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 6),
-                        const Text('可选择 AI 或本机中文识别；照片发送前会询问，识别结果和用途标签须核对后保存。'),
-                        const SizedBox(height: 14),
-                        PrimaryButton(
-                          label: recognizing ? '正在识别…' : '拍药盒',
-                          icon: Icons.camera_alt_rounded,
-                          onPressed: recognizing
-                              ? null
-                              : () => _chooseImage(action: _ImageAction.camera),
-                        ),
-                        const SizedBox(height: 8),
-                        SoftButton(
-                          label: '扫码读取药盒编码',
-                          icon: Icons.qr_code_scanner_rounded,
-                          onPressed: saving ? null : _scanCode,
-                        ),
-                        TextButton.icon(
-                          onPressed: recognizing
-                              ? null
-                              : () =>
-                                    _chooseImage(action: _ImageAction.gallery),
-                          icon: const Icon(Icons.photo_library_outlined),
-                          label: const Text('从相册选择'),
-                        ),
+                        if (photoDrafts.isEmpty) ...[
+                          const Text('识别结果需要核对，照片发送前会询问。'),
+                          const SizedBox(height: 14),
+                          PrimaryButton(
+                            label: recognizing ? '正在识别…' : '拍药盒',
+                            icon: Icons.camera_alt_rounded,
+                            onPressed: recognizing
+                                ? null
+                                : () =>
+                                      _chooseImage(action: _ImageAction.camera),
+                          ),
+                          const SizedBox(height: 8),
+                          SoftButton(
+                            label: '拍说明书',
+                            icon: Icons.document_scanner_outlined,
+                            onPressed: recognizing
+                                ? null
+                                : () => _chooseImage(
+                                    action: _ImageAction.camera,
+                                    leafletPhoto: true,
+                                  ),
+                          ),
+                          TextButton.icon(
+                            onPressed: recognizing
+                                ? null
+                                : () => _captureOptions(scanAndAlbumOnly: true),
+                            icon: const Icon(Icons.qr_code_scanner_rounded),
+                            label: const Text('扫码 / 相册'),
+                          ),
+                        ] else ...[
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final photo in photoDrafts)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: Column(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          child: Image.file(
+                                            File(photo['path'] as String),
+                                            width: 64,
+                                            height: 64,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, _, _) =>
+                                                const SizedBox(
+                                                  width: 64,
+                                                  height: 64,
+                                                  child: Icon(
+                                                    Icons.broken_image_outlined,
+                                                  ),
+                                                ),
+                                          ),
+                                        ),
+                                        Text('图${photo['sequence']}'),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: recognizing ? null : _captureOptions,
+                            icon: const Icon(Icons.add_a_photo_outlined),
+                            label: const Text('继续补拍'),
+                          ),
+                          ExpansionTile(
+                            key: ValueKey(_hasBlockingConflicts),
+                            title: const Text('逐图核对与来源'),
+                            initiallyExpanded: _hasBlockingConflicts,
+                            children: [_photoReview()],
+                          ),
+                        ],
                         if (nameController.text.trim().isNotEmpty ||
                             scannedCode != null) ...[
                           const SizedBox(height: 8),
@@ -1978,21 +3563,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                                         ? scannedCode
                                         : null,
                                   ),
-                          ),
-                        ],
-                        if (image != null) ...[
-                          const SizedBox(height: 12),
-                          const Text('识别资料仅供录入参考，请逐项人工核对后保存。'),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.file(
-                              File(image!.path),
-                              height: 150,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Text('照片预览不可用，可重新选择或拍照。'),
-                            ),
                           ),
                         ],
                         if (photoDrafts.isNotEmpty) ...[
@@ -2061,7 +3631,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           controller: nameController,
                           onChanged: (_) {
                             touchedName = true;
-                            _markDirty();
+                            _manualField('name');
                           },
                           textCapitalization: TextCapitalization.sentences,
                           decoration: InputDecoration(
@@ -2074,30 +3644,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        TextField(
-                          controller: brandController,
-                          onChanged: (_) => _markDirty(),
-                          decoration: const InputDecoration(
-                            labelText: '品牌（按包装核对）',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: specificationController,
-                          onChanged: (_) => _markDirty(),
-                          decoration: const InputDecoration(
-                            labelText: '包装规格',
-                            helperText: '如每盒20粒；服药间隔不属于包装数量',
-                            helperMaxLines: 3,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: manufacturerController,
-                          onChanged: (_) => _markDirty(),
-                          decoration: const InputDecoration(labelText: '厂家'),
-                        ),
-                        const SizedBox(height: 12),
                         Text(
                           '库存与有效期（选填）',
                           style: Theme.of(context).textTheme.titleMedium,
@@ -2142,6 +3688,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                         MedicineDateField(
                           key: const ValueKey('api-expiry-date-field'),
                           controller: expiryController,
+                          privacySignal: _identitySignals,
+                          isCurrent: () => _isDraftIdentityCurrent,
                           label: '包装有效期',
                           precision: expiryPrecision == 'day' ? 'day' : 'month',
                           onChanged: () {
@@ -2151,7 +3699,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                                 expiryPrecision = 'month';
                               }
                             });
-                            _markDirty();
+                            _manualField('expiryValue');
                           },
                         ),
                         TextButton.icon(
@@ -2166,6 +3714,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             expiryImage == null ? '补拍有效期照片' : '已保留有效期照片（可补拍）',
                           ),
                         ),
+
                         if (expiryController.text.isNotEmpty)
                           Align(
                             alignment: Alignment.centerLeft,
@@ -2191,6 +3740,50 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                               ),
                             ),
                           ),
+                        const SizedBox(height: 12),
+                        _optionalSection(
+                          title: '品牌、规格与厂家（选填）',
+                          expanded: identityExpanded,
+                          onTap: () {
+                            setState(
+                              () => identityExpanded = !identityExpanded,
+                            );
+                            _markDirty();
+                          },
+                        ),
+                        if (identityExpanded) ...[
+                          TextField(
+                            controller: brandController,
+                            onChanged: (_) => _manualField('brand'),
+                            decoration: const InputDecoration(
+                              labelText: '品牌（按包装核对）',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: specificationController,
+                            onChanged: (_) => _manualField('specification'),
+                            decoration: const InputDecoration(
+                              labelText: '包装规格',
+                              helperText: '如每盒20粒；服药间隔不属于包装数量',
+                              helperMaxLines: 3,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: manufacturerController,
+                            onChanged: (_) => _manualField('manufacturer'),
+                            decoration: const InputDecoration(labelText: '厂家'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: lotController,
+                            onChanged: (_) => _manualField('lotNumber'),
+                            decoration: const InputDecoration(
+                              labelText: '批号（选填）',
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -2285,6 +3878,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                             else
                               MedicineDateField(
                                 controller: afterOpenDateController,
+                                privacySignal: _identitySignals,
+                                isCurrent: () => _isDraftIdentityCurrent,
                                 label: '开封后截止日期',
                                 onChanged: () {
                                   setState(() {});
@@ -2312,15 +3907,25 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           MedicineTagFields(
                             populations: populationTags,
                             purposes: purposeTags,
-                            onPurposeChanged: () => purposeTagsTouched = true,
+                            onPurposeChanged: () {
+                              purposeTagsTouched = true;
+                              review.markManual('purposeTags');
+                            },
                             onChanged: () {
+                              final snapshot = jsonEncode(
+                                populationTags.toList()..sort(),
+                              );
+                              if (_populationSnapshot != snapshot) {
+                                review.markManual('populationTags');
+                                _populationSnapshot = snapshot;
+                              }
                               setState(() {});
                               _markDirty();
                             },
                           ),
                           TextField(
                             controller: purposeController,
-                            onChanged: (_) => _markDirty(),
+                            onChanged: (_) => _manualField('purposeCategory'),
                             decoration: const InputDecoration(
                               labelText: '用途分类 / 标签',
                               hintText: '保留你填写的分类文案',
@@ -2358,7 +3963,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           const SizedBox(height: 12),
                           TextField(
                             controller: approvalController,
-                            onChanged: (_) => _markDirty(),
+                            onChanged: (_) => _manualField('approvalNumber'),
                             decoration: const InputDecoration(
                               labelText: '批准文号',
                             ),
@@ -2366,7 +3971,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                           const SizedBox(height: 12),
                           TextField(
                             controller: ingredientController,
-                            onChanged: (_) => _markDirty(),
+                            onChanged: (_) => _manualField('activeIngredients'),
                             decoration: const InputDecoration(
                               labelText: '成分（多个请用逗号分开）',
                             ),
@@ -2392,35 +3997,41 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '说明书（选填，识别后请核对）',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        _optionalSection(
+                          title: '说明书（选填，识别后请核对）',
+                          expanded: leafletExpanded,
+                          onTap: () {
+                            setState(() => leafletExpanded = !leafletExpanded);
+                            _markDirty();
+                          },
                         ),
-                        TextButton.icon(
-                          onPressed: recognizing
-                              ? null
-                              : () => _chooseImage(
-                                  action: _ImageAction.camera,
-                                  leafletPhoto: true,
-                                ),
-                          icon: const Icon(Icons.document_scanner_outlined),
-                          label: const Text('拍说明书识别文字'),
-                        ),
-                        for (final entry in leafletControllers.entries)
-                          TextField(
-                            controller: entry.value,
-                            maxLines: null,
-                            onChanged: (_) => _markDirty(),
-                            decoration: InputDecoration(
-                              labelText: const {
-                                'purposeSummary': '功能与用途',
-                                'packageUsageSummary': '用法用量',
-                                'precautionsSummary': '注意事项',
-                                'contraindicationsSummary': '禁忌',
-                              }[entry.key],
-                            ),
+                        if (leafletExpanded) ...[
+                          TextButton.icon(
+                            onPressed: recognizing
+                                ? null
+                                : () => _chooseImage(
+                                    action: _ImageAction.camera,
+                                    leafletPhoto: true,
+                                  ),
+                            icon: const Icon(Icons.document_scanner_outlined),
+                            label: const Text('拍说明书识别文字'),
                           ),
-                        const Text('识别内容仅作草稿，保存后仍标记未核对。'),
+                          for (final entry in leafletControllers.entries)
+                            TextField(
+                              controller: entry.value,
+                              maxLines: null,
+                              onChanged: (_) => _manualField(entry.key),
+                              decoration: InputDecoration(
+                                labelText: const {
+                                  'purposeSummary': '功能与用途',
+                                  'packageUsageSummary': '用法用量',
+                                  'precautionsSummary': '注意事项',
+                                  'contraindicationsSummary': '禁忌',
+                                }[entry.key],
+                              ),
+                            ),
+                          const Text('识别内容仅作草稿，保存后仍标记未核对。'),
+                        ],
                       ],
                     ),
                   ),
@@ -2433,31 +4044,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
               ),
             ),
           ),
-          if (recognizing)
-            Positioned.fill(
-              child: ColoredBox(
-                color: Colors.black38,
-                child: Center(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
-                          Text(
-                            '正在识别药品… 已等待 $recognitionSeconds 秒',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Text('完成后请核对包装信息'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     ),

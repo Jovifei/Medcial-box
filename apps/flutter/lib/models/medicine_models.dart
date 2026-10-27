@@ -1,5 +1,245 @@
 import 'dart:convert';
 
+bool _onlyEvidenceKeys(Map<String, dynamic> json, Set<String> allowed) =>
+    json.keys.every(allowed.contains);
+
+class RecognitionEvidencePhoto {
+  const RecognitionEvidencePhoto({
+    required this.photoId,
+    required this.sequence,
+    required this.status,
+    required this.fields,
+    required this.available,
+    this.warnings,
+  });
+  final String photoId;
+  final int sequence;
+  final String status;
+  final Map<String, dynamic> fields;
+  final bool available;
+  final List<String>? warnings;
+  factory RecognitionEvidencePhoto.fromJson(Map<String, dynamic> json) {
+    if (json['available'] is! bool ||
+        !_onlyEvidenceKeys(json, {
+          'photoId',
+          'sequence',
+          'status',
+          'fields',
+          'warnings',
+          'available',
+        })) {
+      throw const FormatException('照片资料状态不完整。');
+    }
+    return RecognitionEvidencePhoto(
+      photoId: json['photoId'] as String,
+      sequence: json['sequence'] as int,
+      status: json['status'] as String,
+      fields: Map<String, dynamic>.from(json['fields'] as Map),
+      available: json['available'] == true,
+      warnings: json['warnings'] == null
+          ? null
+          : (json['warnings'] as List).cast<String>().toList(),
+    );
+  }
+
+  Map<String, dynamic> toRequestJson() => {
+    'photoId': photoId,
+    'sequence': sequence,
+    'status': status,
+    'fields': fields,
+    if (warnings != null) 'warnings': warnings,
+  };
+}
+
+class RecognitionEvidenceSource {
+  const RecognitionEvidenceSource({
+    required this.source,
+    required this.photoIds,
+    required this.reviewed,
+  });
+  final String source;
+  final List<String> photoIds;
+  final bool reviewed;
+  factory RecognitionEvidenceSource.fromJson(Map<String, dynamic> json) {
+    if (json['reviewed'] is! bool ||
+        !_onlyEvidenceKeys(json, {'source', 'photoIds', 'reviewed'})) {
+      throw const FormatException('资料核对状态不完整。');
+    }
+    return RecognitionEvidenceSource(
+      source: json['source'] as String,
+      photoIds: (json['photoIds'] as List).cast<String>().toList(),
+      reviewed: json['reviewed'] == true,
+    );
+  }
+  Map<String, dynamic> toRequestJson() => {
+    'source': source,
+    'photoIds': photoIds,
+    'reviewed': reviewed,
+  };
+}
+
+class RecognitionEvidenceBatchSource {
+  const RecognitionEvidenceBatchSource({
+    required this.batchId,
+    required this.field,
+    required this.source,
+    required this.photoIds,
+    required this.reviewed,
+    required this.batchAvailable,
+    this.historicalBatchRef,
+  });
+  final String? batchId;
+  final String? historicalBatchRef;
+  final String field;
+  final String source;
+  final List<String> photoIds;
+  final bool reviewed;
+  final bool batchAvailable;
+  factory RecognitionEvidenceBatchSource.fromJson(Map<String, dynamic> json) {
+    if (json['reviewed'] is! bool ||
+        json['batchAvailable'] is! bool ||
+        !_onlyEvidenceKeys(json, {
+          'batchId',
+          'historicalBatchRef',
+          'field',
+          'source',
+          'photoIds',
+          'reviewed',
+          'batchAvailable',
+        })) {
+      throw const FormatException('批次资料状态不完整。');
+    }
+    return RecognitionEvidenceBatchSource(
+      batchId: json['batchId'] as String?,
+      historicalBatchRef: json['historicalBatchRef'] as String?,
+      field: json['field'] as String,
+      source: json['source'] as String,
+      photoIds: (json['photoIds'] as List).cast<String>().toList(),
+      reviewed: json['reviewed'] == true,
+      batchAvailable: json['batchAvailable'] == true,
+    );
+  }
+  Map<String, dynamic> toRequestJson() => {
+    'batchId': batchId,
+    if (historicalBatchRef != null) 'historicalBatchRef': historicalBatchRef,
+    'field': field,
+    'source': source,
+    'photoIds': photoIds,
+    'reviewed': reviewed,
+  };
+}
+
+class RecognitionEvidence {
+  const RecognitionEvidence({
+    required this.revision,
+    required this.medicineVersion,
+    required this.currentMedicineVersion,
+    required this.stale,
+    required this.photos,
+    required this.fieldSources,
+    this.batchSources = const [],
+  });
+  final int revision;
+  final int? medicineVersion;
+  final int currentMedicineVersion;
+  final bool stale;
+  final List<RecognitionEvidencePhoto> photos;
+  final Map<String, RecognitionEvidenceSource> fieldSources;
+  final List<RecognitionEvidenceBatchSource> batchSources;
+
+  /// Compare the complete server acknowledgement with the durably frozen write.
+  /// Read-only availability flags are checked separately, not sent back.
+  bool matchesSaveRequest(Map<String, dynamic> request) {
+    return matchesReceipt(request) &&
+        currentMedicineVersion == request['medicineVersion'] &&
+        !stale &&
+        photos.every((photo) => photo.available) &&
+        batchSources.every((source) => source.batchAvailable);
+  }
+
+  /// The immutable acknowledgement can be genuine even if the current
+  /// medicine or source revision has changed after the original write.
+  bool matchesReceipt(Map<String, dynamic> request) {
+    if (request['schemaVersion'] != 1 ||
+        request['revision'] is! int ||
+        request['medicineVersion'] is! int ||
+        revision != (request['revision'] as int) + 1 ||
+        medicineVersion != request['medicineVersion']) {
+      return false;
+    }
+    final actual = <String, dynamic>{
+      'photos': photos.map((photo) => photo.toRequestJson()).toList(),
+      'fieldSources': {
+        for (final entry in fieldSources.entries)
+          entry.key: entry.value.toRequestJson(),
+      },
+      'batchSources': batchSources
+          .map((source) => source.toRequestJson())
+          .toList(),
+    };
+    final expected = <String, dynamic>{
+      'photos': request['photos'],
+      'fieldSources': request['fieldSources'],
+      'batchSources': request['batchSources'] ?? <Object>[],
+    };
+    return jsonEncode(_canonicalEvidence(actual)) ==
+        jsonEncode(_canonicalEvidence(expected));
+  }
+
+  factory RecognitionEvidence.fromJson(Map<String, dynamic> json) {
+    if (json['schemaVersion'] != 1 ||
+        json['stale'] is! bool ||
+        !_onlyEvidenceKeys(json, {
+          'schemaVersion',
+          'revision',
+          'medicineVersion',
+          'currentMedicineVersion',
+          'stale',
+          'photos',
+          'fieldSources',
+          'batchSources',
+        })) {
+      throw const FormatException('不支持的资料来源版本或状态。');
+    }
+    final sources = json['fieldSources'] as Map;
+    return RecognitionEvidence(
+      revision: json['revision'] as int,
+      medicineVersion: json['medicineVersion'] as int?,
+      currentMedicineVersion: json['currentMedicineVersion'] as int,
+      stale: json['stale'] == true,
+      photos: (json['photos'] as List)
+          .map(
+            (photo) => RecognitionEvidencePhoto.fromJson(
+              Map<String, dynamic>.from(photo as Map),
+            ),
+          )
+          .toList(),
+      fieldSources: {
+        for (final entry in sources.entries)
+          entry.key as String: RecognitionEvidenceSource.fromJson(
+            Map<String, dynamic>.from(entry.value as Map),
+          ),
+      },
+      batchSources: (json['batchSources'] as List? ?? [])
+          .map(
+            (source) => RecognitionEvidenceBatchSource.fromJson(
+              Map<String, dynamic>.from(source as Map),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+Object? _canonicalEvidence(Object? value) {
+  if (value is List) return value.map(_canonicalEvidence).toList();
+  if (value is Map) {
+    final keys = value.keys.cast<String>().toList()..sort();
+    return {for (final key in keys) key: _canonicalEvidence(value[key])};
+  }
+  return value;
+}
+
 String _stringOr(Object? value, [String fallback = '']) =>
     value is String ? value : fallback;
 

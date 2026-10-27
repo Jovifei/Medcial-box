@@ -4,10 +4,32 @@ import 'package:flutter/material.dart';
 Future<DateTime?> showExpiryDateWheelPicker(
   BuildContext context, {
   required DateTime initialDate,
+  Listenable? privacySignal,
+  bool Function()? isCurrent,
 }) => showModalBottomSheet<DateTime>(
   context: context,
   useSafeArea: true,
-  builder: (_) => _ExpiryDateWheelPicker(initialDate: initialDate),
+  builder: (sheetContext) {
+    final wheel = _ExpiryDateWheelPicker(initialDate: initialDate);
+    if (privacySignal == null || isCurrent == null) return wheel;
+    return AnimatedBuilder(
+      animation: privacySignal,
+      builder: (_, _) => isCurrent()
+          ? wheel
+          : SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('家庭身份已变化，日期已隐藏。'),
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('关闭'),
+                  ),
+                ],
+              ),
+            ),
+    );
+  },
 );
 
 DateTime expiryDateForPicker(String value) {
@@ -128,12 +150,16 @@ class MedicineDateField extends StatelessWidget {
     required this.onChanged,
     this.precision = 'day',
     this.valueKey,
+    this.privacySignal,
+    this.isCurrent,
   });
   final TextEditingController controller;
   final String label;
   final VoidCallback onChanged;
   final String precision;
   final Key? valueKey;
+  final Listenable? privacySignal;
+  final bool Function()? isCurrent;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: () async {
@@ -141,8 +167,12 @@ class MedicineDateField extends StatelessWidget {
       final selected = await showExpiryDateWheelPicker(
         context,
         initialDate: expiryDateForPicker(controller.text),
+        privacySignal: privacySignal,
+        isCurrent: isCurrent,
       );
-      if (selected == null || !context.mounted) return;
+      if (selected == null || !context.mounted || isCurrent?.call() == false) {
+        return;
+      }
       controller.text = formatExpiryDate(selected, precision: precision);
       onChanged();
     },

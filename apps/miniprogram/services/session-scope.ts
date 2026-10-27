@@ -14,32 +14,50 @@ const SESSION_SCOPE_STORAGE_KEY = "home_medicine_session_scope";
 
 let memoryScope: SessionScope | null = null;
 let scopeLoaded = false;
+const sessionChangeListeners = new Set<() => void>();
+
+/** Observers receive no identity or token; they recheck their own captured scope. */
+export function subscribeSessionChanges(listener: () => void): () => void {
+  sessionChangeListeners.add(listener);
+  return () => { sessionChangeListeners.delete(listener); };
+}
+
+/** Also used by the transport when its session generation changes. */
+export function notifySessionChange(): void {
+  for (const listener of [...sessionChangeListeners]) {
+    try { listener(); } catch { /* A broken page must not interrupt login/logout. */ }
+  }
+}
 
 export function readSessionScope(): SessionScope | null {
-  if (scopeLoaded) return memoryScope;
+  if (scopeLoaded) return memoryScope === null ? null : { ...memoryScope };
   scopeLoaded = true;
   try {
     const raw = wx.getStorageSync(SESSION_SCOPE_STORAGE_KEY) as SessionScope | undefined;
     if (raw === undefined || raw === null || typeof raw !== "object") return null;
     if (typeof raw.userId !== "string" || typeof raw.familyId !== "string") return null;
     memoryScope = { userId: raw.userId, familyId: raw.familyId };
-    return memoryScope;
+    return { ...memoryScope };
   } catch {
     return null;
   }
 }
 
 export function writeSessionScope(scope: SessionScope): void {
-  memoryScope = scope;
+  const previous = readSessionScope();
+  const changed = previous === null || previous.userId !== scope.userId || previous.familyId !== scope.familyId;
+  memoryScope = { userId: scope.userId, familyId: scope.familyId };
   scopeLoaded = true;
   try {
     wx.setStorageSync(SESSION_SCOPE_STORAGE_KEY, scope);
   } catch {
     // 本地存储不可用时保留内存副本，本次会话仍然隔离。
   }
+  if (changed) notifySessionChange();
 }
 
 export function clearSessionScope(): void {
+  const changed = readSessionScope() !== null;
   memoryScope = null;
   scopeLoaded = true;
   try {
@@ -47,6 +65,7 @@ export function clearSessionScope(): void {
   } catch {
     // ignore
   }
+  if (changed) notifySessionChange();
 }
 
 /** 仅测试使用：回到冷启动状态（无身份）。 */

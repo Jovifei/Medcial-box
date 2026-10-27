@@ -4,7 +4,7 @@ import type { DirtyDraft } from "../../services/draft-guard";
 import { ensureLoggedIn } from "../../services/auth";
 import { closeOwnedPhotoFile, PhotoFileWriteError, writeOwnedPhotoFile } from "../../services/photo-file-lifecycle";
 import type { OwnedPhotoFile } from "../../services/photo-file-lifecycle";
-import { readSessionScope, scopedStorageKey } from "../../services/session-scope";
+import { readSessionScope, scopedStorageKey, subscribeSessionChanges } from "../../services/session-scope";
 import { confirmIngredientOverlap, findVerifiedIngredientMatches } from "../../services/ingredient-matches";
 import {
   UNIT_VALUES,
@@ -17,11 +17,18 @@ import {
 } from "../../services/input-validation";
 import { parseMedicineBarcode } from "../../services/barcode-parser";
 import { POPULATION_TAG_OPTIONS, PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
+import { REVIEW_LABELS, evidenceField, formField, photoCandidates, recognitionFields } from "../../services/recognition-review";
+import { mergeRecognitionEvidence } from "../../services/recognition-evidence-merge";
+import { getPendingRecognitionEvidence, queueRecognitionEvidence, retryRecognitionEvidence } from "../../services/recognition-evidence-sync";
+import type { FieldSource, PhotoReview, ReviewChoice, ReviewConflict, ReviewField, ReviewValue } from "../../services/recognition-review";
 import type {
   ExpiryPrecision,
   MedicineCandidate,
   MedicationSummary,
   MedicinePayload,
+  RecognitionEvidence,
+  RecognitionEvidenceBatchSource,
+  RecognitionEvidenceSave,
 } from "../../services/api-types";
 
 const PRECISION_VALUES: ExpiryPrecision[] = ["day", "month", "unknown"];
@@ -79,6 +86,7 @@ interface MedicineEditPageData {
   medicineId: string;
   version: number;
   medicineLoading: boolean;
+  scopeInvalidated: boolean;
   submitting: boolean;
   recognizing: boolean;
   recognitionSeconds: number;
@@ -113,6 +121,18 @@ interface MedicineEditPageData {
   /** 人群/用途整理标签（kind 值）；编辑页可增删，保存时随 payload 写回（B02）。 */
   populationTags: string[];
   purposeTags: string[];
+  /** Explicit manual edits, including cleared fields, are scoped to this draft. */
+  manualEdits: Record<string, boolean>;
+  fieldSources: Partial<Record<ReviewField, FieldSource>>;
+  batchSources: LocalBatchSource[];
+  resolvedConflictPhotoIds: Record<string, string[]>;
+  photoReviewItems: PhotoReviewItem[];
+  photoReviewExpanded: boolean;
+  selectedReviewPhotoId: string;
+  selectedReviewPhoto: PhotoReviewItem | null;
+  reviewConflicts: ReviewConflict[];
+  sourceLabels: Partial<Record<ReviewField, string>>;
+  batchSourceLabels: Record<string, string>;
   /** 明确增删（含全取消）随本份草稿保存，不影响其它草稿的候选填充。 */
   purposeTagsTouched: boolean;
   /** WXML 不执行方法表达式（B24）：chip 的 selected 由 TS 预计算。 */
@@ -141,8 +161,8 @@ interface MedicineEditPageData {
 }
 
 type MedicineDraftValues = Pick<MedicineEditPageData,
-  "createOperationKey" | "attemptedPayload" | "name" | "brand" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
-  "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" | "purposeTagsTouched" |
+  "createOperationKey" | "attemptedPayload" | "usePhotoAsCover" | "name" | "brand" | "specification" | "manufacturer" | "approvalNumber" | "barcodeValue" |
+  "ingredients" | "purposeCategory" | "populationTags" | "purposeTags" | "purposeTagsTouched" | "manualEdits" | "fieldSources" | "batchSources" | "resolvedConflictPhotoIds" |
   "leafletPurpose" | "leafletUsage" |
   "leafletContraindications" | "leafletPrecautions" | "leafletSource" | "verified" |
   "batches" | "purposeIndex" | "scannedBarcode" | "leafletText">;
@@ -164,12 +184,74 @@ interface PhotoEntryDraft {
   failureCode?: "local_read" | "local_storage" | "network" | "recognition_service" | "unknown" | null;
   fields: MedicineDraftValues;
   medicineId: string;
+  nextPhotoSequence?: number;
+  batchReceipts?: Array<{ batchKey: string; id: string }>;
+  coverIntent?: { photoId: string; expectedVersion: number; completedVersion?: number };
+  savedMedicinePayload?: string;
+  savedMedicineVersion?: number;
+  evidenceIntent?: RecognitionEvidenceSave;
   photos: Array<{
     path: string; mimeType: "image/jpeg" | "image/png"; purpose: "box_front" | "expiry" | "leaflet";
     batchIndex: number; uploadedId?: string; uploadIntentKey?: string;
+    clientPhotoId?: string; sequence?: number; review?: PhotoReview; removed?: boolean; batchKey?: string;
     ownedLocal?: OwnedPhotoFile;
     localFileRemoved?: boolean;
   }>;
+}
+
+interface LocalBatchSource extends FieldSource { batchKey: string; field: "expiry" | "lotNumber" }
+
+class PhotoSaveDeferred extends Error {}
+
+interface PhotoReviewItem {
+  clientPhotoId: string;
+  sequence: number;
+  numberLabel: string;
+  path: string;
+  kindLabel: string;
+  statusLabel: string;
+  batchLabel?: string;
+  fields: Array<{ field: ReviewField; label: string; value: string }>;
+}
+
+/** Assign identifiers only within the owning draft; never renumber remaining photos. */
+function assignPhotoIdentities(draft: PhotoEntryDraft): void {
+  let next = Math.max(draft.nextPhotoSequence ?? 0, ...draft.photos.map(photo => photo.sequence ?? 0), 0);
+  const usedNumbers = new Set<number>();
+  const usedIds = new Set<string>();
+  for (const photo of draft.photos) {
+    if (!Number.isSafeInteger(photo.sequence) || (photo.sequence ?? 0) <= 0 || usedNumbers.has(photo.sequence!)) {
+      photo.sequence = ++next;
+    }
+    usedNumbers.add(photo.sequence!);
+    if (!photo.clientPhotoId || usedIds.has(photo.clientPhotoId)) photo.clientPhotoId = `${draft.id}-${photo.sequence}`;
+    usedIds.add(photo.clientPhotoId);
+  }
+  draft.nextPhotoSequence = next;
+}
+
+function displayReviewValue(field: ReviewField, value: ReviewValue): string {
+  if (!Array.isArray(value)) return value ?? "";
+  const options = field === "populationTags" ? POPULATION_TAG_OPTIONS : field === "purposeTags" ? PURPOSE_TAG_OPTIONS : [];
+  return value.map(item => options.find(option => option.kind === item)?.label ?? item).join("、");
+}
+
+function batchKey(batch: BatchForm | undefined): string {
+  if (!batch) return "";
+  return batch.id ? `saved:${batch.id}` : batch.draftKey ? `draft:${batch.draftKey}` : "";
+}
+
+function photoBatchKey(photo: PhotoEntryDraft["photos"][number], draft: PhotoEntryDraft, current: BatchForm[]): string {
+  if (photo.batchKey) return photo.batchKey;
+  const saved = batchKey(draft.fields?.batches?.[photo.batchIndex]);
+  // Old drafts may lack stable keys. Only a sole batch can be identified without guessing.
+  return saved || (current.length === 1 && photo.batchIndex === 0 ? batchKey(current[0]) : "");
+}
+
+function reviewFormField(field: ReviewField, ownerBatchKey: string | undefined, batches: BatchForm[]): string | null {
+  if (field !== "expiryValue" && field !== "lotNumber") return formField(field);
+  const index = batches.findIndex(batch => batchKey(batch) === ownerBatchKey);
+  return index < 0 ? null : `batches[${index}].${field}`;
 }
 
 const snapshot = <T>(value: T): T => value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
@@ -271,6 +353,7 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
   return {
     createOperationKey: data.createOperationKey,
     attemptedPayload: data.attemptedPayload,
+    usePhotoAsCover: data.usePhotoAsCover === true,
     name: data.name,
     brand: data.brand,
     specification: data.specification,
@@ -282,6 +365,10 @@ function draftValues(data: MedicineEditPageData): MedicineDraftValues {
     populationTags: [...data.populationTags],
     purposeTags: [...data.purposeTags],
     purposeTagsTouched: data.purposeTagsTouched === true,
+    manualEdits: { ...data.manualEdits },
+    fieldSources: snapshot(data.fieldSources ?? {}),
+    batchSources: snapshot(data.batchSources ?? []),
+    resolvedConflictPhotoIds: snapshot(data.resolvedConflictPhotoIds ?? {}),
     leafletPurpose: data.leafletPurpose,
     leafletUsage: data.leafletUsage,
     leafletContraindications: data.leafletContraindications,
@@ -520,6 +607,7 @@ Page({
     medicineId: "",
     version: 1,
     medicineLoading: false,
+    scopeInvalidated: false,
     submitting: false,
     recognizing: false,
     recognitionSeconds: 0,
@@ -532,7 +620,7 @@ Page({
     statusBarHeight: 20,
     navBarHeight: 64,
     navRightGap: 48,
-    classificationExpanded: true,
+    classificationExpanded: false,
     photoDrafts: [] as PhotoEntryDraft[],
     usePhotoAsCover: false,
     activePhotoDraftId: "",
@@ -552,6 +640,17 @@ Page({
     purposeCategory: "",
     populationTags: [] as string[],
     purposeTags: [] as string[],
+    manualEdits: {} as Record<string, boolean>,
+    fieldSources: {} as Partial<Record<ReviewField, FieldSource>>,
+    batchSources: [] as LocalBatchSource[],
+    resolvedConflictPhotoIds: {} as Record<string, string[]>,
+    batchSourceLabels: {} as Record<string, string>,
+    photoReviewItems: [] as PhotoReviewItem[],
+    photoReviewExpanded: false,
+    selectedReviewPhotoId: "",
+    selectedReviewPhoto: null as PhotoReviewItem | null,
+    reviewConflicts: [] as ReviewConflict[],
+    sourceLabels: {} as Partial<Record<ReviewField, string>>,
     purposeTagsTouched: false,
     populationChips: buildPopulationChips([]),
     purposeChips: buildPurposeChips([]),
@@ -600,9 +699,15 @@ Page({
   leaveNavigationPending: false,
   isolateNewEntry: false,
   photoDraftsImported: false,
+  entryIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
+  unsubscribeSession: null as (() => void) | null,
 
   onLoad(options: { id?: string; capture?: string; scan?: string }): void {
     this.entryDisposed = false;
+    const identity = captureSessionIdentity();
+    this.entryIdentity = identity.token && readSessionScope() ? identity : null;
+    this.unsubscribeSession?.();
+    this.unsubscribeSession = subscribeSessionChanges(() => this.hideInvalidatedEntry());
     this.photoQueueBaseline = null;
     this.photoFormBaseline = null;
     const medicineId = options.id ?? "";
@@ -643,7 +748,31 @@ Page({
   },
 
   onShow(): void {
+    this.hideInvalidatedEntry();
+    if (this.data.scopeInvalidated) return;
     this.loadPhotoDrafts();
+  },
+
+  hideInvalidatedEntry(): void {
+    if (this.entryDisposed || !this.entryIdentity ||
+        (!this.photoScopeKey && !this.draftStorageKey)) return;
+    const familyScope = scopedStorageKey("medicine-photo-drafts");
+    if (this.data.scopeInvalidated) {
+      const photoScope = this.data.medicineId ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : familyScope;
+      if (isCurrentSession(this.entryIdentity) && familyScope !== null &&
+          (!this.photoScopeKey || this.photoScopeKey === photoScope) &&
+          (!this.draftStorageKey || this.draftStorageKey === draftStorageKey(this.data.medicineId))) {
+        this.setData({ scopeInvalidated: false });
+      }
+      return;
+    }
+    if (isCurrentSession(this.entryIdentity) && this.entryScopeIsCurrent(familyScope)) return;
+    // A transition is signalled before the old family scope is cleared. Save an
+    // unsaved manual form there only when its original scoped key still matches.
+    if (this.data.isDirty && this.draftStorageKey === draftStorageKey(this.data.medicineId)) this.persistCurrentDraft(false);
+    this.recognitionToken += 1;
+    this.stopRecognitionClock();
+    this.setData({ scopeInvalidated: true, recognizing: false, leaveSheetVisible: false });
   },
 
   onHide(): void {
@@ -652,6 +781,8 @@ Page({
   },
 
   onUnload(): void {
+    this.unsubscribeSession?.();
+    this.unsubscribeSession = null;
     this.entryDisposed = true;
     this.recognitionToken += 1;
     this.stopRecognitionClock();
@@ -733,6 +864,7 @@ Page({
     }
     this.setNativeLeaveWarning(changed);
     this.persistPhotoDrafts();
+    this.refreshPhotoReview();
   },
 
   setNativeLeaveWarning(enabled: boolean): void {
@@ -863,6 +995,7 @@ Page({
     this.loadPhotoDrafts();
     this.setData({
       ...fields,
+      usePhotoAsCover: fields.usePhotoAsCover === true,
       brand: fields.brand ?? "",
       leafletText: fields.leafletText ?? "",
       batches: fields.batches.map((batch) => {
@@ -873,6 +1006,10 @@ Page({
       populationTags: fields.populationTags ?? [],
       purposeTags: fields.purposeTags ?? [],
       purposeTagsTouched: fields.purposeTagsTouched === true,
+      manualEdits: fields.manualEdits ?? {},
+      fieldSources: fields.fieldSources ?? {},
+      batchSources: fields.batchSources ?? [],
+      resolvedConflictPhotoIds: fields.resolvedConflictPhotoIds ?? {},
       populationChips: buildPopulationChips(fields.populationTags ?? []),
       purposeChips: buildPurposeChips(fields.purposeTags ?? []),
       draftAvailable: false,
@@ -893,6 +1030,11 @@ Page({
 
   onRequestLeave(): void {
     if (this.leaveNavigationPending) return;
+    if (this.data.scopeInvalidated) {
+      this.setNativeLeaveWarning(false);
+      this.navigateBackFromForm();
+      return;
+    }
     const data = this.data as MedicineEditPageData;
     if (data.submitting || data.recognizing || data.medicineLoading) {
       wx.showToast({ title: "请等待当前操作完成后再离开", icon: "none" });
@@ -933,6 +1075,28 @@ Page({
   /** 标记字段被用户显式修改（含清空）：这是"我已决定这里的值"的唯一依据。 */
   markFieldTouched(fieldPath: string): void {
     this.touchedFields[fieldPath] = (this.touchedFields[fieldPath] ?? 0) + 1;
+    const field = evidenceField(fieldPath);
+    const batch = /^batches\[(\d+)\]\.(lotNumber|expiryValue)$/.exec(fieldPath);
+    const ownerBatchKey = batch ? batchKey(this.data.batches[Number(batch[1])]) : "";
+    const batchField = batch?.[2] === "expiryValue" ? "expiry" : "lotNumber";
+    this.setData({
+      manualEdits: { ...this.data.manualEdits, [this.manualEditKey(fieldPath)]: true },
+      ...(batch && ownerBatchKey ? { batchSources: [...this.data.batchSources.filter(item => item.batchKey !== ownerBatchKey || item.field !== batchField),
+        { batchKey: ownerBatchKey, field: batchField, source: "manual", photoIds: [], reviewed: true }] } :
+        field ? { fieldSources: { ...this.data.fieldSources, [field]: { source: "manual", photoIds: [], reviewed: true } } } : {}),
+    });
+  },
+
+  manualEditKey(fieldPath: string): string {
+    const batchField = /^batches\[(\d+)\]\.(.+)$/.exec(fieldPath);
+    if (!batchField) return fieldPath;
+    const batch = this.data.batches[Number(batchField[1])];
+    const identity = batch?.id ?? batch?.draftKey;
+    return identity ? `batch:${identity}:${batchField[2]}` : fieldPath;
+  },
+
+  isManuallyEdited(fieldPath: string): boolean {
+    return this.data.manualEdits?.[this.manualEditKey(fieldPath)] === true;
   },
 
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
@@ -962,6 +1126,7 @@ Page({
     if (this.data.attemptedPayload) return;
     const purposeIndex = Number(event.detail.value);
     const selected = PURPOSE_OPTIONS[purposeIndex] ?? "未分类";
+    this.markFieldTouched("purposeCategory");
     this.setData({ purposeIndex, purposeCategory: selected === "未分类" ? "" : selected });
     this.updateDirtyState();
   },
@@ -1205,7 +1370,7 @@ Page({
     const first = (this.data as MedicineEditPageData).batches[0];
     if (!first) return null;
     if (first.quantity.trim() !== "" || first.unitIndex !== 4) return null;
-    if ((this.touchedFields["batches[0].unitIndex"] ?? 0) !== 0) return null;
+    if (this.isManuallyEdited("batches[0].unitIndex")) return null;
     return unitIndex;
   },
 
@@ -1216,13 +1381,15 @@ Page({
     const candidate = data.candidates[index] ?? data.candidate;
     if (candidate === null) return;
     const fields: Record<string, unknown> = { candidate: null, candidates: [], candidateWarnings: [] };
-    if (data.name.trim() === "") fields.name = candidate.name;
-    if (data.brand.trim() === "" && candidate.brand) fields.brand = candidate.brand;
-    if (data.specification.trim() === "" && candidate.specification !== null) fields.specification = candidate.specification;
-    if (data.manufacturer.trim() === "" && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
-    if (data.approvalNumber.trim() === "" && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
-    if (data.barcodeValue.trim() === "" && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
-    const specWillFill = data.specification.trim() === "" && candidate.specification !== null;
+    const canFill = (key: keyof MedicineEditPageData): boolean =>
+      !this.isManuallyEdited(key) && typeof data[key] === "string" && (data[key] as string).trim() === "";
+    if (canFill("name")) fields.name = candidate.name;
+    if (canFill("brand") && candidate.brand) fields.brand = candidate.brand;
+    if (canFill("specification") && candidate.specification !== null) fields.specification = candidate.specification;
+    if (canFill("manufacturer") && candidate.manufacturer !== null) fields.manufacturer = candidate.manufacturer;
+    if (canFill("approvalNumber") && candidate.approvalNumber !== null) fields.approvalNumber = candidate.approvalNumber;
+    if (canFill("barcodeValue") && candidate.barcodeValue) fields.barcodeValue = candidate.barcodeValue;
+    const specWillFill = canFill("specification") && candidate.specification !== null;
     const unitIndex = this.prefillBatchUnit(candidate.specification, specWillFill);
     if (unitIndex !== null) fields["batches[0].unitIndex"] = unitIndex;
     // 候选只填未编辑的空标签；明确全取消也是人工选择。外部资料仍须经过白名单。
@@ -1234,7 +1401,7 @@ Page({
       fields.purposeChips = buildPurposeChips(candidatePurposeTags);
       fields.classificationExpanded = true;
     }
-    if (data.ingredients.trim() === "" && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
+    if (canFill("ingredients") && candidate.activeIngredients.length > 0) fields.ingredients = candidate.activeIngredients.join("、");
     if (candidate.leaflet !== null) {
       // 内容与来源必须同源：用户自己写过的说明书文字不能被改写成供应商来源。
       const hasOwnLeafletText = [
@@ -1249,20 +1416,40 @@ Page({
         candidate.leaflet.contraindicationsSummary,
         candidate.leaflet.precautionsSummary,
       ].some((text) => (text ?? "").trim() !== "");
-      if (data.leafletPurpose.trim() === "") fields.leafletPurpose = candidate.leaflet.purposeSummary ?? "";
-      if (data.leafletUsage.trim() === "") fields.leafletUsage = candidate.leaflet.packageUsageSummary ?? "";
-      if (data.leafletContraindications.trim() === "") fields.leafletContraindications = candidate.leaflet.contraindicationsSummary ?? "";
-      if (data.leafletPrecautions.trim() === "") fields.leafletPrecautions = candidate.leaflet.precautionsSummary ?? "";
-      if (!hasOwnLeafletText && candidateHasLeafletText) {
+      const leafletFields = {
+        leafletPurpose: candidate.leaflet.purposeSummary,
+        leafletUsage: candidate.leaflet.packageUsageSummary,
+        leafletContraindications: candidate.leaflet.contraindicationsSummary,
+        leafletPrecautions: candidate.leaflet.precautionsSummary,
+      };
+      let filledLeaflet = false;
+      for (const field of Object.keys(leafletFields) as Array<keyof typeof leafletFields>) {
+        const value = leafletFields[field];
+        if (canFill(field) && typeof value === "string" && value.trim() !== "") {
+          fields[field] = value;
+          filledLeaflet = true;
+        }
+      }
+      if (filledLeaflet && !hasOwnLeafletText && candidateHasLeafletText && !this.isManuallyEdited("leafletSource")) {
         // 整段内容都来自候选项：来源随内容一起替换。
         fields.leafletSource = candidate.source;
-      } else if (hasOwnLeafletText && candidateHasLeafletText) {
+      } else if (filledLeaflet && hasOwnLeafletText && candidateHasLeafletText) {
         // 混合内容：保留用户原来的来源，不把整段归因给供应商。
         wx.showToast({ title: "已补全说明书内容；来源保持为你原来的记录", icon: "none" });
       }
-      fields.verified = false;
-      fields.optionalExpanded = true;
+      if (filledLeaflet) {
+        fields.verified = false;
+      }
     }
+    const sources = snapshot(data.fieldSources ?? {});
+    let sourceChanged = false;
+    for (const [path, value] of Object.entries(fields)) {
+      const field = evidenceField(path);
+      if (!field || value === null || value === undefined || value === "" || Array.isArray(value) && value.length === 0) continue;
+      sources[field] = { source: "catalog", photoIds: [], reviewed: false };
+      sourceChanged = true;
+    }
+    if (sourceChanged) fields.fieldSources = sources;
     this.setData(fields);
     this.updateDirtyState();
     wx.showToast({ title: "候选已填入，请核对后保存", icon: "none" });
@@ -1295,14 +1482,270 @@ Page({
   onPreviewEntryPhoto(event: { currentTarget: { dataset: { id?: string } } }): void {
     if (!this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) return;
     const entry = this.data.photoDrafts.find((item) => item.id === event.currentTarget.dataset.id);
-    if (entry) wx.previewImage({ current: entry.thumbnail, urls: entry.photos.map((photo) => photo.path) });
+    if (entry) {
+      const photos = entry.photos.filter(photo => !photo.removed);
+      if (photos.length > 0) wx.previewImage({ current: photos[0].path, urls: photos.map(photo => photo.path) });
+    }
+  },
+
+  onChooseCaptureSource(): void {
+    if (this.data.recognizing || this.data.submitting || this.data.attemptedPayload) return;
+    const scope = scopedStorageKey("medicine-photo-drafts");
+    const identity = captureSessionIdentity();
+    if (!this.entryScopeIsCurrent(scope)) return;
+    wx.showActionSheet({
+      itemList: ["扫码查资料", "从相册选择药盒", "从相册选择说明书"],
+      success: result => {
+        if (!this.entryScopeIsCurrent(scope) || !isCurrentSession(identity) || this.data.recognizing || this.data.submitting) return;
+        if (result.tapIndex === 0) void this.onScanCode();
+        if (result.tapIndex === 1 || result.tapIndex === 2) {
+          void this.onRecognizePhoto({ currentTarget: { dataset: { source: "album", purpose: result.tapIndex === 2 ? "leaflet" : "box_front" } } });
+        }
+      },
+    });
+  },
+
+  refreshPhotoReview(): void {
+    const current = this.data.photoDrafts.find(item => item.id === this.data.activePhotoDraftId);
+    const draft = current ? snapshot(current) : null;
+    if (draft) assignPhotoIdentities(draft);
+    const photos = draft?.photos.filter(photo => !photo.removed).map(photo => ({ ...photo,
+      batchKey: photoBatchKey(photo, draft, this.data.batches),
+    })) ?? [];
+    const items: PhotoReviewItem[] = photos.map(photo => ({
+      clientPhotoId: photo.clientPhotoId!, sequence: photo.sequence!, numberLabel: `${this.data.isEdit ? "本次图" : "图"}${photo.sequence!}`, path: photo.path,
+      kindLabel: photo.purpose === "leaflet" ? "说明书" : photo.purpose === "expiry" ? "有效期" : "药盒",
+      statusLabel: photo.review?.status === "recognized" ? "待核对" : photo.review?.status === "failed" ? "识别失败" : photo.review?.status === "pending" ? "待识别" : "未记录识别内容",
+      ...(photo.purpose === "expiry" ? { batchLabel: this.data.batches.findIndex(batch => batchKey(batch) === photo.batchKey) < 0
+        ? "所属库存已移除，请移除此照片" : `库存 ${this.data.batches.findIndex(batch => batchKey(batch) === photo.batchKey) + 1}` } : {}),
+      fields: Object.entries(photo.review?.fields ?? {}).flatMap(([key, value]) => {
+        if (!Object.hasOwn(REVIEW_LABELS, key) || value === null || value === undefined || key === "expiryPrecision") return [];
+        const field = key as ReviewField;
+        return [{ field, label: REVIEW_LABELS[field], value: displayReviewValue(field, value) }];
+      }),
+    }));
+    const selected = items.find(item => item.clientPhotoId === this.data.selectedReviewPhotoId) ?? items[0] ?? null;
+    const conflicts = photoCandidates(photos).filter(item => {
+      const path = reviewFormField(item.field, item.batchKey, this.data.batches);
+      if (item.choices.length <= 1 || path === null) return false;
+      if (!this.isManuallyEdited(path)) return true;
+      const source = item.field === "expiryValue" || item.field === "lotNumber"
+        ? this.data.batchSources.find(entry => entry.batchKey === item.batchKey && entry.field === (item.field === "expiryValue" ? "expiry" : "lotNumber"))
+        : this.data.fieldSources[item.field];
+      if (source?.source !== "recognized") return false;
+      const seen = this.data.resolvedConflictPhotoIds[`${item.field}:${item.batchKey ?? ""}`] ?? [];
+      return item.choices.some(choice => !choice.photoIds.some(id => source.photoIds.includes(id)) &&
+        choice.photoIds.some(id => !seen.includes(id)));
+    }).map(item => ({ ...item, choices: item.choices.map(choice => ({ ...choice, label: displayReviewValue(item.field, choice.value),
+      sourceLabel: this.data.isEdit ? choice.sourceLabel.replace(/图/g, "本次图") : choice.sourceLabel })) }));
+    const sourceLabels: Partial<Record<ReviewField, string>> = {};
+    for (const [rawField, source] of Object.entries(this.data.fieldSources)) {
+      if (!source || !Object.hasOwn(REVIEW_LABELS, rawField)) continue;
+      const field = rawField as ReviewField;
+      if (source.source === "recognized") {
+        const numbers = source.photoIds.map(id => items.find(item => item.clientPhotoId === id)?.sequence).filter((number): number is number => number !== undefined);
+        sourceLabels[field] = numbers.length ? `来自${numbers.map(number => `${this.data.isEdit ? "本次图" : "图"}${number}`).join("、")} · ${source.reviewed ? "已核对" : "待核对"}` : "来源图片未记录";
+      } else if (source.source === "catalog") sourceLabels[field] = "来自资料库 · 待核对";
+      else if (source.source === "removed") sourceLabels[field] = "来源图已移除";
+    }
+    const batchSourceLabels: Record<string, string> = {};
+    for (const source of this.data.batchSources ?? []) {
+      const index = this.data.batches.findIndex(batch => batchKey(batch) === source.batchKey);
+      if (index < 0) continue;
+      const numbers = source.photoIds.map(id => items.find(item => item.clientPhotoId === id)?.sequence).filter((number): number is number => number !== undefined);
+      if (source.source === "recognized" && numbers.length) batchSourceLabels[`${index}.${source.field}`] =
+        `来自${numbers.map(number => `${this.data.isEdit ? "本次图" : "图"}${number}`).join("、")} · ${source.reviewed ? "已核对" : "待核对"}`;
+      else if (source.source === "removed") batchSourceLabels[`${index}.${source.field}`] = "来源图已移除";
+    }
+    this.setData({ photoReviewItems: items, selectedReviewPhotoId: selected?.clientPhotoId ?? "", selectedReviewPhoto: selected, reviewConflicts: conflicts, sourceLabels, batchSourceLabels });
+  },
+
+  onSelectReviewPhoto(event: { currentTarget: { dataset: { photoId?: string } } }): void {
+    const selected = this.data.photoReviewItems.find(item => item.clientPhotoId === event.currentTarget.dataset.photoId);
+    if (selected && this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) {
+      this.setData({ selectedReviewPhotoId: selected.clientPhotoId, selectedReviewPhoto: selected,
+        photoReviewExpanded: selected.clientPhotoId !== this.data.selectedReviewPhotoId || !this.data.photoReviewExpanded });
+    }
+  },
+
+  onPreviewReviewPhoto(): void {
+    const selected = this.data.selectedReviewPhoto;
+    if (selected && this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) {
+      wx.previewImage({ current: selected.path, urls: this.data.photoReviewItems.map(item => item.path) });
+    }
+  },
+
+  onRemoveReviewPhoto(event: { currentTarget: { dataset: { photoId?: string } } }): void {
+    if (this.data.attemptedPayload || this.data.recognizing || this.data.submitting) return;
+    const scope = scopedStorageKey("medicine-photo-drafts");
+    const identity = captureSessionIdentity();
+    const draftId = this.data.activePhotoDraftId;
+    const photoId = event.currentTarget.dataset.photoId;
+    if (!draftId || !photoId || !this.entryScopeIsCurrent(scope)) return;
+    wx.showModal({
+      title: "移除此照片？",
+      content: "照片将从本次录入中移除；本机原件在保存或删除草稿后清理。已确认的资料会保留。",
+      success: result => {
+        if (!result.confirm || !this.entryScopeIsCurrent(scope) || !isCurrentSession(identity) ||
+            this.data.activePhotoDraftId !== draftId || this.data.recognizing || this.data.submitting) return;
+        const queue = this.currentPhotoDraftQueue(draftId);
+        const draft = queue?.find(item => item.id === draftId);
+        if (!queue || !draft) return;
+        assignPhotoIdentities(draft);
+        const photo = draft.photos.find(item => item.clientPhotoId === photoId && !item.removed);
+        if (!photo) return;
+        if (photo.uploadedId) {
+          wx.showToast({ title: "照片已上传，请在药品详情中移除", icon: "none", duration: 2800 });
+          return;
+        }
+        if (photo.ownedLocal?.state === "reserved") {
+          wx.showToast({ title: "照片尚未完整写入，请删除整份未完成草稿", icon: "none" });
+          return;
+        }
+        const beforeFields = draftValues(this.data as MedicineEditPageData);
+        const beforePhotos = snapshot(this.data.photoDrafts);
+        photo.removed = true;
+        const sources = snapshot(this.data.fieldSources);
+        const batchSources = snapshot(this.data.batchSources ?? []);
+        const updates: Record<string, unknown> = {};
+        for (const [rawField, source] of Object.entries(sources)) {
+          if (!source || source.source !== "recognized" || !source.photoIds.includes(photoId) || !Object.hasOwn(REVIEW_LABELS, rawField)) continue;
+          const field = rawField as ReviewField;
+          const remaining = source.photoIds.filter(id => id !== photoId);
+          if (remaining.length > 0) { sources[field] = { ...source, photoIds: remaining }; continue; }
+          const path = formField(field);
+          if (source.reviewed || path && this.isManuallyEdited(path)) {
+            sources[field] = { source: "removed", photoIds: [], reviewed: source.reviewed };
+            continue;
+          }
+          delete sources[field];
+          if (!path) continue;
+          const oldValue = photo.review?.fields[field];
+          const currentValue = path.startsWith("batches[0].")
+            ? this.data.batches[0]?.[path.slice("batches[0].".length) as keyof BatchForm]
+            : this.data[path as keyof MedicineEditPageData];
+          const equal = Array.isArray(oldValue) && Array.isArray(currentValue)
+            ? JSON.stringify([...oldValue].sort()) === JSON.stringify([...currentValue].sort())
+            : typeof oldValue === "string" && typeof currentValue === "string" && oldValue.trim() === currentValue.trim();
+          if (!equal) continue;
+          updates[path] = Array.isArray(oldValue) ? [] : "";
+          if (field === "purposeTags") updates.purposeChips = buildPurposeChips([]);
+          if (field === "populationTags") updates.populationChips = buildPopulationChips([]);
+          if (field === "expiryValue") updates["batches[0].precisionIndex"] = 2;
+        }
+        for (let i = batchSources.length - 1; i >= 0; i -= 1) {
+          const source = batchSources[i];
+          if (source.source !== "recognized" || !source.photoIds.includes(photoId)) continue;
+          const remaining = source.photoIds.filter(id => id !== photoId);
+          if (remaining.length) { batchSources[i] = { ...source, photoIds: remaining }; continue; }
+          const field = source.field === "expiry" ? "expiryValue" : "lotNumber";
+          const path = reviewFormField(field, source.batchKey, this.data.batches);
+          if (source.reviewed || path && this.isManuallyEdited(path)) {
+            batchSources[i] = { ...source, source: "removed", photoIds: [] };
+            continue;
+          }
+          batchSources.splice(i, 1);
+          const index = this.data.batches.findIndex(batch => batchKey(batch) === source.batchKey);
+          const oldValue = photo.review?.fields[field];
+          if (index >= 0 && path && typeof oldValue === "string" && this.data.batches[index][field].trim() === oldValue.trim()) {
+            updates[path] = "";
+            if (field === "expiryValue") updates[`batches[${index}].precisionIndex`] = 2;
+          }
+        }
+        this.setData({ ...updates, fieldSources: sources, batchSources, photoDrafts: this.visiblePhotoDrafts(queue) });
+        if (!this.persistPhotoDrafts()) {
+          this.setData({ ...beforeFields, photoDrafts: beforePhotos,
+            populationChips: buildPopulationChips(beforeFields.populationTags), purposeChips: buildPurposeChips(beforeFields.purposeTags) });
+          this.refreshPhotoReview();
+          return;
+        }
+        this.updateDirtyState();
+      },
+    });
+  },
+
+  onChooseReviewConflict(event: { currentTarget: { dataset: { field?: string; index?: string; batchKey?: string } } }): void {
+    if (this.data.attemptedPayload || this.data.recognizing || this.data.submitting ||
+        !this.entryScopeIsCurrent(scopedStorageKey("medicine-photo-drafts"))) return;
+    const conflict = this.data.reviewConflicts.find(item => item.field === event.currentTarget.dataset.field &&
+      (item.batchKey ?? "") === (event.currentTarget.dataset.batchKey ?? ""));
+    const index = Number(event.currentTarget.dataset.index);
+    const path = conflict ? reviewFormField(conflict.field, conflict.batchKey, this.data.batches) : null;
+    if (!conflict || !path || !Number.isInteger(index) || index < -1 || index >= conflict.choices.length) return;
+    this.applyReviewChoice(conflict.field, index < 0 ? null : conflict.choices[index], conflict.batchKey);
+  },
+
+  applyReviewChoice(field: ReviewField, choice: ReviewChoice | null, ownerBatchKey?: string): void {
+    const path = reviewFormField(field, ownerBatchKey, this.data.batches);
+    if (!path) return;
+    if (field === "expiryValue" && choice && !["day", "month"].includes(choice.precision ?? "")) {
+      wx.showToast({ title: "有效期精度不明确，请手动填写", icon: "none" });
+      return;
+    }
+    const arrayField = field === "purposeTags" || field === "populationTags";
+    const value = choice ? choice.value : arrayField ? [] : "";
+    this.markFieldTouched(path);
+    const activeDraft = this.data.photoDrafts.find(item => item.id === this.data.activePhotoDraftId);
+    const candidates = activeDraft ? photoCandidates(activeDraft.photos.filter(photo => !photo.removed).map(photo => ({ ...photo,
+      batchKey: photoBatchKey(photo, activeDraft, this.data.batches) }))) : [];
+    const seen = candidates.find(item => item.field === field && (item.batchKey ?? "") === (ownerBatchKey ?? ""));
+    const fields: Record<string, unknown> = { [path]: value };
+    if (seen) fields.resolvedConflictPhotoIds = { ...this.data.resolvedConflictPhotoIds,
+      [`${field}:${ownerBatchKey ?? ""}`]: seen.choices.flatMap(item => item.photoIds) };
+    if (field === "activeIngredients" && Array.isArray(value)) fields[path] = value.join("、");
+    if (field === "purposeTags" && Array.isArray(value)) {
+      fields.purposeTagsTouched = true;
+      fields.purposeChips = buildPurposeChips(value);
+    }
+    if (field === "populationTags" && Array.isArray(value)) fields.populationChips = buildPopulationChips(value);
+    if (field === "expiryValue") fields[path.replace(/expiryValue$/, "precisionIndex")] = choice?.precision
+      ? PRECISION_VALUES.indexOf(choice.precision as ExpiryPrecision) : 2;
+    const source: FieldSource = choice
+      ? { source: "recognized", photoIds: [...choice.photoIds], reviewed: true }
+      : { source: "manual", photoIds: [], reviewed: true };
+    if ((field === "expiryValue" || field === "lotNumber") && ownerBatchKey) {
+      const batchField = field === "expiryValue" ? "expiry" : "lotNumber";
+      fields.batchSources = [...this.data.batchSources.filter(item => item.batchKey !== ownerBatchKey || item.field !== batchField),
+        { batchKey: ownerBatchKey, field: batchField, ...source }];
+    } else fields.fieldSources = { ...this.data.fieldSources, [field]: source };
+    this.setData(fields);
+    this.updateDirtyState();
+  },
+
+  onUsePhotoField(event: { currentTarget: { dataset: { field?: string; photoId?: string } } }): void {
+    if (this.data.attemptedPayload || this.data.recognizing || this.data.submitting) return;
+    const scope = scopedStorageKey("medicine-photo-drafts");
+    const identity = captureSessionIdentity();
+    const field = event.currentTarget.dataset.field;
+    const photoId = event.currentTarget.dataset.photoId;
+    const active = this.data.photoDrafts.find(item => item.id === this.data.activePhotoDraftId);
+    if (!active || !field || !Object.hasOwn(REVIEW_LABELS, field) || !photoId || !this.entryScopeIsCurrent(scope)) return;
+    const draft = snapshot(active);
+    assignPhotoIdentities(draft);
+    const selectedPhoto = draft.photos.find(item => item.clientPhotoId === photoId && !item.removed);
+    if (!selectedPhoto) return;
+    const ownerBatchKey = photoBatchKey(selectedPhoto, draft, this.data.batches);
+    const choiceBatchKey = field === "expiryValue" || field === "lotNumber" ? ownerBatchKey : undefined;
+    const photos = draft.photos.filter(item => !item.removed).map(item => ({ ...item,
+      batchKey: photoBatchKey(item, draft, this.data.batches) }));
+    const candidate = photoCandidates(photos).find(item => item.field === field &&
+      (field !== "expiryValue" && field !== "lotNumber" || item.batchKey === ownerBatchKey))?.choices.find(choice => choice.photoIds.includes(photoId));
+    const path = reviewFormField(field as ReviewField, ownerBatchKey, this.data.batches);
+    if (!candidate || !path) return;
+    const apply = (): void => {
+      if (this.entryScopeIsCurrent(scope) && isCurrentSession(identity) && this.data.activePhotoDraftId === active.id &&
+          this.data.photoReviewItems.some(item => item.clientPhotoId === photoId)) this.applyReviewChoice(field as ReviewField, candidate, choiceBatchKey);
+    };
+    if (!this.isManuallyEdited(path)) { apply(); return; }
+    wx.showModal({ title: "使用照片识别结果", content: "这会替换你手动修改的内容，是否继续？",
+      success: result => { if (result.confirm) apply(); } });
   },
 
   async onRecognizePhoto(
     sourceOverride?:
       | "camera"
       | "album"
-      | { currentTarget?: { dataset?: { source?: string; purpose?: string } } },
+      | { currentTarget?: { dataset?: { source?: string; purpose?: string; batchIndex?: string | number } } },
   ): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
     if (initialData.recognizing || initialData.submitting) return;
@@ -1314,6 +1757,14 @@ Page({
     // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
     // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
     if (this.data.attemptedPayload) return;
+    const dataset = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset : undefined;
+    const purpose = dataset?.purpose === "leaflet" ? "leaflet" : dataset?.purpose === "expiry" ? "expiry" : "box_front";
+    const requestedIndex = purpose === "expiry" ? Number(dataset?.batchIndex ?? 0) : 0;
+    const ownerBatchKey = Number.isInteger(requestedIndex) && requestedIndex >= 0 ? batchKey(initialData.batches[requestedIndex]) : "";
+    if (!ownerBatchKey) {
+      wx.showToast({ title: "请先选择要关联的库存", icon: "none" });
+      return;
+    }
     if (!initialData.activePhotoDraftId && (this.photoDraftQueueForWrite()?.filter(item => item.status !== "saved" && item.status !== "cleanup_pending").length ?? 0) >= 10) {
       this.setData({ recognitionHint: PHOTO_DRAFT_LIMIT_HINT, draftAvailable: true });
       return;
@@ -1431,8 +1882,6 @@ Page({
         wx.showToast({ title: "请选择 JPEG 或 PNG 照片", icon: "none" });
         return;
       }
-      const requestedPurpose = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset?.purpose : "";
-      const purpose = requestedPurpose === "leaflet" ? "leaflet" : requestedPurpose === "expiry" ? "expiry" : "box_front";
       this.startRecognitionClock(purpose === "leaflet" ? "说明书" : "药品包装");
       const id = existingDraftId || `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       operationDraftId = id;
@@ -1463,8 +1912,12 @@ Page({
             entry = { id, thumbnail: owner.path, status: "recognizing", fields: draftValues(this.data as MedicineEditPageData), medicineId: "", photos: [] };
             entries.push(entry);
           }
+          assignPhotoIdentities(entry);
+          const sequence = (entry.nextPhotoSequence ?? 0) + 1;
+          entry.nextPhotoSequence = sequence;
           entry.failureCode = null;
-          photo = { path: owner.path, mimeType, purpose, batchIndex: 0, ownedLocal: owner };
+          photo = { path: owner.path, mimeType, purpose, batchIndex: requestedIndex, batchKey: ownerBatchKey, ownedLocal: owner,
+            clientPhotoId: `${id}-${sequence}`, sequence, review: { status: "pending", fields: {}, warnings: [] } };
           entry.photos.push(photo);
           entry.status = "recognizing";
           this.setData({ activePhotoDraftId: id });
@@ -1495,10 +1948,14 @@ Page({
       // 过期响应（期间又发起过识别/已加载别的药品）直接丢弃。
       if (!operationCurrent()) return;
       const draft = result.draft;
+      const recognizedFields = recognitionFields(draft, POPULATION_TAG_OPTIONS.map(item => item.kind), PURPOSE_TAG_OPTIONS.map(item => item.kind));
       const current = this.data as MedicineEditPageData;
+      const targetIndex = current.batches.findIndex(batch => batchKey(batch) === ownerBatchKey);
       const first = current.batches[0];
+      const target = targetIndex >= 0 ? current.batches[targetIndex] : undefined;
       // 只有用户自上次快照以来没有改过这个字段，才允许识别结果填入。
       const untouched = (fieldPath: string): boolean =>
+        !this.isManuallyEdited(fieldPath) &&
         (this.touchedFields[fieldPath] ?? 0) === (touchedSnapshot[fieldPath] ?? 0);
       const fields: Record<string, unknown> = {
         recognitionHint: result.warnings.length > 0
@@ -1522,44 +1979,82 @@ Page({
         first && first.quantity.trim() === "" && first.unitIndex === 4) {
         fields["batches[0].unitIndex"] = recognitionUnitIndex;
       }
-      if (untouched("purposeTags") && !current.purposeTagsTouched && current.purposeTags.length === 0 && draft.purposeTags?.length) {
-        fields.purposeTags = draft.purposeTags;
-        fields.purposeChips = buildPurposeChips(draft.purposeTags);
+      if (untouched("purposeTags") && !current.purposeTagsTouched && current.purposeTags.length === 0 && Array.isArray(recognizedFields.purposeTags)) {
+        fields.purposeTags = recognizedFields.purposeTags;
+        fields.purposeChips = buildPurposeChips(recognizedFields.purposeTags);
         fields.classificationExpanded = true;
       }
-      if (untouched("populationTags") && current.populationTags.length === 0 && draft.populationTags?.length) {
-        fields.populationTags = draft.populationTags;
-        fields.populationChips = buildPopulationChips(draft.populationTags);
+      if (untouched("populationTags") && current.populationTags.length === 0 && Array.isArray(recognizedFields.populationTags)) {
+        fields.populationTags = recognizedFields.populationTags;
+        fields.populationChips = buildPopulationChips(recognizedFields.populationTags);
       }
       if (purpose === "leaflet" && draft.leaflet) {
-        fields.leafletText = draft.leaflet.text ?? "";
+        if (untouched("leafletText") && current.leafletText.trim() === "") fields.leafletText = draft.leaflet.text ?? "";
         const mapping = { leafletPurpose: "purposeSummary", leafletUsage: "packageUsageSummary", leafletContraindications: "contraindicationsSummary", leafletPrecautions: "precautionsSummary" } as const;
         for (const field of Object.keys(mapping) as Array<keyof typeof mapping>) {
           const value = draft.leaflet[mapping[field]];
           if (untouched(field) && current[field].trim() === "" && value) fields[field] = value;
         }
         if (untouched("leafletSource") && !current.leafletSource.trim()) fields.leafletSource = "包装内说明书照片（待核对）";
-        fields.optionalExpanded = true;
         fields.verified = false;
       }
       // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
       // 也不能把晚到的识别结果写进被删除/新增后的另一个批次。
       const shapeUnchanged = current.batches.length === batchShape.length &&
         current.batches.every((batch, index) => (batch.id ?? batch.draftKey ?? batch) === batchShape[index]);
-      if (first && shapeUnchanged) {
-        if (untouched("batches[0].lotNumber") && first.lotNumber.trim() === "" && draft.lotNumber) {
-          fields["batches[0].lotNumber"] = draft.lotNumber;
+      if (target && shapeUnchanged) {
+        const lotPath = `batches[${targetIndex}].lotNumber`;
+        const expiryPath = `batches[${targetIndex}].expiryValue`;
+        if (untouched(lotPath) && target.lotNumber.trim() === "" && draft.lotNumber) {
+          fields[lotPath] = draft.lotNumber;
         }
-        if (untouched("batches[0].expiryValue") &&
-          (first.precisionIndex === 2 || first.expiryValue.trim() === "") &&
-          draft.expiryValue && draft.expiryPrecision && draft.expiryPrecision !== "unknown") {
-          fields["batches[0].expiryValue"] = draft.expiryValue;
-          fields["batches[0].precisionIndex"] = PRECISION_VALUES.indexOf(draft.expiryPrecision);
+        if (untouched(expiryPath) &&
+          (target.precisionIndex === 2 || target.expiryValue.trim() === "") &&
+          draft.expiryValue && (draft.expiryPrecision === "day" || draft.expiryPrecision === "month")) {
+          fields[expiryPath] = draft.expiryValue;
+          fields[`batches[${targetIndex}].precisionIndex`] = PRECISION_VALUES.indexOf(draft.expiryPrecision);
         }
       }
       const latest = this.currentPhotoDraftQueue(id, photo?.path);
       if (!latest) return;
       const recognizedDraft = latest.find((entry) => entry.id === id);
+      const recognizedPhoto = recognizedDraft?.photos.find(item => item.path === photo?.path);
+      if (!recognizedDraft || !recognizedPhoto?.clientPhotoId) return;
+      recognizedPhoto.review = { status: "recognized", fields: recognizedFields,
+        warnings: result.warnings.filter((warning): warning is string => typeof warning === "string") };
+      const candidates = photoCandidates(recognizedDraft.photos);
+      const sources = snapshot(current.fieldSources ?? {});
+      const batchSources = snapshot(current.batchSources ?? []);
+      for (const rawField of Object.keys(recognizedFields)) {
+        const field = rawField as ReviewField;
+        if (field === "leafletText" || field === "rawOcrText") continue;
+        const path = reviewFormField(field, ownerBatchKey, current.batches);
+        if (!path) continue;
+        if (field === "expiryValue" || field === "lotNumber") {
+          const batchField: LocalBatchSource["field"] = field === "expiryValue" ? "expiry" : "lotNumber";
+          const existingIndex = batchSources.findIndex(item => item.batchKey === ownerBatchKey && item.field === batchField);
+          const existing = batchSources[existingIndex];
+          const sameChoice = candidates.find(item => item.field === field && item.batchKey === ownerBatchKey)?.choices.find(choice =>
+            choice.photoIds.includes(recognizedPhoto.clientPhotoId!) && existing?.photoIds.some(id => choice.photoIds.includes(id)));
+          const next = Object.hasOwn(fields, path) ? { batchKey: ownerBatchKey, field: batchField, source: "recognized" as const,
+            photoIds: [recognizedPhoto.clientPhotoId], reviewed: false } : existing?.source === "recognized" && sameChoice && !this.isManuallyEdited(path)
+            ? { ...existing, photoIds: [...new Set([...existing.photoIds, ...sameChoice.photoIds])] } : null;
+          if (next) { if (existingIndex < 0) batchSources.push(next); else batchSources[existingIndex] = next; }
+          continue;
+        }
+        if (Object.hasOwn(fields, path)) {
+          sources[field] = { source: "recognized", photoIds: [recognizedPhoto.clientPhotoId], reviewed: false };
+        } else {
+          const existing = sources[field];
+          const sameChoice = candidates.find(item => item.field === field)?.choices.find(choice =>
+            choice.photoIds.includes(recognizedPhoto.clientPhotoId!) && existing?.photoIds.some(id => choice.photoIds.includes(id)));
+          if (existing?.source === "recognized" && sameChoice && !this.isManuallyEdited(path)) {
+            sources[field] = { ...existing, photoIds: [...new Set([...existing.photoIds, ...sameChoice.photoIds])] };
+          }
+        }
+      }
+      fields.fieldSources = sources;
+      fields.batchSources = batchSources;
       if (recognizedDraft && photo?.purpose === "box_front" && photo.ownedLocal?.state === "ready") {
         recognizedDraft.thumbnail = photo.path;
       }
@@ -1583,6 +2078,8 @@ Page({
       if (registered) {
         const latest = this.currentPhotoDraftQueue(operationDraftId, photo?.path);
         if (!latest) return;
+        const failedPhoto = latest.find(item => item.id === operationDraftId)?.photos.find(item => item.path === photo?.path);
+        if (failedPhoto) failedPhoto.review = { status: "failed", fields: {}, warnings: [] };
         this.setData({ photoDrafts: this.visiblePhotoDrafts(latest) });
         const failureCode = error instanceof PhotoFileWriteError ? "local_storage"
           : error instanceof ApiError && error.code === "NETWORK_ERROR" ? "network"
@@ -1679,10 +2176,10 @@ Page({
     const nextUnit = UNIT_VALUES[nextIndex];
     const currentUnit = UNIT_VALUES[batch.unitIndex];
     if (nextUnit === undefined || nextUnit === currentUnit) return;
-    this.markFieldTouched(`batches[${index}].unitIndex`);
     // 单位切换守卫（与 batch-edit 一致）：数字不换算，由用户确认后生效。
     const hasValue = batch.quantity.trim() !== "" || batch.confirmedUnits.trim() !== "";
     if (!hasValue) {
+      this.markFieldTouched(`batches[${index}].unitIndex`);
       this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
       this.updateDirtyState();
       return;
@@ -1694,6 +2191,7 @@ Page({
       cancelText: "保持原单位",
       success: (result) => {
         if (result.confirm) {
+          this.markFieldTouched(`batches[${index}].unitIndex`);
           this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
           this.updateDirtyState();
         }
@@ -1721,6 +2219,17 @@ Page({
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     const batches = (this.data as MedicineEditPageData).batches;
+    const activeId = this.data.activePhotoDraftId;
+    if (activeId) {
+      const queue = this.currentPhotoDraftQueue(activeId);
+      const draft = queue?.find(item => item.id === activeId);
+      if (!queue || !draft) return;
+      for (const photo of draft.photos) {
+        if (!photo.batchKey) photo.batchKey = photoBatchKey(photo, draft, batches);
+      }
+      this.setData({ photoDrafts: this.visiblePhotoDrafts(queue) });
+      if (!this.persistPhotoDrafts()) return;
+    }
     const next = batches.filter((_, position) => position !== Number(index));
     this.setData({ batches: next.length > 0 ? next : [emptyBatch()] });
     this.updateDirtyState();
@@ -1731,7 +2240,8 @@ Page({
     const familyScope = scopedStorageKey("medicine-photo-drafts");
     const photoScope = this.data.medicineId
       ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : familyScope;
-    return !this.entryDisposed && scope !== null && (scope === familyScope || scope === photoScope) &&
+    return !this.entryDisposed && !this.data.scopeInvalidated && (!this.entryIdentity || isCurrentSession(this.entryIdentity)) &&
+      scope !== null && (scope === familyScope || scope === photoScope) &&
       (this.photoScopeKey === null || this.photoScopeKey === photoScope) &&
       (this.draftStorageKey === null || this.draftStorageKey === draftStorageKey(this.data.medicineId));
   },
@@ -1741,8 +2251,9 @@ Page({
     const originalMedicineId = this.data.medicineId;
     try {
       await ensureLoggedIn({ allowInteractive: false });
-      if (this.entryDisposed) return;
+      if (this.entryDisposed || this.data.scopeInvalidated) return;
       this.refreshDraftScope();
+      if (!this.entryIdentity && readSessionScope()) this.entryIdentity = captureSessionIdentity();
       this.loadPhotoDrafts();
     } catch (error) {
       if (this.entryDisposed || this.data.medicineId !== originalMedicineId) return;
@@ -1764,9 +2275,13 @@ Page({
       showError(error);
     }
   },
-  onCoverChoice(event: { detail: { value: boolean } }): void { this.setData({ usePhotoAsCover: event.detail.value }); },
+  onCoverChoice(event: { detail: { value: boolean } }): void {
+    if (this.data.attemptedPayload) return;
+    this.setData({ usePhotoAsCover: event.detail.value === true });
+    this.updateDirtyState();
+  },
   loadPhotoDrafts(): void {
-    if (this.entryDisposed) return;
+    if (this.entryDisposed || this.data.scopeInvalidated) return;
     const key = this.data.medicineId ? scopedStorageKey("medicine-photo-drafts", this.data.medicineId) : scopedStorageKey("medicine-photo-drafts");
     if (!key) return;
     if (this.isolateNewEntry && this.photoScopeKey !== null && this.photoScopeKey !== key) return;
@@ -1847,10 +2362,11 @@ Page({
     this.photoQueueBaseline = snapshot(drafts);
     this.photoFormBaseline = active ? { id: active.id, fields: snapshot(active.fields) } : null;
     this.setData({ photoDrafts: entries,
-      ...(fields ? { ...fields, purposeTagsTouched: fields.purposeTagsTouched === true, populationChips: buildPopulationChips(fields.populationTags),
-        purposeChips: buildPurposeChips(fields.purposeTags) } : {}),
+      ...(fields ? { ...fields, usePhotoAsCover: fields.usePhotoAsCover === true, manualEdits: fields.manualEdits ?? {}, purposeTagsTouched: fields.purposeTagsTouched === true, populationChips: buildPopulationChips(fields.populationTags ?? []),
+        fieldSources: fields.fieldSources ?? {}, batchSources: fields.batchSources ?? [], resolvedConflictPhotoIds: fields.resolvedConflictPhotoIds ?? {}, purposeChips: buildPurposeChips(fields.purposeTags ?? []) } : {}),
       ...(!active ? { activePhotoDraftId: "" } : {}),
     });
+    this.refreshPhotoReview();
   },
   persistPhotoDrafts(): boolean {
     const latest = this.photoDraftQueueForWrite();
@@ -1940,27 +2456,6 @@ Page({
     this.setData({ photoDrafts: drafts });
     this.persistPhotoDrafts();
   },
-  /**
-   * 保存成功后退役与本份保存无关的未完成草稿（review/recognizing/failed）：
-   * 上一次保存已成功，旧草稿不应再次触发"导入草稿"提醒（Jovi 2026-10-25）。
-   * photo_pending 草稿承载照片补传重试，必须保留；excludeId 供补传路径排除活动草稿。
-   */
-  discardUnfinishedPhotoDrafts(excludeId = ""): void {
-    const queue = this.photoDraftQueueForWrite();
-    if (!queue) return;
-    let changed = false;
-    for (const draft of queue) {
-      if (draft.id === excludeId) continue;
-      if (draft.status === "review" || draft.status === "recognizing" || draft.status === "failed") {
-        draft.status = "cleanup_pending";
-        changed = true;
-      }
-    }
-    if (!changed) return;
-    if (!this.writePhotoDraftQueue(queue)) return;
-    this.setData({ photoDrafts: this.visiblePhotoDrafts(queue) });
-    void this.cleanupPhotoDrafts();
-  },
   onSelectPhotoDraft(event: { currentTarget: { dataset: { id?: string } } }): void {
     if (this.data.recognizing || this.data.submitting) return;
     const entry = this.data.photoDrafts.find((item) => item.id === event.currentTarget.dataset.id);
@@ -1968,7 +2463,7 @@ Page({
     if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
     const incomplete = entry.photos.some((photo) => photo.ownedLocal?.state === "reserved");
-    this.setData({ ...entry.fields, purposeTagsTouched: entry.fields.purposeTagsTouched === true, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
+    this.setData({ ...entry.fields, usePhotoAsCover: entry.fields.usePhotoAsCover === true, manualEdits: entry.fields.manualEdits ?? {}, fieldSources: entry.fields.fieldSources ?? {}, batchSources: entry.fields.batchSources ?? [], resolvedConflictPhotoIds: entry.fields.resolvedConflictPhotoIds ?? {}, purposeTagsTouched: entry.fields.purposeTagsTouched === true, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
       ? "照片写入尚未完成，请删除这份照片草稿后重拍；药品文字仍可手动保存。"
       : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
     this.updateDirtyState();
@@ -2000,9 +2495,79 @@ Page({
 
   onToggleStorage(): void { this.setData({ storageExpanded: !this.data.storageExpanded }); },
 
+  async syncPhotoEvidence(draftId: string, medicine: MedicationSummary, isEdit: boolean, scope: string | null): Promise<"synced" | "synced-stale" | "pending" | "none"> {
+    const queue = this.currentPhotoDraftQueue(draftId);
+    const draft = queue?.find(item => item.id === draftId);
+    if (!queue || !draft) throw new PhotoSaveDeferred("照片草稿已变化，请重新打开核对。");
+    const photos = draft.photos.filter(photo => !photo.removed && photo.review);
+    if (photos.length === 0 && !draft.evidenceIntent) return "none";
+    if (!Number.isInteger(medicine.version) || medicine.version < 1) throw new PhotoSaveDeferred("药品和照片已保存，来源版本未确认，草稿仍保留。");
+
+    let intent = draft.evidenceIntent;
+    if (!intent) {
+      let existing: RecognitionEvidence | null = null;
+      try {
+        const response = await api.getRecognitionEvidence(medicine.id);
+        if (!this.entryScopeIsCurrent(scope)) throw new PhotoSaveDeferred("身份已变化，照片资料保留在原家庭草稿中。");
+        if (response.capabilities?.coverPhotoVersionGuard !== true) throw new Error("unsupported");
+        existing = response.evidence;
+      } catch {
+        if (!this.entryScopeIsCurrent(scope)) throw new PhotoSaveDeferred("身份已变化，照片资料保留在原家庭草稿中。");
+        // A new medicine has no earlier provenance. On an old service, freeze the
+        // revision-zero intent locally; an eventual conflicting write is rejected.
+        if (isEdit) throw new PhotoSaveDeferred("药品和照片已保存，当前服务无法核对原有来源；草稿已保留。");
+      }
+      const photoIdMap: Record<string, string> = {};
+      const uploadedPhotos = photos.map(photo => {
+        if (!photo.clientPhotoId || !photo.uploadedId || !photo.sequence || !photo.review) {
+          throw new PhotoSaveDeferred("照片上传回执不完整，来源保留在草稿中。");
+        }
+        photoIdMap[photo.clientPhotoId] = photo.uploadedId;
+        return { clientPhotoId: photo.clientPhotoId, photoId: photo.uploadedId, sequence: photo.sequence, review: photo.review };
+      });
+      const fieldSources = Object.fromEntries(Object.entries(this.data.fieldSources).filter(([field]) =>
+        !["lotNumber", "expiryValue", "expiryPrecision", "leafletText", "rawOcrText"].includes(field)));
+      const batchSources: RecognitionEvidenceBatchSource[] = [];
+      for (const source of this.data.batchSources) {
+        if (!this.data.batches.some(batch => batchKey(batch) === source.batchKey)) continue;
+        const batchId = draft.batchReceipts?.find(receipt => receipt.batchKey === source.batchKey)?.id;
+        if (!batchId) throw new PhotoSaveDeferred("库存回执未确认，照片来源保留在草稿中。");
+        batchSources.push({ batchId, field: source.field, source: source.source, photoIds: [...source.photoIds], reviewed: source.reviewed });
+      }
+      const merged = mergeRecognitionEvidence({ existing, uploadedPhotos, photoIdMap, fieldSources, batchSources,
+        revision: existing?.revision ?? 0, medicineVersion: medicine.version,
+        idempotencyKey: `evidence-${Date.now()}-${Math.random().toString(36).slice(2, 14)}` });
+      if (!merged.ok) throw new PhotoSaveDeferred(`来源资料无法安全整理（${merged.reason}），药品和照片已保存，草稿仍保留。`);
+      intent = merged.payload;
+      const freshQueue = this.currentPhotoDraftQueue(draftId);
+      const fresh = freshQueue?.find(item => item.id === draftId);
+      if (!freshQueue || !fresh || fresh.evidenceIntent) throw new PhotoSaveDeferred("照片来源已变化，请重新打开核对。");
+      fresh.evidenceIntent = intent;
+      this.setData({ photoDrafts: this.visiblePhotoDrafts(freshQueue) });
+      if (!this.persistPhotoDrafts()) throw new PhotoSaveDeferred("药品和照片已保存，来源草稿未能安全保存。");
+    }
+    let pending;
+    try { pending = getPendingRecognitionEvidence(medicine.id); } catch {
+      throw new PhotoSaveDeferred("药品和照片已保存，无法读取本机待同步来源。");
+    }
+    if (pending && JSON.stringify(pending.payload) !== JSON.stringify(intent)) {
+      throw new PhotoSaveDeferred("已有另一份待同步来源，请先到照片与资料页核对。");
+    }
+    const result = pending ? await retryRecognitionEvidence(medicine.id) : await queueRecognitionEvidence(medicine.id, intent);
+    if (!this.entryScopeIsCurrent(scope) || result.status === "identity_changed") throw new PhotoSaveDeferred("身份已变化，来源草稿仍保留。");
+    if (result.status === "synced") return result.reason === "stale" ? "synced-stale" : "synced";
+    if (result.status === "pending") return "pending";
+    throw new PhotoSaveDeferred(result.status === "existing" ? "已有另一份待同步来源，请先核对。" : "来源待同步资料未能安全保存在本机，请保留草稿重试。");
+  },
+
   async onSubmit(): Promise<void> {
     const initialData = this.data as MedicineEditPageData;
     if (initialData.submitting || initialData.recognizing) return;
+    if (initialData.reviewConflicts.length > 0) {
+      this.setData({ recognitionHint: "多张照片的资料存在不同内容，请先选择或留空后再保存。" });
+      wx.showToast({ title: "请先核对照片中的不同内容", icon: "none" });
+      return;
+    }
     const originalScope = scopedStorageKey("medicine-photo-drafts");
     if (!this.entryScopeIsCurrent(originalScope)) {
       wx.showToast({ title: "登录身份已变化，请重新打开录入页", icon: "none" });
@@ -2011,6 +2576,13 @@ Page({
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
     if (!this.entryScopeIsCurrent(originalScope)) return;
     const data = this.data as MedicineEditPageData;
+    const initialPhoto = data.photoDrafts.find(item => item.id === data.activePhotoDraftId);
+    if (initialPhoto?.photos.some(photo => !photo.removed && photo.purpose === "expiry" &&
+      !data.batches.some(batch => batchKey(batch) === photoBatchKey(photo, initialPhoto, data.batches)))) {
+      this.setData({ recognitionHint: "有效期照片所属库存已移除，请先移除此照片，再保存。" });
+      wx.showToast({ title: "请处理无所属库存的照片", icon: "none", duration: 2800 });
+      return;
+    }
     const name = data.name.trim();
     if (name === "") {
       wx.showToast({ title: "药品名称不能为空", icon: "none" });
@@ -2095,6 +2667,21 @@ Page({
         if (activePhoto?.medicineId && activePhoto.medicineId !== data.medicineId) {
           throw new Error("照片草稿不属于当前编辑的药品，请重新核对");
         }
+        const reuseSaved = activePhoto?.savedMedicinePayload === JSON.stringify(payload) &&
+          Number.isInteger(activePhoto.savedMedicineVersion);
+        if (reuseSaved && activePhoto) {
+          saved = await api.getMedicine(data.medicineId);
+          if (!this.entryScopeIsCurrent(originalScope)) return;
+          const cover = activePhoto.coverIntent;
+          const completedLostAck = cover && saved.coverPhotoId === cover.photoId && saved.version === cover.expectedVersion + 1;
+          if (saved.version !== activePhoto.savedMedicineVersion && !completedLostAck) {
+            throw new PhotoSaveDeferred("药品已在其他地方更新，请重新打开药品核对，照片草稿仍保留。");
+          }
+          acknowledgedBatchIds = data.batches.map(batch => batch.id);
+        } else {
+        if (activePhoto?.coverIntent && !activePhoto.coverIntent.completedVersion) {
+          throw new PhotoSaveDeferred("上次封面设置尚未确认，请先恢复照片草稿核对。");
+        }
         const submittedBatches = data.batches.map((batch) => ({ ...batch }));
         saved = await api.updateMedicine(data.medicineId, { ...payload, version: data.version });
         if (!this.entryScopeIsCurrent(originalScope)) return;
@@ -2125,7 +2712,20 @@ Page({
           : batchFromSummary(saved);
         // 必须在改表单指纹前确认旧队列仍属原提交，禁止覆盖另一页面的更改。
         const draftQueue = activePhoto ? this.currentPhotoDraftQueue(activePhoto.id) : null;
-        this.setData({ version: saved.version, batches: acknowledgedBatches });
+        const keyMap = new Map(submittedBatches.flatMap((batch, index) => {
+          const id = submittedPhotoBatchIds[index];
+          return id ? [[batchKey(batch), `saved:${id}`] as const] : [];
+        }));
+        const manualEdits = { ...this.data.manualEdits };
+        for (const [oldKey, newKey] of keyMap) {
+          const oldIdentity = oldKey.slice(oldKey.indexOf(":") + 1);
+          const newIdentity = newKey.slice(newKey.indexOf(":") + 1);
+          for (const key of Object.keys(manualEdits)) {
+            if (key.startsWith(`batch:${oldIdentity}:`)) manualEdits[`batch:${newIdentity}:${key.slice(`batch:${oldIdentity}:`.length)}`] = true;
+          }
+        }
+        const batchSources = this.data.batchSources.map(source => ({ ...source, batchKey: keyMap.get(source.batchKey) ?? source.batchKey }));
+        this.setData({ version: saved.version, batches: acknowledgedBatches, manualEdits, batchSources });
         acknowledgedBatchIds = acknowledgedBatches.map((batch) => batch.id);
         if (activePhoto) {
           const draft = draftQueue?.find((item) => item.id === activePhoto.id);
@@ -2133,13 +2733,20 @@ Page({
             wx.showToast({ title: "药品已保存，照片草稿已变化，请重新核对", icon: "none" });
             return;
           }
+          draft.batchReceipts = [];
           for (const photo of draft.photos) {
-            if (photo.purpose !== "expiry") continue;
-            const id = submittedPhotoBatchIds[photo.batchIndex];
-            photo.batchIndex = id === null || id === undefined ? -1
-              : acknowledgedBatches.findIndex((batch) => batch.id === id);
+            const originalKey = photo.batchKey || batchKey(submittedBatches[photo.batchIndex]);
+            photo.batchKey = keyMap.get(originalKey) ?? originalKey;
+            photo.batchIndex = acknowledgedBatches.findIndex(batch => batchKey(batch) === photo.batchKey);
+          }
+          for (const [originalKey, nextKey] of keyMap) {
+            const id = nextKey.slice("saved:".length);
+            draft.batchReceipts.push({ batchKey: nextKey, id });
+            if (originalKey !== nextKey) draft.batchReceipts.push({ batchKey: originalKey, id });
           }
           draft.fields = draftValues(this.data as MedicineEditPageData);
+          draft.savedMedicinePayload = JSON.stringify({ ...payload, batches: buildBatchPayloads(acknowledgedBatches).payloads });
+          draft.savedMedicineVersion = saved.version;
           if (!this.writePhotoDraftQueue(draftQueue)) {
             wx.showToast({ title: "药品已保存，批次回执本机存储失败，请勿重复新增", icon: "none" });
             return;
@@ -2150,6 +2757,7 @@ Page({
         }
         this.persistCurrentDraft();
         wx.showToast({ title: "已保存", icon: "success" });
+        }
       } else if (activePhoto?.medicineId) {
         // 新建药品在首次保存后绑定了 ID；重试只补照片，不重复创建。
         saved = await api.getMedicine(activePhoto.medicineId);
@@ -2176,10 +2784,25 @@ Page({
         const linkedQueue = this.currentPhotoDraftQueue(activePhoto.id);
         const linked = linkedQueue?.find(item => item.id === activePhoto.id);
         if (!linkedQueue || !linked) return;
+        const wasAlreadyLinked = Boolean(linked.medicineId);
         linked.medicineId = saved.id;
+        const needsBatchReceipt = linked.photos.some(photo => !photo.removed && photo.purpose === "expiry") ||
+          this.data.batchSources.some(source => this.data.batches.some(batch => batchKey(batch) === source.batchKey));
+        if (!data.isEdit && !linked.batchReceipts && !needsBatchReceipt) linked.batchReceipts = [];
+        if (!data.isEdit && !linked.batchReceipts) {
+          const ids = saved.batches.map(batch => batch.id);
+          if ((!wasAlreadyLinked || ids.length === 1) && ids.length === data.batches.length && ids.every(Boolean) && new Set(ids).size === ids.length) {
+            // The create response preserves the insertion order of the submitted batches.
+            linked.batchReceipts = data.batches.map((batch, index) => ({ batchKey: batchKey(batch), id: ids[index] }));
+          }
+        }
         this.setData({ photoDrafts: this.visiblePhotoDrafts(linkedQueue) });
         if (!this.persistPhotoDrafts()) {
           wx.showToast({ title: "药品已保存，但照片关联暂未安全落盘；请重试保存", icon: "none" });
+          return;
+        }
+        if (!data.isEdit && !linked.batchReceipts) {
+          wx.showToast({ title: "药品已保存，库存回执不完整，照片保留待核对", icon: "none", duration: 3500 });
           return;
         }
         try {
@@ -2188,7 +2811,7 @@ Page({
             const queue = this.currentPhotoDraftQueue(activePhoto.id, snapshotPhoto.path);
             const livePhoto = queue?.find(entry => entry.id === activePhoto.id)?.photos.find(p => p.path === snapshotPhoto.path);
             if (!queue || !livePhoto) return;
-            if (livePhoto.uploadedId) continue;
+            if (livePhoto.removed || livePhoto.uploadedId) continue;
             if (!livePhoto.uploadIntentKey) {
               livePhoto.uploadIntentKey = `photo-upload-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
               this.setData({ photoDrafts: this.visiblePhotoDrafts(queue) });
@@ -2202,9 +2825,10 @@ Page({
               filePath: snapshotPhoto.path, encoding: "base64", success: (result) => resolve(result.data as string), fail: reject,
             }));
             if (!this.entryScopeIsCurrent(originalScope)) return;
-            const batchId = data.isEdit
-              ? acknowledgedBatchIds?.[confirmed.batchIndex] ?? null
-              : saved.batches[confirmed.batchIndex]?.id;
+            const ownerKey = photoBatchKey(confirmed, linked, data.batches);
+            const batchIndex = data.batches.findIndex(batch => batchKey(batch) === ownerKey);
+            const batchId = linked.batchReceipts?.find(receipt => receipt.batchKey === ownerKey)?.id ??
+              (data.isEdit && batchIndex >= 0 ? acknowledgedBatchIds?.[batchIndex] ?? null : null);
             if (confirmed.purpose === "expiry" && !batchId) throw new Error("库存关联尚未完成，照片仍保留待核对");
             const result = await api.uploadLeafletPhoto(saved.id, imageBase64, confirmed.mimeType, "medicine_entry",
               { purpose: confirmed.purpose, ...(batchId ? { batchId } : {}) }, confirmed.uploadIntentKey);
@@ -2216,14 +2840,52 @@ Page({
             this.setData({ photoDrafts: this.visiblePhotoDrafts(after) });
             if (!this.persistPhotoDrafts()) throw new Error("照片上传成功但本机回执保存失败");
           }
-          if (data.usePhotoAsCover) {
-            // ACKs were committed to a freshly loaded durable queue, not the
-            // original activePhoto object captured at submit start.
-            const acknowledgedDraft = this.currentPhotoDraftQueue(activePhoto.id)
-              ?.find(entry => entry.id === activePhoto.id);
-            const front = acknowledgedDraft?.photos.filter(photo => photo.purpose === "box_front" && photo.uploadedId).slice(-1)[0];
-            if (front?.uploadedId) await api.setMedicineCover(saved.id, front.uploadedId);
+          const coverQueue = this.currentPhotoDraftQueue(activePhoto.id);
+          const acknowledgedDraft = coverQueue?.find(entry => entry.id === activePhoto.id);
+          if (!coverQueue || !acknowledgedDraft) return;
+          if (data.usePhotoAsCover || acknowledgedDraft.coverIntent) {
+            const front = acknowledgedDraft.photos.filter(photo => !photo.removed && photo.purpose === "box_front" && photo.uploadedId).slice(-1)[0];
+            const photoId = acknowledgedDraft.coverIntent?.photoId ?? front?.uploadedId;
+            if (photoId) {
+              if (!Number.isInteger(saved.version)) throw new PhotoSaveDeferred("药品和照片已保存，封面版本未确认，请保留草稿重试。");
+              if (!acknowledgedDraft.coverIntent) {
+                acknowledgedDraft.coverIntent = { photoId, expectedVersion: saved.version };
+                this.setData({ photoDrafts: this.visiblePhotoDrafts(coverQueue) });
+                if (!this.persistPhotoDrafts()) throw new PhotoSaveDeferred("药品和照片已保存，封面待处理状态未能安全保存。");
+              }
+              const intent = acknowledgedDraft.coverIntent;
+              if (!intent.completedVersion) {
+                // A lost acknowledgement is only accepted when both version and desired photo match.
+                if (saved.version === intent.expectedVersion + 1 && saved.coverPhotoId === intent.photoId) {
+                  intent.completedVersion = saved.version;
+                } else {
+                  if (saved.version !== intent.expectedVersion) throw new PhotoSaveDeferred("药品已变化，封面设置需重新核对；照片仍保留。");
+                  let supported = false;
+                  try { supported = (await api.getRecognitionEvidence(saved.id)).capabilities?.coverPhotoVersionGuard === true; } catch { /* old or unreachable API */ }
+                  if (!this.entryScopeIsCurrent(originalScope)) return;
+                  if (!supported) throw new PhotoSaveDeferred("药品和照片已保存，当前服务暂不支持安全设置封面；草稿已保留。");
+                  const result = await api.setMedicineCover(saved.id, intent.photoId, intent.expectedVersion);
+                  if (!this.entryScopeIsCurrent(originalScope)) return;
+                  if (result.coverPhotoId !== intent.photoId || result.version !== intent.expectedVersion + 1) {
+                    throw new PhotoSaveDeferred("封面回执未确认，草稿已保留，请重新核对。");
+                  }
+                  intent.completedVersion = result.version;
+                  saved.version = result.version;
+                  saved.coverPhotoId = intent.photoId;
+                }
+                const currentQueue = this.currentPhotoDraftQueue(activePhoto.id);
+                const currentDraft = currentQueue?.find(entry => entry.id === activePhoto.id);
+                if (!currentQueue || !currentDraft || currentDraft.coverIntent?.photoId !== intent.photoId ||
+                    currentDraft.coverIntent.expectedVersion !== intent.expectedVersion) return;
+                currentDraft.coverIntent.completedVersion = intent.completedVersion;
+                currentDraft.savedMedicineVersion = intent.completedVersion;
+                this.setData({ version: intent.completedVersion, photoDrafts: this.visiblePhotoDrafts(currentQueue) });
+                if (!this.persistPhotoDrafts()) throw new PhotoSaveDeferred("封面已设置，但回执未能安全保留；请勿重复修改。");
+              }
+            }
           }
+          if (!this.entryScopeIsCurrent(originalScope)) return;
+          const evidenceOutcome = await this.syncPhotoEvidence(activePhoto.id, saved, data.isEdit, originalScope);
           if (!this.entryScopeIsCurrent(originalScope)) return;
           const finishedQueue = this.currentPhotoDraftQueue(activePhoto.id);
           const finishedDraft = finishedQueue?.find(item => item.id === activePhoto.id);
@@ -2232,17 +2894,29 @@ Page({
           if (!this.writePhotoDraftQueue(finishedQueue)) return;
           this.setData({ photoDrafts: this.visiblePhotoDrafts(finishedQueue), activePhotoDraftId: "" });
           await this.cleanupPhotoDrafts();
+          // cleanupPhotoDrafts deliberately does not replace page state while a
+          // submission owns the active draft. Re-read the durable queue here so
+          // the completed local photo draft disappears from the visible page as
+          // soon as its owned files have been removed.
+          const cleanedQueue = this.photoDraftQueueForWrite();
+          if (cleanedQueue && this.entryScopeIsCurrent(originalScope)) {
+            this.setData({ photoDrafts: this.visiblePhotoDrafts(cleanedQueue), activePhotoDraftId: "" });
+          }
           if (!this.entryScopeIsCurrent(originalScope)) return;
-        } catch {
+          if (evidenceOutcome === "pending") {
+            wx.showToast({ title: "药品和照片已保存，识别来源待同步，可在照片与资料页重试。", icon: "none", duration: 4000 });
+          } else if (evidenceOutcome === "synced-stale") {
+            wx.showToast({ title: "来源已保存，部分历史资料仍需核对。", icon: "none", duration: 4000 });
+          }
+        } catch (error) {
           if (!this.entryScopeIsCurrent(originalScope)) return;
           this.setPhotoDraftStatus("photo_pending");
           this.persistPhotoDrafts();
-          this.discardUnfinishedPhotoDrafts(this.data.activePhotoDraftId);
-          wx.showToast({ title: "药品已保存，照片待补；点击保存可重试照片", icon: "none", duration: 3500 });
+          if (error instanceof PhotoSaveDeferred) this.setData({ recognitionHint: error.message });
+          wx.showToast({ title: error instanceof PhotoSaveDeferred ? "资料待处理，请查看页面提示" : "药品已保存，照片待补；点击保存可重试照片", icon: "none", duration: 4000 });
           return;
         }
       }
-      this.discardUnfinishedPhotoDrafts();
       this.removeStoredDraft();
       this.discardingDraft = true;
       this.setData({ isDirty: false });
@@ -2254,6 +2928,11 @@ Page({
       }, 800);
     } catch (error) {
       if (!this.entryScopeIsCurrent(originalScope)) return;
+      if (error instanceof PhotoSaveDeferred) {
+        this.setData({ recognitionHint: error.message });
+        wx.showToast({ title: "资料待处理，请查看页面提示", icon: "none", duration: 4000 });
+        return;
+      }
       if (!data.isEdit && error instanceof ApiError && error.statusCode === 400) {
         this.setData({ attemptedPayload: null });
         this.persistCurrentDraft();

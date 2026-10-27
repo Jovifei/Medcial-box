@@ -15,6 +15,32 @@ Page({
     appVersion: APP_VERSION,
     notes: [],
   } as ReleaseNotesPageData,
+  debugTapCount: 0,
+  debugTapTimer: 0,
+
+  onTapDebugTrigger(): void {
+    const now = Date.now();
+    if (now - this.debugTapTimer > 3000) {
+      this.debugTapCount = 1;
+    } else {
+      this.debugTapCount++;
+    }
+    this.debugTapTimer = now;
+    if (this.debugTapCount >= 5) {
+      this.debugTapCount = 0;
+      const current = wx.getStorageSync("medbox_debug_enabled") === true;
+      const next = !current;
+      wx.setStorageSync("medbox_debug_enabled", next);
+      if (typeof wx.setEnableDebug === "function") {
+        try {
+          wx.setEnableDebug({ enableDebug: next });
+        } catch {
+          // ignore
+        }
+      }
+      wx.showToast({ title: next ? "已开启调试日志" : "已关闭调试日志", icon: "none" });
+    }
+  },
 
   onLoad(): void {
     markReleaseNotesSeen();

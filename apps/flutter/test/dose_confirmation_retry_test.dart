@@ -94,6 +94,22 @@ Future<void> reload(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('dose actions remain reachable at 320 width and double text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final server = DoseServer();
+    addTearDown(server.api.close);
+    await mount(tester, server);
+    await tester.scrollUntilVisible(actionButton('已服用'), 160);
+    expect(actionButton('已服用'), findsOneWidget);
+    expect(actionButton('跳过'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'accepted plus lost response waits for explicit retry, same key one event',
     (tester) async {

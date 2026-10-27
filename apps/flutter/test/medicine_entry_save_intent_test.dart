@@ -263,8 +263,14 @@ void main() {
       f.state(tester).expiryImage = _Photo();
       await f.save(tester);
       expect(find.text('保存药盒照片？'), findsOneWidget);
+      final oldAction = tester
+          .widget<TextButton>(find.widgetWithText(TextButton, '只保存库存'))
+          .onPressed!;
       await f.replacementIdentity();
-      await tester.tap(find.text('只保存库存'));
+      await tester.pump();
+      expect(find.text('只保存库存'), findsNothing);
+      expect(find.text('原资料已隐藏，请重新打开药品录入。'), findsOneWidget);
+      oldAction();
       await tester.pumpAndSettle();
       expect(f.requests, isEmpty);
       f.expectReplacement();
@@ -282,9 +288,19 @@ void main() {
         final gate = atDialog ? null : f.listGate = Completer<void>();
         await f.save(tester);
         expect(f.requests, hasLength(1));
+        final oldAction = atDialog
+            ? tester
+                  .widget<FilledButton>(
+                    find.widgetWithText(FilledButton, '仍然保存'),
+                  )
+                  .onPressed
+            : null;
         await f.replacementIdentity();
         if (atDialog) {
-          await tester.tap(find.text('仍然保存'));
+          await tester.pump();
+          expect(find.text('仍然保存'), findsNothing);
+          expect(find.text('原资料已隐藏，请重新打开药品录入。'), findsOneWidget);
+          oldAction!();
         } else {
           gate!.complete();
         }
@@ -367,6 +383,7 @@ void main() {
       expect(f.state(tester).saving, isFalse);
       expect(f.requests, isEmpty);
       f.state(tester).expiryImage = null;
+      f.state(tester).photoDrafts.clear();
       await f.save(tester);
       expect(f.requests, hasLength(1));
       expect(find.byType(MedicineEntryApiPage), findsNothing);

@@ -15,6 +15,9 @@ class MedicineRecognitionDraft {
     this.purposeCategory,
     this.brand,
     this.manufacturer,
+    this.approvalNumber,
+    this.lotNumber,
+    this.expiryPrecision,
     this.populationTags = const [],
     this.leaflet = const {},
     this.purposeTags = const [],
@@ -27,6 +30,9 @@ class MedicineRecognitionDraft {
   final String? purposeCategory;
   final String? brand;
   final String? manufacturer;
+  final String? approvalNumber;
+  final String? lotNumber;
+  final String? expiryPrecision;
   final List<String> populationTags;
   final Map<String, String> leaflet;
   final List<String> purposeTags;
@@ -186,6 +192,9 @@ class ApiMedicineRecognitionRepository
       purposeCategory: field('purposeCategory'),
       brand: field('brand'),
       manufacturer: field('manufacturer'),
+      approvalNumber: field('approvalNumber'),
+      lotNumber: field('lotNumber'),
+      expiryPrecision: field('expiryPrecision'),
       populationTags: (draft['populationTags'] as List? ?? [])
           .whereType<String>()
           .toList(),

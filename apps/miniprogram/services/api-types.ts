@@ -389,7 +389,8 @@ export interface MarkdownExportResponse {
 
 export interface AppDeviceLinkApproveResponse { approved: true }
 export interface FamilyMedicineBackup {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  contentScope?: "inventory_only" | "inventory_and_recognition_evidence";
   backupId: string;
   exportedAt: string;
   familyName: string;
@@ -437,6 +438,48 @@ export interface LeafletPhotoSummary {
   source: string;
   createdAt: string;
   url: string;
+}
+
+/** Optional, versioned provenance. OCR values remain unverified unless explicitly reviewed. */
+export interface RecognitionEvidencePhoto {
+  photoId: string;
+  sequence: number;
+  status: "pending" | "recognized" | "failed";
+  fields: Record<string, string | string[] | null>;
+  warnings?: string[];
+}
+export interface RecognitionEvidenceFieldSource {
+  source: "manual" | "recognized" | "catalog" | "removed";
+  photoIds: string[];
+  reviewed: boolean;
+}
+export interface RecognitionEvidenceBatchSource extends RecognitionEvidenceFieldSource {
+  batchId: string | null;
+  historicalBatchRef?: string;
+  field: "expiry" | "lotNumber";
+}
+export interface RecognitionEvidenceSave {
+  schemaVersion: 1;
+  revision: number;
+  medicineVersion: number;
+  idempotencyKey: string;
+  photos: RecognitionEvidencePhoto[];
+  fieldSources: Record<string, RecognitionEvidenceFieldSource>;
+  batchSources?: RecognitionEvidenceBatchSource[];
+}
+export interface RecognitionEvidence {
+  schemaVersion: 1;
+  revision: number;
+  medicineVersion: number | null;
+  currentMedicineVersion: number;
+  stale: boolean;
+  photos: Array<RecognitionEvidencePhoto & { available: boolean }>;
+  fieldSources: Record<string, RecognitionEvidenceFieldSource>;
+  batchSources?: Array<RecognitionEvidenceBatchSource & { batchAvailable: boolean }>;
+}
+export interface RecognitionEvidenceResponse {
+  evidence: RecognitionEvidence | null;
+  capabilities?: { coverPhotoVersionGuard?: boolean };
 }
 
 // —— 用药计划（R3）——

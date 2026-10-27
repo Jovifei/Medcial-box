@@ -271,6 +271,9 @@ void main() {
           width: width,
           scale: scale,
         );
+        await showField(tester, find.text('品牌、规格与厂家（选填）'));
+        await tester.tap(find.text('品牌、规格与厂家（选填）'));
+        await tester.pumpAndSettle();
         final brand = fieldWithLabel('品牌（按包装核对）');
         final specification = find.byWidgetPredicate(
           (widget) =>
@@ -456,7 +459,7 @@ void main() {
           expect(tester.getRect(save).bottom, lessThanOrEqualTo(500));
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pumpAndSettle();
-          final quantity = fieldWithLabel('品牌（按包装核对）');
+          final quantity = fieldWithLabel('剩余数量');
           final editable = tester.widget<EditableText>(
             find.descendant(of: quantity, matching: find.byType(EditableText)),
           );

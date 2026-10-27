@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
-import type { BackupPreviewResponse, BackupRestoreResponse } from "@home-medicine/contracts";
+import type { BackupPreviewResponse, BackupRestoreResponse, RecognitionEvidenceDocument } from "@home-medicine/contracts";
 import { requireFamily, sha256Hex } from "../auth/session.js";
 import { createRateLimiter } from "../rate-limit.js";
 import { insertBatch } from "../repositories/batches.js";
 import { archiveMedicine, insertMedicine, listMedicines } from "../repositories/medicines.js";
 import { buildFamilyMedicineSummaries } from "./medicines.js";
+import { lockFamilyIdentity } from "../services/locked-family-identity.js";
 import {
   createFamilyMedicineBackup,
   hashFamilyMedicineBackup,
@@ -23,22 +24,53 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
   app.post("/api/v1/backups/json", async (request, reply) => {
     const ctx = requireFamily(request, reply);
     if (ctx === null) return;
-    const family = await database.query<{ name: string }>("SELECT name FROM families WHERE id = $1", [ctx.familyId]);
-    const familyName = family.rows[0]?.name;
-    if (familyName === undefined) return reply.code(404).send(NOT_FOUND);
-    const rows = await listMedicines(database, ctx.familyId, true);
-    const medicines = await buildFamilyMedicineSummaries(database, ctx.familyId, rows);
-    const settings = await database.query<{ stocktake_interval: "weekly" | "monthly" | "disabled"; last_stocktake_at: Date | string | null }>(
-      "SELECT stocktake_interval, last_stocktake_at FROM family_inventory_settings WHERE family_id = $1",
-      [ctx.familyId],
-    );
-    const setting = settings.rows[0];
-    const inventorySettings = {
-      stocktakeInterval: setting?.stocktake_interval ?? "monthly",
-      lastStocktakeAt: setting?.last_stocktake_at == null ? null : new Date(setting.last_stocktake_at).toISOString(),
-      nextStocktakeAt: null,
-    } as const;
-    return createFamilyMedicineBackup(familyName, medicines, inventorySettings);
+    const body = request.body;
+    if (body != null && (typeof body !== "object" || Array.isArray(body))) {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "备份选项格式不正确"));
+    }
+    const include = (body as { includeRecognitionEvidence?: unknown } | null | undefined)?.includeRecognitionEvidence;
+    if (include !== undefined && typeof include !== "boolean") {
+      return reply.code(400).send(errorBody("VALIDATION_ERROR", "备份范围选项格式不正确"));
+    }
+    const includeRecognitionEvidence = include !== false;
+    try {
+      return await database.withTransaction(async (tx) => {
+        await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+        await lockFamilyIdentity(tx, ctx, request);
+        const family = await tx.query<{ name: string }>("SELECT name FROM families WHERE id = $1", [ctx.familyId]);
+        const familyName = family.rows[0]?.name;
+        if (familyName === undefined) throw new TransactionConflictError(404, NOT_FOUND);
+        const rows = await listMedicines(tx, ctx.familyId, true);
+        const medicines = await buildFamilyMedicineSummaries(tx, ctx.familyId, rows);
+        const settings = await tx.query<{ stocktake_interval: "weekly" | "monthly" | "disabled"; last_stocktake_at: Date | string | null }>(
+          "SELECT stocktake_interval, last_stocktake_at FROM family_inventory_settings WHERE family_id = $1", [ctx.familyId],
+        );
+        const evidenceRows = includeRecognitionEvidence ? (await tx.query<{ medicine_id: string; document: RecognitionEvidenceDocument }>(
+          "SELECT medicine_id, document FROM medicine_recognition_evidence WHERE family_id = $1", [ctx.familyId],
+        )).rows : [];
+        const setting = settings.rows[0];
+        const inventorySettings = {
+          stocktakeInterval: setting?.stocktake_interval ?? "monthly",
+          lastStocktakeAt: setting?.last_stocktake_at == null ? null : new Date(setting.last_stocktake_at).toISOString(),
+          nextStocktakeAt: null,
+        } as const;
+        const snapshot = { ...createFamilyMedicineBackup(familyName, medicines, inventorySettings, new Date(),
+          new Map(evidenceRows.map((row) => [row.medicine_id, row.document]))),
+          contentScope: includeRecognitionEvidence ? "inventory_and_recognition_evidence" as const : "inventory_only" as const };
+        // Do not produce a backup that the existing 12 MiB preview/restore endpoints cannot accept.
+        if (Buffer.byteLength(JSON.stringify(snapshot), "utf8") > 12 * 1024 * 1024 - 1024) {
+          throw new TransactionConflictError(413, errorBody("VALIDATION_ERROR", "完整备份超过可恢复大小，可选择仅导出库存"));
+        }
+        return snapshot;
+      });
+    } catch (error) {
+      if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "40001") {
+        return reply.code(503).send(errorBody("INTERNAL_ERROR", "家庭资料正在变化，请稍后重试备份"));
+      }
+      request.log.error("family backup export failed");
+      return reply.code(500).send(errorBody("INTERNAL_ERROR", "备份暂时不可用，请稍后重试"));
+    }
   });
 
   app.post("/api/v1/backups/preview", { bodyLimit: 12 * 1024 * 1024 }, async (request, reply) => {
@@ -124,6 +156,8 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
     if (!validation.ok) return reply.code(400).send(errorBody("VALIDATION_ERROR", validation.errors.join("；")));
     try {
       const restoredCount = await database.withTransaction(async (tx) => {
+        const role = await lockFamilyIdentity(tx, ctx, request);
+        if (role !== "owner") throw new TransactionConflictError(403, errorBody("OWNER_ONLY", "只有家庭管理员可以恢复备份"));
         const priorReceipt = await tx.query<{ backup_id: string }>(
           "SELECT backup_id FROM backup_restore_receipts WHERE family_id = $1 AND backup_id = $2",
           [ctx.familyId, validation.value.backupId],
@@ -155,13 +189,32 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
         // 不得再按外部请求格式二次解析（否则有效期/说明书/处置状态会静默丢失）。
         for (const medicine of validation.value.medicines) {
           const inserted = await insertMedicine(tx, ctx.familyId, medicine, ctx.userId);
+          const restoredRefs = new Map<string, string>();
           for (const batchFields of medicine.batches) {
-            await insertBatch(tx, inserted.id, ctx.familyId, batchFields, ctx.userId, {
+            const batch = await insertBatch(tx, inserted.id, ctx.familyId, batchFields, ctx.userId, {
               dispositionStatus: batchFields.dispositionStatus,
             });
+            if (batchFields.backupBatchRef !== undefined) restoredRefs.set(batchFields.backupBatchRef, batch.id);
           }
           if (medicine.isArchived) {
             await archiveMedicine(tx, inserted.id, ctx.familyId, ctx.userId);
+          }
+          if (medicine.recognitionEvidence !== undefined) {
+            // Original image bytes are not in JSON; historical sources require re-verification.
+            const evidence = medicine.recognitionEvidence;
+            const document: RecognitionEvidenceDocument = { schemaVersion: 1, photos: evidence.photos, fieldSources: evidence.fieldSources,
+              ...(evidence.batchSources === undefined ? {} : { batchSources: evidence.batchSources.map((source) => {
+                const batchId = source.batchState === "bound" ? restoredRefs.get(source.backupBatchRef) : undefined;
+                if (source.batchState === "bound" && batchId === undefined) throw new Error("invalid validated backup batch reference");
+                return { batchId: batchId ?? null,
+                  ...(source.batchState === "removed" ? { historicalBatchRef: source.backupBatchRef } : {}),
+                  field: source.field, source: source.source, photoIds: source.photoIds, reviewed: source.reviewed };
+              }) }) };
+            await tx.query(
+              `INSERT INTO medicine_recognition_evidence (family_id, medicine_id, revision, medicine_version, document)
+               VALUES ($1,$2,1,NULL,$3::jsonb)`,
+              [ctx.familyId, inserted.id, JSON.stringify(document)],
+            );
           }
           count += 1;
         }
@@ -175,7 +228,8 @@ export async function registerBackupRoutes(app: FastifyInstance, database: Datab
       return reply.code(201).send(response);
     } catch (error) {
       if (error instanceof TransactionConflictError) return reply.code(error.statusCode).send(error.body);
-      throw error;
+      request.log.error("family backup restore failed");
+      return reply.code(500).send(errorBody("INTERNAL_ERROR", "备份恢复未完成，请稍后重试"));
     }
   });
 }

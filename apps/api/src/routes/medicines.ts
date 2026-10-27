@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 // database.withTransaction 内绑定同一连接执行，任一步失败整体回滚。
 import type { FastifyInstance } from "fastify";
 import type { MedicationBatchSummary, MedicationSummary } from "@home-medicine/contracts";
-import type { Database } from "../types.js";
+import type { Database, QueryRunner } from "../types.js";
 import { errorBody, TransactionConflictError } from "../types.js";
 import { requireFamily } from "../auth/session.js";
 import {
@@ -36,7 +36,7 @@ const NOT_FOUND_BODY = errorBody("NOT_FOUND", "药品不存在或不在当前家
 const CONFLICT_BODY = errorBody("VERSION_CONFLICT", "记录已被他人修改，请刷新后重试");
 
 export async function buildFamilyMedicineSummaries(
-  database: Database,
+  database: QueryRunner,
   familyId: string,
   medicineRows: MedicineRow[],
   now: Date = new Date(),

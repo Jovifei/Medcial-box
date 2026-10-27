@@ -17,6 +17,8 @@ async function createPhotoApp({ store, database }) {
     database.withTransaction = async (work) => work({
       query: async (sql, params) => {
         if (String(sql).includes("SELECT id FROM families")) return { rows: [{ id: "family-1" }], rowCount: 1 };
+        if (String(sql).includes("SELECT role FROM family_members")) return { rows: [{ role: "owner" }], rowCount: 1 };
+        if (String(sql).includes("SELECT id FROM sessions")) return { rows: [{ id: "session-1" }], rowCount: 1 };
         return database.query(sql, params);
       },
     });
@@ -122,6 +124,8 @@ test("leaflet upload rejects families that exceed the private photo storage quot
     },
     withTransaction: async (work) => work({ query: async (sql, params) => {
       if (String(sql).includes("SELECT id FROM families")) return { rows: [{ id: "family-1" }], rowCount: 1 };
+      if (String(sql).includes("SELECT role FROM family_members")) return { rows: [{ role: "owner" }], rowCount: 1 };
+      if (String(sql).includes("SELECT id FROM sessions")) return { rows: [{ id: "session-1" }], rowCount: 1 };
       return database.query(sql, params);
     } }),
   };
@@ -153,6 +157,15 @@ test("deleting a leaflet photo removes its file before marking storage quota rel
       query: async (sql) => {
         const text = String(sql);
         if (text.includes("SELECT id FROM families")) return { rows: [{ id: "family-1" }], rowCount: 1 };
+        if (text.includes("SELECT role FROM family_members")) {
+          order.push("lock-member");
+          return { rows: [{ role: "owner" }], rowCount: 1 };
+        }
+        if (text.includes("SELECT id FROM sessions")) {
+          order.push("lock-session");
+          return { rows: [{ id: "session-1" }], rowCount: 1 };
+        }
+        if (text.includes("FROM medicines") && text.includes("FOR UPDATE")) return { rows: [{ id: "medicine-1" }], rowCount: 1 };
         if (text.includes("FROM medicine_leaflet_photos") && text.includes("FOR UPDATE")) {
           return { rows: [{ id: "photo-1" }], rowCount: 1 };
         }
@@ -180,7 +193,7 @@ test("deleting a leaflet photo removes its file before marking storage quota rel
       url: "/api/v1/medicines/medicine-1/leaflet-photos/photo-1",
     });
     assert.equal(response.statusCode, 204);
-    assert.deepEqual(order, ["soft-delete", "remove-file", "mark-storage-removed"]);
+    assert.deepEqual(order, ["lock-member", "lock-session", "soft-delete", "remove-file", "mark-storage-removed"]);
   } finally {
     await app.close();
   }

@@ -174,7 +174,7 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
     const method = download ? 'GET' : options.method ?? 'GET';
     try {
       const route = mockModule.validateRequest(options.url, method);
-      if (download && !/^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/qa-photo-\d+$/.test(route)) throw new Error('QA download route denied');
+      if (download && !/^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos\/[0-9a-f-]{36}$/.test(route)) throw new Error('QA download route denied');
     } catch (error) { return stop(error.message); }
     const name = (download ? 'download ' : 'request ') + method + ' ' + options.url.slice(mockModule.ORIGIN.length).split('?')[0];
     let aborted = false;
@@ -195,7 +195,7 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
   api.downloadFile = options => request(options, true);
   // The original transport is intentionally NEVER captured or called: wx.request
   // redirect control is unverified. In-memory dispatch is fail-closed and works offline.
-  const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu'];
+  const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab', 'pageScrollTo', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
   const nativeUi = {};
   for (const name of uiNames) {
     if (typeof native[name] !== 'function') throw new Error('QA unverifiable native UI hook: ' + name);

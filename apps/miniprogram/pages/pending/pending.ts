@@ -7,7 +7,8 @@ function showError(error: unknown): string {
 }
 
 Page({
-  data: { loading: true, items: [] as PendingNotificationSummary[], errorMessage: "", lastUpdated: "" },
+  data: { loading: true, items: [] as PendingNotificationSummary[], attentionItems: [] as PendingNotificationSummary[],
+    suggestionItems: [] as PendingNotificationSummary[], suggestionsExpanded: false, errorMessage: "", lastUpdated: "" },
   requestSeq: 0,
   displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   onShow(): void { void this.refresh(); },
@@ -21,7 +22,7 @@ Page({
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
       this.displayedIdentity = identity;
-      this.setData({ items: [], lastUpdated: "", errorMessage: "" });
+      this.setData({ items: [], attentionItems: [], suggestionItems: [], suggestionsExpanded: false, lastUpdated: "", errorMessage: "" });
     }
     const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
@@ -39,16 +40,19 @@ Page({
       if (!current()) return;
       const result = await api.getPendingNotifications();
       if (!current()) return;
-      this.setData({ items: result.items, lastUpdated: new Date().toLocaleString() });
+      this.setData({ items: result.items,
+        attentionItems: result.items.filter((item) => item.type !== "leaflet_missing"),
+        suggestionItems: result.items.filter((item) => item.type === "leaflet_missing"),
+        lastUpdated: new Date().toLocaleString() });
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
-        this.setData({ items: [], lastUpdated: "", loading: false });
+        this.setData({ items: [], attentionItems: [], suggestionItems: [], lastUpdated: "", loading: false });
         wx.reLaunch({ url: "/pages/login/login" });
         return;
       }
       if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
-        this.setData({ items: [], lastUpdated: "", loading: false });
+        this.setData({ items: [], attentionItems: [], suggestionItems: [], lastUpdated: "", loading: false });
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
@@ -72,4 +76,5 @@ Page({
   },
 
   onRetry(): void { void this.refresh(); },
+  onToggleSuggestions(): void { this.setData({ suggestionsExpanded: !this.data.suggestionsExpanded }); },
 });

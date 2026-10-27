@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const paper = Color(0xFFF5F7F4);
-  static const ink = Color(0xFF24352C);
-  static const muted = Color(0xFF718078);
-  static const leaf = Color(0xFF3F7D5C);
-  static const leafDeep = Color(0xFF315F46);
-  static const mist = Color(0xFFE7F0E9);
-  static const line = Color(0xFFE4EBE5);
-  static const terracotta = Color(0xFFA45437);
-  static const amber = Color(0xFF9A6B21);
+  static const paper = Color(0xFFF7F8F4);
+  static const ink = Color(0xFF203A30);
+  static const muted = Color(0xFF536C60);
+  static const leaf = Color(0xFF24664D);
+  static const leafDeep = Color(0xFF194D3A);
+  static const mist = Color(0xFFE6F0E9);
+  static const line = Color(0xFFD8E2D9);
+  static const terracotta = Color(0xFFB91C1C);
+  static const amber = Color(0xFFB45309);
 }
 
 ThemeData get appTheme {
@@ -49,13 +49,13 @@ ThemeData get appTheme {
         color: AppColors.ink,
       ),
       titleMedium: TextStyle(
-        fontSize: 17,
+        fontSize: 18,
         height: 1.3,
         fontWeight: FontWeight.w700,
         color: AppColors.ink,
       ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: AppColors.ink),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.45, color: AppColors.muted),
+      bodyMedium: TextStyle(fontSize: 16, height: 1.45, color: AppColors.muted),
       labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
     ),
     appBarTheme: const AppBarTheme(

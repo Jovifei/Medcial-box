@@ -3,25 +3,113 @@
   text-align: left;
 }
 
+.hero-card {
+  padding: 28rpx 28rpx 32rpx;
+}
+
+.hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-edit-link {
+  display: flex;
+  align-items: center;
+  min-height: 88rpx;
+  font-size: 26rpx;
+  color: #047857;
+  font-weight: 600;
+  padding: 8rpx 0;
+}
+
 .med-name {
-  font-size: 36rpx;
+  font-size: 38rpx;
   font-weight: 700;
+  color: #0f172a;
   text-align: left;
 }
 
 .med-spec {
   margin-top: 8rpx;
-  color: #52685c;
+  color: #475569;
   font-size: 26rpx;
   text-align: left;
 }
 
+.med-company {
+  margin-top: 10rpx;
+  color: #475569;
+  font-size: 24rpx;
+  text-align: left;
+}
+
+.company-sep {
+  color: #94a3b8;
+}
+
 .med-meta {
   margin-top: 12rpx;
-  color: #778279;
+  color: #64748b;
   font-size: 22rpx;
   line-height: 1.6;
   text-align: left;
+}
+
+/* 说明书用法用量只读摘要卡 */
+.usage-guide-card {
+  margin-top: 20rpx;
+  padding: 20rpx 22rpx;
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+  border-radius: 16rpx;
+  text-align: left;
+}
+
+.usage-guide-title {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 25rpx;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 10rpx;
+}
+
+.usage-guide-icon {
+  font-size: 26rpx;
+}
+
+.usage-guide-text {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #1e293b;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.guide-tag {
+  display: inline-block;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-right: 10rpx;
+}
+
+.usage-guide-disclaimer {
+  margin-top: 14rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed #cbd5e1;
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.batch-header-row {
+  margin-bottom: 12rpx;
 }
 
 /* 折叠区域与更多菜单（方案 §5） */
@@ -67,6 +155,9 @@
 }
 
 .batch-action-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 88rpx;
   font-size: 26rpx;
   color: #3f7d5c;
 }
@@ -76,6 +167,10 @@
   font-size: 26rpx;
   color: #7c867e;
   text-align: left;
+}
+
+.menu-list {
+  margin-top: 20rpx;
 }
 
 .menu-card {
@@ -88,6 +183,18 @@
   background: #ffffff;
   border: 1rpx solid #e4ebe5;
   text-align: left;
+}
+
+.more-actions-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.more-action-btn {
+  flex: 1;
+  min-height: 80rpx;
+  margin-top: 0 !important;
 }
 
 .menu-title {
@@ -117,7 +224,7 @@
 
 .cover-image {
   width: 100%;
-  height: 320rpx;
+  height: 240rpx;
   display: block;
 }
 
@@ -208,8 +315,8 @@
 .photo-meta { min-width: 0; flex: 1; }
 .photo-title { font-size: 23rpx; font-weight: 650; word-break: break-word; }
 .photo-actions { display: flex; align-items: center; gap: 16rpx; flex: 0 0 auto; }
-.photo-action { min-width: 74rpx; padding: 12rpx 16rpx; border: 1rpx solid #c8d4ca; border-radius: 999rpx; color: #3f7d5c; text-align: center; font-size: 21rpx; }
-.photo-delete { padding: 12rpx 6rpx; color: #a45437; font-size: 21rpx; }
+.photo-action { min-width: 88rpx; min-height: 88rpx; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding: 12rpx 16rpx; border: 1rpx solid #c8d4ca; border-radius: 999rpx; color: #3f7d5c; text-align: center; font-size: 26rpx; }
+.photo-delete { min-height: 88rpx; display: inline-flex; align-items: center; padding: 12rpx 10rpx; color: #a45437; font-size: 26rpx; }
 
 .note-card {
   margin-top: 14rpx;
@@ -268,3 +375,6 @@
 
 .quantity-mask { position: fixed; z-index: 100; inset: 0; background: rgba(20,30,24,.42); display: flex; align-items: flex-end; }
 .quantity-sheet { background: white; width: 100%; padding: 30rpx 28rpx calc(30rpx + env(safe-area-inset-bottom)); }
+.detail-actions-spacer { height: 120rpx; }
+.detail-actions { position: fixed; z-index: 89; left: 0; right: 0; bottom: calc(96rpx + env(safe-area-inset-bottom)); display: flex; gap: 16rpx; padding: 12rpx 24rpx; background: #fff; border-top: 1rpx solid #e5eae5; }
+.detail-actions .btn { flex: 1; min-height: 76rpx; margin: 0; }

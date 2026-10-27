@@ -1,8 +1,10 @@
 <view class="page">
   <view class="card">
     <view class="section-title">JSON 备份</view>
-    <view class="hint">备份包含家庭药品、批次、阈值和设置；不包含登录令牌、密钥或邀请凭据。</view>
-    <view class="btn btn-primary" bindtap="onCreateBackup">{{busy ? "处理中…" : "生成并分享 JSON 备份"}}</view>
+    <view class="hint">药品与识别资料备份包含药品、批次、设置和逐图识别结果；仅库存备份不含逐图识别结果及来源，但仍包含药品资料和说明书摘要。</view>
+    <view class="hint">两种备份都不含照片原件、单独保存的个人剂量备注或登录凭据；文字可能含个人信息，恢复后原图不可查看。</view>
+    <view class="btn btn-primary" bindtap="onCreateBackup">{{busy ? "处理中…" : "生成药品与识别资料备份"}}</view>
+    <view class="btn btn-ghost" bindtap="onCreateInventoryBackup">生成仅库存备份</view>
     <view class="hint status-text" wx:if="{{statusText}}">{{statusText}}</view>
     <view class="hint" wx:if="{{backupCreatedAt}}">生成时间：{{backupCreatedAt}}</view>
     <textarea wx:if="{{backupJson}}" class="backup-json" value="{{backupJson}}" disabled maxlength="-1" />

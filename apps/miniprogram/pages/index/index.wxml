@@ -1,14 +1,13 @@
 <view class="page home-page">
   <view class="home-header">
+    <view class="title">药箱</view>
     <view class="family-row">
-      <view>
-        <view class="family-caption">当前家庭</view>
-        <view class="family-name">{{familyName || "家庭药箱"}}</view>
+      <view class="family-capsule" bindtap="onTapFamily">
+        <view class="family-icon" aria-hidden="true"><view class="family-roof" /><view class="family-house" /></view>
+        <text class="family-name">{{familyName || "家庭药箱"}}</text>
+        <text class="family-arrow">▾</text>
       </view>
-      <view class="family-link" bindtap="onTapFamily">我的家庭 ›</view>
     </view>
-    <view class="title">家里的药，心里有数</view>
-    <view class="subtitle">管理库存、有效期与开封后的期限。</view>
   </view>
 
   <view class="search-box">
@@ -18,16 +17,21 @@
     <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearSearch">清除</view>
   </view>
 
+  <view class="attention-summary" wx:if="{{attentionMedicineCount > 0 || attentionStocktake}}" bindtap="onOpenAttention">
+    <text>需关注：{{attentionMedicineCount > 0 ? attentionMedicineCount + ' 种药品' : ''}}{{attentionMedicineCount > 0 && attentionStocktake ? ' · ' : ''}}{{attentionStocktake ? '药箱盘点' : ''}}</text><text>查看 ›</text>
+  </view>
+  <view class="hint" wx:if="{{attentionUnavailable}}">暂时无法读取需关注事项，<text bindtap="onOpenAttention">点击查看并重试</text>。</view>
+
   <view class="filter-toolbar">
     <view class="filter-chip" data-panel="purpose" bindtap="onOpenFilterPanel">用途 {{selectedPurposes.length || ''}} ▾</view><view class="filter-chip" data-panel="population" bindtap="onOpenFilterPanel">人群 {{selectedPopulations.length || ''}} ▾</view><view class="filter-chip" data-panel="status" bindtap="onOpenFilterPanel">状态 ▾</view><picker range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange"><view class="filter-chip">排序 ▾</view></picker>
   </view>
   <view class="card" wx:if="{{filterPanel !== ''}}">
     <view wx:if="{{filterPanel === 'purpose'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{purposeChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePurpose">{{item.label}}</view></view>
     <view wx:if="{{filterPanel === 'population'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{populationChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePopulation">{{item.label}}</view></view>
-    <view wx:if="{{filterPanel === 'status'}}" class="tag-picker"><view class="filter-chip" data-kind="expiring" bindtap="onSelectFilter">临期/过期 {{expiringCount + expiredCount}}</view><view class="filter-chip" data-kind="expired" bindtap="onSelectFilter">已过期 {{expiredCount}}</view><view class="filter-chip" data-kind="low" bindtap="onSelectFilter">库存不足 {{lowStockCount}}</view><view class="filter-chip" data-kind="exhausted" bindtap="onSelectFilter">已用完</view><view class="filter-chip" data-kind="unknown" bindtap="onSelectFilter">数量/日期未知</view><view class="filter-chip" data-kind="opened" bindtap="onSelectFilter">已开封</view><view class="filter-chip" data-kind="archived" bindtap="onSelectFilter">已归档</view><view class="filter-chip" data-kind="missing" bindtap="onSelectFilter">待补资料 {{missingInfoCount}}</view></view>
+    <view wx:if="{{filterPanel === 'status'}}" class="tag-picker"><view class="filter-chip" data-kind="expiring" bindtap="onSelectFilter">临期/过期 {{expiringCount + expiredCount}}</view><view class="filter-chip" data-kind="low" bindtap="onSelectFilter">库存不足 {{lowStockCount}}</view><view class="filter-chip" data-kind="unknown" bindtap="onSelectFilter">数量/日期未知</view><view class="filter-chip" data-kind="missing" bindtap="onSelectFilter">资料完善建议 {{missingInfoCount}}</view><view class="filter-chip" bindtap="onToggleStatusMore">{{statusMoreExpanded ? '收起更多状态' : '更多状态'}} ▾</view><block wx:if="{{statusMoreExpanded}}"><view class="filter-chip" data-kind="expired" bindtap="onSelectFilter">已过期 {{expiredCount}}</view><view class="filter-chip" data-kind="exhausted" bindtap="onSelectFilter">已用完</view><view class="filter-chip" data-kind="opened" bindtap="onSelectFilter">已开封</view><view class="filter-chip" data-kind="archived" bindtap="onSelectFilter">已归档</view></block></view>
   </view>
-  <view class="hint" wx:if="{{isFiltered}}">已选状态：{{filterLabel}} · 排序：{{sortLabels[sortIndex]}} <text bindtap="onClearFilters">重置筛选</text></view>
-  <view class="card" wx:if="{{savedMessage}}"><view class="hint">{{savedMessage}}</view><view class="btn btn-ghost" bindtap="onViewSaved">查看刚保存的药品</view><view class="btn btn-ghost" bindtap="onTapAdd">再添加</view></view>
+  <view class="hint" wx:if="{{isFiltered}}">当前筛选：{{filterSummary}} <text bindtap="onClearFilters">重置筛选</text></view>
+  <view class="card" wx:if="{{savedMessage}}"><view class="hint">{{savedMessage}}</view><view class="btn btn-ghost" bindtap="onViewSaved">查看刚保存的药品</view></view>
   <view class="card error-card" wx:if="{{errorMessage !== ''}}">
     <view class="section-title">暂时无法加载药箱</view>
     <view class="hint">{{errorMessage}}</view>
@@ -35,22 +39,22 @@
   </view>
 
   <view class="empty-card" wx:if="{{errorMessage === '' && allItems.length === 0}}">
-    <view class="empty-mark">＋</view>
+    <view class="empty-mark empty-icon-wrap"><view class="empty-pill-art"></view></view>
     <view class="section-title">还没有药品</view>
     <view class="hint">可以拍照识别；识别结果核对后再保存，也可以只填药名。</view>
-    <view class="btn btn-primary" bindtap="onTapAdd">录入第一种药</view>
   </view>
   <view class="empty-card" wx:elif="{{errorMessage === '' && items.length === 0}}">
     <view class="section-title">没有匹配结果</view>
     <view class="hint">试试其他关键词，或清除筛选。</view>
     <view class="btn btn-ghost" bindtap="onClearFilters">清除筛选</view>
+    <view class="btn btn-ghost" wx:if="{{keyword !== ''}}" bindtap="onClearSearch">清除关键词</view>
   </view>
 
   <view wx:for="{{items}}" wx:key="id" id="medicine-{{item.id}}" class="medicine-card {{item.id === highlightedId ? 'highlighted' : ''}} {{item.isArchived ? 'archived' : ''}}" bindtap="onTapMedicine" data-id="{{item.id}}">
     <view class="medicine-card-head">
       <view class="medicine-thumb-box">
         <image wx:if="{{item.coverPhotoPath !== ''}}" class="medicine-thumb" src="{{item.coverPhotoPath}}" mode="aspectFill" />
-        <view wx:else class="medicine-thumb placeholder">📦</view>
+        <view wx:else class="medicine-thumb placeholder"><view class="pill-svg-icon"></view></view>
       </view>
       <view class="medicine-head-main">
         <view class="medicine-topline">
@@ -62,7 +66,6 @@
     </view>
     <view class="tag-row" wx:if="{{item.displayTags.length > 0}}">
       <text class="medicine-tag {{tag.kind}}" wx:for="{{item.displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
-      <text class="medicine-tag more" wx:if="{{item.extraTagCount > 0}}">+{{item.extraTagCount}}</text>
     </view>
     <view class="medicine-summary">
       <view class="summary-primary">{{item.quantityText}}</view>
@@ -73,43 +76,12 @@
       <text wx:if="{{item.isArchived}}" class="status-pill archived">已归档</text>
       <text wx:if="{{item.openedText !== ''}}" class="status-pill opened">{{item.openedText}}</text>
     </view>
-    <view class="stock-warning" wx:if="{{item.stockState === 'low'}}">库存不足</view>
-    <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown'}}">库存待核对</view>
-    <view class="medicine-location" wx:if="{{item.locationText !== ''}}">存放位置：{{item.locationText}}</view>
-    <view class="purpose-text">用途：{{item.purpose}}</view>
-    <view class="detail-hint">查看批次与说明书 ›</view>
+    <view class="stock-warning" wx:if="{{item.stockState === 'low' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存不足</view>
+    <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存待核对</view>
   </view>
 
   <view class="safety-note">清单只用于家庭库存管理；库存存在不等于适合服用。请以药品说明书及医生或药师指导为准。</view>
   <view class="bottom-spacer"></view>
   <view class="floating-add" bindtap="onTapAdd" aria-label="录入药品">＋ <text>录入药品</text></view>
 
-  <view class="entry-sheet-layer" wx:if="{{entrySheetVisible}}" catchtouchmove="noop">
-    <view class="entry-sheet-mask" bindtap="onCloseEntrySheet"></view>
-    <view class="entry-sheet" catchtap="noop">
-      <view class="sheet-handle"></view>
-      <view class="sheet-title">录入家里的药</view>
-      <view class="sheet-hint">拍照识别只生成草稿，核对后才保存。</view>
-      <view class="sheet-option" data-action="camera" bindtap="onSelectEntry">
-        <view class="sheet-icon">📷</view>
-        <view class="sheet-option-main"><view class="sheet-option-title">拍照识别</view><view class="sheet-option-hint">请求相机权限，识别结果待核对</view></view>
-        <view class="sheet-arrow">›</view>
-      </view>
-      <view class="sheet-option" data-action="album" bindtap="onSelectEntry">
-        <view class="sheet-icon album">▣</view>
-        <view class="sheet-option-main"><view class="sheet-option-title">从相册选择</view><view class="sheet-option-hint">选择已有药盒照片</view></view>
-        <view class="sheet-arrow">›</view>
-      </view>
-      <view class="sheet-option" data-action="manual" bindtap="onSelectEntry">
-        <view class="sheet-icon">✎</view>
-        <view class="sheet-option-main"><view class="sheet-option-title">手动录入</view><view class="sheet-option-hint">只填药品名称也可以先保存</view></view>
-        <view class="sheet-arrow">›</view>
-      </view>
-      <view class="sheet-option" data-action="scan" bindtap="onSelectEntry">
-        <view class="sheet-icon scan">▦</view>
-        <view class="sheet-option-main"><view class="sheet-option-title">扫码查候选</view><view class="sheet-option-hint">查询结果需人工确认后填入</view></view>
-        <view class="sheet-arrow">›</view>
-      </view>
-    </view>
-  </view>
 </view>

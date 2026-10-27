@@ -145,6 +145,8 @@ void main() {
   Completer<void>? previewGate;
   Completer<void>? previewEntered;
   var backupId = 'synthetic-backup-a';
+  Map<String, dynamic>? backupRequestBody;
+  var legacyBackup = false;
   var restorePreviewCalls = 0;
   final restoreRequests = <http.Request>[];
   Completer<void>? restorePreviewEntered;
@@ -174,6 +176,8 @@ void main() {
     previewGate = null;
     previewEntered = null;
     backupId = 'synthetic-backup-a';
+    backupRequestBody = null;
+    legacyBackup = false;
     restorePreviewCalls = 0;
     restoreRequests.clear();
     restorePreviewEntered = null;
@@ -253,9 +257,15 @@ void main() {
           };
         }
         if (path.endsWith('/backups/json')) {
+          backupRequestBody = jsonDecode(request.body) as Map<String, dynamic>;
           json = {
             'backupId': backupId,
             'schemaVersion': 2,
+            if (!legacyBackup)
+              'contentScope':
+                  backupRequestBody?['includeRecognitionEvidence'] == false
+                  ? 'inventory_only'
+                  : 'inventory_and_recognition_evidence',
             'medicines': [
               {'name': fixture},
             ],
@@ -491,6 +501,39 @@ void main() {
       expect(paths.directory.listSync(), isEmpty);
     },
   );
+
+  testWidgets(
+    'inventory-only backup uses an explicit scope and says what it excludes',
+    (tester) async {
+      await mount(tester);
+      final button = tester
+          .widgetList<SoftButton>(find.byType(SoftButton))
+          .firstWhere((item) => item.label == '创建仅库存备份');
+      await tester.runAsync(() async => (button.onPressed as dynamic)());
+      expect(backupRequestBody, {'includeRecognitionEvidence': false});
+      expect(
+        (jsonDecode(share.contents.single) as Map)['contentScope'],
+        'inventory_only',
+      );
+      expect(share.calls.single.text, contains('不包含逐图识别资料'));
+      expect(share.calls.single.text, contains('说明书摘要'));
+      expect(paths.directory.listSync(), isEmpty);
+    },
+  );
+
+  testWidgets('legacy API cannot share an unconfirmed backup', (tester) async {
+    legacyBackup = true;
+    await mount(tester);
+    final button = tester
+        .widgetList<SoftButton>(find.byType(SoftButton))
+        .firstWhere((item) => item.label == '创建仅库存备份');
+    await tester.runAsync(() async => (button.onPressed as dynamic)());
+    await tester.pump();
+    expect(backupRequestBody, {'includeRecognitionEvidence': false});
+    expect(share.calls, isEmpty);
+    expect(paths.directory.listSync(), isEmpty);
+    expect(find.textContaining('无法确认所选备份范围'), findsOneWidget);
+  });
 
   for (final logout in [true, false]) {
     testWidgets(

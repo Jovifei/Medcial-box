@@ -82,7 +82,16 @@ class FamilyChoiceApiPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('家庭药箱')),
+    appBar: AppBar(
+      leading: BackButton(onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home?tab=my&section=family');
+        }
+      }),
+      title: const Text('家庭药箱'),
+    ),
     bottomNavigationBar: SafeArea(
       child: TextButton(
         onPressed: () => context.go('/home'),
@@ -124,6 +133,14 @@ class FamilyChoiceApiPage extends StatelessWidget {
                               : '成员',
                         ),
                         onTap: () async {
+                          if (family['isCurrent'] == true) {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/home?tab=my&section=family');
+                            }
+                            return;
+                          }
                           try {
                             await repository.switchFamily(
                               family['familyId'] as String,

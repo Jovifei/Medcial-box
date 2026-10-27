@@ -21,7 +21,7 @@ const fixture = () => ({
     attestation:'UNSIGNED_CI_RECEIPT_NOT_A_SIGNATURE',stages:{...unverifiedStages},
   },
 });
-test('1.0.6 intake retains the fixed identity and forbids declaring untested deployment ready',()=>{
+test('candidate intake retains the exact version and forbids declaring untested deployment ready',()=>{
   const {manifest,receipt}=fixture();
   const report=assessCandidateReadiness(manifest,receipt);
   assert.equal(report.sourceSha,sha);
@@ -40,7 +40,7 @@ test('cross-SHA, failed prerequisite, rogue client and false device/production c
     p=>{p.receipt.prerequisites.verify='failure';},
     p=>{delete p.receipt.prerequisites.flutter;},
     p=>{p.manifest.client.apiBase='http://private.invalid';},
-    p=>{p.manifest.version.version='1.0.5';},
+    p=>{p.manifest.version.version='not-a-version';},
     p=>{p.manifest.stages.realDevice='PASS';},
     p=>{p.receipt.stages.formalRelease='PASS';},
     p=>{p.receipt.attestation='SIGNED';},
@@ -51,7 +51,7 @@ test('cross-SHA, failed prerequisite, rogue client and false device/production c
     assert.throws(()=>assessCandidateReadiness(pair.manifest,pair.receipt));
   }
 });
-test('candidate intake writes a new immutable report and rejects replacing an existing one',async()=>{
+test('candidate intake writes a new immutable report and rejects replacing an existing one',async(t)=>{
   const fs=await import('node:fs/promises');
   const root=await mkdtemp(join(tmpdir(),'medbox-readiness-'));
   try{
@@ -64,8 +64,14 @@ test('candidate intake writes a new immutable report and rejects replacing an ex
     assert.equal(report.releaseAllowed,false);
     assert.equal(JSON.parse(await readFile(outputPath,'utf8')).sourceSha,sha);
     await assert.rejects(writeReadiness({manifestPath,receiptPath,outputPath}),/EEXIST/);
-    const target=join(root,'real.json'),link=join(root,'manifest-link.json');
-    await writeFile(target,JSON.stringify(manifest));await symlink(target,link);
-    await assert.rejects(writeReadiness({manifestPath:link,receiptPath,outputPath:join(root,'never.json')}),/regular JSON/);
+    await t.test('a symlink manifest is rejected when the host permits creating one',async(subtest)=>{
+      const target=join(root,'real.json'),link=join(root,'manifest-link.json');
+      await writeFile(target,JSON.stringify(manifest));
+      try { await symlink(target,link); } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES') { subtest.skip('host does not permit creating a symlink'); return; }
+        throw error;
+      }
+      await assert.rejects(writeReadiness({manifestPath:link,receiptPath,outputPath:join(root,'never.json')}),/regular JSON/);
+    });
   } finally {await fs.rm(root,{recursive:true,force:true});}
 });

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/widgets/private_medicine_image.dart';
 import 'api_auth_repository.dart';
 import 'api_client.dart';
 import 'api_medicine_repository.dart';
@@ -30,6 +31,7 @@ class AppServices {
     this.medicines,
     this.workflow,
     this.plans,
+    this.privateMedicineImages,
   });
 
   final String apiBaseUrl;
@@ -42,6 +44,7 @@ class AppServices {
   final ApiMedicineRepository? medicines;
   final ApiWorkflowRepository? workflow;
   final ApiPlanRepository? plans;
+  final PrivateMedicineImageLoader? privateMedicineImages;
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
   final ExportTemporaryStore exportFiles;
@@ -232,6 +235,7 @@ class AppServices {
         medicines: medicines,
         workflow: workflow,
         plans: plans,
+        privateMedicineImages: PrivateMedicineImageLoader(api),
         demoMedicineRepository: DemoMedicineRepository(),
         reminders: reminders,
         exportFiles: exports,

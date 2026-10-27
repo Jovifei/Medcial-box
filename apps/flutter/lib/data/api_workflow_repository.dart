@@ -59,11 +59,67 @@ class LeafletPhotoRecord {
       );
 }
 
+class RecognitionEvidenceState {
+  const RecognitionEvidenceState({
+    required this.evidence,
+    required this.coverPhotoVersionGuard,
+  });
+  final RecognitionEvidence? evidence;
+  final bool coverPhotoVersionGuard;
+}
+
 class ApiWorkflowRepository {
   ApiWorkflowRepository({required this.api, ExportTemporaryStore? exportFiles})
     : exportFiles = exportFiles ?? ExportTemporaryStore();
   final ApiClient api;
   final ExportTemporaryStore exportFiles;
+
+  Future<RecognitionEvidence?> getRecognitionEvidence(
+    String medicineId, {
+    bool Function()? isCurrent,
+  }) async => (await getRecognitionEvidenceState(
+    medicineId,
+    isCurrent: isCurrent,
+  )).evidence;
+
+  Future<RecognitionEvidenceState> getRecognitionEvidenceState(
+    String medicineId, {
+    bool Function()? isCurrent,
+  }) async {
+    final response = await api.get(
+      '/api/v1/medicines/$medicineId/recognition-evidence',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
+    ) as Map<String, dynamic>;
+    final value = response['evidence'];
+    return RecognitionEvidenceState(
+      evidence: value == null
+          ? null
+          : RecognitionEvidence.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+      coverPhotoVersionGuard:
+          response['capabilities'] is Map &&
+          (response['capabilities'] as Map)['coverPhotoVersionGuard'] == true,
+    );
+  }
+
+  Future<RecognitionEvidence?> saveRecognitionEvidence(
+    String medicineId,
+    Map<String, dynamic> request, {
+    bool Function()? isCurrent,
+  }) async {
+    final response = await api.post(
+      '/api/v1/medicines/$medicineId/recognition-evidence',
+      body: request,
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
+    ) as Map<String, dynamic>;
+    final value = response['evidence'];
+    return value == null
+        ? null
+        : RecognitionEvidence.fromJson(Map<String, dynamic>.from(value as Map));
+  }
 
   Future<LeafletPhotoRecord> uploadLeafletPhoto(
     String medicineId,
@@ -100,19 +156,25 @@ class ApiWorkflowRepository {
   Future<void> setCoverPhoto(
     String medicineId,
     String? photoId, {
+    int? version,
     bool Function()? isCurrent,
   }) async {
     await api.post(
       '/api/v1/medicines/$medicineId/cover-photo',
       isCurrent: isCurrent,
       responseIsCurrent: isCurrent,
-      body: {'photoId': photoId},
+      body: {'photoId': photoId, 'version': ?version},
     );
   }
 
-  Future<List<LeafletPhotoRecord>> listLeafletPhotos(String medicineId) async {
+  Future<List<LeafletPhotoRecord>> listLeafletPhotos(
+    String medicineId, {
+    bool Function()? isCurrent,
+  }) async {
     final result = await api.get(
       '/api/v1/medicines/$medicineId/leaflet-photos',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
     ) as Map<String, dynamic>;
     return (result['photos'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
@@ -122,11 +184,23 @@ class ApiWorkflowRepository {
 
   Future<ApiBinaryResponse> readLeafletPhoto(
     String medicineId,
-    String photoId,
-  ) => api.getBinary('/api/v1/medicines/$medicineId/leaflet-photos/$photoId');
+    String photoId, {
+    bool Function()? isCurrent,
+  }) => api.getBinary(
+    '/api/v1/medicines/$medicineId/leaflet-photos/$photoId',
+    isCurrent: isCurrent,
+  );
 
-  Future<void> deleteLeafletPhoto(String medicineId, String photoId) async {
-    await api.delete('/api/v1/medicines/$medicineId/leaflet-photos/$photoId');
+  Future<void> deleteLeafletPhoto(
+    String medicineId,
+    String photoId, {
+    bool Function()? isCurrent,
+  }) async {
+    await api.delete(
+      '/api/v1/medicines/$medicineId/leaflet-photos/$photoId',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
+    );
   }
 
   Future<FamilySettingsRecord> getSettings() async {
@@ -289,8 +363,36 @@ class ApiWorkflowRepository {
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> createJsonBackup() async =>
-      await api.post('/api/v1/backups/json') as Map<String, dynamic>;
+  Future<Map<String, dynamic>> createJsonBackup({
+    bool includeRecognitionEvidence = true,
+  }) async {
+    final response = await api.post(
+      '/api/v1/backups/json',
+      body: includeRecognitionEvidence
+          ? const {}
+          : const {'includeRecognitionEvidence': false},
+    );
+    final expected = includeRecognitionEvidence
+        ? 'inventory_and_recognition_evidence'
+        : 'inventory_only';
+    if (response is! Map<String, dynamic> ||
+        response['contentScope'] != expected ||
+        response['medicines'] is! List ||
+        (!includeRecognitionEvidence &&
+            (response['schemaVersion'] != 2 ||
+                (response['medicines'] as List).any(
+                  (medicine) =>
+                      medicine is! Map ||
+                      medicine.containsKey('recognitionEvidence'),
+                )))) {
+      throw const ApiException(
+        statusCode: 502,
+        code: 'BACKUP_SCOPE_UNCONFIRMED',
+        message: '当前服务无法确认所选备份范围，未生成分享文件；请更新服务后重试。',
+      );
+    }
+    return response;
+  }
 
   Future<Map<String, dynamic>> previewJsonRestore(
     Map<String, dynamic> backup,
