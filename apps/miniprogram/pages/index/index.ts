@@ -205,6 +205,7 @@ interface IndexPageData {
   highlightedId: string;
   savedMessage: string;
   filterPanel: string;
+  statusMoreExpanded: boolean;
 }
 
 Page({
@@ -243,6 +244,7 @@ Page({
     highlightedId: "",
     savedMessage: "",
     filterPanel: "",
+    statusMoreExpanded: false,
   },
 
   redirecting: false,
@@ -572,7 +574,12 @@ Page({
   },
 
   onOpenFilterPanel(event: { currentTarget: { dataset: { panel?: string } } }): void {
-    this.setData({ filterPanel: this.data.filterPanel === event.currentTarget.dataset.panel ? "" : event.currentTarget.dataset.panel ?? "" });
+    const panel = event.currentTarget.dataset.panel ?? "";
+    this.setData({ filterPanel: this.data.filterPanel === panel ? "" : panel,
+      ...(panel !== "status" ? { statusMoreExpanded: false } : {}) });
+  },
+  onToggleStatusMore(): void {
+    this.setData({ statusMoreExpanded: !this.data.statusMoreExpanded });
   },
   onViewSaved(): void { if (this.data.highlightedId) wx.navigateTo({ url: `/pages/medicine-detail/medicine-detail?id=${this.data.highlightedId}` }); },
   onClearSearch(): void {

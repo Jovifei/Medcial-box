@@ -411,7 +411,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     ].any((field) => review.requiresChoice(field, photoDrafts))) {
       identityExpanded = true;
     }
-    if (review.requiresChoice('approvalNumber', photoDrafts)) {
+    if (_hasMoreReviewConflicts) {
       moreExpanded = true;
     }
     if (leafletControllers.keys.any(
@@ -487,6 +487,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     'populationTags',
     'purposeTags',
   ].any((field) => review.requiresChoice(field, photoDrafts));
+
+  bool get _hasMoreReviewConflicts =>
+      review.requiresChoice('approvalNumber', photoDrafts) ||
+      review.requiresChoice('activeIngredients', photoDrafts);
 
   // Keep the queue and legacy draft writes in the same order, including
   // autosaves that were already running when the user chose to leave.
@@ -1701,8 +1705,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (purposeTags.isNotEmpty) categoryExpanded = true;
       if (purposeTags.isNotEmpty) review.markCatalog('purposeTags');
     }
-    // 用户采纳待核验候选后主动展开隐藏字段，必须核对但不会自行保存。
-    if (mounted) setState(() => moreExpanded = true);
     _markDirty();
   }
 
@@ -2670,9 +2672,18 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     }
     if (attemptedPayload == null && _hasBlockingConflicts) {
       setState(() {
-        identityExpanded = true;
-        moreExpanded = true;
-        leafletExpanded = true;
+        if (_reviewControllers.keys.any(
+          (field) => review.requiresChoice(field, photoDrafts),
+        )) {
+          identityExpanded = true;
+          leafletExpanded = true;
+        }
+        if (_hasMoreReviewConflicts) moreExpanded = true;
+        if (['purposeCategory', 'populationTags', 'purposeTags'].any(
+          (field) => review.requiresChoice(field, photoDrafts),
+        )) {
+          categoryExpanded = true;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('药品信息存在不同识别结果，请先在逐图核对中明确选择。')),

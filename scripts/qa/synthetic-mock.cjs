@@ -13,6 +13,8 @@ const routes = [
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/low-stock-threshold$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/batches\/qa-batch-\d+\/quantity$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/cover-photo$/],
+  ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/recognition-evidence$/],
+  ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/recognition-evidence$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/dosage-notes$/],
   ['GET', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
   ['POST', /^\/api\/v1\/medicines\/qa-medicine-\d+\/leaflet-photos$/],
@@ -51,7 +53,7 @@ function createMock() {
     batches: [], ...clone(input), id,
   });
   const state = () => {
-    if (!byActor.has(actor)) byActor.set(actor, { medicines: [medicine('qa-medicine-1')], photos: [], creates: new Map(), photoIntents: new Map() });
+    if (!byActor.has(actor)) byActor.set(actor, { medicines: [medicine('qa-medicine-1')], photos: [], creates: new Map(), photoIntents: new Map(), evidence: new Map(), evidenceReceipts: new Map() });
     return byActor.get(actor);
   };
   function dispatch({ url, method = 'GET', data, header = {} }) {
@@ -88,6 +90,45 @@ function createMock() {
     const id = path.split('/')[4];
     const item = db.medicines.find(entry => entry.id === id);
     if (!item) return fail('NOT_FOUND', 404);
+    if (path.endsWith('/recognition-evidence')) {
+      if (method === 'GET') {
+        const saved = db.evidence.get(id) ?? null;
+        return ok({
+          evidence: saved,
+          capabilities: { coverPhotoVersionGuard: true },
+        });
+      }
+      if (method === 'POST') {
+        if (!data || data.schemaVersion !== 1 || !Array.isArray(data.photos) ||
+            !data.fieldSources || typeof data.idempotencyKey !== 'string' ||
+            !Number.isSafeInteger(data.revision) || !Number.isSafeInteger(data.medicineVersion)) {
+          return fail('VALIDATION_ERROR', 400);
+        }
+        const receipt = db.evidenceReceipts.get(data.idempotencyKey);
+        if (receipt) {
+          if (receipt.payloadHash !== JSON.stringify(data)) return fail('VERSION_CONFLICT', 409);
+          return ok({ evidence: clone(receipt.evidence) });
+        }
+        const previous = db.evidence.get(id);
+        const expectedRevision = previous?.revision ?? 0;
+        if (data.revision !== expectedRevision || data.medicineVersion !== item.version) {
+          return fail('VERSION_CONFLICT', 409);
+        }
+        const evidence = {
+          schemaVersion: 1,
+          revision: expectedRevision + 1,
+          medicineVersion: item.version,
+          currentMedicineVersion: item.version,
+          stale: false,
+          photos: data.photos.map(photo => ({ ...clone(photo), available: true })),
+          fieldSources: clone(data.fieldSources),
+          ...(data.batchSources === undefined ? {} : { batchSources: clone(data.batchSources).map(source => ({ ...source, batchAvailable: source.batchId !== null })) }),
+        };
+        db.evidence.set(id, evidence);
+        db.evidenceReceipts.set(data.idempotencyKey, { payloadHash: JSON.stringify(data), evidence });
+        return ok({ evidence: clone(evidence) });
+      }
+    }
     if (path.endsWith('/low-stock-threshold') && method === 'POST') {
       if (!data || Object.keys(data).some(key => !['version', 'lowStockThreshold'].includes(key))) return fail('VALIDATION_ERROR',400);
       if (data.version !== item.version) return fail('VERSION_CONFLICT', 409);
@@ -109,7 +150,12 @@ function createMock() {
       return ok(batch);
     }
     if (path.endsWith('/dosage-notes')) return ok({ notes: [] });
-    if (path.endsWith('/cover-photo')) { item.coverPhotoId = data.photoId; return ok({ coverPhotoId: item.coverPhotoId }); }
+    if (path.endsWith('/cover-photo')) {
+      if (!data || (data.version !== undefined && data.version !== item.version) || typeof data.photoId !== 'string') return fail('VERSION_CONFLICT', 409);
+      item.coverPhotoId = data.photoId;
+      item.version++;
+      return ok({ coverPhotoId: item.coverPhotoId, version: item.version });
+    }
     if (path.endsWith('/leaflet-photos')) {
       if (method === 'GET') return ok({ photos: db.photos.filter(photo => photo.medicineId === id) });
       if (data?.imageBase64 !== PNG) return fail('SYNTHETIC_IMAGE_REQUIRED', 400);

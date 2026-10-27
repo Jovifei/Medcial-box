@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '1.1.0';
+const String appVersion = '1.1.1';
 
 class ReleaseNote {
   const ReleaseNote({
@@ -19,11 +19,12 @@ class ReleaseNote {
 
 const List<ReleaseNote> releaseNotes = [
   ReleaseNote(
-    version: '1.1.0',
+    version: '1.1.1',
     date: '2026-10-27',
     items: [
       '药箱、用药计划和我的三个入口更清晰，家庭操作集中到家庭管理。',
       '录入和详情突出照片、库存与有效期，多个识别结果可逐图核对。',
+      '识别后只展开需要核对的资料，低频字段和首页状态筛选收纳。',
       '识别来源可保存并同步（需要服务支持），备份范围在生成时明确显示。',
     ],
   ),

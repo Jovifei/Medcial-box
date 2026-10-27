@@ -1439,7 +1439,6 @@ Page({
       }
       if (filledLeaflet) {
         fields.verified = false;
-        fields.optionalExpanded = true;
       }
     }
     const sources = snapshot(data.fieldSources ?? {});
@@ -1997,7 +1996,6 @@ Page({
           if (untouched(field) && current[field].trim() === "" && value) fields[field] = value;
         }
         if (untouched("leafletSource") && !current.leafletSource.trim()) fields.leafletSource = "包装内说明书照片（待核对）";
-        fields.optionalExpanded = true;
         fields.verified = false;
       }
       // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
@@ -2896,6 +2894,14 @@ Page({
           if (!this.writePhotoDraftQueue(finishedQueue)) return;
           this.setData({ photoDrafts: this.visiblePhotoDrafts(finishedQueue), activePhotoDraftId: "" });
           await this.cleanupPhotoDrafts();
+          // cleanupPhotoDrafts deliberately does not replace page state while a
+          // submission owns the active draft. Re-read the durable queue here so
+          // the completed local photo draft disappears from the visible page as
+          // soon as its owned files have been removed.
+          const cleanedQueue = this.photoDraftQueueForWrite();
+          if (cleanedQueue && this.entryScopeIsCurrent(originalScope)) {
+            this.setData({ photoDrafts: this.visiblePhotoDrafts(cleanedQueue), activePhotoDraftId: "" });
+          }
           if (!this.entryScopeIsCurrent(originalScope)) return;
           if (evidenceOutcome === "pending") {
             wx.showToast({ title: "药品和照片已保存，识别来源待同步，可在照片与资料页重试。", icon: "none", duration: 4000 });
