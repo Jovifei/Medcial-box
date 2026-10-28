@@ -125,7 +125,7 @@ class _ArchivedMedicinesPageState extends State<ArchivedMedicinesPage> {
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text('归档资料仅供查看，暂不支持恢复到当前药箱。'),
+              const Text('此处展示归档摘要，暂不支持恢复到当前药箱。'),
               ..._items.map(
                 (item) => Card(
                   child: ExpansionTile(

@@ -332,7 +332,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('归档这项药品？'),
-        content: Text('“${medicine.name}”将从当前药箱移至归档记录。可在药箱状态筛选中查看，暂不支持恢复到当前药箱。'),
+        content: Text('“${medicine.name}”将从当前药箱移至归档记录。可在药箱状态筛选中查看摘要，暂不支持恢复到当前药箱。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),

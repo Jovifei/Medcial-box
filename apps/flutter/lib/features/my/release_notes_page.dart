@@ -23,7 +23,7 @@ const List<ReleaseNote> releaseNotes = [
     date: '2026-10-28',
     items: [
       '药箱加载时明确显示进度，加载失败时提供重试。',
-      '可以查看已归档药品，归档记录暂不支持恢复。',
+      '可以查看归档药品摘要，归档记录暂不支持恢复。',
     ],
   ),
   ReleaseNote(
