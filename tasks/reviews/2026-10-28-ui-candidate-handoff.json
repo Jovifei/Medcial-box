@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "MEDBOX_111_CANDIDATE_HANDOFF",
+  "sourceSha": "467efeb4b940870025d135bb394afb9e005e5690",
+  "sourceTree": "98785288a24a48303205cbd753c09a05224a579d",
+  "miniTree": "c35059b7a9d0f25ab4f017b43418727887eda084",
+  "version": {
+    "version": "1.1.1",
+    "androidBuild": 15,
+    "channel": "candidate"
+  },
+  "client": {
+    "appId": "wx1f6dd99d28aab8e5",
+    "apiBase": "https://medbox.joviluma.com"
+  },
+  "fileCount": 138,
+  "packageSha256": "927a33ed87147a9f80f3adae57ceb0f72db69518ced5138c3dd99bdbed7b47cb",
+  "ciRun": 40538730257,
+  "ciUrl": "https://github.com/Jovifei/Medcial-box/actions/runs/40538730257",
+  "candidatePath": "E:\\project\\medcial_box\\var\\candidate-delivery-1.1.1-main-467efeb-20261028",
+  "checks": {
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "miniprogram": "652 PASS",
+    "api": "311 PASS / 31 SKIP",
+    "tooling": "229 PASS / 30 SKIP",
+    "flutter": "894 PASS / 19 SKIP",
+    "flutterAnalyze": "PASS",
+    "miniQa": "39 PASS / 1 SKIP",
+    "miniReleaseGate": "PASS",
+    "live": "HTTP 200",
+    "ready": "HTTP 200 database connected",
+    "deployment": "NOT_PERFORMED",
+    "wechatCompile": "NOT_RUN",
+    "wechatUpload": "NOT_RUN",
+    "realDevice": "NOT_RUN",
+    "formalRelease": "NOT_AUTHORIZED"
+  },
+  "blockers": [
+    "Production reviewed binding/paired backup/restore for 035 migration not available in current worktree",
+    "Wechat IDE login expired; upload waits for owner QR login",
+    "Two-device 1.1.1 business acceptance not complete",
+    "Android Release unsigned",
+    "Hub bound_report WinError 10061"
+  ]
+}

@@ -156,6 +156,8 @@ const reviewedSourceTrees = new Set([
   '53e030a9247e79399416f2ef0ea3f10dba201a91',
   // 2026-10-27 候选 1.1.1 版本说明收口：小程序版本说明保持最多三项。
   'c35059b7a9d0f25ab4f017b43418727887eda084',
+  // 首页加载与错误状态区分及 1.1.2 版本说明；未增加微信、文件或网络能力。
+  'a2ff895b5477ebb08761fe2679a3ab27b0e088b2',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
