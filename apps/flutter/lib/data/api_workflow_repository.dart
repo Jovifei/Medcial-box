@@ -340,9 +340,12 @@ class ApiWorkflowRepository {
   /// 把归档记录写回活动库存、污染首页或触发归档药品的到期提醒。
   Future<List<MedicineRecord>> fetchMedicinesForExport({
     bool includeArchived = false,
+    bool Function()? isCurrent,
   }) async {
     final result = await api.get(
       '/api/v1/medicines${includeArchived ? '?includeArchived=true' : ''}',
+      isCurrent: isCurrent,
+      responseIsCurrent: isCurrent,
     ) as Map<String, dynamic>;
     return (result['medicines'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()

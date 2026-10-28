@@ -38,12 +38,13 @@
     <view class="btn btn-ghost retry-btn" bindtap="onRetry">重新连接</view>
   </view>
 
-  <view class="empty-card" wx:if="{{errorMessage === '' && allItems.length === 0}}">
+  <view class="empty-card" wx:if="{{loading && allItems.length === 0}}"><view class="hint">正在加载药箱…</view></view>
+  <view class="empty-card" wx:if="{{!loading && errorMessage === '' && allItems.length === 0}}">
     <view class="empty-mark empty-icon-wrap"><view class="empty-pill-art"></view></view>
     <view class="section-title">还没有药品</view>
     <view class="hint">可以拍照识别；识别结果核对后再保存，也可以只填药名。</view>
   </view>
-  <view class="empty-card" wx:elif="{{errorMessage === '' && items.length === 0}}">
+  <view class="empty-card" wx:elif="{{!loading && errorMessage === '' && items.length === 0}}">
     <view class="section-title">没有匹配结果</view>
     <view class="hint">试试其他关键词，或清除筛选。</view>
     <view class="btn btn-ghost" bindtap="onClearFilters">清除筛选</view>

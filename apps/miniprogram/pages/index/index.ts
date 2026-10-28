@@ -201,6 +201,7 @@ interface IndexPageData {
   familyName: string;
   items: CabinetItem[];
   allItems: CabinetItem[];
+  loading: boolean;
   errorMessage: string;
   highlightedId: string;
   savedMessage: string;
@@ -240,6 +241,7 @@ Page({
     familyName: "",
     items: [] as CabinetItem[],
     allItems: [] as CabinetItem[],
+    loading: true,
     errorMessage: "",
     highlightedId: "",
     savedMessage: "",
@@ -271,7 +273,7 @@ Page({
     ++this.coverToken;
     this.coverCacheOwner = "";
     this.coverCache = null;
-    this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+    this.setData({ allItems: [], items: [], familyName: "", errorMessage: "", loading: true,
       highlightedId: "", savedMessage: "",
       expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
       attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
@@ -280,6 +282,7 @@ Page({
   async refresh(): Promise<void> {
     const seq = ++this.refreshSeq;
     ++this.coverToken; // 新列表必须使上一轮封面下载失效。
+    this.setData({ loading: true, errorMessage: "" });
     let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
@@ -387,7 +390,7 @@ Page({
       if (state === "expired") expiredCount += 1;
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
-    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, errorMessage: "", stageLabel: "药箱首页" });
+    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, loading: false, errorMessage: "", stageLabel: "药箱首页" });
     const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted").length;
     const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
     this.setData({
@@ -472,6 +475,7 @@ Page({
     const message = error instanceof ApiError ? error.message : "服务暂时不可用，请稍后重试";
     this.setData({
       stageLabel: "暂时无法连接",
+      loading: false,
       isExample: false,
       familyName: "",
       allItems: [],

@@ -14,6 +14,7 @@ import '../../data/api_workflow_repository.dart';
 import '../../data/app_services.dart';
 import '../../models/medicine_models.dart';
 import '../my/my_page.dart';
+import '../medicine/archived_medicines_page.dart';
 import '../pending/pending_page.dart';
 import '../plan/plans_page.dart';
 
@@ -120,10 +121,7 @@ class _ProductionShellState extends State<ProductionShell>
                 }),
               ),
               if (showAttention)
-                PendingPage(
-                  services: widget.services,
-                  onBack: _closeAttention,
-                ),
+                PendingPage(services: widget.services, onBack: _closeAttention),
             ],
           ),
           PlansPage(repository: widget.services.plans!),
@@ -201,6 +199,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   Future<void>? initialLoad;
   FamilyRecord? family;
   Object? failure;
+  bool loading = true;
   bool openingEntry = false;
 
   Future<void> _openEntry() async {
@@ -264,6 +263,12 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
 
   Future<void> _load() async {
     final sequence = ++_loadSequence;
+    if (mounted) {
+      setState(() {
+        loading = true;
+        failure = null;
+      });
+    }
     final api = widget.workflow.api;
     final epoch = api.identityEpoch;
     final scope = api.identityState?.scopeSignal.value;
@@ -290,11 +295,17 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
           attention = items;
           attentionUnavailable = items == null;
           failure = null;
+          loading = false;
         });
       }
     } catch (error) {
       await pending;
-      if (current()) setState(() => failure = error);
+      if (current()) {
+        setState(() {
+          failure = error;
+          loading = false;
+        });
+      }
     }
   }
 
@@ -396,7 +407,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       title: const Text('JF小药箱'),
       actions: [
         TextButton.icon(
-          onPressed: widget.onManageFamily ??
+          onPressed:
+              widget.onManageFamily ??
               () => context.go('/home?tab=my&section=family'),
           icon: const Icon(Icons.home_outlined),
           label: ConstrainedBox(
@@ -554,12 +566,26 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                       _filterChip('库存不足', MedicineFilter.lowStock),
                       _filterChip('待补资料', MedicineFilter.missingInfo),
                       _filterChip('数量/日期未知', MedicineFilter.unknown),
+                      ActionChip(
+                        label: const Text('已归档'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ArchivedMedicinesPage(
+                              workflow: widget.workflow,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
             const SizedBox(height: 12),
-            if (widget.repository.medicines.isEmpty && failure == null)
+            if (widget.repository.medicines.isEmpty && loading)
+              const Center(child: CircularProgressIndicator())
+            else if (widget.repository.medicines.isEmpty && failure != null)
+              const SizedBox.shrink()
+            else if (widget.repository.medicines.isEmpty)
               const _EmptyCabinet()
             else if (_visibleMedicines.isEmpty)
               _NoSearchResults(

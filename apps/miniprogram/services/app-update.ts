@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.1.1";
+export const APP_VERSION = "1.1.2";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.1.2",
+    date: "2026-10-28",
+    items: ["药箱加载时明确显示进度，加载失败时提供重试。", "可以查看已归档药品，归档记录暂不支持恢复。"],
+  },
   {
     version: "1.1.1",
     date: "2026-10-27",
