@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import type { CareProfileSummary, FamilyMemberSummary } from "../../services/api-types";
 
@@ -57,19 +57,57 @@ Page({
     note: "",
   } as CareProfilesPageData,
 
+  requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
+
   onShow(): void {
-    this.refresh();
+    void this.refresh();
+  },
+  onHide(): void {
+    ++this.requestSeq;
+  },
+  onUnload(): void {
+    ++this.requestSeq;
+  },
+  onPullDownRefresh(): void {
+    void this.refresh().finally(() => wx.stopPullDownRefresh());
   },
 
   async refresh(): Promise<void> {
+    const seq = ++this.requestSeq;
+    let identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      this.setData({
+        profiles: [],
+        members: [],
+        memberNames: [],
+        selfUserId: "",
+        errorMessage: "",
+      });
+    }
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
       const [profiles, family] = await Promise.all([api.listCareProfiles(), api.getCurrentFamily()]);
+      if (!current()) return;
       const members = family.family.members.filter((member) => !member.isSelf);
       const selfUserId = family.family.members.find((member) => member.isSelf)?.userId ?? "";
       const cards: ProfileCard[] = [];
       for (const profile of profiles.careProfiles) {
+        if (!current()) return;
         let grantsText = "仅本人可见";
         let grants: ProfileCard["grants"] = [];
         if (!profile.isPrivate) {
@@ -80,11 +118,13 @@ Page({
             // 管理者：把“确实没有授权”“无权读取”“读取失败”分开呈现，不再一律吞成空名单。
             try {
               const listed = await api.listCareGrants(profile.id);
+              if (!current()) return;
               grants = listed.grants.map((grant) => ({ memberUserId: grant.memberUserId, displayName: grant.displayName, canManage: grant.canManage }));
               grantsText = grants.length === 0
                 ? "仅创建者可见"
                 : grants.map((grant) => `${grant.displayName}（${grant.canManage ? "可代记" : "仅查看"}）`).join("、");
             } catch (error) {
+              if (!current()) return;
               grants = [];
               grantsText = error instanceof ApiError && error.statusCode === 403
                 ? "无权查看该对象的授权名单"
@@ -100,6 +140,7 @@ Page({
           grants,
         });
       }
+      if (!current()) return;
       this.setData({
         profiles: cards,
         members,
@@ -108,8 +149,21 @@ Page({
         loading: false,
       });
     } catch (error) {
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.setData({ profiles: [], members: [], memberNames: [], selfUserId: "", loading: false });
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.setData({ profiles: [], members: [], memberNames: [], selfUserId: "", loading: false });
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
       const message = error instanceof ApiError ? error.message : "加载失败，请重试";
       this.setData({ loading: false, errorMessage: message });
+    } finally {
+      if (current()) this.setData({ loading: false });
     }
   },
 

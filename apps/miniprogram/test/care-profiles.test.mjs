@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setImmediate as tick } from "node:timers/promises";
 import { loadPage, makePageContext } from "./runtime.mjs";
 
 /**
@@ -184,4 +185,58 @@ test("R18：授权名单读取失败与确实无授权分开呈现", async () =>
   for (const profile of page.data.profiles) byId[profile.id] = profile;
   assert.match(byId["p-fail"].grantsText, /读取失败/);
   assert.equal(byId["p-empty"].grantsText, "仅创建者可见", "确实没有授权时才显示仅创建者可见");
+});
+
+test("切家或晚到响应不会写入 profiles/members", async () => {
+  let resolveProfiles;
+  let generation = 1;
+  const relaunches = [];
+  const { loadPage: customLoad, makePageContext: customContext } = await import("./runtime.mjs");
+  const { definition: customDef } = customLoad("pages/care-profiles/care-profiles.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          listCareProfiles: () => new Promise((resolve) => { resolveProfiles = resolve; }),
+          getCurrentFamily: async () => ({ family: { members: [] } }),
+          listCareGrants: async () => ({ grants: [] }),
+        },
+        ApiError: class extends Error {},
+        captureSessionIdentity: () => ({ token: "token", generation }),
+        isCurrentSession: (id) => id.generation === generation && id.token === "token",
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+    },
+    wx: {
+      reLaunch: (opt) => relaunches.push(opt.url),
+      showModal: () => {},
+      showToast: () => {},
+    },
+  });
+  const page = customContext(customDef);
+  const first = page.refresh();
+  await tick();
+  generation++;
+  page.onHide();
+  assert.equal(page.data.profiles.length, 0);
+  resolveProfiles({ careProfiles: [{ id: "p1", displayName: "旧家老人", linkedUserId: null, isPrivate: false, canManage: true }] });
+  await first;
+  assert.equal(page.data.profiles.length, 0);
+});
+
+test("会话范围变化或家庭不存在时重定向到家庭入口", async () => {
+  const relaunches = [];
+  const err = new ApiError("家庭不存在");
+  err.code = "FAMILY_NOT_FOUND";
+  const { load } = loadCareProfilesPage({
+    api: {
+      listCareProfiles: async () => { throw err; },
+    },
+    wx: {
+      reLaunch: (opt) => relaunches.push(opt.url),
+    },
+  });
+  const page = load();
+  await page.refresh();
+  assert.deepEqual(relaunches, ["/pages/family-entry/family-entry"]);
+  assert.equal(page.data.profiles.length, 0);
 });

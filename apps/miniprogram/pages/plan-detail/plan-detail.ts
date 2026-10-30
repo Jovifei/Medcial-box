@@ -1,4 +1,4 @@
-import { api, ApiError } from "../../services/api";
+import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { clearDirtyDraft, registerDirtyDraft } from "../../services/draft-guard";
 import { scopedStorageKey } from "../../services/session-scope";
@@ -90,6 +90,8 @@ Page({
   dirty: false,
   /** Captured only after the plan's original household is resolved. Never recompute on unload. */
   draftOwnerKey: null as string | null,
+  requestSeq: 0,
+  displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
 
   async onLoad(options: { planId?: string }): Promise<void> {
     this.setData({ planId: options.planId ?? "" });
@@ -103,7 +105,12 @@ Page({
     catch { this.setData({ draftAvailable: false }); }
   },
 
+  onHide(): void {
+    ++this.requestSeq;
+  },
+
   onUnload(): void {
+    ++this.requestSeq;
     if (this.dirty) this.persistLocalDraft();
     this.releaseDraftGuard();
   },
@@ -116,13 +123,34 @@ Page({
       this.setData({ errorMessage: "缺少计划标识，请从用药计划页进入" });
       return;
     }
+    const seq = ++this.requestSeq;
+    let identity = captureSessionIdentity();
+    const shown = this.displayedIdentity;
+    if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
+      this.displayedIdentity = identity;
+      if (!this.dirty) {
+        this.setData({ plan: null, history: [], errorMessage: "" });
+      }
+    }
+    const current = (): boolean => seq === this.requestSeq && isCurrentSession(identity);
     this.setData({ loading: true, errorMessage: "" });
+    const acceptFailure = (error: unknown): boolean => {
+      if (seq !== this.requestSeq) return false;
+      if (isCurrentSession(identity)) return true;
+      if (error instanceof ApiError && error.invalidatedSession && isCurrentSession(error.invalidatedSession)) {
+        identity = error.invalidatedSession;
+        return true;
+      }
+      return false;
+    };
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!current()) return;
       const [detail, history] = await Promise.all([
         api.getMedicationPlan(planId),
         api.getMedicationPlanHistory(planId),
       ]);
+      if (!current()) return;
       const plan = detail.plan;
       this.setData({
         plan,
@@ -144,8 +172,21 @@ Page({
       if (retained !== null) this.setData(retained);
       this.updateDirtyState();
     } catch (error) {
+      if (!acceptFailure(error)) return;
+      if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+        this.setData({ plan: null, history: [], loading: false });
+        wx.reLaunch({ url: "/pages/login/login" });
+        return;
+      }
+      if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+        this.setData({ plan: null, history: [], loading: false });
+        wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+        return;
+      }
       const message = error instanceof ApiError ? error.message : "加载失败，请重试";
       this.setData({ loading: false, errorMessage: message });
+    } finally {
+      if (current()) this.setData({ loading: false });
     }
   },
 

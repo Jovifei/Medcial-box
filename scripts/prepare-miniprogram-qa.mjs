@@ -158,6 +158,8 @@ const reviewedSourceTrees = new Set([
   'c35059b7a9d0f25ab4f017b43418727887eda084',
   // 首页加载与错误状态区分及 1.1.2 版本说明；未增加微信、文件或网络能力。
   'a2ff895b5477ebb08761fe2679a3ab27b0e088b2',
+  // care-profiles 与 plan-detail 切家及晚到响应 requestSeq/current() 闸防串屏；未增加微信、文件或网络能力。
+  'f8c9bac91421070784fd871910caede4d62c8016',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setImmediate as tick } from "node:timers/promises";
 import { loadPage, makePageContext } from "./runtime.mjs";
 
 /**
@@ -256,4 +257,60 @@ test("R14：卸载页面时释放草稿守卫", async () => {
   const clearedBefore = draftGuard.cleared;
   page.onUnload();
   assert.equal(draftGuard.cleared, clearedBefore + 1, "onUnload 释放草稿守卫");
+});
+
+test("切家或离开后晚到响应不会覆盖页面数据，脏编辑字段予以保留", async () => {
+  let resolvePlan;
+  let generation = 1;
+  const { loadPage: customLoad, makePageContext: customContext } = await import("./runtime.mjs");
+  const { definition } = customLoad("pages/plan-detail/plan-detail.ts", {
+    modules: {
+      "../../services/api": {
+        api: {
+          getMedicationPlan: () => new Promise((resolve) => { resolvePlan = resolve; }),
+          getMedicationPlanHistory: async () => ({ history: [] }),
+        },
+        ApiError: class extends Error {},
+        captureSessionIdentity: () => ({ token: "token", generation }),
+        isCurrentSession: (id) => id.generation === generation && id.token === "token",
+        scopedStorageKey: () => "plan-edit-draft-plan-1",
+      },
+      "../../services/auth": { ensureLoggedIn: async () => {} },
+      "../../services/draft-guard": { registerDirtyDraft: () => {}, clearDirtyDraft: () => {} },
+    },
+    wx: {
+      getStorageSync: () => null,
+      showToast: () => {},
+      showModal: () => {},
+    },
+  });
+  const page = customContext(definition);
+  page.setData({ planId: "plan-1" });
+  const refresh = page.refresh();
+  await tick();
+  page.onHide();
+  generation++;
+  resolvePlan({ plan: plan({ dosageText: "晚到新数据" }), canManage: true });
+  await refresh;
+  assert.equal(page.data.plan, null);
+  assert.equal(page.data.dosageText, "");
+});
+
+test("计划详情遇到 SESSION_SCOPE_CHANGED 重定向到家庭入口", async () => {
+  const relaunches = [];
+  const err = new ApiError("家庭变更");
+  err.code = "SESSION_SCOPE_CHANGED";
+  const { load } = loadPlanDetailPage({
+    api: {
+      getMedicationPlan: async () => { throw err; },
+    },
+    wx: {
+      reLaunch: (opt) => relaunches.push(opt.url),
+    },
+  });
+  const page = load();
+  page.setData({ planId: "plan-1" });
+  await page.refresh();
+  assert.deepEqual(relaunches, ["/pages/family-entry/family-entry"]);
+  assert.equal(page.data.plan, null);
 });
