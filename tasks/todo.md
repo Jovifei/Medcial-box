@@ -32,6 +32,14 @@
 - [ ] 证据：按最终 40 位 SHA 生成独立候选目录，执行相关回归、lint/typecheck/build、Flutter analyze/test、官方 WXML/WXSS 编译和精确 QA；未执行/跳过/环境阻断分开记录。
 - [ ] 明确不在本阶段：API/数据库、生产部署/迁移、真实家庭写入、微信上传、真机操作、Android 正式签名和正式发布。
 
+### 2026-10-31 执行与证据
+
+- [x] 新建 `codex/ui-stage1-closeout-20261031`，保留原 dirty 改动并完成中文提交。
+- [x] UI/QA 修复、lint/typecheck/build、Node `230 PASS / 30 SKIP`、Flutter analyze 与 `900 PASS / 19 SKIP` 完成。
+- [x] 精确候选固定为 `ed2abd3d6ff9d65362cb4582a49dfdefd513059e`；source package gate 与 mini QA 通过。
+- [ ] 官方微信编译、体验版上传和预览等待开发者工具重新登录；当前状态 `APPID_ERROR / loginExpired=true`。
+- [ ] 推送、聚焦 PR、同 SHA CI、候选回执、部署/真机/正式发布门槛继续按授权执行。
+
 
 ## 2026-10-30 UI 第一阶段：首页与药品录入/编辑页
 
