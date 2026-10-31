@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, symlink, lstat } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { prepareQa, inventorySource, assertReviewedInventory, assertReviewedComponents, DEFAULT_SOURCE_SHA } from './prepare-miniprogram-qa.mjs';
+import { prepareQa, inventorySource, assertReviewedInventory, assertReviewedComponents, assertReviewedViewTags, DEFAULT_SOURCE_SHA } from './prepare-miniprogram-qa.mjs';
 import { checkMiniProgramPackage } from './check-miniprogram-package.mjs';
 import { makePageContext } from '../apps/miniprogram/test/runtime.mjs';
 
@@ -161,6 +161,17 @@ test('reviewed page scrolling remains a UI-only hook and missing support fails c
   assertNoOriginals(h);
   const missing = harness({ mutateNative: native => { delete native.pageScrollTo; } });
   assert.throws(() => missing.install(), /unverifiable native UI hook/);
+});
+
+test('scroll-view is an explicitly reviewed UI tag while unknown tags remain fail-closed', () => {
+  assert.doesNotThrow(() => assertReviewedViewTags(
+    '<scroll-view scroll-x><view>筛选</view></scroll-view>',
+    'pages/index/index.wxml',
+  ));
+  assert.throws(
+    () => assertReviewedViewTags('<custom-view />', 'pages/index/index.wxml'),
+    /Unreviewed view tag/,
+  );
 });
 
 test('redirect response is rejected without any native request being invoked', async () => {

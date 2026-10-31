@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const paper = Color(0xFFF7F8F4);
-  static const ink = Color(0xFF203A30);
-  static const muted = Color(0xFF536C60);
-  static const leaf = Color(0xFF24664D);
-  static const leafDeep = Color(0xFF194D3A);
-  static const mist = Color(0xFFE6F0E9);
-  static const line = Color(0xFFD8E2D9);
-  static const terracotta = Color(0xFFB91C1C);
+  static const paper = Color(0xFFF7FAF8);
+  static const ink = Color(0xFF17382C);
+  static const muted = Color(0xFF536A60);
+  static const leaf = Color(0xFF087F5B);
+  static const leafDeep = Color(0xFF075E45);
+  static const mist = Color(0xFFEAF3EE);
+  static const line = Color(0xFFDCE7E0);
+  static const terracotta = Color(0xFFB42318);
   static const amber = Color(0xFFB45309);
 }
 
@@ -56,7 +56,14 @@ ThemeData get appTheme {
       ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: AppColors.ink),
       bodyMedium: TextStyle(fontSize: 16, height: 1.45, color: AppColors.muted),
+      bodySmall: TextStyle(fontSize: 14, height: 1.45, color: AppColors.muted),
       labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      labelMedium: TextStyle(
+        fontSize: 13,
+        height: 1.35,
+        fontWeight: FontWeight.w700,
+        color: AppColors.muted,
+      ),
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.paper,
@@ -87,6 +94,7 @@ ThemeData get appTheme {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(22)),
+        side: BorderSide(color: AppColors.line),
       ),
     ),
   );

@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '1.1.2';
+const String appVersion = '1.1.3';
 
 class ReleaseNote {
   const ReleaseNote({
@@ -19,7 +19,7 @@ class ReleaseNote {
 
 const List<ReleaseNote> releaseNotes = [
   ReleaseNote(
-    version: '1.1.2',
+    version: '1.1.3',
     date: '2026-10-28',
     items: [
       '药箱加载时明确显示进度，加载失败时提供重试。',

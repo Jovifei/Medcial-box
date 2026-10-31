@@ -1,30 +1,37 @@
 <view class="page home-page">
   <view class="home-header">
-    <view class="title">药箱</view>
-    <view class="family-row">
-      <view class="family-capsule" bindtap="onTapFamily">
-        <view class="family-icon" aria-hidden="true"><view class="family-roof" /><view class="family-house" /></view>
+    <view class="home-heading">
+      <view class="eyebrow">家庭库存</view>
+      <view class="title">药箱</view>
+      <view class="home-subtitle">{{allItems.length > 0 ? allItems.length + " 种药品 · " : ""}}库存和效期一眼看清</view>
+    </view>
+    <view class="family-capsule" bindtap="onTapFamily" aria-label="切换或管理家庭">
+      <view class="family-icon" aria-hidden="true"><view class="family-roof" /><view class="family-house" /></view>
+      <view class="family-copy">
+        <text class="family-label">当前家庭</text>
         <text class="family-name">{{familyName || "家庭药箱"}}</text>
-        <text class="family-arrow">▾</text>
       </view>
+      <view class="family-chevron" aria-hidden="true"></view>
     </view>
   </view>
 
   <view class="search-box">
-    <text class="search-icon">⌕</text>
+    <view class="search-icon" aria-hidden="true"><view class="search-lens"></view></view>
     <input class="search-input" placeholder="搜索药名、成分、厂家或位置" value="{{keyword}}"
       bindinput="onSearchInput" confirm-type="search" />
     <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearSearch">清除</view>
   </view>
 
   <view class="attention-summary" wx:if="{{attentionMedicineCount > 0 || attentionStocktake}}" bindtap="onOpenAttention">
-    <text>需关注：{{attentionMedicineCount > 0 ? attentionMedicineCount + ' 种药品' : ''}}{{attentionMedicineCount > 0 && attentionStocktake ? ' · ' : ''}}{{attentionStocktake ? '药箱盘点' : ''}}</text><text>查看 ›</text>
+    <view class="attention-copy"><view class="attention-dot" aria-hidden="true"></view><text>需关注：{{attentionMedicineCount > 0 ? attentionMedicineCount + ' 种药品' : ''}}{{attentionMedicineCount > 0 && attentionStocktake ? ' · ' : ''}}{{attentionStocktake ? '药箱盘点' : ''}}</text></view><text class="attention-link">查看 ›</text>
   </view>
   <view class="hint" wx:if="{{attentionUnavailable}}">暂时无法读取需关注事项，<text bindtap="onOpenAttention">点击查看并重试</text>。</view>
 
-  <view class="filter-toolbar">
-    <view class="filter-chip" data-panel="purpose" bindtap="onOpenFilterPanel">用途 {{selectedPurposes.length || ''}} ▾</view><view class="filter-chip" data-panel="population" bindtap="onOpenFilterPanel">人群 {{selectedPopulations.length || ''}} ▾</view><view class="filter-chip" data-panel="status" bindtap="onOpenFilterPanel">状态 ▾</view><picker range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange"><view class="filter-chip">排序 ▾</view></picker>
-  </view>
+  <scroll-view class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="filter-toolbar">
+      <view class="filter-chip" data-panel="purpose" bindtap="onOpenFilterPanel">用途 {{selectedPurposes.length || ''}} ▾</view><view class="filter-chip" data-panel="population" bindtap="onOpenFilterPanel">人群 {{selectedPopulations.length || ''}} ▾</view><view class="filter-chip" data-panel="status" bindtap="onOpenFilterPanel">状态 ▾</view><picker range="{{sortLabels}}" value="{{sortIndex}}" bindchange="onSortChange"><view class="filter-chip">排序 ▾</view></picker>
+    </view>
+  </scroll-view>
   <view class="card" wx:if="{{filterPanel !== ''}}">
     <view wx:if="{{filterPanel === 'purpose'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{purposeChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePurpose">{{item.label}}</view></view>
     <view wx:if="{{filterPanel === 'population'}}" class="tag-picker"><view class="filter-chip {{item.selected ? 'selected' : ''}}" wx:for="{{populationChips}}" wx:key="value" data-value="{{item.value}}" bindtap="onTogglePopulation">{{item.label}}</view></view>
@@ -65,13 +72,19 @@
         <view class="medicine-spec">{{item.specification}}</view>
       </view>
     </view>
+    <view class="medicine-summary">
+      <view class="summary-metric">
+        <text class="summary-label">余量</text>
+        <text class="summary-primary">{{item.quantityText}}</text>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-metric">
+        <text class="summary-label">效期</text>
+        <text class="expiry-line">{{item.expiryText}}</text>
+      </view>
+    </view>
     <view class="tag-row" wx:if="{{item.displayTags.length > 0}}">
       <text class="medicine-tag {{tag.kind}}" wx:for="{{item.displayTags}}" wx:for-item="tag" wx:key="index">{{tag.label}}</text>
-    </view>
-    <view class="medicine-summary">
-      <view class="summary-primary">{{item.quantityText}}</view>
-      <view class="summary-separator">·</view>
-      <view class="expiry-line">{{item.expiryText}}</view>
     </view>
     <view class="medicine-status-row" wx:if="{{item.isArchived || item.openedText !== ''}}">
       <text wx:if="{{item.isArchived}}" class="status-pill archived">已归档</text>

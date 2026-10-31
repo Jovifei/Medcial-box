@@ -160,6 +160,9 @@ const reviewedSourceTrees = new Set([
   'a2ff895b5477ebb08761fe2679a3ab27b0e088b2',
   // care-profiles 与 plan-detail 切家及晚到响应 requestSeq/current() 闸防串屏；未增加微信、文件或网络能力。
   'f8c9bac91421070784fd871910caede4d62c8016',
+  // 2026-10-31 UI stage closeout: home filters use reviewed scroll-view,
+  // touch targets and display hierarchy only; no new wx/fs/network/component capability.
+  '9a56a71caf98bc0014ed26896d5410fa76a35cdf',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -201,6 +204,14 @@ const unwrap = node => {
 export function assertReviewedInventory(apis, name) {
   for (const entry of apis.wx) if (!reviewedWx.has(entry)) throw new Error(name + ': unreviewed wx API ' + entry);
   for (const entry of apis.fs) if (!reviewedFs.has(entry)) throw new Error(name + ': unreviewed filesystem API ' + entry);
+}
+
+export function assertReviewedViewTags(text, name) {
+  const tags = [...text.matchAll(/<([a-z][a-z0-9-]*)\b/g)].map(match => match[1]);
+  if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'scroll-view', 'switch', 'text', 'textarea', 'view', ...reviewedComponents.keys()].includes(tag))) {
+    throw new Error('Unreviewed view tag: ' + name);
+  }
+  return tags;
 }
 export const REVIEWED_PHOTO_LIFECYCLE_SHA256 = '8ff79310b1474d1ac459f08ca6b5d0118c4e61fb786339a8e8d8a0c198bbb3ab';
 export function inventorySource(source, filename) {
@@ -292,8 +303,7 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
       generated.set(target, `// MEDICINE_QA_ONLY\nconst { wx, App, Page, Component, setTimeout } = require(${JSON.stringify(guardPath.startsWith('.') ? guardPath : './' + guardPath)}).bindings();\n` + compiled);
     } else if (name.endsWith('.wxml')) {
       let text = bytes.toString();
-      const tags = [...text.matchAll(/<([a-z][a-z0-9-]*)\b/g)].map(match => match[1]);
-      if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'switch', 'text', 'textarea', 'view', ...reviewedComponents.keys()].includes(tag))) throw new Error('Unreviewed view tag: ' + name);
+      assertReviewedViewTags(text, name);
       text = text.replace(/open-type=["']share["']/g, 'disabled="true"');
       if (/<(?:web-view|camera|video|audio|live-player|live-pusher|map|ad|wxs|import|include)\b|open-type\s*=|https?:|wss?:/i.test(text)) throw new Error('Unreviewed view-layer capability: ' + name);
       text = text.replace(/(<image\b[^>]*\bsrc=)(["'])(.*?)\2/g, '$1"/qa/synthetic.png"');

@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/expiry_date_wheel_picker.dart';
 import '../../core/widgets/medicine_tags.dart';
@@ -2679,9 +2680,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           leafletExpanded = true;
         }
         if (_hasMoreReviewConflicts) moreExpanded = true;
-        if (['purposeCategory', 'populationTags', 'purposeTags'].any(
-          (field) => review.requiresChoice(field, photoDrafts),
-        )) {
+        if ([
+          'purposeCategory',
+          'populationTags',
+          'purposeTags',
+        ].any((field) => review.requiresChoice(field, photoDrafts))) {
           categoryExpanded = true;
         }
       });
@@ -3257,19 +3260,64 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
     return {'value': value, 'unit': afterOpenUnit, 'source': 'user'};
   }
 
+  Widget _stepHeader({required String step, required String title}) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        constraints: const BoxConstraints(minWidth: 38, minHeight: 32),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.mist,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          step,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.leafDeep,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .4,
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ),
+    ],
+  );
+
   Widget _optionalSection({
     required String title,
     required bool expanded,
     required VoidCallback onTap,
-  }) => InkWell(
-    onTap: onTap,
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+  }) => Material(
+    color: const Color(0xFFF7FAF8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: const BorderSide(color: AppColors.line),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+              color: AppColors.leaf,
+            ),
+          ],
         ),
-        Icon(expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-      ],
+      ),
     ),
   );
 
@@ -3443,7 +3491,12 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           AbsorbPointer(
             absorbing: attemptedPayload != null || saving || _isCleanupDraft,
             child: AppPage(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                8,
+                18,
+                MediaQuery.textScalerOf(context).scale(16) > 20 ? 96 : 72,
+              ),
               child: ListView(
                 children: [
                   if (attemptedPayload != null)
@@ -3468,13 +3521,9 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          photoDrafts.isEmpty ? '拍照识别，或直接填写药名' : '照片与识别资料',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 6),
+                        if (photoDrafts.isEmpty)
+                          _stepHeader(step: '01', title: '拍照识别，或直接填写药名'),
                         if (photoDrafts.isEmpty) ...[
-                          const Text('识别结果需要核对，照片发送前会询问。'),
                           const SizedBox(height: 14),
                           PrimaryButton(
                             label: recognizing ? '正在识别…' : '拍药盒',
@@ -3622,10 +3671,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '药品名称（唯一必填）',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        _stepHeader(step: '02', title: '药品名称（唯一必填）'),
                         const SizedBox(height: 10),
                         TextField(
                           controller: nameController,
@@ -3643,11 +3689,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                                 : null,
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          '库存与有效期（选填）',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        const SizedBox(height: 16),
+                        _stepHeader(step: '03', title: '库存与有效期（选填）'),
                         const SizedBox(height: 8),
                         _quantityUnitFields(
                           quantityLabels: const ['剩余数量', '未知可留空'],
@@ -3740,50 +3783,6 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 12),
-                        _optionalSection(
-                          title: '品牌、规格与厂家（选填）',
-                          expanded: identityExpanded,
-                          onTap: () {
-                            setState(
-                              () => identityExpanded = !identityExpanded,
-                            );
-                            _markDirty();
-                          },
-                        ),
-                        if (identityExpanded) ...[
-                          TextField(
-                            controller: brandController,
-                            onChanged: (_) => _manualField('brand'),
-                            decoration: const InputDecoration(
-                              labelText: '品牌（按包装核对）',
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: specificationController,
-                            onChanged: (_) => _manualField('specification'),
-                            decoration: const InputDecoration(
-                              labelText: '包装规格',
-                              helperText: '如每盒20粒；服药间隔不属于包装数量',
-                              helperMaxLines: 3,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: manufacturerController,
-                            onChanged: (_) => _manualField('manufacturer'),
-                            decoration: const InputDecoration(labelText: '厂家'),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: lotController,
-                            onChanged: (_) => _manualField('lotNumber'),
-                            decoration: const InputDecoration(
-                              labelText: '批号（选填）',
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -3896,6 +3895,51 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _optionalSection(
+                          title: '品牌、规格与厂家（选填）',
+                          expanded: identityExpanded,
+                          onTap: () {
+                            setState(
+                              () => identityExpanded = !identityExpanded,
+                            );
+                            _markDirty();
+                          },
+                        ),
+                        if (identityExpanded) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: brandController,
+                            onChanged: (_) => _manualField('brand'),
+                            decoration: const InputDecoration(
+                              labelText: '品牌（按包装核对）',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: specificationController,
+                            onChanged: (_) => _manualField('specification'),
+                            decoration: const InputDecoration(
+                              labelText: '包装规格',
+                              helperText: '如每盒20粒；服药间隔不属于包装数量',
+                              helperMaxLines: 3,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: manufacturerController,
+                            onChanged: (_) => _manualField('manufacturer'),
+                            decoration: const InputDecoration(labelText: '厂家'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: lotController,
+                            onChanged: (_) => _manualField('lotNumber'),
+                            decoration: const InputDecoration(
+                              labelText: '批号（选填）',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
                         _optionalSection(
                           title: '用途与人群（请核对）',
                           expanded: categoryExpanded,
