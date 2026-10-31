@@ -81,4 +81,79 @@ void main() {
       expect(find.text('暂无已归档药品'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'medicine card labels management expiry separately from package expiry',
+    (tester) async {
+      final store = MemoryInventoryLocalStore();
+      final api = ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          if (request.url.path == '/api/v1/medicines') {
+            return http.Response(
+              jsonEncode({
+                'medicines': [
+                  {
+                    'id': 'medicine-a',
+                    'name': '合成长药名',
+                    'specification': '长规格 20 粒每盒',
+                    'batches': [
+                      {
+                        'id': 'batch-a',
+                        'expiry': {'value': '2027-12-31', 'precision': 'day'},
+                        'managementExpiryDate': '2026-12-31',
+                        'quantity': 2,
+                        'unit': 'box',
+                      },
+                    ],
+                    'stockStatus': {
+                      'state': 'normal',
+                      'quantity': 2,
+                      'unit': 'box',
+                    },
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          if (request.url.path == '/api/v1/families/current') {
+            return http.Response(
+              jsonEncode({
+                'family': {'id': 'family-a', 'name': '家庭', 'role': 'owner'},
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          if (request.url.path == '/api/v1/notifications/pending') {
+            return http.Response(
+              jsonEncode({'items': []}),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          throw StateError('Unexpected request ${request.url.path}');
+        }),
+      );
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CabinetHomePage(
+            repository: ApiMedicineRepository(api: api, localStore: store),
+            familyRepository: ApiFamilyRepository(api: api, localStore: store),
+            workflow: ApiWorkflowRepository(api: api),
+          ),
+        ),
+      );
+      api.refreshIdentityContext = () async => null;
+      await tester.pumpAndSettle();
+      expect(find.text('管理期限'), findsOneWidget);
+      expect(find.text('最早期限：2026-12-31'), findsOneWidget);
+      expect(find.text('包装有效期'), findsNothing);
+      expect(find.text('合成长药名'), findsOneWidget);
+    },
+  );
 }

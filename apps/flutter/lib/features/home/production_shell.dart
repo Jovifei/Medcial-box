@@ -439,7 +439,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       builder: (context, _) => RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 104),
           children: [
             if (widget.repository.isOffline)
               _ConnectionBanner(
@@ -462,22 +462,27 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   ],
                 ),
               ),
-            TextField(
-              controller: searchController,
-              onChanged: (value) => setState(() => keyword = value.trim()),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded),
-                hintText: '搜索药名、规格、厂家、成分、位置',
-                suffixIcon: keyword.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清除搜索',
-                        onPressed: () {
-                          searchController.clear();
-                          setState(() => keyword = '');
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              elevation: 0,
+              child: TextField(
+                controller: searchController,
+                onChanged: (value) => setState(() => keyword = value.trim()),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: '搜索药名、规格、厂家、成分、位置',
+                  suffixIcon: keyword.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清除搜索',
+                          onPressed: () {
+                            searchController.clear();
+                            setState(() => keyword = '');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
               ),
             ),
             if (attentionUnavailable)
@@ -521,28 +526,36 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
               ),
             ],
             const SizedBox(height: 12),
-            Row(
-              children: [
-                _filterEntry('用途', 'purpose'),
-                _filterEntry('人群', 'population'),
-                _filterEntry('状态', 'status'),
-                Expanded(
-                  child: PopupMenuButton<String>(
-                    tooltip: '排序',
-                    initialValue: sortOrder,
-                    onSelected: (value) => setState(() => sortOrder = value),
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'expiry', child: Text('到期优先')),
-                      PopupMenuItem(value: 'recent', child: Text('最近录入')),
-                      PopupMenuItem(value: 'name', child: Text('药名排序')),
-                    ],
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('排序 ▾', textAlign: TextAlign.center),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _filterEntry('用途', 'purpose'),
+                  const SizedBox(width: 8),
+                  _filterEntry('人群', 'population'),
+                  const SizedBox(width: 8),
+                  _filterEntry('状态', 'status'),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                    child: PopupMenuButton<String>(
+                      tooltip: '排序',
+                      initialValue: sortOrder,
+                      onSelected: (value) => setState(() => sortOrder = value),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'expiry', child: Text('到期优先')),
+                        PopupMenuItem(value: 'recent', child: Text('最近录入')),
+                        PopupMenuItem(value: 'name', child: Text('药名排序')),
+                      ],
+                      child: _filterPill('排序 ▾'),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (filterPanel != null)
               AppCard(
@@ -610,15 +623,27 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     ),
   );
 
-  Widget _filterEntry(String label, String panel) => Expanded(
-    child: TextButton(
-      onPressed: () =>
-          setState(() => filterPanel = filterPanel == panel ? null : panel),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        foregroundColor: filterPanel == panel ? AppColors.leaf : AppColors.ink,
+  Widget _filterEntry(String label, String panel) => Material(
+    color: filterPanel == panel ? AppColors.mist : Colors.white,
+    shape: StadiumBorder(
+      side: BorderSide(
+        color: filterPanel == panel ? AppColors.leaf : AppColors.line,
       ),
-      child: Text('$label ▾'),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () =>
+          setState(() => filterPanel = filterPanel == panel ? null : panel),
+      child: _filterPill('$label ▾'),
+    ),
+  );
+
+  Widget _filterPill(String label) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -662,13 +687,13 @@ class _MedicineCard extends StatelessWidget {
             return aDate.compareTo(bDate) <= 0 ? a : b;
           });
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: () => context.push('/medicine/${medicine.id}'),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -676,17 +701,17 @@ class _MedicineCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: PrivateMedicineImage(
                         loader: imageLoader,
                         medicineId: medicine.id,
                         photoId: medicine.coverPhotoId,
-                        width: 54,
-                        height: 54,
+                        width: 72,
+                        height: 72,
                         fit: BoxFit.cover,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,77 +722,127 @@ class _MedicineCard extends StatelessWidget {
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.ink,
+                                  fontSize: 19,
                                 ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
                             medicine.specificationDisplay,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.muted),
                           ),
+                          if (medicine.purposeTags.isEmpty &&
+                              medicine.purpose.isNotEmpty &&
+                              medicine.purpose != '用途待补充') ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              medicine.purpose,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.leafDeep),
+                            ),
+                          ],
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     _MedicineStatus(medicine: medicine, batch: batch),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      '余量：${_totalDisplay(inCabinet)}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F9F5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2EDE6)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '家中余量',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '余量：${_totalDisplay(inCabinet)}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.leafDeep,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Text(
-                      '最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+                      Container(
+                        width: 1,
+                        height: 46,
+                        color: const Color(0xFFDCE8E1),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '管理期限',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '最早期限：${batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充'}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (medicine.purposeTags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: medicine.purposeTags
                         .take(1)
                         .map(
                           (tag) => Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 12,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
+                              color: const Color(0xFFF7EAD6),
+                              borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
                               medicinePurposeLabels[tag] ?? tag,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.muted,
-                              ),
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: const Color(0xFF8A5A24),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
                           ),
                         )
                         .toList(),
-                  ),
-                ] else if (medicine.purpose.isNotEmpty &&
-                    medicine.purpose != '用途待补充') ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    medicine.purpose,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.leafDeep,
-                      fontSize: 12,
-                    ),
                   ),
                 ],
               ],

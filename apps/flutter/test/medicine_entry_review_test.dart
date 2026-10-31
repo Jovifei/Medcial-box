@@ -328,12 +328,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '合成药一');
     final details = find.text('品牌、规格与厂家（选填）');
-    await tester.ensureVisible(details);
-    await tester.pumpAndSettle();
+    final list = find.byType(ListView).first;
+    for (
+      var attempt = 0;
+      attempt < 4 && details.evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.drag(list, const Offset(0, -520));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(details);
     await tester.pumpAndSettle();
-    final lot = find.widgetWithText(TextField, '批号（选填）');
-    await tester.ensureVisible(lot);
+    final lot = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.labelText == '批号（选填）',
+      skipOffstage: false,
+    );
     await tester.enterText(lot, '合成批号');
     await tester.tap(find.widgetWithText(FilledButton, '核对后保存'));
     await tester.pumpAndSettle();

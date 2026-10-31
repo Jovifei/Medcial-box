@@ -255,7 +255,10 @@ void main() {
     await tester.tap(find.text('打开真实录入页'));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      tester
+          .widget<TextField>(find.byType(TextField, skipOffstage: false).first)
+          .controller!
+          .text,
       '',
     );
     await tester.tap(find.byTooltip('导入草稿'));
@@ -263,10 +266,12 @@ void main() {
     await tester.tap(find.text('草稿测试药').last);
     await tester.pumpAndSettle();
     expect(find.text('已恢复这份未完成录入，核对后保存再添加下一种。'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
-      '草稿测试药',
+    final restoredName = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.hintText == '例如：布洛芬缓释胶囊',
     );
+    await tester.scrollUntilVisible(restoredName, 240);
+    expect(tester.widget<TextField>(restoredName).controller!.text, '草稿测试药');
     expect(
       tester
           .widget<TextField>(

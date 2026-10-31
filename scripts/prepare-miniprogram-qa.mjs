@@ -202,6 +202,14 @@ export function assertReviewedInventory(apis, name) {
   for (const entry of apis.wx) if (!reviewedWx.has(entry)) throw new Error(name + ': unreviewed wx API ' + entry);
   for (const entry of apis.fs) if (!reviewedFs.has(entry)) throw new Error(name + ': unreviewed filesystem API ' + entry);
 }
+
+export function assertReviewedViewTags(text, name) {
+  const tags = [...text.matchAll(/<([a-z][a-z0-9-]*)\b/g)].map(match => match[1]);
+  if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'scroll-view', 'switch', 'text', 'textarea', 'view', ...reviewedComponents.keys()].includes(tag))) {
+    throw new Error('Unreviewed view tag: ' + name);
+  }
+  return tags;
+}
 export const REVIEWED_PHOTO_LIFECYCLE_SHA256 = '8ff79310b1474d1ac459f08ca6b5d0118c4e61fb786339a8e8d8a0c198bbb3ab';
 export function inventorySource(source, filename) {
   // The writer receives its manager via destructured options and lease.fs. Those
@@ -292,8 +300,7 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
       generated.set(target, `// MEDICINE_QA_ONLY\nconst { wx, App, Page, Component, setTimeout } = require(${JSON.stringify(guardPath.startsWith('.') ? guardPath : './' + guardPath)}).bindings();\n` + compiled);
     } else if (name.endsWith('.wxml')) {
       let text = bytes.toString();
-      const tags = [...text.matchAll(/<([a-z][a-z0-9-]*)\b/g)].map(match => match[1]);
-      if (tags.some(tag => !['block', 'button', 'image', 'input', 'picker', 'switch', 'text', 'textarea', 'view', ...reviewedComponents.keys()].includes(tag))) throw new Error('Unreviewed view tag: ' + name);
+      assertReviewedViewTags(text, name);
       text = text.replace(/open-type=["']share["']/g, 'disabled="true"');
       if (/<(?:web-view|camera|video|audio|live-player|live-pusher|map|ad|wxs|import|include)\b|open-type\s*=|https?:|wss?:/i.test(text)) throw new Error('Unreviewed view-layer capability: ' + name);
       text = text.replace(/(<image\b[^>]*\bsrc=)(["'])(.*?)\2/g, '$1"/qa/synthetic.png"');

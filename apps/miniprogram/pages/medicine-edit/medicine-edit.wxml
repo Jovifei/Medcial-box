@@ -23,7 +23,8 @@
     <view class="section-title">本机还有其他账号的草稿</view>
     <view class="field-hint">为避免串数据，未自动恢复。请用原账号登录后继续填写，或直接新建；旧草稿仍按原账号保留在本机。</view>
   </view>
-  <view class="card photo-card">
+  <view class="card photo-card capture-card">
+    <view class="step-kicker"><text class="step-number">01</text><text>采集与识别</text></view>
     <view class="section-title">{{isEdit ? "编辑药品" : "添加家里的药"}}</view>
     <view class="field-hint">先拍照或扫码，也可以直接填写药名。</view>
     <view class="capture-grid" wx:if="{{photoReviewItems.length === 0}}">
@@ -96,17 +97,18 @@
     </view>
   </view>
 
-  <view class="card">
-    <view class="section-title">药品名称</view>
+  <view class="card identity-card">
+    <view class="step-kicker"><text class="step-number">02</text><text>必填核对</text></view>
+    <view class="section-title">药品名称（唯一必填）</view>
     <view class="field">
-      <view class="field-label">药品名称（唯一必填）</view>
       <input disabled="{{attemptedPayload !== null}}" class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
       <view class="source-label" wx:if="{{sourceLabels.name}}">{{sourceLabels.name}}</view>
     </view>
   </view>
 
-  <view class="card">
-    <view class="row">
+  <view class="card inventory-card">
+    <view class="step-kicker"><text class="step-number">03</text><text>库存与效期</text></view>
+    <view class="section-heading-row">
       <view class="section-title">库存与有效期</view>
       <view class="btn-ghost-mini" bindtap="onAddBatch">另有同款？再加一份库存</view>
     </view>
@@ -163,8 +165,9 @@
     <view class="field-hint">数量和有效期不知道也可以保存，之后在详情中补全。</view>
   </view>
 
-  <view class="card">
-    <view class="row" bindtap="onToggleClassification"><view class="section-title">用途与人群</view><view>{{classificationExpanded ? "收起" : "展开"}}</view></view>
+  <view class="card classification-card">
+    <view class="step-kicker"><text class="step-number">04</text><text>分类建议</text></view>
+    <view class="section-toggle-row" bindtap="onToggleClassification"><view class="section-title">用途与人群</view><view class="section-toggle-label">{{classificationExpanded ? "收起" : "展开"}}</view></view>
     <view class="field-hint">识别建议可增删；未看清时保持待确认，对照包装或说明书填写。</view>
     <view wx:if="{{classificationExpanded}}">    <view class="field">
       <view class="field-label">适用人群（选填，可多选）</view>
@@ -195,12 +198,13 @@
     </view>
   </view>
 
-  <view class="card"><view class="row" bindtap="onToggleStorage"><view class="section-title">存放位置（选填）</view><view>{{storageExpanded ? "收起" : "展开"}}</view></view><view wx:if="{{storageExpanded}}" class="field" wx:for="{{batches}}" wx:key="index"><input disabled="{{attemptedPayload !== null}}" class="input" value="{{item.storageLocation}}" data-index="{{index}}" data-field="storageLocation" bindinput="onBatchFieldInput" placeholder="例如：客厅药箱" /></view></view>
+  <view class="card compact-optional-card"><view class="section-toggle-row" bindtap="onToggleStorage"><view><view class="section-title">存放位置（选填）</view><view class="field-hint">记在家中固定位置，家人更容易找到。</view></view><view class="section-toggle-label">{{storageExpanded ? "收起" : "展开"}}</view></view><view wx:if="{{storageExpanded}}" class="field" wx:for="{{batches}}" wx:key="index"><input disabled="{{attemptedPayload !== null}}" class="input" value="{{item.storageLocation}}" data-index="{{index}}" data-field="storageLocation" bindinput="onBatchFieldInput" placeholder="例如：客厅药箱" /></view></view>
 
-  <view class="card">
-    <view class="row" bindtap="onToggleOptional">
+  <view class="card optional-card">
+    <view class="step-kicker"><text class="step-number">05</text><text>更多资料</text></view>
+    <view class="section-toggle-row" bindtap="onToggleOptional">
       <view class="section-title">包装、成分与说明书（选填）</view>
-      <view class="btn-ghost-mini">{{optionalExpanded ? "收起" : "展开"}}</view>
+      <view class="section-toggle-label">{{optionalExpanded ? "收起" : "展开"}}</view>
     </view>
     <view class="field-hint" wx:if="{{!optionalExpanded && (brand || manufacturer || specification || approvalNumber || ingredients || leafletPurpose || leafletUsage || leafletContraindications || leafletPrecautions || leafletText)}}">已有包装或说明书资料，请展开核对；收起不代表已确认。</view>
     <view wx:if="{{optionalExpanded}}">
