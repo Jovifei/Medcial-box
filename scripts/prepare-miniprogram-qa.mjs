@@ -160,6 +160,9 @@ const reviewedSourceTrees = new Set([
   'a2ff895b5477ebb08761fe2679a3ab27b0e088b2',
   // care-profiles 与 plan-detail 切家及晚到响应 requestSeq/current() 闸防串屏；未增加微信、文件或网络能力。
   'f8c9bac91421070784fd871910caede4d62c8016',
+  // 2026-10-31 UI stage closeout: home filters use reviewed scroll-view,
+  // touch targets and display hierarchy only; no new wx/fs/network/component capability.
+  '9a56a71caf98bc0014ed26896d5410fa76a35cdf',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
