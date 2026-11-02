@@ -163,6 +163,10 @@ const reviewedSourceTrees = new Set([
   // 2026-10-31 UI stage closeout: home filters use reviewed scroll-view,
   // touch targets and display hierarchy only; no new wx/fs/network/component capability.
   '9a56a71caf98bc0014ed26896d5410fa76a35cdf',
+  // 2026-11-02 独立复审：首页数量/效期语义、录入保存及导航意图、
+  // 详情原显示身份与备注提交归属、刷新期间输入保护及合成失败回归。
+  // 46 个生产 TS 文件能力清单与基线一致；仅登记此精确树，原生/文件/网络边界不放宽。
+  '542916132a867185d75b75b84b91addb7431b812',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

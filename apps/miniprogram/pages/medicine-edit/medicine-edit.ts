@@ -697,6 +697,7 @@ Page({
   pendingStoredDraft: null as MedicineDraftValues | null,
   discardingDraft: false,
   leaveNavigationPending: false,
+  saveNavigationSeq: 0,
   isolateNewEntry: false,
   photoDraftsImported: false,
   entryIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
@@ -704,6 +705,7 @@ Page({
 
   onLoad(options: { id?: string; capture?: string; scan?: string }): void {
     this.entryDisposed = false;
+    ++this.saveNavigationSeq;
     const identity = captureSessionIdentity();
     this.entryIdentity = identity.token && readSessionScope() ? identity : null;
     this.unsubscribeSession?.();
@@ -776,11 +778,14 @@ Page({
   },
 
   onHide(): void {
+    ++this.saveNavigationSeq;
+    this.leaveNavigationPending = false;
     const data = this.data as MedicineEditPageData;
     if (data.isDirty && !this.discardingDraft) this.persistCurrentDraft(false);
   },
 
   onUnload(): void {
+    ++this.saveNavigationSeq;
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
     this.entryDisposed = true;
@@ -852,6 +857,10 @@ Page({
     const changed = this.initialDraftSnapshot !== formFingerprint(this.data as MedicineEditPageData);
     this.setData({ isDirty: changed });
     if (changed) {
+      // A new edit owns its own draft; an earlier save must not discard it or leave.
+      ++this.saveNavigationSeq;
+      this.leaveNavigationPending = false;
+      this.discardingDraft = false;
       if (this.navigationDraftGuard === null) this.navigationDraftGuard = {
         label: "药品录入草稿",
         save: async () => {
@@ -972,7 +981,9 @@ Page({
   },
 
   async onRestoreDraft(): Promise<void> {
+    if (this.data.submitting || this.data.recognizing) return;
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
+    if (this.data.submitting || this.data.recognizing) return;
     const originalScope = scopedStorageKey("medicine-photo-drafts");
     const originalSession = captureSessionIdentity();
     if (!this.entryScopeIsCurrent(originalScope)) return;
@@ -990,7 +1001,8 @@ Page({
       }));
       if (!confirmed) return;
     }
-    if (!this.entryScopeIsCurrent(originalScope) || !isCurrentSession(originalSession)) return;
+    if (!this.entryScopeIsCurrent(originalScope) || !isCurrentSession(originalSession) ||
+        this.data.submitting || this.data.recognizing) return;
     this.photoDraftsImported = true;
     this.loadPhotoDrafts();
     this.setData({
@@ -1025,6 +1037,7 @@ Page({
   },
 
   onDiscardStoredDraft(): void {
+    if (this.data.submitting) return;
     this.removeStoredDraft();
   },
 
@@ -1065,11 +1078,29 @@ Page({
 
   navigateBackFromForm(): void {
     if (this.leaveNavigationPending) return;
+    const seq = ++this.saveNavigationSeq;
+    // Even an invalidated form may be left deliberately in the current session.
+    // Its delayed failures must not navigate or notify a later page/session.
+    const identity = captureSessionIdentity();
+    const scope = scopedStorageKey("medicine-photo-drafts");
+    const ownsNavigation = (): boolean => !this.entryDisposed && seq === this.saveNavigationSeq;
+    const sessionCurrent = (): boolean => isCurrentSession(identity) && scope === scopedStorageKey("medicine-photo-drafts");
     this.leaveNavigationPending = true;
-    wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({
-      url: "/pages/index/index",
-      fail: () => { this.leaveNavigationPending = false; },
-    }) });
+    wx.navigateBack({ delta: 1, fail: () => {
+      if (!ownsNavigation()) return;
+      if (!sessionCurrent()) {
+        this.leaveNavigationPending = false;
+        return;
+      }
+      wx.reLaunch({
+        url: "/pages/index/index",
+        fail: () => {
+          if (!ownsNavigation()) return;
+          this.leaveNavigationPending = false;
+          if (sessionCurrent()) wx.showToast({ title: "返回失败，请稍后重试", icon: "none" });
+        },
+      });
+    } });
   },
 
   /** 标记字段被用户显式修改（含清空）：这是"我已决定这里的值"的唯一依据。 */
@@ -1100,7 +1131,7 @@ Page({
   },
 
   onFieldInput(event: { currentTarget: { dataset: { field?: string } }; detail: { value: string } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const field = event.currentTarget.dataset.field;
     if (!field) return;
     this.markFieldTouched(field);
@@ -1109,7 +1140,7 @@ Page({
   },
 
   onVerifiedChange(event: { detail: { value: boolean } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     this.setData({ verified: event.detail.value });
     this.updateDirtyState();
   },
@@ -1123,7 +1154,7 @@ Page({
   },
 
   onPurposeChange(event: { detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const purposeIndex = Number(event.detail.value);
     const selected = PURPOSE_OPTIONS[purposeIndex] ?? "未分类";
     this.markFieldTouched("purposeCategory");
@@ -1133,7 +1164,7 @@ Page({
 
   /** 人群标签多选（B02）：再次点击取消选择。 */
   onTogglePopulationTag(event: { currentTarget: { dataset: { kind?: string } } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const kind = event.currentTarget.dataset.kind;
     if (kind === undefined) return;
     const current = (this.data as MedicineEditPageData).populationTags;
@@ -1145,7 +1176,7 @@ Page({
 
   /** 用途标签多选（B02）。 */
   onTogglePurposeTag(event: { currentTarget: { dataset: { kind?: string } } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const kind = event.currentTarget.dataset.kind;
     if (kind === undefined) return;
     const current = (this.data as MedicineEditPageData).purposeTags;
@@ -1156,7 +1187,7 @@ Page({
   },
 
   onOpenedStateChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = Number(event.detail.value);
     const state = (["unknown", "unopened", "opened"] as const)[index] ?? "unknown";
     const batchIndex = Number(event.currentTarget.dataset.index ?? 0);
@@ -1180,7 +1211,7 @@ Page({
   },
 
   onOpeningLimitModeChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     if (String(event.detail.value).trim() === "") return;
     const index = Number(event.detail.value);
     if (!Number.isInteger(index) || index < 0 || index > 3) return;
@@ -1199,7 +1230,7 @@ Page({
   },
 
   async onScanCode(): Promise<void> {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting) return;
     const originalScope = scopedStorageKey("medicine-photo-drafts");
@@ -1300,7 +1331,7 @@ Page({
   },
 
   async onRetryBarcodeLookup(): Promise<void> {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     if (data.recognizing || data.submitting || data.scannedBarcode.trim() === "") return;
     const parsed = parseMedicineBarcode(data.scannedBarcode);
@@ -1375,7 +1406,7 @@ Page({
   },
 
   onApplyCandidate(event?: { currentTarget?: { dataset?: { index?: string } } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const data = this.data as MedicineEditPageData;
     const index = Number(event?.currentTarget?.dataset?.index ?? 0);
     const candidate = data.candidates[index] ?? data.candidate;
@@ -1676,6 +1707,7 @@ Page({
   },
 
   applyReviewChoice(field: ReviewField, choice: ReviewChoice | null, ownerBatchKey?: string): void {
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const path = reviewFormField(field, ownerBatchKey, this.data.batches);
     if (!path) return;
     if (field === "expiryValue" && choice && !["day", "month"].includes(choice.precision ?? "")) {
@@ -1756,7 +1788,7 @@ Page({
     }
     // 发起前固化请求代次、字段版本快照与批次结构：晚到的响应只能填补
     // 用户从未触碰过的空字段，且批次结构未变时才按稳定身份写入。
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const dataset = typeof sourceOverride === "object" ? sourceOverride.currentTarget?.dataset : undefined;
     const purpose = dataset?.purpose === "leaflet" ? "leaflet" : dataset?.purpose === "expiry" ? "expiry" : "box_front";
     const requestedIndex = purpose === "expiry" ? Number(dataset?.batchIndex ?? 0) : 0;
@@ -2124,7 +2156,7 @@ Page({
     currentTarget: { dataset: { index?: string; field?: string } };
     detail: { value: string };
   }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
     const field = event.currentTarget.dataset.field;
     if (index === undefined || field === undefined || field === "") return;
@@ -2134,7 +2166,7 @@ Page({
   },
 
   onExpiryDateChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string; precision?: ExpiryPrecision } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = Number(event.currentTarget.dataset.index);
     if (!Number.isInteger(index) || !this.data.batches[index]) return;
     const precision = event.detail.precision ? PRECISION_VALUES.indexOf(event.detail.precision) : this.data.batches[index]?.precisionIndex;
@@ -2146,7 +2178,7 @@ Page({
   },
 
   onBatchPrecisionChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
     if (index === undefined || !Number.isInteger(Number(index)) || !this.data.batches[Number(index)]) return;
     if (String(event.detail.value).trim() === "") return;
@@ -2161,13 +2193,13 @@ Page({
   },
 
   onConversionUnitChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = Number(event.currentTarget.dataset.index);
     this.setData({ [`batches[${index}].conversionUnitIndex`]: Number(event.detail.value) });
     this.updateDirtyState();
   },
   onBatchUnitChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: string | number } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     const batch = (this.data as MedicineEditPageData).batches[Number(index)];
@@ -2184,13 +2216,17 @@ Page({
       this.updateDirtyState();
       return;
     }
+    const originalScope = scopedStorageKey("medicine-photo-drafts");
+    const originalBatchKey = batchKey(batch);
     wx.showModal({
       title: "切换单位",
       content: "单位不会自动换算已填的数字。例如把 2 片改成 2 盒，保存后仍是 2。请核对后再保存。",
       confirmText: "仍要切换",
       cancelText: "保持原单位",
       success: (result) => {
-        if (result.confirm) {
+        if (result.confirm && !this.data.submitting && !this.data.attemptedPayload &&
+            this.entryScopeIsCurrent(originalScope) &&
+            batchKey(this.data.batches[Number(index)]) === originalBatchKey) {
           this.markFieldTouched(`batches[${index}].unitIndex`);
           this.setData({ [`batches[${index}].unitIndex`]: nextIndex });
           this.updateDirtyState();
@@ -2200,7 +2236,7 @@ Page({
   },
 
   onBatchUnknownChange(event: { currentTarget: { dataset: { index?: string } }; detail: { value: boolean } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     this.setData({ [`batches[${index}].quantityUnknown`]: event.detail.value });
@@ -2208,14 +2244,14 @@ Page({
   },
 
   onAddBatch(): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const batches = (this.data as MedicineEditPageData).batches;
     this.setData({ batches: [...batches, emptyBatch()] });
     this.updateDirtyState();
   },
 
   onRemoveBatch(event: { currentTarget: { dataset: { index?: string } } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     const index = event.currentTarget.dataset.index;
     if (index === undefined) return;
     const batches = (this.data as MedicineEditPageData).batches;
@@ -2276,7 +2312,7 @@ Page({
     }
   },
   onCoverChoice(event: { detail: { value: boolean } }): void {
-    if (this.data.attemptedPayload) return;
+    if (this.data.submitting || this.data.attemptedPayload) return;
     this.setData({ usePhotoAsCover: event.detail.value === true });
     this.updateDirtyState();
   },
@@ -2574,7 +2610,7 @@ Page({
       return;
     }
     if (this.medicineLoadPromise !== null) await this.medicineLoadPromise;
-    if (!this.entryScopeIsCurrent(originalScope)) return;
+    if (!this.entryScopeIsCurrent(originalScope) || this.data.submitting || this.data.recognizing) return;
     const data = this.data as MedicineEditPageData;
     const initialPhoto = data.photoDrafts.find(item => item.id === data.activePhotoDraftId);
     if (initialPhoto?.photos.some(photo => !photo.removed && photo.purpose === "expiry" &&
@@ -2630,6 +2666,7 @@ Page({
     };
 
     this.setData({ submitting: true });
+    const saveNavigationSeq = ++this.saveNavigationSeq;
     try {
       await ensureLoggedIn();
       if (!this.entryScopeIsCurrent(originalScope)) return;
@@ -2919,12 +2956,18 @@ Page({
       }
       this.removeStoredDraft();
       this.discardingDraft = true;
+      this.captureInitialSnapshot();
       this.setData({ isDirty: false });
       this.setNativeLeaveWarning(false);
       setTimeout(() => {
-        if (!this.entryScopeIsCurrent(originalScope)) return;
+        if (saveNavigationSeq !== this.saveNavigationSeq || this.data.isDirty ||
+            this.data.submitting || this.leaveNavigationPending || !this.entryScopeIsCurrent(originalScope)) return;
         if (data.isEdit) this.navigateBackFromForm();
-        else wx.switchTab({ url: "/pages/index/index" });
+        else wx.switchTab({ url: "/pages/index/index", fail: () => {
+          if (saveNavigationSeq === this.saveNavigationSeq && this.entryScopeIsCurrent(originalScope)) {
+            wx.showToast({ title: "药品已保存，请点击返回离开", icon: "none" });
+          }
+        } });
       }, 800);
     } catch (error) {
       if (!this.entryScopeIsCurrent(originalScope)) return;

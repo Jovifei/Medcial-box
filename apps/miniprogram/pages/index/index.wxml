@@ -91,7 +91,7 @@
       <text wx:if="{{item.openedText !== ''}}" class="status-pill opened">{{item.openedText}}</text>
     </view>
     <view class="stock-warning" wx:if="{{item.stockState === 'low' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存不足</view>
-    <view class="stock-warning unknown" wx:elif="{{item.stockState === 'unknown' && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存待核对</view>
+    <view class="stock-warning unknown" wx:elif="{{item.hasUnknownQuantity && item.stateClass !== 'expired' && item.stateClass !== 'soon'}}">库存待核对</view>
   </view>
 
   <view class="safety-note">清单只用于家庭库存管理；库存存在不等于适合服用。请以药品说明书及医生或药师指导为准。</view>

@@ -97,6 +97,7 @@ interface MedicineDetailPageData {
   batches: BatchView[];
   notes: NoteView[];
   noteInput: string;
+  noteSubmitting: boolean;
   noteVisibilityLabels: string[];
   noteVisibilityIndex: number;
   thresholdEnabled: boolean;
@@ -120,6 +121,14 @@ interface MedicineDetailPageData {
   openingSplitPreview: string;
   openingSplitError: string;
   openingSplitBusy: boolean;
+}
+
+interface DetailAction {
+  medicineId: string;
+  identity: ReturnType<typeof captureSessionIdentity>;
+  refreshSeq: number;
+  /** 备注写入可跨同页读取完成，但离页或清理私有视图后仍失效。 */
+  noteSeq?: number;
 }
 
 function quantityText(batch: MedicationBatchSummary): string {
@@ -259,6 +268,7 @@ Page({
     batches: [] as BatchView[],
     notes: [] as NoteView[],
     noteInput: "",
+    noteSubmitting: false,
     noteVisibilityLabels: ["仅本人可见", "全家可见"],
     noteVisibilityIndex: 0,
     thresholdEnabled: false,
@@ -298,11 +308,18 @@ Page({
   refreshSeq: 0,
   displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   displayedMedicineId: "",
+  noteActionSeq: 0,
   photoSeq: 0,
   photoActionSeq: 0,
   coverSeq: 0,
-  onHide(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; },
-  onUnload(): void { ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; },
+  onHide(): void {
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.noteActionSeq;
+    this.setData({ noteSubmitting: false });
+  },
+  onUnload(): void {
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq;
+    this.setData({ noteSubmitting: false });
+  },
   onShow(): void {
     if ((this.data as MedicineDetailPageData).medicineId !== "") {
       void this.refresh();
@@ -310,37 +327,37 @@ Page({
   },
 
   clearPrivateView(): void {
-    ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq;
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq;
     this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
       leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
-      notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
+      notes: [], noteInput: "", noteSubmitting: false, noteVisibilityIndex: 0, stockStatusText: "", thresholdEnabled: false,
+      thresholdQuantity: "", thresholdUnitIndex: 4, savingThreshold: false, restockBusy: false, busyBatchId: "",
+      quantityPanelId: "", quantityPanelInput: "", quantityPanelBusy: false,
       coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
       coverPhotoLoading: false, photoStatus: "", photoUploading: false, photoBusyId: "", openingSplitBatchId: "", openingSplitPreview: "",
+      openingSplitQuantity: "1", openingSplitDate: "", openingSplitMode: "none", openingSplitModeIndex: 0,
+      openingSplitValue: "", openingSplitSource: "", openingSplitError: "", openingSplitBusy: false,
       brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "",
       loading: false });
   },
 
   async refresh(): Promise<void> {
     const medicineId = (this.data as MedicineDetailPageData).medicineId;
-    const seq = ++this.refreshSeq;
     let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token ||
         this.displayedMedicineId !== medicineId) {
       this.displayedIdentity = identity;
       this.displayedMedicineId = medicineId;
-      ++this.photoActionSeq;
       // 已离开原家庭或已换药品：清理旧详情在内存中的完整展示投影，不动原数据。
-      this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
-        leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
-        notes: [], noteInput: "", stockStatusText: "", thresholdEnabled: false,
-        coverPhotoPath: "", photoError: "", coverPhotoError: "", photoLoading: false,
-        coverPhotoLoading: false, photoStatus: "", photoUploading: false, photoBusyId: "", openingSplitBatchId: "", openingSplitPreview: "",
-        brandText: "", manufacturerText: "", leafletUsage: "", leafletPurpose: "" });
+      this.clearPrivateView();
     }
+    const seq = ++this.refreshSeq;
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity) &&
       (this.data as MedicineDetailPageData).medicineId === medicineId;
-    this.setData({ loading: true });
+    // 普通写操作仍由原读取序号拒绝；备注写入单独归属，不能因同页刷新提前解锁。
+    this.setData({ loading: true, savingThreshold: false, restockBusy: false,
+      busyBatchId: "", quantityPanelBusy: false, openingSplitBusy: false });
     const acceptFailure = (error: unknown): boolean => {
       if (seq !== this.refreshSeq) return false;
       if (isCurrentSession(identity)) return true;
@@ -448,6 +465,49 @@ Page({
     if (this.displayedIdentity === null || (this.displayedMedicineId === medicineId && isCurrentSession(this.displayedIdentity))) return true;
     this.clearPrivateView();
     return false;
+  },
+
+  captureDetailAction(): DetailAction | null {
+    const data = this.data as MedicineDetailPageData;
+    if (data.medicineId === "" || !this.photoActionMatchesView(data.medicineId)) return null;
+    if (this.displayedIdentity === null || data.medicineSummary === null) return null;
+    return { medicineId: data.medicineId, identity: this.displayedIdentity, refreshSeq: this.refreshSeq };
+  },
+
+  detailActionOwnsView(action: DetailAction): boolean {
+    const ownsSequence = action.noteSeq === undefined
+      ? action.refreshSeq === this.refreshSeq : action.noteSeq === this.noteActionSeq;
+    return ownsSequence && this.displayedIdentity === action.identity &&
+      (this.data as MedicineDetailPageData).medicineId === action.medicineId;
+  },
+
+  detailActionIsCurrent(action: DetailAction): boolean {
+    if (!this.detailActionOwnsView(action)) return false;
+    if (isCurrentSession(action.identity)) return true;
+    // 只清理此操作仍拥有的旧页面；新家庭、新药品或重新打开的页面不受旧回调影响。
+    this.clearPrivateView();
+    return false;
+  },
+
+  acceptDetailActionFailure(action: DetailAction, error: unknown): boolean {
+    if (!this.detailActionOwnsView(action)) return false;
+    const current = isCurrentSession(action.identity);
+    const ownInvalidation = error instanceof ApiError && error.invalidatedSession !== undefined &&
+      isCurrentSession(error.invalidatedSession);
+    if (!current && !ownInvalidation) { this.clearPrivateView(); return false; }
+    // 本次认证/写请求确认失效时沿用详情刷新已有的恢复路线；旧请求不能导航新页面。
+    if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {
+      this.clearPrivateView();
+      wx.reLaunch({ url: "/pages/login/login" });
+      return false;
+    }
+    if (error instanceof ApiError && (error.code === "SESSION_SCOPE_CHANGED" || error.code === "FAMILY_NOT_FOUND")) {
+      this.clearPrivateView();
+      wx.reLaunch({ url: "/pages/family-entry/family-entry" });
+      return false;
+    }
+    if (!current) { this.clearPrivateView(); return false; }
+    return true;
   },
 
   /**
@@ -646,15 +706,19 @@ Page({
   },
 
   onThresholdToggle(event: { detail: { value: boolean } }): void {
+    if (this.data.savingThreshold || this.data.loading) return;
     this.setData({ thresholdEnabled: event.detail.value });
   },
 
   onThresholdQuantityInput(event: { detail: { value: string } }): void {
+    if (this.data.savingThreshold || this.data.loading) return;
     this.setData({ thresholdQuantity: event.detail.value });
   },
 
   onThresholdUnitChange(event: { detail: { value: string | number } }): void {
     const data = this.data as MedicineDetailPageData;
+    const action = this.captureDetailAction();
+    if (action === null || data.savingThreshold || data.loading) return;
     const nextIndex = Number(event.detail.value);
     const nextUnit = UNIT_VALUES[nextIndex];
     const currentUnit = UNIT_VALUES[data.thresholdUnitIndex];
@@ -670,15 +734,16 @@ Page({
       confirmText: "仍要切换",
       cancelText: "保持原单位",
       success: (result) => {
-        if (result.confirm) this.setData({ thresholdUnitIndex: nextIndex });
+        if (this.detailActionIsCurrent(action) && !this.data.savingThreshold && !this.data.loading && result.confirm) this.setData({ thresholdUnitIndex: nextIndex });
       },
     });
   },
 
   async onSaveThreshold(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
+    const action = this.captureDetailAction();
     const medicine = data.medicineSummary;
-    if (medicine === null || data.savingThreshold) return;
+    if (action === null || medicine === null || data.savingThreshold || data.loading) return;
     let lowStockThreshold: { quantity: number; unit: QuantityUnit } | null = null;
     if (data.thresholdEnabled) {
       // R07：按所选单位解析——毫升允许最多 3 位小数，计件单位仍要求非负整数；
@@ -696,36 +761,42 @@ Page({
     }
     this.setData({ savingThreshold: true });
     try {
-      await ensureLoggedIn();
-      await api.updateLowStockThreshold(medicine.id, { lowStockThreshold, version: medicine.version });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.updateLowStockThreshold(action.medicineId, { lowStockThreshold, version: medicine.version });
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "库存提醒已保存", icon: "success" });
+      this.setData({ savingThreshold: false });
       await this.refresh();
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     } finally {
-      this.setData({ savingThreshold: false });
+      if (this.detailActionIsCurrent(action)) this.setData({ savingThreshold: false });
     }
   },
 
   async onAddToRestock(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
+    const action = this.captureDetailAction();
     const medicine = data.medicineSummary;
-    if (medicine === null || data.restockBusy) return;
+    if (action === null || medicine === null || data.restockBusy) return;
     const threshold = medicine.lowStockThreshold ?? null;
     const unit = threshold?.unit ?? medicine.batches[0]?.unit ?? "box";
     this.setData({ restockBusy: true });
     try {
-      await ensureLoggedIn();
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
       await api.createRestockItem({
-        medicineId: medicine.id,
+        medicineId: action.medicineId,
         desiredQuantity: threshold?.quantity ?? null,
         unit,
       });
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "已加入补货清单", icon: "success" });
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     } finally {
-      this.setData({ restockBusy: false });
+      if (this.detailActionIsCurrent(action)) this.setData({ restockBusy: false });
     }
   },
 
@@ -801,7 +872,8 @@ Page({
 
   async onConfirmOpenSplit(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
-    if (data.openingSplitBusy || data.openingSplitBatchId === "") return;
+    const action = this.captureDetailAction();
+    if (action === null || data.openingSplitBusy || data.openingSplitBatchId === "") return;
     const batch = data.batchRecords.find((item) => item.id === data.openingSplitBatchId);
     const measured = batch !== undefined && unitAllowsDecimals(batch.unit);
     if (batch === undefined || batch.quantity === null || batch.quantity <= (measured ? 0 : 1) || batch.openedState !== "unopened") {
@@ -851,16 +923,19 @@ Page({
     };
     this.setData({ openingSplitBusy: true, openingSplitError: "" });
     try {
-      await ensureLoggedIn();
-      const result = await api.openSplitBatch(data.medicineId, batch.id, payload);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      const result = await api.openSplitBatch(action.medicineId, batch.id, payload);
+      if (!this.detailActionIsCurrent(action)) return;
       const unit = UNIT_LABELS[result.openedBatch.unit] ?? "个单位";
       wx.showToast({
         title: "已开封 " + result.openedBatch.quantity + unit + "，余量 " + (result.remainingBatch?.quantity ?? 0) + unit,
         icon: "success",
       });
-      this.setData({ openingSplitBatchId: "", openingSplitPreview: "" });
+      this.setData({ openingSplitBatchId: "", openingSplitPreview: "", openingSplitBusy: false });
       await this.refresh();
     } catch (error) {
+      if (!this.acceptDetailActionFailure(action, error)) return;
       if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
         this.setData({ openingSplitBatchId: "", openingSplitPreview: "" });
         await new Promise<void>((resolve) => wx.showModal({
@@ -870,6 +945,8 @@ Page({
           success: () => resolve(),
           fail: () => resolve(),
         }));
+        if (!this.detailActionIsCurrent(action)) return;
+        this.setData({ openingSplitBusy: false });
         await this.refresh();
       } else {
         const message = error instanceof ApiError ? error.message : "批次拆分失败，请稍后重试。";
@@ -877,12 +954,14 @@ Page({
         showError(error);
       }
     } finally {
-      this.setData({ openingSplitBusy: false });
+      if (this.detailActionIsCurrent(action)) this.setData({ openingSplitBusy: false });
     }
   },
 
   async onMarkOpened(event: { currentTarget: { dataset: { id?: string } } }): Promise<void> {
     const data = this.data as MedicineDetailPageData;
+    const action = this.captureDetailAction();
+    if (action === null) return;
     const batchId = event.currentTarget.dataset.id;
     const batch = data.batchRecords.find((item) => item.id === batchId);
     if (batch === undefined || batch.openedState === "opened" || data.busyBatchId !== "" || data.openingSplitBusy || data.openingSplitBatchId !== "") return;
@@ -915,11 +994,12 @@ Page({
       success: (result) => resolve(result.confirm),
       fail: () => resolve(false),
     }));
-    if (!confirmed) return;
+    if (!this.detailActionIsCurrent(action) || !confirmed) return;
     this.setData({ busyBatchId: batch.id });
     try {
-      await ensureLoggedIn();
-      await api.updateBatch(data.medicineId, batch.id, {
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.updateBatch(action.medicineId, batch.id, {
         lotNumber: batch.lotNumber,
         expiry: batch.expiry,
         quantity: batch.quantity,
@@ -931,12 +1011,14 @@ Page({
         afterOpeningLimit: batch.afterOpeningLimit ?? null,
         version: batch.version,
       });
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "已记录开封日期", icon: "success" });
+      this.setData({ busyBatchId: "" });
       await this.refresh();
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     } finally {
-      this.setData({ busyBatchId: "" });
+      if (this.detailActionIsCurrent(action)) this.setData({ busyBatchId: "" });
     }
   },
 
@@ -956,22 +1038,38 @@ Page({
   },
 
   onAdjustQuantity(event: { currentTarget: { dataset: { id?: string } } }): void {
+    if (this.captureDetailAction() === null) return;
     const batch = this.data.medicineSummary?.batches.find((item) => item.id === event.currentTarget.dataset.id);
     if (batch) this.setData({ quantityPanelId: batch.id, quantityPanelInput: batch.quantity === null ? "" : String(batch.quantity) });
   },
   onQuantityPanelInput(event: { detail: { value: string } }): void { this.setData({ quantityPanelInput: event.detail.value }); },
   onCancelQuantityPanel(): void { if (!this.data.quantityPanelBusy) this.setData({ quantityPanelId: "", quantityPanelInput: "" }); },
   async onSaveQuantityPanel(): Promise<void> {
-    if (this.data.quantityPanelBusy) return;
+    const action = this.captureDetailAction();
+    if (action === null || this.data.quantityPanelBusy) return;
     const batch = this.data.medicineSummary?.batches.find((item) => item.id === this.data.quantityPanelId);
     if (!batch) return;
-    const raw = this.data.quantityPanelInput.trim();
+    const input = this.data.quantityPanelInput;
+    const raw = input.trim();
     const quantity = raw === "" ? null : parseQuantityByUnit(raw, batch.unit);
     if (raw !== "" && quantity === null) { wx.showToast({ title: batch.unit === "ml" ? "毫升允许最多3位小数" : "计件数量需为非负整数", icon: "none" }); return; }
     this.setData({ quantityPanelBusy: true });
-    try { await ensureLoggedIn(); await api.updateBatchQuantity(this.data.medicineId, batch.id, { quantity, version: batch.version }); this.setData({ quantityPanelId: "", quantityPanelInput: "" }); await this.refresh(); }
-    catch (error) { wx.showToast({ title: error instanceof ApiError ? error.message : "余量未保存，请重试", icon: "none" }); }
-    finally { this.setData({ quantityPanelBusy: false }); }
+    try {
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.updateBatchQuantity(action.medicineId, batch.id, { quantity, version: batch.version });
+      if (!this.detailActionIsCurrent(action)) return;
+      // 只收起本次提交的输入；等待回执时新输入的余量或新面板继续留给用户保存。
+      if (this.data.quantityPanelId === batch.id && this.data.quantityPanelInput === input) {
+        this.setData({ quantityPanelId: "", quantityPanelInput: "" });
+      }
+      this.setData({ quantityPanelBusy: false });
+      await this.refresh();
+    } catch (error) {
+      if (this.acceptDetailActionFailure(action, error)) wx.showToast({ title: error instanceof ApiError ? error.message : "余量未保存，请重试", icon: "none" });
+    } finally {
+      if (this.detailActionIsCurrent(action)) this.setData({ quantityPanelBusy: false });
+    }
   },
   onTapEditBatch(event: { currentTarget: { dataset: { id?: string } } }): void {
     const batchId = event.currentTarget.dataset.id;
@@ -1012,7 +1110,8 @@ Page({
   },
 
   async onDeleteMedicine(): Promise<void> {
-    const medicineId = (this.data as MedicineDetailPageData).medicineId;
+    const action = this.captureDetailAction();
+    if (action === null) return;
     const confirmation = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "删除药品",
@@ -1021,14 +1120,16 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmation) return;
+    if (!this.detailActionIsCurrent(action) || !confirmation) return;
     try {
-      await ensureLoggedIn();
-      await api.deleteMedicine(medicineId);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.deleteMedicine(action.medicineId);
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "已删除", icon: "success" });
-      setTimeout(() => wx.navigateBack(), 700);
+      setTimeout(() => { if (this.detailActionIsCurrent(action)) wx.navigateBack(); }, 700);
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     }
   },
 
@@ -1046,29 +1147,40 @@ Page({
 
   async onSubmitNote(): Promise<void> {
     const data = this.data as MedicineDetailPageData;
-    const content = data.noteInput.trim();
+    const action = this.captureDetailAction();
+    if (action === null || data.noteSubmitting) return;
+    const input = data.noteInput;
+    const visibilityIndex = data.noteVisibilityIndex;
+    const content = input.trim();
     if (content === "") {
       wx.showToast({ title: "备注内容不能为空", icon: "none" });
       return;
     }
+    const visibility = visibilityIndex === 1 ? "family" : "private";
+    action.noteSeq = ++this.noteActionSeq;
+    this.setData({ noteSubmitting: true });
     try {
-      await ensureLoggedIn();
-      await api.createDosageNote(data.medicineId, {
-        content,
-        visibility: data.noteVisibilityIndex === 1 ? "family" : "private",
-      });
-      this.setData({ noteInput: "" });
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.createDosageNote(action.medicineId, { content, visibility });
+      if (!this.detailActionIsCurrent(action)) return;
+      if (this.data.noteInput === input && this.data.noteVisibilityIndex === visibilityIndex) {
+        this.setData({ noteInput: "" });
+      }
+      this.setData({ noteSubmitting: false });
       wx.showToast({ title: "备注已添加", icon: "success" });
       await this.refresh();
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
+    } finally {
+      if (this.detailActionIsCurrent(action)) this.setData({ noteSubmitting: false });
     }
   },
 
   async onDeleteNote(event: { currentTarget: { dataset: { id?: string } } }): Promise<void> {
     const noteId = event.currentTarget.dataset.id;
-    const medicineId = (this.data as MedicineDetailPageData).medicineId;
-    if (!noteId) return;
+    const action = this.captureDetailAction();
+    if (action === null || !noteId) return;
     const confirmation = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "删除备注",
@@ -1077,19 +1189,22 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmation) return;
+    if (!this.detailActionIsCurrent(action) || !confirmation) return;
     try {
-      await ensureLoggedIn();
-      await api.deleteDosageNote(medicineId, noteId);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.deleteDosageNote(action.medicineId, noteId);
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "已删除", icon: "success" });
       await this.refresh();
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     }
   },
 
   async onArchiveMedicine(): Promise<void> {
-    const medicineId = (this.data as MedicineDetailPageData).medicineId;
+    const action = this.captureDetailAction();
+    if (action === null) return;
     const confirmation = await new Promise<boolean>((resolve) => {
       wx.showModal({
         title: "归档药品",
@@ -1098,14 +1213,16 @@ Page({
         fail: () => resolve(false),
       });
     });
-    if (!confirmation) return;
+    if (!this.detailActionIsCurrent(action) || !confirmation) return;
     try {
-      await ensureLoggedIn();
-      await api.archiveMedicine(medicineId);
+      await ensureLoggedIn({ allowInteractive: false, rejectScopeChange: true });
+      if (!this.detailActionIsCurrent(action)) return;
+      await api.archiveMedicine(action.medicineId);
+      if (!this.detailActionIsCurrent(action)) return;
       wx.showToast({ title: "已归档", icon: "success" });
-      setTimeout(() => wx.navigateBack(), 800);
+      setTimeout(() => { if (this.detailActionIsCurrent(action)) wx.navigateBack(); }, 800);
     } catch (error) {
-      showError(error);
+      if (this.acceptDetailActionFailure(action, error)) showError(error);
     }
   },
 });

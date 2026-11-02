@@ -140,7 +140,7 @@
           <view class="picker-box">{{noteVisibilityLabels[noteVisibilityIndex]}}</view>
         </picker>
       </view>
-      <view class="btn btn-ghost" bindtap="onSubmitNote">添加备注</view>
+      <view class="btn btn-ghost {{noteSubmitting ? 'disabled' : ''}}" bindtap="onSubmitNote">{{noteSubmitting ? "保存中…" : "添加备注"}}</view>
     </block>
   </view>
 
@@ -155,21 +155,21 @@
     <block wx:if="{{sections.stock}}">
       <view class="row">
         <view class="field-label">启用库存不足提醒</view>
-        <switch checked="{{thresholdEnabled}}" bindchange="onThresholdToggle" />
+        <switch checked="{{thresholdEnabled}}" disabled="{{savingThreshold || loading}}" bindchange="onThresholdToggle" />
       </view>
       <view wx:if="{{thresholdEnabled}}">
         <view class="field">
           <view class="field-label">低于或等于此数量时提醒</view>
-          <input class="input" type="number" value="{{thresholdQuantity}}" bindinput="onThresholdQuantityInput" placeholder="例如：2" />
+          <input class="input" type="number" value="{{thresholdQuantity}}" disabled="{{savingThreshold || loading}}" bindinput="onThresholdQuantityInput" placeholder="例如：2" />
         </view>
         <view class="field">
           <view class="field-label">阈值单位</view>
-          <picker range="{{thresholdUnitLabels}}" value="{{thresholdUnitIndex}}" bindchange="onThresholdUnitChange">
+          <picker range="{{thresholdUnitLabels}}" value="{{thresholdUnitIndex}}" disabled="{{savingThreshold || loading}}" bindchange="onThresholdUnitChange">
             <view class="picker-box">{{thresholdUnitLabels[thresholdUnitIndex]}}</view>
           </picker>
         </view>
       </view>
-      <view class="btn btn-ghost" bindtap="onSaveThreshold">{{savingThreshold ? "保存中…" : "保存提醒设置"}}</view>
+      <view class="btn btn-ghost {{savingThreshold || loading ? 'disabled' : ''}}" bindtap="onSaveThreshold">{{savingThreshold ? "保存中…" : loading ? "正在刷新…" : "保存提醒设置"}}</view>
       <view class="btn btn-primary {{restockBusy ? 'disabled' : ''}}" bindtap="onAddToRestock">{{restockBusy ? "正在加入…" : "加入补货清单"}}</view>
     </block>
   </view>
