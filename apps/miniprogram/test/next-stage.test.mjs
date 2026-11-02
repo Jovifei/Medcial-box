@@ -688,6 +688,7 @@ test("detail quick action marks only the selected batch as opened using its curr
     },
   });
   const page = makePageContext(definition, { data: { ...structuredClone(definition.data), medicineId: "medicine-1", batchRecords: singlePack.batches } });
+  await page.refresh();
   await page.onMarkOpened({ currentTarget: { dataset: { id: "batch-1" } } });
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].slice(0, 2), ["medicine-1", "batch-1"]);
@@ -714,6 +715,7 @@ test("multi-pack opening opens an explicit split panel and cancel makes no API r
     },
   });
   const page = makePageContext(definition, { data: { ...structuredClone(definition.data), medicineId: "medicine-1", batchRecords: multiPack.batches } });
+  await page.refresh();
   await page.onMarkOpened({ currentTarget: { dataset: { id: "batch-1" } } });
   assert.equal(page.data.openingSplitBatchId, "batch-1");
   assert.match(page.data.openingSplitPreview, /开封 1盒；未开封余量 4盒/);
@@ -733,7 +735,8 @@ test("partial-pack opening validates the remainder and sends confirmed dates and
     modules: {
       "../../services/api": { api: {
         openSplitBatch: async (...args) => { calls.push(args); return { openedBatch: opened, remainingBatch: remaining }; },
-        getMedicine: async () => refreshed, listDosageNotes: async () => ({ notes: [] }), listLeafletPhotos: async () => ({ photos: [] }),
+        getMedicine: async () => calls.length === 0 ? multiPack : refreshed,
+        listDosageNotes: async () => ({ notes: [] }), listLeafletPhotos: async () => ({ photos: [] }),
       }, ApiError: class ApiError extends Error {} },
       "../../services/auth": { ensureLoggedIn: async () => {} },
       "../../services/input-validation": {
@@ -744,6 +747,7 @@ test("partial-pack opening validates the remainder and sends confirmed dates and
     },
   });
   const page = makePageContext(definition, { data: { ...structuredClone(definition.data), medicineId: "medicine-1", batchRecords: multiPack.batches } });
+  await page.refresh();
   await page.onMarkOpened({ currentTarget: { dataset: { id: "batch-1" } } });
   page.onSplitQuantityInput({ detail: { value: "2" } });
   assert.match(page.data.openingSplitPreview, /开封 2盒；未开封余量 3盒/);
@@ -787,6 +791,7 @@ test("partial-pack opening rejects whole-quantity split and keeps unknown/single
     wx: { showToast() {} },
   });
   const page = makePageContext(definition, { data: { ...structuredClone(definition.data), medicineId: "medicine-1", batchRecords: multiPack.batches } });
+  await page.refresh();
   await page.onMarkOpened({ currentTarget: { dataset: { id: "batch-1" } } });
   page.onSplitQuantityInput({ detail: { value: "5" } });
   await page.onConfirmOpenSplit();
@@ -812,11 +817,13 @@ test("stale split-open conflict refreshes the batch and reports no split was sav
   current.batches[0].version = 5;
   class SplitApiError extends Error { constructor(code, message, statusCode) { super(message); this.code = code; this.statusCode = statusCode; } }
   const modalTexts = [];
+  let medicineReads = 0;
   const { definition } = loadPage("pages/medicine-detail/medicine-detail.ts", {
     modules: {
       "../../services/api": { api: {
         openSplitBatch: async () => { throw new SplitApiError("VERSION_CONFLICT", "stale", 409); },
-        getMedicine: async () => current, listDosageNotes: async () => ({ notes: [] }), listLeafletPhotos: async () => ({ photos: [] }),
+        getMedicine: async () => medicineReads++ === 0 ? multiPack : current,
+        listDosageNotes: async () => ({ notes: [] }), listLeafletPhotos: async () => ({ photos: [] }),
       }, ApiError: SplitApiError },
       "../../services/auth": { ensureLoggedIn: async () => {} },
       "../../services/input-validation": {
@@ -828,6 +835,7 @@ test("stale split-open conflict refreshes the batch and reports no split was sav
     wx: { showModal(options) { modalTexts.push(options.content); options.success({ confirm: true }); } },
   });
   const page = makePageContext(definition, { data: { ...structuredClone(definition.data), medicineId: "medicine-1", batchRecords: multiPack.batches } });
+  await page.refresh();
   await page.onMarkOpened({ currentTarget: { dataset: { id: "batch-1" } } });
   page.onSplitQuantityInput({ detail: { value: "2" } });
   page.onSplitDateChange({ detail: { value: "2026-09-29" } });
@@ -859,6 +867,8 @@ test("low-stock threshold uses the isolated field-only update contract", async (
     ...structuredClone(definition.data), medicineId: "medicine-1", medicineSummary: medicine(),
     thresholdEnabled: true, thresholdQuantity: "2", thresholdUnitIndex: 4,
   } });
+  await page.refresh();
+  page.setData({ thresholdEnabled: true, thresholdQuantity: "2", thresholdUnitIndex: 4 });
   await page.onSaveThreshold();
   assert.equal(calls.length, 1);
   assert.deepEqual(JSON.parse(JSON.stringify(calls[0][1].lowStockThreshold)), { quantity: 2, unit: "box" });

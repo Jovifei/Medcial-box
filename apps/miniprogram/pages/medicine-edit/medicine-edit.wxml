@@ -65,7 +65,7 @@
         </view>
         <view class="field-hint" wx:if="{{selectedReviewPhoto.fields.length === 0}}">此图没有可展示的识别内容，可重拍或手动填写。</view>
       </view>
-      <view class="row cover-choice"><view>使用最近的药盒照片作为封面</view><switch disabled="{{attemptedPayload !== null}}" checked="{{usePhotoAsCover}}" bindchange="onCoverChoice" /></view>
+      <view class="row cover-choice"><view>使用最近的药盒照片作为封面</view><switch disabled="{{submitting || attemptedPayload !== null}}" checked="{{usePhotoAsCover}}" bindchange="onCoverChoice" /></view>
       <view class="field-hint">照片识别只产生待核对内容，保存时照片才进入家庭私有资料。</view>
       <view class="field-hint" wx:if="{{isEdit}}">本次照片先单独编号；保存后接在已有照片图号之后。</view>
     </view>
@@ -101,7 +101,7 @@
     <view class="step-kicker"><text class="step-number">02</text><text>必填核对</text></view>
     <view class="section-title">药品名称（唯一必填）</view>
     <view class="field">
-      <input disabled="{{attemptedPayload !== null}}" class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
+      <input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="name" bindinput="onFieldInput" value="{{name}}" placeholder="例如：布洛芬缓释胶囊" />
       <view class="source-label" wx:if="{{sourceLabels.name}}">{{sourceLabels.name}}</view>
     </view>
   </view>
@@ -118,12 +118,12 @@
         <view class="batch-remove" wx:if="{{batches.length > 1}}" bindtap="onRemoveBatch" data-index="{{index}}">删除</view>
       </view>
       <view class="quantity-row">
-        <view class="field quantity-input"><view class="field-label">剩余数量（留空未知，0 已用完）</view><input disabled="{{attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="quantity" bindinput="onBatchFieldInput" value="{{batch.quantity}}" placeholder="留空表示未知" /></view>
-        <view class="field quantity-unit"><view class="field-label">单位</view><picker disabled="{{attemptedPayload !== null}}" range="{{unitLabels}}" value="{{batch.unitIndex}}" data-index="{{index}}" bindchange="onBatchUnitChange"><view class="picker-box">{{unitLabels[batch.unitIndex]}}</view></picker></view>
+        <view class="field quantity-input"><view class="field-label">剩余数量（留空未知，0 已用完）</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="quantity" bindinput="onBatchFieldInput" value="{{batch.quantity}}" placeholder="留空表示未知" /></view>
+        <view class="field quantity-unit"><view class="field-label">单位</view><picker disabled="{{submitting || attemptedPayload !== null}}" range="{{unitLabels}}" value="{{batch.unitIndex}}" data-index="{{index}}" bindchange="onBatchUnitChange"><view class="picker-box">{{unitLabels[batch.unitIndex]}}</view></picker></view>
       </view>
       <view class="field">
         <view class="field-label">有效期至</view>
-        <medicine-date-field clearable="{{true}}" allow-precision="{{true}}" disabled="{{attemptedPayload !== null}}" value="{{batch.expiryValue}}" precision="{{batch.precisionIndex === 2 ? 'unknown' : batch.precisionIndex === 1 ? 'month' : 'day'}}" label="选择包装有效期" data-index="{{index}}" bindchange="onExpiryDateChange" />
+        <medicine-date-field clearable="{{true}}" allow-precision="{{true}}" disabled="{{submitting || attemptedPayload !== null}}" value="{{batch.expiryValue}}" precision="{{batch.precisionIndex === 2 ? 'unknown' : batch.precisionIndex === 1 ? 'month' : 'day'}}" label="选择包装有效期" data-index="{{index}}" bindchange="onExpiryDateChange" />
         <view class="source-label" wx:if="{{batchSourceLabels[index + '.expiry']}}">{{batchSourceLabels[index + '.expiry']}}</view>
         <button class="review-link" data-source="camera" data-purpose="expiry" data-batch-index="{{index}}" bindtap="onRecognizePhoto" disabled="{{recognizing || submitting || attemptedPayload !== null}}">拍摄这份药的有效期</button>
       </view>
@@ -131,7 +131,7 @@
       <view wx:if="{{batch.openingExpanded}}">
         <view class="field">
           <view class="field-label">开封状态</view>
-          <picker disabled="{{attemptedPayload !== null}}" range="{{openedStateLabels}}" value="{{batch.openedStateIndex}}" data-index="{{index}}" bindchange="onOpenedStateChange">
+          <picker disabled="{{submitting || attemptedPayload !== null}}" range="{{openedStateLabels}}" value="{{batch.openedStateIndex}}" data-index="{{index}}" bindchange="onOpenedStateChange">
             <view class="picker-box">{{openedStateLabels[batch.openedStateIndex]}}</view>
           </picker>
         </view>
@@ -139,25 +139,25 @@
       <view wx:if="{{batch.openingExpanded && batch.openedState === 'opened'}}">
         <view class="field">
           <view class="field-label">开封日期（选填）</view>
-          <medicine-date-field clearable="{{true}}" disabled="{{attemptedPayload !== null}}" value="{{batch.openedAt}}" label="选择日期" data-index="{{index}}" data-field="openedAt" bindchange="onBatchFieldInput" />
+          <medicine-date-field clearable="{{true}}" disabled="{{submitting || attemptedPayload !== null}}" value="{{batch.openedAt}}" label="选择日期" data-index="{{index}}" data-field="openedAt" bindchange="onBatchFieldInput" />
         </view>
         <view class="field">
           <view class="field-label">开封后期限（依据包装或说明书填写）</view>
-          <picker disabled="{{attemptedPayload !== null}}" range="{{openingLimitModeLabels}}" value="{{batch.openingLimitModeIndex}}" data-index="{{index}}" bindchange="onOpeningLimitModeChange">
+          <picker disabled="{{submitting || attemptedPayload !== null}}" range="{{openingLimitModeLabels}}" value="{{batch.openingLimitModeIndex}}" data-index="{{index}}" bindchange="onOpeningLimitModeChange">
             <view class="picker-box">{{openingLimitModeLabels[batch.openingLimitModeIndex]}}</view>
           </picker>
         </view>
         <view class="field" wx:if="{{batch.openingLimitMode === 'day' || batch.openingLimitMode === 'month'}}">
           <view class="field-label">{{batch.openingLimitMode === 'day' ? '天数' : '月数'}}</view>
-          <input disabled="{{attemptedPayload !== null}}" class="input" type="number" data-index="{{index}}" data-field="openingLimitValue" bindinput="onBatchFieldInput" value="{{batch.openingLimitValue}}" placeholder="正整数" />
+          <input disabled="{{submitting || attemptedPayload !== null}}" class="input" type="number" data-index="{{index}}" data-field="openingLimitValue" bindinput="onBatchFieldInput" value="{{batch.openingLimitValue}}" placeholder="正整数" />
         </view>
         <view class="field" wx:if="{{batch.openingLimitMode === 'date'}}">
           <view class="field-label">开封后截止日期</view>
-          <medicine-date-field clearable="{{true}}" disabled="{{attemptedPayload !== null}}" value="{{batch.openingLimitValue}}" label="选择日期" data-index="{{index}}" data-field="openingLimitValue" bindchange="onBatchFieldInput" />
+          <medicine-date-field clearable="{{true}}" disabled="{{submitting || attemptedPayload !== null}}" value="{{batch.openingLimitValue}}" label="选择日期" data-index="{{index}}" data-field="openingLimitValue" bindchange="onBatchFieldInput" />
         </view>
         <view class="field" wx:if="{{batch.openingLimitMode !== 'none'}}">
           <view class="field-label">期限依据</view>
-          <input disabled="{{attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="openingLimitSource" bindinput="onBatchFieldInput" value="{{batch.openingLimitSource}}" placeholder="例如：说明书第 8 页" />
+          <input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="openingLimitSource" bindinput="onBatchFieldInput" value="{{batch.openingLimitSource}}" placeholder="例如：说明书第 8 页" />
         </view>
         <view class="field-hint">没有可靠依据时保持“不记录”。开封期限与包装有效期分别管理。</view>
       </view>
@@ -198,7 +198,7 @@
     </view>
   </view>
 
-  <view class="card compact-optional-card"><view class="section-toggle-row" bindtap="onToggleStorage"><view><view class="section-title">存放位置（选填）</view><view class="field-hint">记在家中固定位置，家人更容易找到。</view></view><view class="section-toggle-label">{{storageExpanded ? "收起" : "展开"}}</view></view><view wx:if="{{storageExpanded}}" class="field" wx:for="{{batches}}" wx:key="index"><input disabled="{{attemptedPayload !== null}}" class="input" value="{{item.storageLocation}}" data-index="{{index}}" data-field="storageLocation" bindinput="onBatchFieldInput" placeholder="例如：客厅药箱" /></view></view>
+  <view class="card compact-optional-card"><view class="section-toggle-row" bindtap="onToggleStorage"><view><view class="section-title">存放位置（选填）</view><view class="field-hint">记在家中固定位置，家人更容易找到。</view></view><view class="section-toggle-label">{{storageExpanded ? "收起" : "展开"}}</view></view><view wx:if="{{storageExpanded}}" class="field" wx:for="{{batches}}" wx:key="index"><input disabled="{{submitting || attemptedPayload !== null}}" class="input" value="{{item.storageLocation}}" data-index="{{index}}" data-field="storageLocation" bindinput="onBatchFieldInput" placeholder="例如：客厅药箱" /></view></view>
 
   <view class="card optional-card">
     <view class="step-kicker"><text class="step-number">05</text><text>更多资料</text></view>
@@ -208,29 +208,29 @@
     </view>
     <view class="field-hint" wx:if="{{!optionalExpanded && (brand || manufacturer || specification || approvalNumber || ingredients || leafletPurpose || leafletUsage || leafletContraindications || leafletPrecautions || leafletText)}}">已有包装或说明书资料，请展开核对；收起不代表已确认。</view>
     <view wx:if="{{optionalExpanded}}">
-      <view class="field"><view class="field-label">包装规格</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒/盒" /><view class="source-label" wx:if="{{sourceLabels.specification}}">{{sourceLabels.specification}}</view><view class="field-hint">包装规格不代表家中实际余量。</view></view>
-      <view class="field"><view class="field-label">包装品牌</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：芬必得" /><view class="source-label" wx:if="{{sourceLabels.brand}}">{{sourceLabels.brand}}</view></view>
-      <view class="field"><view class="field-label">生产厂家</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /><view class="source-label" wx:if="{{sourceLabels.manufacturer}}">{{sourceLabels.manufacturer}}</view></view>
+      <view class="field"><view class="field-label">包装规格</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="specification" bindinput="onFieldInput" value="{{specification}}" placeholder="例如：0.3g×20粒/盒" /><view class="source-label" wx:if="{{sourceLabels.specification}}">{{sourceLabels.specification}}</view><view class="field-hint">包装规格不代表家中实际余量。</view></view>
+      <view class="field"><view class="field-label">包装品牌</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="brand" bindinput="onFieldInput" value="{{brand}}" placeholder="例如：芬必得" /><view class="source-label" wx:if="{{sourceLabels.brand}}">{{sourceLabels.brand}}</view></view>
+      <view class="field"><view class="field-label">生产厂家</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="manufacturer" bindinput="onFieldInput" value="{{manufacturer}}" placeholder="对照包装核对" /><view class="source-label" wx:if="{{sourceLabels.manufacturer}}">{{sourceLabels.manufacturer}}</view></view>
       <view class="field" wx:if="{{leafletText}}"><view class="field-label">说明书识别原文（请核对原图）</view><text class="leaflet-text" selectable="true">{{leafletText}}</text></view>
-      <view class="field"><view class="field-label">批准文号</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="approvalNumber" bindinput="onFieldInput" value="{{approvalNumber}}" /></view>
-      <view class="field"><view class="field-label">包装码（选填）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="barcodeValue" bindinput="onFieldInput" value="{{barcodeValue}}" placeholder="扫码后会自动保留，可手动修改" /><view class="field-hint">保留包装上的码值；资料查询仅支持8–14位数字商品条码，追溯码不用于此查询。</view></view>
-      <view class="field" wx:if="{{ingredients !== '' || isEdit}}"><view class="field-label">有效成分（选填，请按包装核对）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="ingredients" bindinput="onFieldInput" value="{{ingredients}}" /></view>
-      <view class="field" wx:if="{{isEdit && purposeCategory !== ''}}"><view class="field-label">历史用途说明（仅编辑旧记录）</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="purposeCategory" bindinput="onFieldInput" value="{{purposeCategory}}" /></view>
+      <view class="field"><view class="field-label">批准文号</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="approvalNumber" bindinput="onFieldInput" value="{{approvalNumber}}" /></view>
+      <view class="field"><view class="field-label">包装码（选填）</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="barcodeValue" bindinput="onFieldInput" value="{{barcodeValue}}" placeholder="扫码后会自动保留，可手动修改" /><view class="field-hint">保留包装上的码值；资料查询仅支持8–14位数字商品条码，追溯码不用于此查询。</view></view>
+      <view class="field" wx:if="{{ingredients !== '' || isEdit}}"><view class="field-label">有效成分（选填，请按包装核对）</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="ingredients" bindinput="onFieldInput" value="{{ingredients}}" /></view>
+      <view class="field" wx:if="{{isEdit && purposeCategory !== ''}}"><view class="field-label">历史用途说明（仅编辑旧记录）</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="purposeCategory" bindinput="onFieldInput" value="{{purposeCategory}}" /></view>
       <view class="row" bindtap="onToggleConversion"><view class="section-title">批号与包装换算（选填）</view><view>{{conversionExpanded ? "收起" : "展开"}}</view></view>
       <view wx:if="{{conversionExpanded}}">
       <view wx:for="{{batches}}" wx:key="index" wx:for-item="batch" wx:for-index="index" class="batch-block">
         <view class="batch-title">{{batches.length > 1 ? '库存 ' + (index + 1) + ' 的批号与换算' : '批号与包装换算（选填）'}}</view>
-        <view class="field"><view class="field-label">批次号</view><input disabled="{{attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="lotNumber" bindinput="onBatchFieldInput" value="{{batch.lotNumber}}" /></view>
-        <view class="field"><view class="field-label">换算后的单位</view><picker disabled="{{attemptedPayload !== null}}" range="{{unitLabels}}" value="{{batch.conversionUnitIndex}}" data-index="{{index}}" bindchange="onConversionUnitChange"><view class="picker-box">{{unitLabels[batch.conversionUnitIndex]}}</view></picker></view>
-      <view class="field"><view class="field-label">每包装换算数（确认后填写）</view><input disabled="{{attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="confirmedUnits" bindinput="onBatchFieldInput" value="{{batch.confirmedUnits}}" placeholder="例如：24" /></view>
+        <view class="field"><view class="field-label">批次号</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-index="{{index}}" data-field="lotNumber" bindinput="onBatchFieldInput" value="{{batch.lotNumber}}" /></view>
+        <view class="field"><view class="field-label">换算后的单位</view><picker disabled="{{submitting || attemptedPayload !== null}}" range="{{unitLabels}}" value="{{batch.conversionUnitIndex}}" data-index="{{index}}" bindchange="onConversionUnitChange"><view class="picker-box">{{unitLabels[batch.conversionUnitIndex]}}</view></picker></view>
+      <view class="field"><view class="field-label">每包装换算数（确认后填写）</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" type="digit" data-index="{{index}}" data-field="confirmedUnits" bindinput="onBatchFieldInput" value="{{batch.confirmedUnits}}" placeholder="例如：24" /></view>
       </view>
       </view>
-      <view class="field"><view class="field-label">用途摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" /><view class="source-label" wx:if="{{sourceLabels.purposeSummary}}">{{sourceLabels.purposeSummary}}</view></view>
-      <view class="field"><view class="field-label">说明书用法用量摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" /><view class="source-label" wx:if="{{sourceLabels.packageUsageSummary}}">{{sourceLabels.packageUsageSummary}}</view></view>
-      <view class="field"><view class="field-label">禁忌摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletContraindications" bindinput="onFieldInput" value="{{leafletContraindications}}" /></view>
-      <view class="field"><view class="field-label">注意事项摘要</view><textarea disabled="{{attemptedPayload !== null}}" class="textarea" data-field="leafletPrecautions" bindinput="onFieldInput" value="{{leafletPrecautions}}" /></view>
-      <view class="field"><view class="field-label">摘要来源</view><input disabled="{{attemptedPayload !== null}}" class="input" data-field="leafletSource" bindinput="onFieldInput" value="{{leafletSource}}" placeholder="例如：包装内说明书" /></view>
-      <view class="row"><view><view class="field-label">本人已核对说明书</view><view class="field-hint">对照包装内说明书后勾选。</view></view><switch disabled="{{attemptedPayload !== null}}" checked="{{verified}}" bindchange="onVerifiedChange" /></view>
+      <view class="field"><view class="field-label">用途摘要</view><textarea disabled="{{submitting || attemptedPayload !== null}}" class="textarea" data-field="leafletPurpose" bindinput="onFieldInput" value="{{leafletPurpose}}" /><view class="source-label" wx:if="{{sourceLabels.purposeSummary}}">{{sourceLabels.purposeSummary}}</view></view>
+      <view class="field"><view class="field-label">说明书用法用量摘要</view><textarea disabled="{{submitting || attemptedPayload !== null}}" class="textarea" data-field="leafletUsage" bindinput="onFieldInput" value="{{leafletUsage}}" /><view class="source-label" wx:if="{{sourceLabels.packageUsageSummary}}">{{sourceLabels.packageUsageSummary}}</view></view>
+      <view class="field"><view class="field-label">禁忌摘要</view><textarea disabled="{{submitting || attemptedPayload !== null}}" class="textarea" data-field="leafletContraindications" bindinput="onFieldInput" value="{{leafletContraindications}}" /></view>
+      <view class="field"><view class="field-label">注意事项摘要</view><textarea disabled="{{submitting || attemptedPayload !== null}}" class="textarea" data-field="leafletPrecautions" bindinput="onFieldInput" value="{{leafletPrecautions}}" /></view>
+      <view class="field"><view class="field-label">摘要来源</view><input disabled="{{submitting || attemptedPayload !== null}}" class="input" data-field="leafletSource" bindinput="onFieldInput" value="{{leafletSource}}" placeholder="例如：包装内说明书" /></view>
+      <view class="row"><view><view class="field-label">本人已核对说明书</view><view class="field-hint">对照包装内说明书后勾选。</view></view><switch disabled="{{submitting || attemptedPayload !== null}}" checked="{{verified}}" bindchange="onVerifiedChange" /></view>
     </view>
   </view>
 

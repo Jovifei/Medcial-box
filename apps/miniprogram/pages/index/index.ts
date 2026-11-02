@@ -21,6 +21,10 @@ interface CabinetItem {
   stateClass: string;
   stateLabel: string;
   stockState: string;
+  /** 低库存阈值未配置也会返回 stockState=unknown，不能据此判断批次数量。 */
+  hasUnknownQuantity: boolean;
+  hasUnknownExpiry: boolean;
+  isExhausted: boolean;
   needsInfo: boolean;
   searchText: string;
   isExample: boolean;
@@ -88,16 +92,25 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
   // 已处置（handled）批次保留在详情/历史中，但不再驱动卡片日期、状态与提醒。
   const inCabinet = medicine.batches.filter((batch) => batch.dispositionStatus !== "handled");
   const activeExpiryStates = inCabinet.map((batch) => batch.managementExpiryState?.state ?? batch.expiryState.state);
-  const severity: Record<ExpiryState, number> = { expired: 0, due_this_month: 1, expiring_soon: 2, ok: 3, unknown: 4 };
+  const severity: Record<ExpiryState, number> = { expired: 0, due_this_month: 1, expiring_soon: 2, unknown: 3, ok: 4 };
   const state = activeExpiryStates.length > 0
     ? [...activeExpiryStates].sort((left, right) => severity[left] - severity[right])[0]
     : medicine.expiryState?.state ?? "unknown";
-  const dateRecords = inCabinet.map((batch) => ({
-    date: batch.managementExpiryDate ?? batch.expiry.value,
-    label: batch.managementExpiryState?.label ?? batch.expiryState.label,
-    source: batch.managementExpirySource ?? null,
-  })).filter((item): item is { date: string; label: string; source: "package" | "opened" | null } => item.date !== null);
-  dateRecords.sort((left, right) => left.date.localeCompare(right.date));
+  const dateRecords = inCabinet.flatMap((batch) => {
+    // 明确的 null 表示管理日期未知；原始未知文本不能冒充截止日期。
+    const date = batch.managementExpiryDate !== undefined ? batch.managementExpiryDate
+      : batch.expiry.precision === "unknown" ? null : batch.expiry.value;
+    if (date === null) return [];
+    let sortDate = date;
+    if (batch.managementExpiryDate === undefined && batch.expiry.precision === "month") {
+      // 旧服务没有管理日期时按月末排序，展示仍保留包装上的月精度。
+      const [year, month] = date.split("-").map(Number);
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      sortDate = `${date}-${String(lastDay).padStart(2, "0")}`;
+    }
+    return [{ date, sortDate, source: batch.managementExpirySource ?? null }];
+  });
+  dateRecords.sort((left, right) => left.sortDate.localeCompare(right.sortDate));
   const stateLabels: Record<ExpiryState, string> = {
     expired: "已过期或开封期限已到",
     due_this_month: "本月到期",
@@ -133,6 +146,9 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
     stateLabel: stateLabels[state],
     stockState: medicine.stockStatus?.state ?? "unknown",
+    hasUnknownQuantity: medicine.batches.length === 0 || inCabinet.some((batch) => batch.quantity === null),
+    hasUnknownExpiry: medicine.batches.length === 0 || activeExpiryStates.includes("unknown"),
+    isExhausted: inCabinet.length > 0 && inCabinet.every((batch) => batch.quantity === 0),
     needsInfo: medicine.specification === null || medicine.manufacturer === null ||
       medicine.activeIngredients.length === 0 || medicine.leaflet.reviewStatus === "unverified",
     searchText: [medicine.name, medicine.specification, medicine.manufacturer,
@@ -145,7 +161,7 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     purposeTags: (medicine.purposeTags ?? []).map((tag) => PURPOSE_TAG_LABELS[tag] ?? tag),
     displayTags: [],
     extraTagCount: 0,
-    earliestDate: dateRecords.length > 0 ? dateRecords[0].date : null,
+    earliestDate: dateRecords.length > 0 ? dateRecords[0].sortDate : null,
     coverPhotoId: medicine.coverPhotoId ?? "",
     coverPhotoPath: "",
     locationText,
@@ -391,7 +407,7 @@ Page({
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
     this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, loading: false, errorMessage: "", stageLabel: "药箱首页" });
-    const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted").length;
+    const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted" || item.isExhausted).length;
     const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
     this.setData({
       lowStockCount,
@@ -501,13 +517,13 @@ Page({
       const matchesArchive = data.filterKind === "archived" ? item.isArchived : !item.isArchived;
       const matchesFilter = (data.filterKind === "all" ||
         (data.filterKind === "expiring" && (item.state === "expired" || item.state === "due_this_month" || item.state === "expiring_soon")) ||
-        (data.filterKind === "low" && (item.stockState === "low" || item.stockState === "exhausted")) ||
+        (data.filterKind === "low" && (item.stockState === "low" || item.stockState === "exhausted" || item.isExhausted)) ||
         (data.filterKind === "missing" && item.needsInfo) ||
         (data.filterKind === "expired" && item.state === "expired") ||
         (data.filterKind === "opened" && item.openedText !== "") ||
         (data.filterKind === "archived" && item.isArchived) ||
-        (data.filterKind === "unknown" && (item.stockState === "unknown" || item.state === "unknown")) ||
-        (data.filterKind === "exhausted" && item.stockState === "exhausted") ||
+        (data.filterKind === "unknown" && (item.hasUnknownQuantity || item.hasUnknownExpiry)) ||
+        (data.filterKind === "exhausted" && item.isExhausted) ||
         (data.filterKind === "pending" && data.attentionMedicineIds.includes(item.id))) && matchesArchive;
       // 人群/用途多选：同一维度任选匹配（some），不同维度需同时满足。
       const matchesPopulation = data.selectedPopulations.length === 0 ||
@@ -563,8 +579,10 @@ Page({
   },
 
   onSortChange(event: { detail: { value: string | number } }): void {
-    const index = Number(event.detail.value);
+    const value = String(event.detail.value).trim();
+    const index = Number(value);
     const keys = ["deadline_asc", "deadline_desc", "name", "recent"];
+    if (value === "" || !Number.isInteger(index) || index < 0 || index >= keys.length) return;
     this.setData({ sortIndex: index, sortKey: keys[index] ?? "deadline_asc" });
     this.applyFilter();
   },
