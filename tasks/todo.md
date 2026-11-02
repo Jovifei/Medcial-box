@@ -1,5 +1,15 @@
 # 当前任务：微信小程序参数与交互审核修复（2026-11-02）
 
+## 2026-11-02 QA 模拟器渲染修复（PR #11 收尾）
+
+- [x] 官方模拟器实测确认 QA 工程硬编码 `touristappid` 触发 `APPID_ERROR`；真实渲染又暴露 `app.js` 直接 `require('./qa/config.json')`，微信运行时拒绝 JSON 模块导致首页空白。
+- [x] 最小修复（仅 scripts）：`prepare-miniprogram-qa.mjs` 同步生成 `qa/config.js` CommonJS 模块并要求运行时依赖校验只接受 `.js`；`app.js` 改加载 `config.js`；保留 `qa/config.json` 作为人工审阅文件。
+- [x] 新增回归：模拟器 AppID 身份必须与 QA 配置一致（`wx…` 或 `touristappid`）；测试夹具禁止 JSON require 以还原官方运行时；生成产物断言使用 `config.js`。
+- [x] 完整门禁：lint/typecheck PASS；小程序 755 PASS、API 311 PASS/31 SKIP、工具 232 PASS/30 SKIP；QA 套件 42 PASS/1 SKIP；发布门禁继续拒绝 QA 工程（QA-only build 负例保留）。
+- [x] 官方模拟器真实渲染：登录页、首页在 iPhone 17（402 宽）与 HUAWEI Pura X 外屏（327 宽）均完整渲染，console 无 error；登录→首页导航可用。截图存 `E:\Claude_allow\Download\medcial_box\pr11-qa-2eafcf7\`。
+- [ ] 200% 字号官方模拟器检查未完成：桌面自动化与 Owner 正在使用的窗口发生句柄冲突后立即中止；待 Owner 空闲时补验。合成沙盒仍零原生网络，业务影响评估不变。
+- [x] 本阶段仅微信小程序；Flutter/Android/APK/App 签名与发布保持移除状态。
+
 ## 2026-11-02 最新授权与本轮交付
 
 - [x] Jovi 已授权在最新分支修改、中文提交，并在交付固定 SHA 后由本地 Codex 接收验证；不沿用下方历史“待授权”状态阻止本轮工作。

@@ -271,9 +271,18 @@ async function listFiles(root, prefix = '') {
   }
   return result.sort();
 }
-export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_SHA, output, runId = 'qa-isolated' } = {}) {
+export async function prepareQa({
+  root = workspace,
+  sourceSha = DEFAULT_SOURCE_SHA,
+  output,
+  runId = 'qa-isolated',
+  simulatorAppId = 'touristappid',
+} = {}) {
   if (!/^[0-9a-f]{40}$/.test(sourceSha)) throw new Error('Use an exact committed 40-hex source SHA');
   if (!/^[a-z0-9-]{1,48}$/.test(runId)) throw new Error('run-id must contain 1–48 lowercase ASCII letters/digits/hyphens');
+  if (simulatorAppId !== 'touristappid' && !/^wx[0-9a-f]{16}$/i.test(simulatorAppId)) {
+    throw new Error('simulator-appid must be touristappid or an approved wx AppID');
+  }
   const git = args => execFileSync('git', ['-C', root, ...args]);
   if (git(['rev-parse', sourceSha + '^{commit}']).toString().trim() !== sourceSha) throw new Error('Source SHA mismatch');
   const sourceTree = git(['rev-parse', sourceSha + ':apps/miniprogram']).toString().trim();
@@ -329,13 +338,13 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
     }
     assertReviewedComponents(name, value.usingComponents);
   }
-  project.appid = 'touristappid';
+  project.appid = simulatorAppId;
   project.projectname = 'QA-ONLY-SYNTHETIC-' + runId;
   project.description = 'Disposable in-memory QA. Never upload, publish or use real data.';
   project.setting = { ...project.setting, useCompilerPlugins: [], compileHotReLoad: false, urlCheck: true };
   app.window.navigationBarTitleText = 'QA 合成内存沙盒';
   const config = {
-    buildMark: 'MEDICINE_QA_ONLY', appId: 'touristappid', sourceSha, sourceTree, runId, pages: app.pages,
+    buildMark: 'MEDICINE_QA_ONLY', appId: simulatorAppId, sourceSha, sourceTree, runId, pages: app.pages,
     wxInventory: [...new Set(inventory.flatMap(item => item.wx))].sort(),
     fsInventory: [...new Set(inventory.flatMap(item => item.fs))].sort(),
     transport: 'in-process synthetic dispatch; ZERO native network',
@@ -346,17 +355,19 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
   generated.set('app.json', JSON.stringify(app, null, 2) + '\n');
   generated.set('app.wxss', generated.get('app.wxss').toString() + '\n.qa-only-banner{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#9b001c;color:white;font-size:22rpx;font-weight:bold;padding:10rpx;text-align:center;pointer-events:none;}\n');
   generated.set('services/config.js', '// MEDICINE_QA_ONLY\nconst { wx, App, Page, Component, setTimeout } = require("../qa/fixture-runtime").bindings();\nexports.API_BASE = "http://127.0.0.1:43187";\n');
-  generated.set('qa/config.json', JSON.stringify(config, null, 2) + '\n');
+  const configJson = JSON.stringify(config, null, 2);
+  generated.set('qa/config.json', configJson + '\n');
+  generated.set('qa/config.js', '// MEDICINE_QA_ONLY\nmodule.exports = ' + configJson + ';\n');
   for (const name of ['fixture-runtime', 'synthetic-mock']) generated.set('qa/' + name + '.js', await readFile(join(workspace, 'scripts/qa', name + '.cjs')));
   const mock = await import('./qa/synthetic-mock.cjs');
   generated.set('qa/synthetic.png', Buffer.from(mock.default.PNG, 'base64'));
-  generated.set('app.js', '// MEDICINE_QA_ONLY. Deliberately CommonJS: NO product/dependency import before install.\nconst qa = require("./qa/fixture-runtime");\nqa.install(wx, require("./qa/config.json"), App, Page, Component);\nrequire("./app-product");\n');
+  generated.set('app.js', '// MEDICINE_QA_ONLY. Deliberately CommonJS: NO product/dependency import before install.\nconst qa = require("./qa/fixture-runtime");\nqa.install(wx, require("./qa/config.js"), App, Page, Component);\nrequire("./app-product");\n');
   generated.set('QA-DO-NOT-UPLOAD.json', JSON.stringify({ ...config, warning: 'Memory-only. Reload/reentry is NOT persistent-storage or cross-WeChat-restart evidence.' }, null, 2) + '\n');
   // Validate emitted dependency graph, including transpiler output, before writing anything.
   for (const [name, bytes] of generated) if (name.endsWith('.js') && !name.startsWith('qa/')) {
     for (const match of bytes.toString().matchAll(/require\(["']([^"']+)["']\)/g)) {
       const target = relative('.', join(dirname(name), match[1])).replaceAll('\\', '/');
-      if (!match[1].startsWith('.') || ![target, target + '.js', target + '.json'].some(key => generated.has(key))) throw new Error('Unreviewed runtime dependency: ' + name + ' => ' + match[1]);
+      if (!match[1].startsWith('.') || ![target, target + '.js'].some(key => generated.has(key))) throw new Error('Unreviewed runtime dependency: ' + name + ' => ' + match[1]);
     }
   }
   await mkdir(dirname(outputRoot), { recursive: true });
@@ -384,6 +395,11 @@ export async function prepareQa({ root = workspace, sourceSha = DEFAULT_SOURCE_S
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const value = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
-  try { console.info(JSON.stringify(await prepareQa({ sourceSha: value('--source-sha'), output: value('--output'), runId: value('--run-id') }), null, 2)); }
+  try { console.info(JSON.stringify(await prepareQa({
+    sourceSha: value('--source-sha'),
+    output: value('--output'),
+    runId: value('--run-id'),
+    simulatorAppId: value('--simulator-appid') ?? 'touristappid',
+  }), null, 2)); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

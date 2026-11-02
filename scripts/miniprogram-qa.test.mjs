@@ -20,14 +20,14 @@ const dangerous = ['getStorageSync', 'setStorageSync', 'removeStorageSync', 'cle
   'shareFileMessage', 'chooseMessageFile', 'requestSubscribeMessage', 'getUpdateManager', 'base64ToArrayBuffer'];
 const uiNames = ['showToast', 'showModal', 'showActionSheet', 'navigateTo', 'redirectTo', 'navigateBack', 'reLaunch', 'switchTab',
   'pageScrollTo', 'stopPullDownRefresh', 'enableAlertBeforeUnload', 'disableAlertBeforeUnload', 'hideShareMenu', 'setEnableDebug'];
-function harness({ project, mutateNative, mockOverride } = {}) {
+function harness({ project, mutateNative, mockOverride, appId = 'touristappid', nativeAppId = appId, allowJsonRequire = true } = {}) {
   const counts = {};
   const uiCalls = [];
   const native = {};
   for (const name of dangerous) native[name] = () => { counts[name] = (counts[name] ?? 0) + 1; throw new Error('ORIGINAL MUST NEVER RUN: ' + name); };
   native.cloud = new Proxy({}, { get() { counts.cloud = (counts.cloud ?? 0) + 1; throw new Error('ORIGINAL CLOUD'); } });
   native.getSystemInfoSync = () => ({ platform: 'devtools' });
-  native.getAccountInfoSync = () => ({ miniProgram: { appId: 'touristappid', envVersion: 'develop' } });
+  native.getAccountInfoSync = () => ({ miniProgram: { appId: nativeAppId, envVersion: 'develop' } });
   for (const name of uiNames) native[name] = options => { uiCalls.push({ name, options }); if (name === 'showModal') options.success?.({ confirm: true, cancel: false }); if (name === 'showActionSheet') options.success?.({ tapIndex: 0 }); };
   mutateNative?.(native);
   let app;
@@ -47,7 +47,10 @@ function harness({ project, mutateNative, mockOverride } = {}) {
     if (!/\.(js|cjs|json)$/.test(filename)) filename += '.js';
     if (cache.has(filename)) return cache.get(filename).exports;
     const module = { exports: {} }; cache.set(filename, module);
-    if (filename.endsWith('.json')) { module.exports = JSON.parse(readFileSync(filename, 'utf8')); return module.exports; }
+    if (filename.endsWith('.json')) {
+      if (!allowJsonRequire) throw new Error('QA simulator runtime cannot require JSON modules');
+      module.exports = JSON.parse(readFileSync(filename, 'utf8')); return module.exports;
+    }
     let source;
     const normalizedFilename = filename.replaceAll('\\', '/');
     if (normalizedFilename.endsWith('/qa/fixture-runtime.js')) source = runtimeText;
@@ -62,7 +65,7 @@ function harness({ project, mutateNative, mockOverride } = {}) {
   }
   const standalone = '/virtual/project/qa/fixture-runtime.js';
   const runtime = project ? null : load(standalone);
-  const config = { buildMark: 'MEDICINE_QA_ONLY', appId: 'touristappid', runId: 'self-test', sourceSha: DEFAULT_SOURCE_SHA,
+  const config = { buildMark: 'MEDICINE_QA_ONLY', appId, runId: 'self-test', sourceSha: DEFAULT_SOURCE_SHA,
     pages: ['pages/login/login', 'pages/index/index', 'pages/medicine-edit/medicine-edit'], wxInventory: [], fsInventory: [] };
   return {
     native, counts, uiCalls, load, cache, config, runtime,
@@ -274,6 +277,45 @@ test('app cannot evaluate a product module before bootstrap or on release/real-d
     const gated = harness({ project: generated.projectRoot, mutateNative });
     assert.throws(() => gated.load(join(generated.projectRoot, 'app.js')), /QA requires/); assert.equal(gated.productLoads, 0); assertNoOriginals(gated);
   }
+});
+
+test('simulator identity must match the generated QA configuration', () => {
+  const appId = 'wx1f6dd99d28aab8e5';
+  const accepted = harness({ appId });
+  accepted.install();
+  assertNoOriginals(accepted);
+
+  const rejected = harness({ appId, nativeAppId: 'wx0000000000000000' });
+  assert.throws(() => rejected.install(), /QA requires matching simulator AppID/);
+  assertNoOriginals(rejected);
+});
+
+test('generator can use an approved simulator AppID without making the QA project releasable', async () => {
+  const appId = 'wx1f6dd99d28aab8e5';
+  const output = join(temp, 'simulator-appid');
+  const result = await prepareQa({
+    root,
+    output,
+    runId: 'simulator-appid',
+    simulatorAppId: appId,
+  });
+  const project = JSON.parse(await readFile(join(result.projectRoot, 'project.config.json'), 'utf8'));
+  const config = JSON.parse(await readFile(join(result.projectRoot, 'qa', 'config.json'), 'utf8'));
+  assert.equal(project.appid, appId);
+  assert.match(project.projectname, /^QA-ONLY-SYNTHETIC-/);
+  assert.equal(config.appId, appId);
+
+  const gate = await checkMiniProgramPackage(result.projectRoot);
+  assert.equal(gate.ok, false);
+  assert.ok(gate.errors.some(error => error.includes('QA-only build')));
+
+  const appSource = await readFile(join(result.projectRoot, 'app.js'), 'utf8');
+  assert.match(appSource, /require\("\.\/qa\/config\.js"\)/);
+  assert.doesNotMatch(appSource, /qa\/config\.json/);
+
+  const accepted = harness({ project: result.projectRoot, appId, allowJsonRequire: false });
+  accepted.load(join(result.projectRoot, 'app.js'));
+  assertNoOriginals(accepted);
 });
 
 test('real generated login and medicine-entry page run against synthetic adapters; reentry shares only the current Map', async () => {

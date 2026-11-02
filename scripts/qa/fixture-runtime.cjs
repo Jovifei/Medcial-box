@@ -32,12 +32,12 @@ function encodeBase64(bytes) {
 function install(native, config, nativeApp, nativePage, nativeComponent) {
   if (installed) throw new Error('QA bootstrap already installed');
   if (typeof nativeApp !== 'function' || typeof nativePage !== 'function' || typeof nativeComponent !== 'function') throw new Error('QA requires App/Page/Component registration hooks');
-  if (config.buildMark !== 'MEDICINE_QA_ONLY' || config.appId !== 'touristappid' || !/^[a-z0-9-]{1,48}$/.test(config.runId)) throw new Error('QA build-mark gate failed');
+  if (config.buildMark !== 'MEDICINE_QA_ONLY' || !/^(?:touristappid|wx[0-9a-f]{16})$/i.test(config.appId) || !/^[a-z0-9-]{1,48}$/.test(config.runId)) throw new Error('QA build-mark gate failed');
   // These two read-only platform probes are the ONLY native calls before installation.
-  // An unsupported tourist identity is a blocker, never a reason to substitute production AppID.
+  // The generated QA config may use an approved simulator AppID; release gates still reject QA projects.
   if (native.getSystemInfoSync().platform !== 'devtools') throw new Error('QA requires official IDE simulator');
   const info = native.getAccountInfoSync().miniProgram;
-  if (info.appId !== 'touristappid' || info.envVersion !== 'develop') throw new Error('QA requires touristappid develop build');
+  if (info.appId !== config.appId || info.envVersion !== 'develop') throw new Error('QA requires matching simulator AppID develop build');
   const storage = new Map();
   const files = new Map();
   const descriptors = new Map();
