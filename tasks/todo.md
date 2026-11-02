@@ -1,5 +1,15 @@
 # 当前任务：微信小程序参数与交互审核修复（2026-11-02）
 
+## 2026-11-03 体验版发布与主线合并（已完成）
+
+- [x] 微信开发者工具扫码登录完成，登录态已有效（`loginExpired=false`，用户 Jovi）。
+- [x] QA 模拟器渲染修复通过全套测试并中文提交：`53048f2 修复QA工程模拟器配置模块与AppID身份校验`。
+- [x] 推送分支并触发 PR #11 CI（run 41468901370，四项 verify / backup-docker / flutter / candidate-delivery 全绿）。
+- [x] 分支合入 `main`：合并提交 `cd62a62`，已推送 `origin/main`；PR #11 在 GitHub 标记已合并。
+- [x] 官方编译与包门禁：从 `cd62a62` 生成独立 HTTPS 候选包，`check-miniprogram-package` release 模式通过；官方 `wcc`（29 WXML）和 `wcsc`（30 WXSS）编译通过。
+- [x] 微信体验版上传成功：版本 `1.1.3`，包大小 648,321 字节；自动预览推送成功；本地预览码存 `E:\Claude_allow\Download\medcial_box\preview-1.1.3-cd62a62.png`。
+- [ ] 正式上线审核：需 Jovi 在 mp.weixin.qq.com 后台将该开发版本设为体验版，并按需提交平台审核。
+
 ## 2026-11-02 QA 模拟器渲染修复（PR #11 收尾）
 
 - [x] 官方模拟器实测确认 QA 工程硬编码 `touristappid` 触发 `APPID_ERROR`；真实渲染又暴露 `app.js` 直接 `require('./qa/config.json')`，微信运行时拒绝 JSON 模块导致首页空白。
