@@ -45,6 +45,9 @@ export async function buildApiCandidate({root, sha, tag, apiOrigin, output, dock
   const origin = new URL(apiOrigin);
   if (origin.protocol !== 'https:' || origin.origin !== apiOrigin || origin.username || origin.password) throw new Error('An exact HTTPS API origin is required');
   const source = await sourceIdentity(root, sha);
+  const versionFile = JSON.parse((await command('git', ['show', `${sha}:VERSION.json`], {cwd: root})).stdout);
+  if (typeof versionFile?.version !== 'string' || !versionFile.version) throw new Error('VERSION.json at source commit has no version');
+  const appVersion = versionFile.version;
   const temporary = await mkdtemp(join(tmpdir(), 'medbox-api-build-'));
   try {
     const config = join(temporary, 'docker-config');
@@ -59,7 +62,7 @@ export async function buildApiCandidate({root, sha, tag, apiOrigin, output, dock
     await command('git', ['archive', '--format=tar', `--output=${join(temporary, 'source.tar')}`, sha], {cwd: root});
     await command('tar', ['-xf', join(temporary, 'source.tar'), '-C', context]);
     await docker(['build', '--tag', tag, '--file', join(context, 'apps/api/Dockerfile'),
-      '--build-arg', `MEDBOX_SOURCE_SHA=${source.sourceSha}`, '--build-arg', `MEDBOX_SOURCE_TREE=${source.sourceTree}`,
+      '--build-arg', `MEDBOX_SOURCE_SHA=${source.sourceSha}`, '--build-arg', `MEDBOX_VERSION=${appVersion}`, '--build-arg', `MEDBOX_SOURCE_TREE=${source.sourceTree}`,
       '--build-arg', `MEDBOX_API_TREE=${source.apiTree}`, context]);
     const inspected = JSON.parse((await docker(['image', 'inspect', '--format', '{{json .}}', tag])).stdout);
     if (!/^sha256:[a-f0-9]{64}$/.test(inspected.Id ?? '')) throw new Error('Invalid built image identity');
