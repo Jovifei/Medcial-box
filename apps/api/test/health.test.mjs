@@ -53,6 +53,48 @@ test("readiness confirms a successful database query", async () => {
   }
 });
 
+test("health reports the stamped build identity when the image provides it", async () => {
+  const previous = { version: process.env.MEDBOX_VERSION, sha: process.env.MEDBOX_SOURCE_SHA };
+  process.env.MEDBOX_VERSION = "1.1.3";
+  process.env.MEDBOX_SOURCE_SHA = "a80e6aa000000000000000000000000000000000";
+  const app = await buildServer({ database: { query: async () => undefined }, logger: false });
+
+  try {
+    const live = await app.inject({ method: "GET", url: "/api/v1/health/live" });
+    assert.equal(live.statusCode, 200);
+    assert.deepEqual(live.json(), { status: "ok", version: "1.1.3", build: "a80e6aa000000000000000000000000000000000" });
+    const ready = await app.inject({ method: "GET", url: "/api/v1/health/ready" });
+    assert.equal(ready.statusCode, 200);
+    assert.deepEqual(ready.json(), {
+      status: "ok",
+      database: "connected",
+      version: "1.1.3",
+      build: "a80e6aa000000000000000000000000000000000",
+    });
+  } finally {
+    await app.close();
+    if (previous.version === undefined) delete process.env.MEDBOX_VERSION; else process.env.MEDBOX_VERSION = previous.version;
+    if (previous.sha === undefined) delete process.env.MEDBOX_SOURCE_SHA; else process.env.MEDBOX_SOURCE_SHA = previous.sha;
+  }
+});
+
+test("blank build identity values are treated as absent", async () => {
+  const previous = { version: process.env.MEDBOX_VERSION, sha: process.env.MEDBOX_SOURCE_SHA };
+  process.env.MEDBOX_VERSION = "  ";
+  process.env.MEDBOX_SOURCE_SHA = "";
+  const app = await buildServer({ database: { query: async () => undefined }, logger: false });
+
+  try {
+    const ready = await app.inject({ method: "GET", url: "/api/v1/health/ready" });
+    assert.equal(ready.statusCode, 200);
+    assert.deepEqual(ready.json(), { status: "ok", database: "connected" });
+  } finally {
+    await app.close();
+    if (previous.version === undefined) delete process.env.MEDBOX_VERSION; else process.env.MEDBOX_VERSION = previous.version;
+    if (previous.sha === undefined) delete process.env.MEDBOX_SOURCE_SHA; else process.env.MEDBOX_SOURCE_SHA = previous.sha;
+  }
+});
+
 test("readiness fails closed without exposing database errors", async () => {
   const app = await buildServer({
     database: { query: async () => Promise.reject(new Error("synthetic connection failure")) },

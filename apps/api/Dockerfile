@@ -17,11 +17,16 @@ FROM node:22-alpine AS runtime
 ARG MEDBOX_SOURCE_SHA
 ARG MEDBOX_SOURCE_TREE
 ARG MEDBOX_API_TREE
+ARG MEDBOX_VERSION
 LABEL org.opencontainers.image.source="https://github.com/Jovifei/Medcial-box" \
       org.opencontainers.image.revision=$MEDBOX_SOURCE_SHA \
       io.medbox.source-tree=$MEDBOX_SOURCE_TREE \
       io.medbox.api-tree=$MEDBOX_API_TREE
 ENV NODE_ENV=production
+# Surface the stamped source identity to the API process so the health
+# endpoints can report exactly which build is running (see routes/health.ts).
+ENV MEDBOX_SOURCE_SHA=$MEDBOX_SOURCE_SHA
+ENV MEDBOX_VERSION=$MEDBOX_VERSION
 WORKDIR /app
 
 COPY package.json package-lock.json ./

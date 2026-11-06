@@ -12,6 +12,7 @@ test('candidate build uses exact Git bytes despite a dirty checkout and binds so
     const sql = 'SELECT 1;\n';
     await writeFile(join(root, 'apps/api/db/migrations/001_synthetic.sql'), sql);
     await writeFile(join(root, 'apps/api/Dockerfile'), '# Synthetic build adapter\n');
+    await writeFile(join(root, 'VERSION.json'), '{"version":"9.9.9-test"}\n');
     const git = args => command('git', args, {cwd: root});
     await git(['init', '--quiet']);
     // Keep fixture bytes independent of the host's global core.autocrlf setting.
@@ -31,6 +32,7 @@ test('candidate build uses exact Git bytes despite a dirty checkout and binds so
           const name = key === 'API_TREE' ? 'MEDBOX_API_TREE' : `MEDBOX_SOURCE_${key}`;
           assert(args.includes(`${name}=${value}`));
         }
+        assert(args.includes('MEDBOX_VERSION=9.9.9-test'));
       }
       return {stdout: args.includes('inspect') ? JSON.stringify({Id: imageId, Config: {Labels: sourceLabels(source)}}) : ''};
     };

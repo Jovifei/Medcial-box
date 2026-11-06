@@ -101,6 +101,10 @@ export interface ApiError {
 export interface HealthStatus {
   status: "ok" | "unavailable";
   database?: "connected" | "disconnected";
+  /** App version of the running build (VERSION.json at build time); absent when the build did not stamp it. */
+  version?: string;
+  /** Exact source commit of the running build; absent when the build did not stamp it. */
+  build?: string;
 }
 
 /** Photo recognition is a draft only; the user must check it before saving. */
