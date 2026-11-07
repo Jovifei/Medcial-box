@@ -92,7 +92,7 @@ Future<ApiMedicineRepository> openEntry(
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: appTheme,
+        theme: appTheme(),
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Builder(

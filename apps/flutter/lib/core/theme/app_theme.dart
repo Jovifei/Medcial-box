@@ -1,101 +1,99 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'app_colors.dart';
+import 'app_typography.dart';
+
+/// 旧品牌色（Material 过渡期仍在部分屏幕使用；新屏幕一律用 AppSemanticColors）。
+/// 新增屏幕禁止引用这里除 [AppColors.leaf]（= accent）以外的成员。
 abstract final class AppColors {
-  static const paper = Color(0xFFF7FAF8);
-  static const ink = Color(0xFF17382C);
-  static const muted = Color(0xFF536A60);
+  @Deprecated('Use AppSemanticColors.accent instead')
   static const leaf = Color(0xFF087F5B);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
+  static const ink = Color(0xFF17382C);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
+  static const muted = Color(0xFF536A60);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
   static const leafDeep = Color(0xFF075E45);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
   static const mist = Color(0xFFEAF3EE);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
   static const line = Color(0xFFDCE7E0);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
   static const terracotta = Color(0xFFB42318);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
   static const amber = Color(0xFFB45309);
+  @Deprecated('Use AppSemanticColors.of(...) instead')
+  static const paper = Color(0xFFF7FAF8);
 }
 
-ThemeData get appTheme {
-  final scheme =
-      ColorScheme.fromSeed(
-        seedColor: AppColors.leaf,
-        brightness: Brightness.light,
-      ).copyWith(
-        primary: AppColors.leaf,
-        onPrimary: Colors.white,
-        surface: Colors.white,
-        onSurface: AppColors.ink,
-        error: AppColors.terracotta,
-      );
+/// 过渡期 Material 主题：字号走 HIG 阶梯、色走语义 token、无波纹。
+/// Stage C 逐屏 Cupertino 化完成后，壳切换为 CupertinoApp，本主题仅服务存留 Material 组件。
+ThemeData appTheme({Brightness brightness = Brightness.light}) {
+  final c = AppSemanticColors.of(brightness);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: c.accent,
+    brightness: brightness,
+  ).copyWith(
+    primary: c.accent,
+    onPrimary: c.background,
+    surface: c.background,
+    onSurface: c.label,
+    error: c.danger,
+  );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.paper,
+    scaffoldBackgroundColor: c.background,
     fontFamily: 'sans',
-    textTheme: const TextTheme(
-      headlineLarge: TextStyle(
-        fontSize: 37,
-        height: 1.16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.ink,
-      ),
-      headlineMedium: TextStyle(
-        fontSize: 28,
-        height: 1.2,
-        fontWeight: FontWeight.w700,
-        color: AppColors.ink,
-      ),
-      titleLarge: TextStyle(
-        fontSize: 22,
-        height: 1.25,
-        fontWeight: FontWeight.w700,
-        color: AppColors.ink,
-      ),
-      titleMedium: TextStyle(
-        fontSize: 18,
-        height: 1.3,
-        fontWeight: FontWeight.w700,
-        color: AppColors.ink,
-      ),
-      bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: AppColors.ink),
-      bodyMedium: TextStyle(fontSize: 16, height: 1.45, color: AppColors.muted),
-      bodySmall: TextStyle(fontSize: 14, height: 1.45, color: AppColors.muted),
-      labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-      labelMedium: TextStyle(
-        fontSize: 13,
-        height: 1.35,
-        fontWeight: FontWeight.w700,
-        color: AppColors.muted,
-      ),
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.paper,
-      foregroundColor: AppColors.ink,
+    splashFactory: NoSplash.splashFactory,
+    textTheme: AppType.materialTextTheme(c.label, c.secondaryLabel),
+    appBarTheme: AppBarTheme(
+      backgroundColor: c.background,
+      foregroundColor: c.label,
       elevation: 0,
       centerTitle: false,
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      fillColor: c.secondaryBackground,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        borderSide: BorderSide(color: AppColors.line),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: c.separator),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        borderSide: BorderSide(color: AppColors.line),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: c.separator),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        borderSide: BorderSide(color: AppColors.leaf, width: 1.5),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: c.accent, width: 1.5),
       ),
     ),
-    cardTheme: const CardThemeData(
-      color: Colors.white,
+    cardTheme: CardThemeData(
+      color: c.secondaryBackground,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(22)),
-        side: BorderSide(color: AppColors.line),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: c.separator),
       ),
     ),
+  );
+}
+
+/// Cupertino 主题（目标态）：浅色/深色各一套，颜色与阶梯全部来自 DESIGN.md 约束。
+CupertinoThemeData cupertinoTheme({Brightness brightness = Brightness.light}) {
+  final c = AppSemanticColors.of(brightness);
+  final isDark = brightness == Brightness.dark;
+  return CupertinoThemeData(
+    brightness: brightness,
+    primaryColor: c.accent,
+    scaffoldBackgroundColor: c.background,
+    barBackgroundColor: isDark
+        ? const Color(0xF0161616)
+        : const Color(0xF0F9F9F9), // 导航层半透明+模糊=允许的玻璃位置
+    textTheme: AppType.cupertinoTextTheme(c.label, c.secondaryLabel),
   );
 }

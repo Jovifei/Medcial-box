@@ -93,7 +93,7 @@ Future<_EntryFixture> _openEntry(
       key: _captureKey,
       child: MaterialApp(
         navigatorKey: navigator,
-        theme: appTheme,
+        theme: appTheme(),
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(

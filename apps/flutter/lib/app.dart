@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
-import 'core/motion/app_motion.dart';
 import 'core/theme/app_theme.dart';
 import 'data/api_auth_repository.dart';
 import 'data/app_services.dart';
@@ -304,31 +304,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     pageBuilder: (context, state) => _transitionPage(state, child),
   );
 
-  CustomTransitionPage<void> _transitionPage(
-    GoRouterState state,
-    Widget child,
-  ) => CustomTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: AppMotion.route,
-    reverseTransitionDuration: AppMotion.route,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(.035, 0),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
+  /// 系统标准转场（iOS 右滑入/左滑出），不自造飞行动画——见 DESIGN.md 动效条款。
+  CupertinoPage<void> _transitionPage(GoRouterState state, Widget child) =>
+      CupertinoPage<void>(key: state.pageKey, child: child);
 
   @override
   Widget build(BuildContext context) => FutureBuilder<AppServices>(
@@ -336,24 +314,29 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
     builder: (context, snapshot) {
       if (snapshot.hasError) {
         return MaterialApp(
-          theme: appTheme,
+          theme: appTheme(),
           locale: _appLocale,
           supportedLocales: const [_appLocale],
           localizationsDelegates: _appLocalizationsDelegates,
-          home: const Scaffold(
-            body: Center(child: Text('应用初始化失败，请重启后重试；若持续出现，请联系维护者。')),
+          home: const CupertinoPageScaffold(
+            child: Center(
+              child: Text(
+                '应用初始化失败，请重启后重试；若持续出现，请联系维护者。',
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         );
       }
       if (!snapshot.hasData) {
         return MaterialApp(
           title: 'JF小药箱',
-          theme: appTheme,
+          theme: appTheme(),
           locale: _appLocale,
           supportedLocales: const [_appLocale],
           localizationsDelegates: _appLocalizationsDelegates,
-          home: const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          home: const CupertinoPageScaffold(
+            child: Center(child: CupertinoActivityIndicator(radius: 14)),
           ),
         );
       }
@@ -361,17 +344,26 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
       return MaterialApp.router(
         title: 'JF小药箱',
         debugShowCheckedModeBanner: false,
-        theme: appTheme,
+        theme: appTheme(),
         locale: _appLocale,
         supportedLocales: const [_appLocale],
         localizationsDelegates: _appLocalizationsDelegates,
-        builder: (context, child) => localAppTrialFromBuild
-            ? Banner(
-                message: '本机试用',
-                location: BannerLocation.topEnd,
-                child: child!,
-              )
-            : child!,
+        builder: (context, child) {
+          // Cupertino 组件的语义色/阶梯主题在此注入；壳仍为 Material（过渡期），
+          // Stage C 逐屏 Cupertino 化完成后整体切换 CupertinoApp。
+          final brightness = View.of(context).platformDispatcher.platformBrightness;
+          final themed = CupertinoTheme(
+            data: cupertinoTheme(brightness: brightness),
+            child: child!,
+          );
+          return localAppTrialFromBuild
+              ? Banner(
+                  message: '本机试用',
+                  location: BannerLocation.topEnd,
+                  child: themed,
+                )
+              : themed;
+        },
         routerConfig: router!,
       );
     },
