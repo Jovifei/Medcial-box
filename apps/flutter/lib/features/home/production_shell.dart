@@ -503,7 +503,9 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   ),
                 ),
               Material(
-                color: Colors.white,
+                color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                  context,
+                ),
                 borderRadius: BorderRadius.circular(14),
                 elevation: 0,
                 child: TextField(
@@ -580,7 +582,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: AppColors.line),
+                        border: Border.all(color: CupertinoColors.separator.resolveFrom(context)),
                       ),
                       child: PopupMenuButton<String>(
                         tooltip: '排序',
@@ -671,10 +673,14 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   }
 
   Widget _filterEntry(String label, String panel) => Material(
-    color: filterPanel == panel ? AppColors.mist : Colors.white,
+    color: filterPanel == panel
+        ? CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.12)
+        : CupertinoColors.secondarySystemBackground.resolveFrom(context),
     shape: StadiumBorder(
       side: BorderSide(
-        color: filterPanel == panel ? AppColors.leaf : AppColors.line,
+        color: filterPanel == panel
+            ? CupertinoTheme.of(context).primaryColor
+            : CupertinoColors.separator.resolveFrom(context),
       ),
     ),
     child: InkWell(

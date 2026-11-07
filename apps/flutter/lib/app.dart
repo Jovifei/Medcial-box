@@ -358,6 +358,8 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         title: 'JF小药箱',
         debugShowCheckedModeBanner: false,
         theme: appTheme(),
+        darkTheme: appTheme(brightness: Brightness.dark),
+        themeMode: ThemeMode.system,
         locale: _appLocale,
         supportedLocales: const [_appLocale],
         localizationsDelegates: _appLocalizationsDelegates,
