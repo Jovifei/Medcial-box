@@ -389,7 +389,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   Widget _buildPage(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('说明书照片')),
     body: AppPage(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 18, 24),
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -402,7 +402,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
                 children: [
                   Text(
                     '只保存你确认的照片',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -501,7 +501,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
             else ...[
               Text(
                 '已保存照片 · ${photos.length}',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
               ...photos.map(

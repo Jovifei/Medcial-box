@@ -124,7 +124,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                   children: [
                     Text(
                       '找不到这项药品',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 12),
                     SoftButton(label: '返回药箱', onPressed: () => context.pop()),
@@ -135,7 +135,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
           }
           final medicine = snapshot.data!;
           return AppPage(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            padding: const EdgeInsets.fromLTRB(16, 12, 20, 28),
             child: ListView(
               children: [
                 Hero(
@@ -159,7 +159,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                           const SizedBox(height: 18),
                           Text(
                             medicine.purpose,
-                            style: Theme.of(context).textTheme.titleMedium
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(color: AppColors.leafDeep),
                           ),
                         ],
@@ -174,7 +174,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                     children: [
                       Text(
                         '批次与有效期',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 14),
                       if (medicine.batches.isEmpty)
@@ -193,7 +193,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                     children: [
                       Text(
                         '说明书状态',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -218,7 +218,7 @@ class _MedicineDetailPageState extends State<MedicineDetailPage> {
                         children: [
                           Text(
                             '个人备注',
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                           TextButton(
                             onPressed: () => _editNote(medicine),
@@ -382,7 +382,7 @@ class _BatchRow extends StatelessWidget {
             children: [
               Text(
                 '批次 ${batch.lotNumber ?? '未记录'}',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 4),
               Text(

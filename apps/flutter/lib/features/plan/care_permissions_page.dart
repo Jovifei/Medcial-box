@@ -271,7 +271,7 @@ class _CarePermissionsPageState extends State<CarePermissionsPage> {
             contentPadding: EdgeInsets.zero,
             title: Text(
               grant.displayName,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleSmall,
             ),
             subtitle: Text(grant.levelLabel),
             value: grant.canManage,

@@ -164,7 +164,7 @@ class _CareProfilesPageState extends State<CareProfilesPage> {
         ),
         title: Text(
           profile.displayName,
-          style: Theme.of(context).textTheme.titleMedium,
+          style: Theme.of(context).textTheme.titleSmall,
         ),
         subtitle: Text(
           profile.isSelf

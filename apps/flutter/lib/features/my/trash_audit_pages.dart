@@ -58,7 +58,7 @@ class _TrashPageState extends State<TrashPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item['name'] as String? ?? '库存记录', style: Theme.of(context).textTheme.titleMedium),
+                    Text(item['name'] as String? ?? '库存记录', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 5),
                     Text('类型：${item['type'] ?? '药品'} · 删除于：${_date(item['deletedAt'] as String?)}'),
                     Text('回收站保留至：${_date(item['expiresAt'] as String?)}'),
@@ -101,7 +101,7 @@ class _AuditPageState extends State<AuditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(event['summary'] as String? ?? event['action'] as String? ?? '更新了家庭库存', style: Theme.of(context).textTheme.titleMedium),
+                  Text(event['summary'] as String? ?? event['action'] as String? ?? '更新了家庭库存', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text('${event['actorDisplayName'] ?? event['actorName'] ?? '家庭成员'} · ${_date(event['createdAt'] as String?)}', style: const TextStyle(color: AppColors.muted)),
                   if (event['details'] != null) Text('${event['details']}'),

@@ -324,13 +324,13 @@ class _ExportApiPageState extends State<ExportApiPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('导出与备份')),
     body: ListView(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 18, 24),
       children: [
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('导出前确认', style: Theme.of(context).textTheme.titleMedium),
+              Text('导出前确认', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
@@ -403,7 +403,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
                   Expanded(
                     child: Text(
                       '${kind == ExportKind.pdf ? '清单内容' : '预览'} · ${_extension(kind).toUpperCase()}',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
                   IconButton(
@@ -470,7 +470,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
             children: [
               Text(
                 'JSON 备份与恢复',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 6),
               const Text(

@@ -504,7 +504,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                 ),
               Material(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
                 elevation: 0,
                 child: TextField(
                   controller: searchController,
@@ -686,11 +686,13 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   );
 
   Widget _filterPill(String label) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     child: Text(
       label,
-      style: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w600),
+      style: AppType.subhead.copyWith(
+        color: CupertinoColors.label.resolveFrom(context),
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 
@@ -895,7 +897,7 @@ class _EmptyCabinet extends StatelessWidget {
           color: AppColors.muted,
         ),
         const SizedBox(height: 10),
-        Text('还没有记录药品', style: Theme.of(context).textTheme.titleMedium),
+        Text('还没有记录药品', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 6),
         const Text('拍药盒识别，核对后保存；也可以只填药品名称。'),
       ],

@@ -86,7 +86,7 @@ class FamilyChoicePage extends StatelessWidget {
         title: const Text('选择家庭药箱'),
       ),
       body: AppPage(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+        padding: const EdgeInsets.fromLTRB(16, 14, 20, 28),
         child: ListView(
           children: [
             const Eyebrow('一步进入'),

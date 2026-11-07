@@ -3282,7 +3282,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ),
       const SizedBox(width: 12),
       Expanded(
-        child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        child: Text(title, style: Theme.of(context).textTheme.titleSmall),
       ),
     ],
   );
@@ -3294,11 +3294,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
   }) => Material(
     color: const Color(0xFFF7FAF8),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       side: const BorderSide(color: AppColors.line),
     ),
     child: InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -3307,7 +3307,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
             Expanded(
               child: Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
             const SizedBox(width: 8),
@@ -3370,7 +3370,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       // Reserve the arrow and its spacing as well as the widest unit, even
       // when a shorter unit is selected. Never shrink the user's text scale.
       final unitWidth =
-          (_labelWidth(unitLabels, theme.textTheme.titleMedium) + padding + 32)
+          (_labelWidth(unitLabels, theme.textTheme.titleSmall) + padding + 32)
               .clamp(112.0, double.infinity);
       final stacked = constraints.maxWidth < quantityWidth + 10 + unitWidth;
       return Wrap(
@@ -3460,7 +3460,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          minimum: const EdgeInsets.fromLTRB(16, 8, 20, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

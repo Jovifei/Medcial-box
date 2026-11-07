@@ -22,7 +22,7 @@ class WelcomePage extends StatelessWidget {
               height: 74,
               decoration: BoxDecoration(
                 color: AppColors.leaf,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
                 Icons.medication_liquid_rounded,

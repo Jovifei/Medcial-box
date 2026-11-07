@@ -210,7 +210,7 @@ class _StocktakePageState extends State<StocktakePage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('批次盘点')),
     bottomNavigationBar: SafeArea(
-      minimum: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+      minimum: const EdgeInsets.fromLTRB(16, 8, 18, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -262,7 +262,7 @@ class _StocktakePageState extends State<StocktakePage> {
                       children: [
                         Text(
                           '保存结果',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(height: 8),
                         ...results.map(
@@ -294,7 +294,7 @@ class _StocktakePageState extends State<StocktakePage> {
               Expanded(
                 child: Text(
                   line.medicine.name,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
               if (line.saved)

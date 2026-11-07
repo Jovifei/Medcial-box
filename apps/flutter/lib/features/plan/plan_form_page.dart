@@ -1000,7 +1000,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('服药星期', style: Theme.of(context).textTheme.titleMedium),
+        Text('服药星期', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: _locked ? null : _pickWeekdays,
@@ -1269,7 +1269,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('照护对象', style: Theme.of(context).textTheme.titleMedium),
+          Text('照护对象', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _baseLocked || widget.isEdit ? null : _pickProfile,
@@ -1331,7 +1331,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
             Expanded(
               child: Text(
                 '服药时间',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
             TextButton.icon(
@@ -1376,7 +1376,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
             onPressed: _locked ? null : () => _change(() => _endDate = null),
             child: const Text('清除结束日期，改为长期'),
           ),
-        Text('有效期', style: Theme.of(context).textTheme.titleMedium),
+        Text('有效期', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

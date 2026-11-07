@@ -486,7 +486,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
         return Stack(
           children: [
             AppPage(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+              padding: const EdgeInsets.fromLTRB(16, 10, 18, 30),
               child: ListView(
                 children: [
                   AppCard(
@@ -497,7 +497,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                             child: PrivateMedicineImage(
                               loader: imageLoader,
                               medicineId: medicine.id,
@@ -640,7 +640,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                           tilePadding: EdgeInsets.zero,
                           title: Text(
                             '说明书与资料来源',
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                           subtitle: Text(
                             _leafletStatus(medicine.leaflet.reviewStatus),
@@ -715,7 +715,7 @@ class _BatchCard extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: const Color(0xFFF7F9F6),
-      borderRadius: BorderRadius.circular(15),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: AppColors.line),
     ),
     child: Column(
@@ -726,7 +726,7 @@ class _BatchCard extends StatelessWidget {
             Expanded(
               child: Text(
                 '批次 ${batch.lotNumber ?? '未记录'}',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
             PopupMenuButton<String>(

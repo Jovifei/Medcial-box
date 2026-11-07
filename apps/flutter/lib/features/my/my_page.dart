@@ -474,7 +474,7 @@ class _MyPageState extends State<MyPage> {
             ),
             if (snapshot.hasError)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   friendlyApiError(snapshot.error!),
                   style: AppType.footnote
@@ -716,7 +716,7 @@ class _MyPageState extends State<MyPage> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 '个人剂量备注默认仅本人可见。主动分享家庭库存时请检查导出选项。',
                 style: AppType.footnote.copyWith(

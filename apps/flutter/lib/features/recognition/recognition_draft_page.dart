@@ -122,11 +122,11 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
       body: Stack(
         children: [
           AppPage(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            padding: const EdgeInsets.fromLTRB(16, 12, 20, 28),
             child: ListView(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(14),
                   child: Image.file(
                     File(widget.image.path),
                     height: 220,
@@ -153,7 +153,7 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
                       children: [
                         Text(
                           '识别失败，但不会影响手动录入。',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -174,7 +174,7 @@ class _RecognitionDraftPageState extends State<RecognitionDraftPage> {
                         children: [
                           Text(
                             '请核对以下提示',
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                           const SizedBox(height: 8),
                           ...draft!.warnings.map(

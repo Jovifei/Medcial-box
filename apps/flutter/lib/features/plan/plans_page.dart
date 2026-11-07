@@ -319,7 +319,7 @@ class _PlansPageState extends State<PlansPage> {
                 Expanded(
                   child: Text(
                     entry.medicineName,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
                 StatusPill(
@@ -391,7 +391,7 @@ class _PlansPageState extends State<PlansPage> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(
                     plan.medicineName,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   subtitle: Text(
                     '${plan.careProfileName} · ${plan.scheduleLabel}',

@@ -203,7 +203,7 @@ class _HomePageState extends State<HomePage> {
       body: AnimatedBuilder(
         animation: widget.repository,
         builder: (context, child) => AppPage(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          padding: const EdgeInsets.fromLTRB(16, 8, 20, 100),
           child: ListView(
             children: [
               Text(
@@ -278,7 +278,7 @@ class _StatusSummary extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('库存状态', style: Theme.of(context).textTheme.titleMedium),
+                Text('库存状态', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 4),
                 Text(
                   '每个批次独立记录有效期',
@@ -351,7 +351,7 @@ class _MedicineCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () => context.push('/demo/medicine/${medicine.id}'),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(14),
               child: AppCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -363,7 +363,7 @@ class _MedicineCard extends StatelessWidget {
                         children: [
                           Text(
                             medicine.name,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -441,7 +441,7 @@ class _EmptyState extends StatelessWidget {
           color: AppColors.muted,
         ),
         const SizedBox(height: 12),
-        Text('没有匹配的药品', style: Theme.of(context).textTheme.titleMedium),
+        Text('没有匹配的药品', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 6),
         Text('可以换个关键词，或先录入一种药。', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 16),

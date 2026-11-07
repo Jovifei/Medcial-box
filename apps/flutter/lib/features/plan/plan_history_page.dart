@@ -387,7 +387,7 @@ class _PlanHistoryPageState extends State<PlanHistoryPage> {
                 Expanded(
                   child: Text(
                     '${record.date} ${record.time}',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
                 Text(

@@ -149,7 +149,7 @@ class _PendingPageState extends State<PendingPage> {
       builder: (context, _) => RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+          padding: const EdgeInsets.fromLTRB(16, 6, 18, 24),
           children: [
             if (failure != null) ...[
               const SizedBox(height: 10),
@@ -282,7 +282,7 @@ class _PendingItems extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('需关注的事项', style: Theme.of(context).textTheme.titleMedium),
+        Text('需关注的事项', style: Theme.of(context).textTheme.titleSmall),
         if (items.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),

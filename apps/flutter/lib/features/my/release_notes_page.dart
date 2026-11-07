@@ -90,7 +90,7 @@ class ReleaseNotesPage extends StatelessWidget {
               children: [
                 Text(
                   '当前版本 $appVersion',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -112,7 +112,7 @@ class ReleaseNotesPage extends StatelessWidget {
                         Expanded(
                           child: Text(
                             note.version,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                         ),
                         if (note.version == appVersion)

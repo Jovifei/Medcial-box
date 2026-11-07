@@ -59,15 +59,15 @@ ThemeData appTheme({Brightness brightness = Brightness.light}) {
       fillColor: c.secondaryBackground,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: OutlineInputBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
         borderSide: BorderSide(color: c.separator),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
         borderSide: BorderSide(color: c.separator),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
         borderSide: BorderSide(color: c.accent, width: 1.5),
       ),
     ),
@@ -76,7 +76,7 @@ ThemeData appTheme({Brightness brightness = Brightness.light}) {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
         side: BorderSide(color: c.separator),
       ),
     ),

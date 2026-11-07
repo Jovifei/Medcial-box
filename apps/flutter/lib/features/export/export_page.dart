@@ -73,7 +73,7 @@ ${includeArchived ? '\n## 已归档记录\n\n${archived.isEmpty ? '（暂无归�
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('导出前确认', style: Theme.of(context).textTheme.titleMedium),
+                  Text('导出前确认', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 12),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,

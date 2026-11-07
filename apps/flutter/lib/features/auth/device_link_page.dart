@@ -309,7 +309,7 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                   children: [
                     Text(
                       '一次性连接码',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 16),
                     Center(
@@ -319,7 +319,7 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                               link?.code ?? '------',
                               key: const ValueKey('device-link-code'),
                               style: const TextStyle(
-                                fontSize: 38,
+                                fontSize: 34,
                                 letterSpacing: 8,
                                 fontWeight: FontWeight.w800,
                               ),
