@@ -25,7 +25,7 @@
 
 单平台的现行文档与归档随其端目录存放；双端混合的历史回执统一留在 `docs/operations/archive/`，不按端拆分。
 
-- [当前状态](../tasks/status.md)与[最新交付回执](operations/66-RECEIPT-主线更新与API版本巡检上线-20261107.md)：最新入口；旧日期报告已移入 operations/archive/，仅作历史依据。
+- [当前状态](../tasks/status.md)与[最新交付回执](operations/67-RECEIPT-文档划分与多端目录建立-20261107.md)：最新入口；旧日期报告已移入 operations/archive/，仅作历史依据。
 - [项目 README](../README.md)：模块、当前门槛和常用开发命令。
 - [产品需求](product/requirements.md)：首版用户目标和健康信息边界。
 - [技术架构与运行边界](architecture/overview.md)：微信小程序、Flutter、API、数据库和重试/提醒/导出责任。
