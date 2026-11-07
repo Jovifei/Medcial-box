@@ -171,6 +171,9 @@ const reviewedSourceTrees = new Set([
   // 与 project.config.json packOptions.ignore 增加 docs 文件夹（文档不进编译上传包）；
   // 生产 TS/WXML/WXSS/JSON 零改动，wx/fs/网络/组件能力不变。
   'ea29a6acd7d4732d3353ee048b562e039db7ffb7',
+  // 2026-11-07 版本 1.2.0：相对 ea29a6a 树仅 services/app-update.ts 版本号与版本说明条目（+6/-1，
+  // 纯元数据），无运行时逻辑变化；生产 TS/WXML/WXSS/JSON 能力清单不变。
+  '1665ebb7cd368d0c368379a203601ceda12d1d1e',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
