@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
 import '../../data/dose_confirmation_operations.dart';
@@ -325,8 +326,8 @@ class _PlanHistoryPageState extends State<PlanHistoryPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('服药历史'),
+    appBar: appleAppBar(
+      '服药历史',
       actions: [
         IconButton(
           tooltip: '刷新历史',

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../models/medicine_models.dart';
@@ -387,7 +388,7 @@ class _LeafletPhotoPageState extends State<LeafletPhotoPage> {
   );
 
   Widget _buildPage(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('说明书照片')),
+    appBar: appleAppBar('说明书照片'),
     body: AppPage(
       padding: const EdgeInsets.fromLTRB(16, 8, 18, 24),
       child: RefreshIndicator(

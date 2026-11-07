@@ -36,7 +36,15 @@ abstract final class AppType {
   static CupertinoTextThemeData cupertinoTextTheme(Color label, Color secondaryLabel) =>
       CupertinoTextThemeData(
         textStyle: body.copyWith(color: label),
-        navTitleTextStyle: headline.copyWith(color: label),
+        // inherit:false + 显式字段：与 Cupertino 默认一致，页面切换插值不再抛断言。
+        navTitleTextStyle: TextStyle(
+          inherit: false,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+          letterSpacing: -0.4,
+          color: label,
+        ),
         navLargeTitleTextStyle: largeTitle.copyWith(color: label),
         primaryColor: label,
         actionTextStyle: body.copyWith(color: label),

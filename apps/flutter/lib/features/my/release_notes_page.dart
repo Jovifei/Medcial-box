@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
 const String appVersion = '1.2.0';
@@ -79,7 +80,7 @@ class ReleaseNotesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('版本与更新')),
+    appBar: appleAppBar('版本与更新'),
     body: AppPage(
       child: ListView(
         children: [

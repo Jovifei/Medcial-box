@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
 import '../../models/plan_models.dart';
@@ -91,7 +92,7 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('计划详情')),
+    appBar: appleAppBar('计划详情'),
     body: FutureBuilder<void>(
       future: _load,
       builder: (context, snapshot) {

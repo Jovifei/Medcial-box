@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../data/app_services.dart';
 
@@ -138,11 +139,11 @@ class _PendingPageState extends State<PendingPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+    appBar: appleAppBar(
+      widget.restockOnly ? '补货清单' : '待处理事项',
       leading: widget.onBack == null
           ? null
           : BackButton(onPressed: widget.onBack),
-      title: Text(widget.restockOnly ? '补货清单' : '待处理事项'),
     ),
     body: AnimatedBuilder(
       animation: widget.services.medicines!,

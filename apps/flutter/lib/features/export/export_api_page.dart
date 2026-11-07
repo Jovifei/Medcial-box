@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
@@ -322,7 +323,7 @@ class _ExportApiPageState extends State<ExportApiPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('导出与备份')),
+    appBar: appleAppBar('导出与备份'),
     body: ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 18, 24),
       children: [

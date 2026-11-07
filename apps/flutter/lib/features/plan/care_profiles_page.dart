@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_auth_repository.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
@@ -107,7 +108,7 @@ class _CareProfilesPageState extends State<CareProfilesPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('照护对象与权限')),
+    appBar: appleAppBar('照护对象与权限'),
     body: FutureBuilder<void>(
       future: _load,
       builder: (context, snapshot) {

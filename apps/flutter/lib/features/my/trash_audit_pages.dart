@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../data/api_medicine_repository.dart';
@@ -42,7 +43,7 @@ class _TrashPageState extends State<TrashPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('回收站')),
+    appBar: appleAppBar('回收站'),
     body: AppPage(
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: items,
@@ -87,7 +88,7 @@ class _AuditPageState extends State<AuditPage> {
   late Future<List<Map<String, dynamic>>> events = widget.workflow.listAuditEvents();
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('家庭变更记录')),
+    appBar: appleAppBar('家庭变更记录'),
     body: AppPage(
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: events,
