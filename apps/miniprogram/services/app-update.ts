@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.1.3";
+export const APP_VERSION = "1.2.0";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.2.0",
+    date: "2026-11-07",
+    items: ["安卓 App 界面改版为苹果风格，新增家庭设置与提醒通知设置页。", "家庭设置支持调整盘点频率、成员转让与移出、离开家庭。", "提醒时间与渠道可随时调整，关闭全部渠道会同步取消排队提醒。"],
+  },
   {
     version: "1.1.3",
     date: "2026-10-31",
