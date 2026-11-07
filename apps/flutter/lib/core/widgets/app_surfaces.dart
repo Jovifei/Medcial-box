@@ -1,4 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 
 import '../theme/app_theme.dart';
 
@@ -6,7 +10,7 @@ class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.fromLTRB(20, 16, 20, 28),
+    this.padding = const EdgeInsets.fromLTRB(AppSpacing.pageH, 16, AppSpacing.pageH, 28),
   });
   final Widget child;
   final EdgeInsets padding;
@@ -21,7 +25,7 @@ class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(AppSpacing.cardPad),
     this.color,
   });
   final Widget child;
@@ -42,10 +46,10 @@ class Eyebrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text.toUpperCase(),
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: AppColors.leaf,
+    style: AppType.caption1.copyWith(
+      color: CupertinoTheme.of(context).primaryColor,
       letterSpacing: 2.2,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w600,
     ),
   );
 }
@@ -70,11 +74,14 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: onPressed,
         icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 19),
-        label: Text(label),
+        label: Text(
+          label,
+          style: AppType.headline.copyWith(color: Colors.white),
+        ),
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           ),
         ),
       ),
@@ -124,15 +131,14 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
     decoration: BoxDecoration(
       color: background,
       borderRadius: BorderRadius.circular(999),
     ),
     child: Text(
       label,
-      style: Theme.of(context).textTheme.labelMedium
-          ?.copyWith(color: color, fontWeight: FontWeight.w800),
+      style: AppType.caption1.copyWith(color: color, fontWeight: FontWeight.w600),
     ),
   );
 }

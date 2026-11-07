@@ -270,7 +270,7 @@ void main() {
       (widget) =>
           widget is TextField && widget.decoration?.hintText == '例如：布洛芬缓释胶囊',
     );
-    await tester.scrollUntilVisible(restoredName, 240);
+    await tester.scrollUntilVisible(restoredName, 240, scrollable: find.byType(Scrollable).first);
     expect(tester.widget<TextField>(restoredName).controller!.text, '草稿测试药');
     expect(
       tester
