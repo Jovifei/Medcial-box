@@ -167,6 +167,10 @@ const reviewedSourceTrees = new Set([
   // 详情原显示身份与备注提交归属、刷新期间输入保护及合成失败回归。
   // 46 个生产 TS 文件能力清单与基线一致；仅登记此精确树，原生/文件/网络边界不放宽。
   '542916132a867185d75b75b84b91addb7431b812',
+  // 2026-11-07 文档划分：相对 542916 树仅新增 apps/miniprogram/docs/ 7 个 markdown
+  // 与 project.config.json packOptions.ignore 增加 docs 文件夹（文档不进编译上传包）；
+  // 生产 TS/WXML/WXSS/JSON 零改动，wx/fs/网络/组件能力不变。
+  'ea29a6acd7d4732d3353ee048b562e039db7ffb7',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -200,7 +204,7 @@ const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'compressImage
   'setEnableDebug',
   'setStorageSync', 'shareFileMessage', 'showActionSheet', 'showModal', 'showToast', 'stopPullDownRefresh', 'switchTab']);
 const reviewedFs = new Set(['readFile', 'writeFile', 'unlink', 'open', 'write', 'close']);
-const excluded = /(^|\/)(test|typings|node_modules|dist|compiled)(\/|$)|(^|\/)(package|tsconfig|project\.private\.config|private\.config)\.json$|(^|\/)\.|\.map$/;
+const excluded = /(^|\/)(test|typings|node_modules|dist|compiled|docs)(\/|$)|(^|\/)(package|tsconfig|project\.private\.config|private\.config)\.json$|(^|\/)\.|\.map$/;
 const unwrap = node => {
   while (node && (ts.isAsExpression(node) || ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node))) node = node.expression;
   return node;
@@ -283,7 +287,8 @@ export async function prepareQa({
   if (simulatorAppId !== 'touristappid' && !/^wx[0-9a-f]{16}$/i.test(simulatorAppId)) {
     throw new Error('simulator-appid must be touristappid or an approved wx AppID');
   }
-  const git = args => execFileSync('git', ['-C', root, ...args]);
+  // core.quotepath=false：非 ASCII 路径（如中文文档名）按原始 UTF-8 输出，避免带引号转义导致路径失配。
+  const git = args => execFileSync('git', ['-C', root, '-c', 'core.quotepath=false', ...args]);
   if (git(['rev-parse', sourceSha + '^{commit}']).toString().trim() !== sourceSha) throw new Error('Source SHA mismatch');
   const sourceTree = git(['rev-parse', sourceSha + ':apps/miniprogram']).toString().trim();
   if (!reviewedSourceTrees.has(sourceTree)) throw new Error('Unreviewed mini-program source tree: ' + sourceTree);
