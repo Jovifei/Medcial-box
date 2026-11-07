@@ -29,7 +29,7 @@
 
 ## 现行文档索引
 
-- [当前状态](../tasks/status.md)与[最新交付回执](operations/68-RECEIPT-历史归档与本机大清理-20261107.md)：最新入口。
+- [当前状态](../tasks/status.md)与[最新交付回执](operations/69-RECEIPT-App苹果风改版与功能对齐第一批-20261107.md)：最新入口。
 - [项目 README](../README.md)：模块、当前门槛和常用开发命令。
 - [产品需求](product/requirements.md)：首版用户目标和健康信息边界。
 - [技术架构与运行边界](architecture/overview.md)：微信小程序、Flutter、API、数据库和重试/提醒/导出责任。
