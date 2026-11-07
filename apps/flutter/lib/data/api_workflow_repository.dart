@@ -464,6 +464,19 @@ class ApiWorkflowRepository {
     });
   }
 
+  Future<void> removeMember(String memberId) async {
+    await api.delete('/api/v1/families/members/$memberId');
+  }
+
+  Future<void> transferOwnership(String memberId) async {
+    await api.post('/api/v1/families/members/$memberId/transfer-ownership');
+  }
+
+  Future<void> leaveFamily() async {
+    // 服务端会清除当前家庭上下文；调用方需依赖 familyInvalidated 刷新导航。
+    await api.post('/api/v1/families/leave');
+  }
+
   Future<List<Map<String, dynamic>>> notificationTemplates() async {
     final result = await api.get(
       '/api/v1/notifications/templates',

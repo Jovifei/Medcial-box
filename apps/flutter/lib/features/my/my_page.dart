@@ -370,6 +370,14 @@ class _MyPageState extends State<MyPage> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/family-choice'),
                   ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('家庭设置'),
+                    subtitle: const Text('盘点频率、成员管理、离开家庭'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/family-settings'),
+                  ),
                   if (family == null && snapshot.hasError)
                     Text(friendlyApiError(snapshot.error!))
                   else if (snapshot.connectionState != ConnectionState.done)
@@ -438,6 +446,12 @@ class _MyPageState extends State<MyPage> {
                     leading: const Icon(Icons.fact_check_outlined),
                     title: const Text('药箱盘点与频率'),
                     onTap: () => context.go('/home?tab=pending'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_outlined),
+                    title: const Text('提醒与通知'),
+                    subtitle: const Text('提醒时间与渠道'),
+                    onTap: () => context.push('/notification-settings'),
                   ),
                 ],
               ),

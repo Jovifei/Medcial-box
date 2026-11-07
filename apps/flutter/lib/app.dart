@@ -17,12 +17,14 @@ import 'features/export/export_api_page.dart';
 import 'features/export/export_page.dart';
 import 'features/family/family_choice_api_page.dart';
 import 'features/family/family_choice_page.dart';
+import 'features/family/family_settings_page.dart';
 import 'features/home/home_page.dart';
 import 'features/home/production_shell.dart';
 import 'features/medicine/medicine_detail_api_page.dart';
 import 'features/medicine/medicine_detail_page.dart';
 import 'features/medicine/medicine_entry_api_page.dart';
 import 'features/medicine/leaflet_photo_page.dart';
+import 'features/my/notification_settings_page.dart';
 import 'features/my/trash_audit_pages.dart';
 import 'features/my/release_notes_page.dart';
 import 'features/pending/stocktake_page.dart';
@@ -230,6 +232,11 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
             repository: services.plans!,
             families: services.families!,
           ),
+        ),
+        _route('/family-settings', FamilySettingsPage(services: services)),
+        _route(
+          '/notification-settings',
+          NotificationSettingsPage(services: services),
         ),
         GoRoute(
           path: '/care-profiles/:id/permissions',
