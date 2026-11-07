@@ -583,7 +583,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [ ] main CI37596971109最终三job全绿：verify/backup成功，Flutter构建进行中。
 - [ ] 原ChatGPT独立审核及微信后台实际隐私/UGC/基础库设置；不把不适用项强填。
 - [ ] 微信IDE授权任务auth_d58a7dd9c86282614c3f56ad08f2999262df3edec2699ac4尚pending；实际AppID权限/SDK验收未完成。
-- [ ] 双设备、正式签名/HTTPS及恢复收尾。后台清单见docs/operations/16-SOP-微信后台设置与真实验收清单.md。
+- [ ] 双设备、正式签名/HTTPS及恢复收尾。后台清单见apps/miniprogram/docs/16-SOP-微信后台设置与真实验收清单.md。
 - [x] main精确CI37596971109 verify/backup-docker/flutter三job全部SUCCESS；平台验收不代替。
 
 ## 2026-10-07 双手机真实微信阶段

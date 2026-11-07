@@ -7,7 +7,7 @@
 - [本地开发与数据保护](local-development.md)：本地 API/PostgreSQL、小程序隔离副本和密钥边界。
 - [独立测试环境部署](staging-deployment.md)：HTTPS 测试服务、部署身份门禁与备份恢复演练。
 - [本机药品条码资料库 SOP](12-SOP-本机药品条码资料库.md)与[条码资料库私有配置](27-GUIDE-条码资料库私有配置.md)。
-- [微信后台设置与真实验收清单](16-SOP-微信后台设置与真实验收清单.md)。
+- [微信后台设置与真实验收清单](../../apps/miniprogram/docs/16-SOP-微信后台设置与真实验收清单.md)（小程序专用文档目录）。
 - [域名 DNS 与国内部署决策](17-ARC-域名DNS与国内部署决策.md)。
 - [多家庭隔离契约](multi-family-isolation-contract.md)与[阶段记录](multi-family-isolation-stage.md)、[家庭试点 manifest 示例](family-pilot-manifest.example.json)。
 

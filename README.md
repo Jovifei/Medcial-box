@@ -15,6 +15,9 @@
 
 - `apps/miniprogram/`：微信原生小程序，TypeScript、WXML、WXSS。
 - `apps/flutter/`：Android 客户端；生产流程走家庭 API，演示流程位于 `/demo/*`。
+- `apps/ios/`：iOS 原生客户端，规划中（路线已定：原生独立开发）。
+- `apps/web/`：网页端，规划中（技术栈待拍板）。
+- 各端专用文档在各自 `apps/<端>/docs/`；跨端共享文档在根 `docs/`，划分见[项目文档入口](docs/README.md)。
 - `apps/api/`：Fastify 服务、会话/家庭授权、库存和计划 API、识别与导出适配器、提醒调度器。
 - `packages/contracts/`：前后端共享的类型契约。
 - `apps/api/db/migrations/`：PostgreSQL 增量迁移。
@@ -50,4 +53,4 @@ npm run build
 node scripts/prepare-miniprogram.mjs --appid wx1f6dd99d28aab8e5 --api-base https://medbox.joviluma.com
 ~~~
 
-在开发者工具打开命令返回的目录；生成包保留域名校验且不含服务端密钥。平台上传、体验、真机业务、审核与正式发布须按[发布验收计划](docs/operations/archive/45-PLAN-1.0.6小程序发布验收-20261021.md)分别核验。
+在开发者工具打开命令返回的目录；生成包保留域名校验且不含服务端密钥。平台上传、体验、真机业务、审核与正式发布须按[发布验收计划](apps/miniprogram/docs/archive/45-PLAN-1.0.6小程序发布验收-20261021.md)分别核验。

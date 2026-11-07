@@ -41,4 +41,4 @@ flutter build apk --release --dart-define=API_BASE_URL=http://127.0.0.1:13300 --
 Remove-Item Env:ORG_GRADLE_PROJECT_medboxLocalTrialSigning
 ```
 
-只有同时显式设置 Gradle 本机试用签名开关、`LOCAL_APP_TRIAL=true` 且 API 为 HTTP loopback 时，Release 才允许使用现有调试证书以便保留本机试用数据升级。这个包不是正式分发包；普通 Release 不回退调试签名。普通构建保持小程序连接流程。当前手机测试结果与源点见docs/operations/archive/07-RPT-最新代码与App独立试用.md。
+只有同时显式设置 Gradle 本机试用签名开关、`LOCAL_APP_TRIAL=true` 且 API 为 HTTP loopback 时，Release 才允许使用现有调试证书以便保留本机试用数据升级。这个包不是正式分发包；普通 Release 不回退调试签名。普通构建保持小程序连接流程。当前手机测试结果与源点见[docs/archive/07-RPT-最新代码与App独立试用.md](docs/archive/07-RPT-最新代码与App独立试用.md)。
