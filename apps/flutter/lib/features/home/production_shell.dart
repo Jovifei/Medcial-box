@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/medicine_tags.dart';
 import '../../core/widgets/private_medicine_image.dart';
@@ -133,22 +136,27 @@ class _ProductionShellState extends State<ProductionShell>
         ],
       ),
       bottomNavigationBar: CupertinoTabBar(
-        // iOS 底部栏：半透明玻璃层 + 线性图标；DESIGN.md 允许的材质位置。
-        backgroundColor: CupertinoColors.systemBackground
-            .resolveFrom(context)
-            .withAlpha(242),
+        // iOS 底部栏：半透明真模糊（栏内建 BackdropFilter）+ 线性图标 + 触感反馈。
+        backgroundColor:
+            View.of(context).platformDispatcher.platformBrightness ==
+                Brightness.dark
+            ? const Color(0xC8161616)
+            : const Color(0xD9FFFFFF),
         currentIndex: selectedIndex,
-        onTap: (index) => setState(() {
-          selectedIndex = index;
-          if (index == 0 && showAttention) {
-            showAttention = false;
-            cabinetRefreshVersion++;
-          }
-        }),
+        onTap: (index) {
+          HapticFeedback.selectionClick();
+          setState(() {
+            selectedIndex = index;
+            if (index == 0 && showAttention) {
+              showAttention = false;
+              cabinetRefreshVersion++;
+            }
+          });
+        },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.bag, size: 24),
-            activeIcon: Icon(CupertinoIcons.bag_fill, size: 24),
+            icon: Icon(CupertinoIcons.archivebox, size: 24),
+            activeIcon: Icon(CupertinoIcons.archivebox_fill, size: 24),
             label: '药箱',
           ),
           BottomNavigationBarItem(
@@ -407,226 +415,260 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('JF小药箱'),
-      actions: [
-        TextButton.icon(
-          onPressed:
-              widget.onManageFamily ??
-              () => context.go('/home?tab=my&section=family'),
-          icon: const Icon(Icons.home_outlined),
-          label: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 100),
-            child: Text(
-              family?.name ?? '家庭',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext context) {
+    final isDark =
+        View.of(context).platformDispatcher.platformBrightness ==
+        Brightness.dark;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text('JF小药箱', style: AppType.headline),
+        flexibleSpace: ClipRect(
+          // iOS 导航层玻璃：内容滚到栏下时实时模糊（DESIGN.md 允许的材质位置）。
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              color: isDark ? const Color(0xB3000000) : const Color(0xC2FFFFFF),
             ),
           ),
         ),
-        IconButton(
-          tooltip: '关注事项',
-          onPressed:
-              widget.onAttention ?? () => context.go('/home?tab=pending'),
-          icon: const Icon(Icons.notifications_none_rounded),
-        ),
-      ],
-    ),
-    floatingActionButton: FloatingActionButton.extended(
-      heroTag: 'cabinet-add-medicine',
-      onPressed: _openEntry,
-      icon: const Icon(Icons.add_rounded),
-      label: const Text('录入'),
-    ),
-    body: AnimatedBuilder(
-      animation: widget.repository,
-      builder: (context, _) => RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 104),
-          children: [
-            if (widget.repository.isOffline)
-              _ConnectionBanner(
-                text: widget.repository.lastSyncedAt == null
-                    ? '离线查看 · 显示本机缓存，修改不会自动上传'
-                    : '离线查看 · 最近同步 ${_formatLastSync(widget.repository.lastSyncedAt!)} · 修改不会自动上传',
+        actions: [
+          TextButton.icon(
+            onPressed:
+                widget.onManageFamily ??
+                () => context.go('/home?tab=my&section=family'),
+            icon: const Icon(CupertinoIcons.house),
+            label: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 100),
+              child: Text(
+                family?.name ?? '家庭',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            if (failure != null && widget.repository.medicines.isEmpty)
-              AppCard(
-                color: const Color(0xFFFFF2ED),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+          IconButton(
+            tooltip: '关注事项',
+            onPressed:
+                widget.onAttention ?? () => context.go('/home?tab=pending'),
+            icon: const Icon(CupertinoIcons.bell),
+          ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: FloatingActionButton.extended(
+          heroTag: 'cabinet-add-medicine',
+          onPressed: _openEntry,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('录入'),
+        ),
+      ),
+      body: AnimatedBuilder(
+        animation: widget.repository,
+        builder: (context, _) => RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.paddingOf(context).top + kToolbarHeight + 10,
+              20,
+              bottomInset + 120,
+            ),
+            children: [
+              if (widget.repository.isOffline)
+                _ConnectionBanner(
+                  text: widget.repository.lastSyncedAt == null
+                      ? '离线查看 · 显示本机缓存，修改不会自动上传'
+                      : '离线查看 · 最近同步 ${_formatLastSync(widget.repository.lastSyncedAt!)} · 修改不会自动上传',
+                ),
+              if (failure != null && widget.repository.medicines.isEmpty)
+                AppCard(
+                  color: const Color(0xFFFFF2ED),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        friendlyApiError(failure!),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      SoftButton(label: '重新加载', onPressed: _refresh),
+                    ],
+                  ),
+                ),
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                elevation: 0,
+                child: TextField(
+                  controller: searchController,
+                  onChanged: (value) => setState(() => keyword = value.trim()),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: '搜索药名、规格、厂家、成分、位置',
+                    suffixIcon: keyword.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: '清除搜索',
+                            onPressed: () {
+                              searchController.clear();
+                              setState(() => keyword = '');
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                  ),
+                ),
+              ),
+              if (attentionUnavailable)
+                TextButton.icon(
+                  onPressed: _refresh,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('关注事项暂不可用，点击重试'),
+                ),
+              if (_actionable.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final count = _actionable
+                        .map((item) => item['medicineId'])
+                        .whereType<String>()
+                        .where((id) => id.isNotEmpty)
+                        .toSet()
+                        .length;
+                    final stocktake = _actionable.any(
+                      (item) =>
+                          item['type'] == 'stocktake_due' &&
+                          item['medicineId'] == null,
+                    );
+                    final parts = <String>[
+                      if (count > 0) '需关注 $count 种',
+                      if (stocktake) '药箱盘点',
+                    ];
+                    if (parts.isEmpty) return const SizedBox.shrink();
+                    return AppCard(
+                      color: const Color(0xFFFFF5E8),
+                      padding: EdgeInsets.zero,
+                      child: ListTile(
+                        title: Text(parts.join(' · ')),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap:
+                            widget.onAttention ??
+                            () => context.go('/home?tab=pending'),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    Text(
-                      friendlyApiError(failure!),
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    _filterEntry('用途', 'purpose'),
+                    const SizedBox(width: 8),
+                    _filterEntry('人群', 'population'),
+                    const SizedBox(width: 8),
+                    _filterEntry('状态', 'status'),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.line),
+                      ),
+                      child: PopupMenuButton<String>(
+                        tooltip: '排序',
+                        initialValue: sortOrder,
+                        onSelected: (value) =>
+                            setState(() => sortOrder = value),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'expiry', child: Text('到期优先')),
+                          PopupMenuItem(value: 'recent', child: Text('最近录入')),
+                          PopupMenuItem(value: 'name', child: Text('药名排序')),
+                        ],
+                        child: _filterPill('排序 ▾'),
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    SoftButton(label: '重新加载', onPressed: _refresh),
                   ],
                 ),
               ),
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              elevation: 0,
-              child: TextField(
-                controller: searchController,
-                onChanged: (value) => setState(() => keyword = value.trim()),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: '搜索药名、规格、厂家、成分、位置',
-                  suffixIcon: keyword.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清除搜索',
-                          onPressed: () {
-                            searchController.clear();
-                            setState(() => keyword = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
+              if (filterPanel != null)
+                AppCard(
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (filterPanel == 'purpose')
+                        ..._purposeLabels.entries.map(
+                          (entry) => _tagChip(
+                            entry.value,
+                            selectedPurposes,
+                            entry.key,
+                          ),
                         ),
-                ),
-              ),
-            ),
-            if (attentionUnavailable)
-              TextButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('关注事项暂不可用，点击重试'),
-              ),
-            if (_actionable.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Builder(
-                builder: (context) {
-                  final count = _actionable
-                      .map((item) => item['medicineId'])
-                      .whereType<String>()
-                      .where((id) => id.isNotEmpty)
-                      .toSet()
-                      .length;
-                  final stocktake = _actionable.any(
-                    (item) =>
-                        item['type'] == 'stocktake_due' &&
-                        item['medicineId'] == null,
-                  );
-                  final parts = <String>[
-                    if (count > 0) '需关注 $count 种',
-                    if (stocktake) '药箱盘点',
-                  ];
-                  if (parts.isEmpty) return const SizedBox.shrink();
-                  return AppCard(
-                    color: const Color(0xFFFFF5E8),
-                    padding: EdgeInsets.zero,
-                    child: ListTile(
-                      title: Text(parts.join(' · ')),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap:
-                          widget.onAttention ??
-                          () => context.go('/home?tab=pending'),
-                    ),
-                  );
-                },
-              ),
-            ],
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _filterEntry('用途', 'purpose'),
-                  const SizedBox(width: 8),
-                  _filterEntry('人群', 'population'),
-                  const SizedBox(width: 8),
-                  _filterEntry('状态', 'status'),
-                  const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: PopupMenuButton<String>(
-                      tooltip: '排序',
-                      initialValue: sortOrder,
-                      onSelected: (value) => setState(() => sortOrder = value),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'expiry', child: Text('到期优先')),
-                        PopupMenuItem(value: 'recent', child: Text('最近录入')),
-                        PopupMenuItem(value: 'name', child: Text('药名排序')),
+                      if (filterPanel == 'population') ...[
+                        _tagChip('成人', selectedPopulations, 'adult'),
+                        _tagChip('儿童', selectedPopulations, 'child'),
                       ],
-                      child: _filterPill('排序 ▾'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (filterPanel != null)
-              AppCard(
-                padding: const EdgeInsets.all(12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    if (filterPanel == 'purpose')
-                      ..._purposeLabels.entries.map(
-                        (entry) =>
-                            _tagChip(entry.value, selectedPurposes, entry.key),
-                      ),
-                    if (filterPanel == 'population') ...[
-                      _tagChip('成人', selectedPopulations, 'adult'),
-                      _tagChip('儿童', selectedPopulations, 'child'),
-                    ],
-                    if (filterPanel == 'status') ...[
-                      _filterChip('全部', MedicineFilter.all),
-                      _filterChip('临期/过期', MedicineFilter.expiry),
-                      _filterChip('库存不足', MedicineFilter.lowStock),
-                      _filterChip('待补资料', MedicineFilter.missingInfo),
-                      _filterChip('数量/日期未知', MedicineFilter.unknown),
-                      ActionChip(
-                        label: const Text('已归档'),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ArchivedMedicinesPage(
-                              workflow: widget.workflow,
+                      if (filterPanel == 'status') ...[
+                        _filterChip('全部', MedicineFilter.all),
+                        _filterChip('临期/过期', MedicineFilter.expiry),
+                        _filterChip('库存不足', MedicineFilter.lowStock),
+                        _filterChip('待补资料', MedicineFilter.missingInfo),
+                        _filterChip('数量/日期未知', MedicineFilter.unknown),
+                        ActionChip(
+                          label: const Text('已归档'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ArchivedMedicinesPage(
+                                workflow: widget.workflow,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            const SizedBox(height: 12),
-            if (widget.repository.medicines.isEmpty && loading)
-              const Center(child: CircularProgressIndicator())
-            else if (widget.repository.medicines.isEmpty && failure != null)
-              const SizedBox.shrink()
-            else if (widget.repository.medicines.isEmpty)
-              const _EmptyCabinet()
-            else if (_visibleMedicines.isEmpty)
-              _NoSearchResults(
-                onClear: () {
-                  searchController.clear();
-                  setState(() {
-                    keyword = '';
-                    filter = MedicineFilter.all;
-                    selectedPopulations.clear();
-                    selectedPurposes.clear();
-                  });
-                },
-              )
-            else
-              ..._visibleMedicines.map(
-                (medicine) =>
-                    _MedicineCard(medicine: medicine, imageLoader: imageLoader),
-              ),
-          ],
+              const SizedBox(height: 12),
+              if (widget.repository.medicines.isEmpty && loading)
+                const Center(child: CircularProgressIndicator())
+              else if (widget.repository.medicines.isEmpty && failure != null)
+                const SizedBox.shrink()
+              else if (widget.repository.medicines.isEmpty)
+                const _EmptyCabinet()
+              else if (_visibleMedicines.isEmpty)
+                _NoSearchResults(
+                  onClear: () {
+                    searchController.clear();
+                    setState(() {
+                      keyword = '';
+                      filter = MedicineFilter.all;
+                      selectedPopulations.clear();
+                      selectedPurposes.clear();
+                    });
+                  },
+                )
+              else
+                ..._visibleMedicines.map(
+                  (medicine) => _MedicineCard(
+                    medicine: medicine,
+                    imageLoader: imageLoader,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _filterEntry(String label, String panel) => Material(
     color: filterPanel == panel ? AppColors.mist : Colors.white,

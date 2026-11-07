@@ -380,12 +380,15 @@ class _MyPageState extends State<MyPage> {
   @override
   Widget build(BuildContext context) => AppleScreen(
     title: '我的',
+    safeAreaBottom: false,
     child: FutureBuilder<FamilyRecord>(
       future: familyFuture,
       builder: (context, snapshot) {
         final family = snapshot.data;
         return ListView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom + 84,
+          ),
           children: [
             CupertinoListSection.insetGrouped(
               header: const Text('家庭'),

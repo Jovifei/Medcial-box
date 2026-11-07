@@ -1,7 +1,11 @@
+import 'dart:ui';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
@@ -198,58 +202,87 @@ class _PlansPageState extends State<PlansPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('用药计划'),
-      actions: [
-        IconButton(
-          tooltip: '照护对象与权限',
-          icon: const Icon(Icons.people_outline_rounded),
-          onPressed: () => context.push('/care-profiles'),
-        ),
-      ],
-    ),
-    floatingActionButton: FloatingActionButton.extended(
-      heroTag: 'plans-add-plan',
-      onPressed: () => context.push('/plans/new'),
-      icon: const Icon(Icons.add_rounded),
-      label: const Text('新建计划'),
-    ),
-    body: FutureBuilder<void>(
-      future: _load,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done &&
-            _schedule == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return RefreshIndicator(
-          onRefresh: _reload,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
-            children: [
-              if (_failure != null)
-                AppCard(
-                  color: const Color(0xFFFFF2ED),
-                  child: Text(friendlyApiError(_failure!)),
-                ),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('今天')),
-                  ButtonSegment(value: true, label: Text('全部计划')),
-                ],
-                selected: {_showAll},
-                onSelectionChanged: (value) =>
-                    setState(() => _showAll = value.single),
-              ),
-              const SizedBox(height: 16),
-              if (_showAll) _plansSection(context) else _todaySection(context),
-            ],
+  Widget build(BuildContext context) {
+    final isDark =
+        View.of(context).platformDispatcher.platformBrightness ==
+        Brightness.dark;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text('用药计划', style: AppType.headline),
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              color: isDark ? const Color(0xB3000000) : const Color(0xC2FFFFFF),
+            ),
           ),
-        );
-      },
-    ),
-  );
+        ),
+        actions: [
+          IconButton(
+            tooltip: '照护对象与权限',
+            icon: const Icon(CupertinoIcons.person_2),
+            onPressed: () => context.push('/care-profiles'),
+          ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+        child: FloatingActionButton.extended(
+          heroTag: 'plans-add-plan',
+          onPressed: () => context.push('/plans/new'),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('新建计划'),
+        ),
+      ),
+      body: FutureBuilder<void>(
+        future: _load,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done &&
+              _schedule == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                MediaQuery.paddingOf(context).top + kToolbarHeight + 10,
+                18,
+                MediaQuery.paddingOf(context).bottom + 100,
+              ),
+              children: [
+                if (_failure != null)
+                  AppCard(
+                    color: const Color(0xFFFFF2ED),
+                    child: Text(friendlyApiError(_failure!)),
+                  ),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('今天')),
+                    ButtonSegment(value: true, label: Text('全部计划')),
+                  ],
+                  selected: {_showAll},
+                  onSelectionChanged: (value) =>
+                      setState(() => _showAll = value.single),
+                ),
+                const SizedBox(height: 16),
+                if (_showAll)
+                  _plansSection(context)
+                else
+                  _todaySection(context),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Widget _todaySection(BuildContext context) {
     final schedule = _schedule;
