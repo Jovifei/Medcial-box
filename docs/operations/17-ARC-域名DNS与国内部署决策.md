@@ -80,4 +80,4 @@ etfdeploy没有无需密码执行nginx测试的权限；SSH配置文件也不可
 - [阿里云：修改域名DNS服务器地址](https://help.aliyun.com/zh/dns/pubz-modify-dns-server/)
 - [阿里云：解析记录常见问题](https://help.aliyun.com/zh/dns/pubz-faq-related-to-domain-name-resolution-resolution-records)
 - [Cloudflare：DNS与代理状态](https://developers.cloudflare.com/dns/proxy-status/)
-- [历史部署方案](staging-deployment.md)、[2026-09-27手机试用准备](../../tasks/reports/2026-09-27-phone-trial-readiness.md)。
+- [历史部署方案](staging-deployment.md)、2026-09-27 手机试用准备（该报告已随 2026-11-07 历史文档清理删除，git 历史 `3096197` 及之前可查）。

@@ -1,5 +1,7 @@
 # 当前状态 · 2026-10-25
 
+> 2026-11-07 文档清理注（Jovi 授权）：历史回执/计划/报告已从工作树删除，本文所引 `../docs/operations/archive/*`、`tasks/reports/*` 等链接不再有效；原文见 git 历史（提交 `3096197` 及之前）。文中所述候选门槛与验收状态仍然有效。
+
 ## build 9 独立复审与下一阶段实施
 
 本轮从 `codex/medbox-fix-batch-20261025@20c55af7d0b63fd9b84e9bf8d00d1f466cd15f9c` 接续，按 [55 号计划](../docs/operations/archive/55-PLAN-build9复审与既有部署身份门禁-20261025.md)修复用途候选、人工清空草稿与导出边界，并实施既有部署身份、绑定备份和仅 API 受控替换门禁。修复候选为 `1.0.6 / candidate / Android build 10`；本地 Codex 在最终固定 SHA 后接收验证，不在原 E 盘抢做实现。

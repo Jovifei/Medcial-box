@@ -1,5 +1,12 @@
 # 当前任务：微信小程序参数与交互审核修复（2026-11-02）
 
+## 2026-11-07 文档归档与本机大清理（Jovi 授权，grill-me 逐项确认）
+
+- [x] `.local-data` 7.6GB→2.3MB：删除 10 月审计/交付副本（含 4 个内嵌 detached worktree）、旧 QA/mini 隔离包与 candidate 日志；保留 logs/、medicine-catalog/、ide-verify-20261107/ 截图、staging-target.json、现行 mini 两个隔离包与 hub-pending-20261023.json（Hub 上报契约要求保留）。
+- [x] 删除 3 个已合并分支的 worktree（C盘 flutter-ui-prototype、medbox-pr6-local-repair、medbox-ui-simplify）及本地分支；`codex/archive/local-delivery-handoff-20261008` 未合并仍保留。
+- [x] 删除 var/（bug dump 脚本+1.1.2 部署草稿）与 demo-output/；reports/ 候选 JSON 保留。
+- [x] 删除工作树历史文档：`docs/operations/archive/` 45 篇、`tasks/plans/`、`tasks/archive/`、`tasks/reports/`；README/status/operations 索引/17-ARC/lessons 断链已修复并注明 git 历史可查（`3096197` 及之前）。
+
 ## 2026-11-07 分支与文档清理收尾（Jovi 授权）
 
 - [x] 远端删除 4 个已合并分支：`ui-stage1-closeout-20261031`、`medbox-home-archive-20261028`、`ui-overhaul-p0-20261026`、`muse/medbox-health-build-info-20261105`。
