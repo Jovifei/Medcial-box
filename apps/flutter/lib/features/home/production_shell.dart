@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -131,29 +132,33 @@ class _ProductionShellState extends State<ProductionShell>
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => setState(() {
+      bottomNavigationBar: CupertinoTabBar(
+        // iOS 底部栏：半透明玻璃层 + 线性图标；DESIGN.md 允许的材质位置。
+        backgroundColor: CupertinoColors.systemBackground
+            .resolveFrom(context)
+            .withAlpha(242),
+        currentIndex: selectedIndex,
+        onTap: (index) => setState(() {
           selectedIndex = index;
           if (index == 0 && showAttention) {
             showAttention = false;
             cabinetRefreshVersion++;
           }
         }),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.bag, size: 24),
+            activeIcon: Icon(CupertinoIcons.bag_fill, size: 24),
             label: '药箱',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.medication_outlined),
-            selectedIcon: Icon(Icons.medication),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.calendar, size: 24),
+            activeIcon: Icon(CupertinoIcons.calendar, size: 24),
             label: '用药计划',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.person, size: 24),
+            activeIcon: Icon(CupertinoIcons.person_fill, size: 24),
             label: '我的',
           ),
         ],

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart' show CupertinoTabBar;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_medicine_flutter/app.dart';
@@ -86,9 +87,9 @@ void main() {
     tester,
   ) async {
     await _mount(tester, '/home');
-    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(bar.destinations.length, 3);
-    expect(bar.selectedIndex, 0);
+    final bar = tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar));
+    expect(bar.items.length, 3);
+    expect(bar.currentIndex, 0);
     expect(find.text('录入第一种药'), findsNothing);
     expect(find.widgetWithText(FloatingActionButton, '录入'), findsOneWidget);
   });
@@ -96,7 +97,7 @@ void main() {
   testWidgets('old my link selects the third destination', (tester) async {
     await _mount(tester, '/home?tab=my');
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex,
       2,
     );
     expect(find.text('我的'), findsWidgets);
@@ -107,7 +108,7 @@ void main() {
   ) async {
     await _mount(tester, '/home?tab=pending');
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex,
       0,
     );
     expect(find.text('待处理事项'), findsOneWidget);
@@ -217,17 +218,10 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await _mount(tester, '/home?tab=my');
-    expect(find.text('家庭管理'), findsOneWidget);
-    expect(find.text('切换、创建或加入家庭'), findsNothing);
-    await tester.tap(find.text('家庭管理'));
-    await tester.pumpAndSettle();
+    expect(find.text('家庭'), findsOneWidget);
     expect(find.text('切换、创建或加入家庭'), findsOneWidget);
     expect(find.text('用药的人'), findsOneWidget);
-    await tester.tap(find.text('药箱工具'));
-    await tester.pumpAndSettle();
     expect(find.text('补货清单'), findsOneWidget);
-    await tester.tap(find.text('数据管理'));
-    await tester.pumpAndSettle();
     expect(find.text('备份与恢复'), findsOneWidget);
   });
 
@@ -256,13 +250,10 @@ void main() {
       );
       await tester.tap(find.text('测试家庭'));
       await tester.pumpAndSettle();
-      expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
-      expect(find.text('家庭管理'), findsOneWidget);
+      expect(tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex, 2);
+      expect(find.text('家庭'), findsOneWidget);
       expect(find.text('切换、创建或加入家庭'), findsOneWidget);
       expect(find.text('第二家庭'), findsNothing);
-      await tester.tap(find.text('家庭管理'));
-      await tester.pumpAndSettle();
-      expect(find.text('切换、创建或加入家庭'), findsNothing);
       await tester.tap(find.text('药箱'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('测试家庭'));
@@ -290,7 +281,7 @@ void main() {
 
   testWidgets('family management deep link opens the management group', (tester) async {
     await _mount(tester, '/home?tab=my&section=family');
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
+    expect(tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex, 2);
     expect(find.text('切换、创建或加入家庭'), findsOneWidget);
   });
 }

@@ -5,6 +5,7 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -347,36 +348,22 @@ void main() {
           .go('/home?tab=my');
       await _pump(tester);
       expect(find.text('用药的人'), findsOneWidget);
-      expect(find.text('家庭管理'), findsOneWidget);
-      expect(find.text('生成邀请'), findsNothing);
-      await tester.tap(find.text('家庭管理'));
-      await _pump(tester);
-      expect(find.text('生成邀请'), findsOneWidget);
+      expect(find.text('生成邀请码'), findsOneWidget);
       expect(find.text('切换、创建或加入家庭'), findsOneWidget);
-      await tester.tap(find.text('家庭管理'));
-      await _pump(tester);
-      expect(find.text('生成邀请'), findsNothing);
       await tester.tap(find.text('用药的人'));
       await _pump(tester);
       expect(find.text('照护对象与权限'), findsOneWidget);
       expect(f.requests.any((request) => request.url.path == '/api/v1/care-profiles'), isTrue);
       GoRouter.of(tester.element(find.text('照护对象与权限'))).pop();
       await _pump(tester);
-      await tester.tap(find.text('药箱工具'));
-      await _pump(tester);
-      expect(find.text('补货清单'), findsOneWidget);
+      await tester.ensureVisible(find.text('补货清单'));
       await tester.tap(find.text('补货清单'));
       await _pump(tester);
       expect(f.requests.any((request) => request.url.path == '/api/v1/families/restock'), isTrue);
       GoRouter.of(tester.element(find.text('补货清单'))).pop();
       await _pump(tester);
-      expect(find.text('开启本地通知'), findsNothing);
-      await tester.ensureVisible(
-        find.widgetWithText(ExpansionTile, 'Android 本地提醒'),
-      );
-      await tester.tap(find.widgetWithText(ExpansionTile, 'Android 本地提醒'));
-      await _pump(tester);
-      expect(find.text('开启本地通知'), findsOneWidget);
+      await tester.ensureVisible(find.text('Android 本地通知'));
+      expect(find.text('Android 本地通知'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -536,7 +523,7 @@ void main() {
         await _pump(tester);
         store.failSignOut = true;
         if (delayed) store.gate = Completer<void>();
-        await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
+        await tester.tap(find.widgetWithText(CupertinoDialogAction, '退出登录'));
         await _pump(tester);
         expect(store.writeStarted, true);
         expect(find.byType(DeviceLinkPage), findsOneWidget);

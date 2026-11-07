@@ -12,6 +12,7 @@ import 'package:home_medicine_flutter/features/auth/device_link_page.dart';
 import 'package:home_medicine_flutter/features/home/production_shell.dart';
 import 'package:home_medicine_flutter/app.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
 import 'package:flutter/material.dart';
 
 import 'dart:async';
@@ -532,7 +533,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('退出 App 登录'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
+        await tester.tap(find.widgetWithText(CupertinoDialogAction, '退出登录'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         expect(delayedLocal.entered.isCompleted, isTrue);
