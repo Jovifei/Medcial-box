@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_auth_repository.dart';
 import '../../data/api_client.dart';
 import '../../data/app_services.dart';
@@ -146,7 +149,7 @@ class _BootGatePageState extends State<BootGatePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
+              const CupertinoActivityIndicator(radius: 14),
               const SizedBox(height: 18),
               Text(error ?? (resolving ? '正在恢复家庭药箱…' : '正在检查登录状态…')),
               if (error != null) ...[
@@ -278,9 +281,11 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('连接家庭药箱')),
-    body: AppPage(
+  @override
+  Widget build(BuildContext context) {
+    final accent = CupertinoTheme.of(context).primaryColor;
+    return AppleScreen(
+      title: '连接家庭药箱',
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
@@ -288,40 +293,42 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
             shrinkWrap: true,
             children: [
               AppCard(
-                color: const Color(0xFFE9F1EB),
+                color: accent.withValues(alpha: 0.10),
                 child: Column(
                   children: [
-                    const Icon(Icons.medical_services_outlined, size: 40),
-                    const SizedBox(height: 12),
-                    Text(
-                      '家庭药箱',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
+                    Icon(CupertinoIcons.plus_square, size: 34, color: accent),
+                    const SizedBox(height: 10),
+                    Text('家庭药箱', style: AppType.title3),
                     const SizedBox(height: 6),
-                    const Text('需要在已登录的小程序中确认，App 不会接触微信密码或 AppSecret。'),
+                    Text(
+                      '需要在已登录的小程序中确认，App 不会接触微信密码或 AppSecret。',
+                      textAlign: TextAlign.center,
+                      style: AppType.footnote.copyWith(
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '一次性连接码',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 16),
+                    Text('一次性连接码', style: AppType.headline),
+                    const SizedBox(height: 14),
                     Center(
                       child: starting
-                          ? const CircularProgressIndicator()
+                          ? const CupertinoActivityIndicator(radius: 14)
                           : Text(
                               link?.code ?? '------',
                               key: const ValueKey('device-link-code'),
-                              style: const TextStyle(
-                                fontSize: 34,
+                              style: AppType.largeTitle.copyWith(
                                 letterSpacing: 8,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
+                                color: accent,
                               ),
                             ),
                     ),
@@ -329,11 +336,12 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                     if (link != null)
                       PrimaryButton(
                         label: '复制连接码',
-                        icon: Icons.copy_rounded,
+                        icon: CupertinoIcons.doc_on_doc,
                         onPressed: _copyCode,
                       ),
                     const SizedBox(height: 14),
-                    if (widget.services.api?.identityState case final state?)
+                    if (widget.services.api?.identityState
+                        case final state?)
                       ValueListenableBuilder<String?>(
                         valueListenable: state.warningSignal,
                         builder: (context, warning, _) => warning == null
@@ -346,25 +354,50 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
                                     key: const ValueKey(
                                       'session-persistence-warning',
                                     ),
+                                    style: AppType.footnote,
                                   ),
                                   if (state.needsPersistenceRetry)
-                                    SoftButton(
-                                      label: '重试本机退出状态',
-                                      onPressed: retryingSignOut
-                                          ? null
-                                          : _retrySignOut,
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: SoftButton(
+                                        label: '重试本机退出状态',
+                                        onPressed: retryingSignOut
+                                            ? null
+                                            : _retrySignOut,
+                                      ),
                                     ),
                                 ],
                               ),
                       ),
-                    Text(message ?? '正在获取安全连接码…'),
+                    Text(
+                      message ?? '正在获取安全连接码…',
+                      style: AppType.subhead.copyWith(
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
+                    ),
                     if (link != null)
-                      Text(
-                        '有效至 ${_formatTime(link!.expiresAt)}，使用一次后立即失效。',
-                        style: Theme.of(context).textTheme.bodySmall,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '有效至 ${_formatTime(link!.expiresAt)}，使用一次后立即失效。',
+                          style: AppType.caption1.copyWith(
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        ),
                       ),
                     const SizedBox(height: 10),
-                    const Text('小程序：我的 → 连接 App → 输入连接码 → 核对家庭并确认'),
+                    Text(
+                      '小程序：我的 → 连接 App → 输入连接码 → 核对家庭并确认',
+                      style: AppType.footnote.copyWith(
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     SoftButton(
                       label: '重新获取连接码',
@@ -377,10 +410,10 @@ class _DeviceLinkPageState extends State<DeviceLinkPage> {
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
-  String _formatTime(DateTime value) {
+    String _formatTime(DateTime value) {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }

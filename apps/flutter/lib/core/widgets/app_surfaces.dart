@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 
-import '../theme/app_theme.dart';
-
+/// 共享表面组件（苹果风）：语义色 + AppSpacing 令牌。
+/// 页面代码优先用 CupertinoListSection/AppleScreen；这些组件服务过渡期与表单场景。
 class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
@@ -74,10 +74,7 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: onPressed,
         icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 19),
-        label: Text(
-          label,
-          style: AppType.headline.copyWith(color: Colors.white),
-        ),
+        label: Text(label, style: AppType.headline.copyWith(color: Colors.white)),
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
@@ -101,21 +98,30 @@ class SoftButton extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    child: OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(50),
-        foregroundColor: AppColors.leaf,
-        side: const BorderSide(color: Color(0xFFC8D4CA)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  Widget build(BuildContext context) {
+    final accent = CupertinoTheme.of(context).primaryColor;
+    return Semantics(
+      button: true,
+      label: label,
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
+          label: Text(label, style: AppType.body.copyWith(color: accent)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            foregroundColor: accent,
+            backgroundColor: accent.withValues(alpha: 0.10),
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class StatusPill extends StatelessWidget {
@@ -155,12 +161,17 @@ Future<T?> showAppSheet<T>(
     backgroundColor: Colors.transparent,
     builder: (context) => Container(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.pageH,
+          10,
+          AppSpacing.pageH,
+          24,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,14 +180,14 @@ Future<T?> showAppSheet<T>(
                 width: 42,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: AppColors.line,
+                  color: CupertinoColors.separator.resolveFrom(context),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-            const SizedBox(height: 18),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
+            Text(title, style: AppType.title3),
+            const SizedBox(height: 16),
             builder(context),
           ],
         ),
@@ -193,39 +204,47 @@ Widget choiceTile(
   required VoidCallback onTap,
   Color? tint,
 }) {
+  final accent = CupertinoTheme.of(context).primaryColor;
   return Semantics(
     button: true,
     label: title,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: Ink(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.cardPad),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.line),
+          color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 23,
-              backgroundColor: tint ?? AppColors.mist,
-              foregroundColor: AppColors.leafDeep,
-              child: Icon(icon),
+              radius: 21,
+              backgroundColor: tint ?? accent.withValues(alpha: 0.12),
+              foregroundColor: accent,
+              child: Icon(icon, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(title, style: AppType.headline),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: AppType.footnote.copyWith(
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: CupertinoColors.separator.resolveFrom(context),
+            ),
           ],
         ),
       ),
