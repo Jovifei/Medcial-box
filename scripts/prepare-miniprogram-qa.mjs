@@ -174,6 +174,9 @@ const reviewedSourceTrees = new Set([
   // 2026-11-07 版本 1.2.0：相对 ea29a6a 树仅 services/app-update.ts 版本号与版本说明条目（+6/-1，
   // 纯元数据），无运行时逻辑变化；生产 TS/WXML/WXSS/JSON 能力清单不变。
   '1665ebb7cd368d0c368379a203601ceda12d1d1e',
+  // 2026-11-07 版本说明文案更新：相对 1665ebb 树仅 app-update.ts 版本说明 items 文案，
+  // 无运行时逻辑/能力变化。
+  '75bb7c66fe58eb8704d4e4de18336b1d0000a1d3',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
