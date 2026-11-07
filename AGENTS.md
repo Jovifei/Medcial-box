@@ -17,3 +17,17 @@
 - 用户版本以根目录 VERSION.json 为基准；微信 APP_VERSION、Flutter pubspec 和版本说明必须一致，Android build number 单调递增。
 - 每个候选记录固定 Git SHA、源码树、CI、镜像/包摘要、API 地址和迁移清单；源码、部署和手机验收分别记录。
 - 未通过真实服务、数据保全、签名和设备门槛时仅标候选，不创建正式发布或声称上线。保留原部署及额外实验的安全阻断。
+
+
+## Token-consumption control (mandatory)
+
+Adopted 2026-11-07 from MateLink playbook. Summary rules for this repository:
+
+- One stage, one session; close the stage, summarize to tasks/todo.md, then open a fresh conversation.
+- Turn cap ~150 tool turns or 2 hours per stage; at ~120 turns warn Jovi to open a new conversation to avoid token waste.
+- Screenshot budget 2-3 per verification stage; recapture only when the screen changed.
+- Filter all command outputs (rg, Select-String, --stat, -Last N, head); >10k chars requires task-level justification.
+- Use fewer, longer subagent waits; no repeated short polling.
+- Prefer targeted codegraph/rg lookups over broad reads; do not reprint large content already seen.
+- Android release gates: focused tests + lintDebug first; full unit tests only before Release or after cross-cutting data changes.
+- Measurement: token_count events are not human turns; dedupe rollout files by session id before comparing projects.
