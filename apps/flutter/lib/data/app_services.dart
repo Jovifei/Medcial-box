@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/theme/font_scale.dart';
 import '../core/widgets/private_medicine_image.dart';
 import 'api_auth_repository.dart';
 import 'api_client.dart';
@@ -32,6 +33,7 @@ class AppServices {
     this.workflow,
     this.plans,
     this.privateMedicineImages,
+    this.fontScale,
   });
 
   final String apiBaseUrl;
@@ -45,6 +47,7 @@ class AppServices {
   final ApiWorkflowRepository? workflow;
   final ApiPlanRepository? plans;
   final PrivateMedicineImageLoader? privateMedicineImages;
+  final FontScaleController? fontScale;
   final DemoMedicineRepository demoMedicineRepository;
   final LocalReminderService reminders;
   final ExportTemporaryStore exportFiles;
@@ -66,6 +69,7 @@ class AppServices {
     LocalAppStore? localStore,
     PrivateAtomicState? identityStore,
     ExportTemporaryStore? exportFiles,
+    FontScaleController? fontScale,
   }) async {
     final secrets = secretStore ?? FlutterSecretStore();
     final local = IdentityLocalStore(
@@ -84,6 +88,7 @@ class AppServices {
         reminders: LocalReminderService(),
         exportFiles: exports,
         exportRecovery: exportRecovery,
+        fontScale: fontScale,
       );
     }
     try {
@@ -240,6 +245,7 @@ class AppServices {
         reminders: reminders,
         exportFiles: exports,
         exportRecovery: exportRecovery,
+        fontScale: fontScale,
       );
       services.offlineCacheMatchesOwner =
           !mismatchedCache &&
@@ -306,6 +312,7 @@ class AppServices {
         reminders: LocalReminderService(),
         exportFiles: exports,
         exportRecovery: exportRecovery,
+        fontScale: fontScale,
       );
     }
   }

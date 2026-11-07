@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/font_scale.dart';
 import 'data/api_auth_repository.dart';
 import 'data/app_services.dart';
 import 'data/app_stores.dart';
@@ -50,6 +51,7 @@ class HomeMedicineApp extends StatefulWidget {
     this.secretStore,
     this.localStore,
     this.identityStore,
+    this.fontScale,
     this.initialLocation = '/',
   });
 
@@ -57,6 +59,7 @@ class HomeMedicineApp extends StatefulWidget {
   final SecretStore? secretStore;
   final LocalAppStore? localStore;
   final PrivateAtomicState? identityStore;
+  final FontScaleController? fontScale;
   final String initialLocation;
 
   @override
@@ -64,11 +67,14 @@ class HomeMedicineApp extends StatefulWidget {
 }
 
 class _HomeMedicineAppState extends State<HomeMedicineApp> {
+  late final FontScaleController fontScale =
+      widget.fontScale ?? FontScaleController.fallback();
   late final Future<AppServices> servicesFuture = AppServices.create(
     apiBaseUrl: widget.apiBaseUrl ?? apiBaseUrlFromBuild,
     secretStore: widget.secretStore,
     localStore: widget.localStore,
     identityStore: widget.identityStore,
+    fontScale: fontScale,
   );
   GoRouter? router;
   NotificationTapHandler? notificationTaps;
@@ -356,20 +362,31 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         supportedLocales: const [_appLocale],
         localizationsDelegates: _appLocalizationsDelegates,
         builder: (context, child) {
-          // Cupertino 组件的语义色/阶梯主题在此注入；壳仍为 Material（过渡期），
+          // Cupertino 语义色/阶梯主题 + 字号档位在此注入；壳仍为 Material（过渡期），
           // Stage C 逐屏 Cupertino 化完成后整体切换 CupertinoApp。
           final brightness = View.of(context).platformDispatcher.platformBrightness;
-          final themed = CupertinoTheme(
-            data: cupertinoTheme(brightness: brightness),
-            child: child!,
+          return AnimatedBuilder(
+            animation: fontScale,
+            builder: (context, _) {
+              final scaled = MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(fontScale.factor),
+                ),
+                child: child!,
+              );
+              final themed = CupertinoTheme(
+                data: cupertinoTheme(brightness: brightness),
+                child: scaled,
+              );
+              return localAppTrialFromBuild
+                  ? Banner(
+                      message: '本机试用',
+                      location: BannerLocation.topEnd,
+                      child: themed,
+                    )
+                  : themed;
+            },
           );
-          return localAppTrialFromBuild
-              ? Banner(
-                  message: '本机试用',
-                  location: BannerLocation.topEnd,
-                  child: themed,
-                )
-              : themed;
         },
         routerConfig: router!,
       );

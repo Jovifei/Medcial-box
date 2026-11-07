@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/app_typography.dart';
+import '../../core/theme/font_scale.dart';
 import '../../core/widgets/apple_screen.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
@@ -302,6 +303,62 @@ class _MyPageState extends State<MyPage> {
     } catch (error) {
       if (mounted) _showError(error);
     }
+  }
+
+  Future<void> _chooseFontScale() async {
+    final controller = widget.services.fontScale;
+    if (controller == null) return;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (popupContext) => Container(
+        height: 260,
+        color: CupertinoColors.systemBackground.resolveFrom(popupContext),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    onPressed: () => Navigator.of(popupContext).pop(),
+                    child: const Text('完成'),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: CupertinoListSection.insetGrouped(
+                  header: const Text('预览与选择 · 全局生效'),
+                  children: [
+                    for (final option in FontScaleSetting.values)
+                      CupertinoListTile(
+                        title: Text(
+                          option == FontScaleSetting.small
+                              ? '小 · 适合信息密度优先'
+                              : option == FontScaleSetting.large
+                              ? '大 · 适老友好'
+                              : '标准 · 推荐档',
+                          style: AppType.body.copyWith(
+                            fontSize: AppType.body.fontSize! * option.factorValue,
+                          ),
+                        ),
+                        trailing: controller.setting == option
+                            ? const Icon(CupertinoIcons.check_mark)
+                            : null,
+                        onTap: () {
+                          controller.set(option);
+                          if (popupContext.mounted) {
+                            Navigator.of(popupContext).pop();
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -617,6 +674,15 @@ class _MyPageState extends State<MyPage> {
                   subtitle: const Text('修改显示名'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => _editNickname(null),
+                ),
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.textformat_size),
+                  title: const Text('字体大小'),
+                  additionalInfo: Text(
+                    widget.services.fontScale?.label ?? '标准',
+                  ),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: _chooseFontScale,
                 ),
                 CupertinoListTile(
                   leading: const Icon(CupertinoIcons.info),

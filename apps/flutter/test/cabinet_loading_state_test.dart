@@ -150,8 +150,7 @@ void main() {
       );
       api.refreshIdentityContext = () async => null;
       await tester.pumpAndSettle();
-      expect(find.text('管理期限'), findsOneWidget);
-      expect(find.text('最早期限：2026-12-31'), findsOneWidget);
+      expect(find.textContaining('最早 2026-12-31'), findsOneWidget);
       expect(find.text('包装有效期'), findsNothing);
       expect(find.text('合成长药名'), findsOneWidget);
     },

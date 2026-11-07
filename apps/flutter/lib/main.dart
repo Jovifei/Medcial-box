@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
+import 'core/theme/font_scale.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   LicenseRegistry.addLicense(() async* {
     final license = await rootBundle.loadString(
       'assets/fonts/NotoSansSC-OFL.txt',
     );
     yield LicenseEntryWithLineBreaks(const ['Noto Sans CJK SC'], license);
   });
-  runApp(const HomeMedicineApp());
+  final fontScale = await FontScaleController.load();
+  runApp(HomeMedicineApp(fontScale: fontScale));
 }
