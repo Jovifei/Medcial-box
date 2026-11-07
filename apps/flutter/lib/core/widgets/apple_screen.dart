@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 
 import '../theme/app_typography.dart';
 
@@ -11,6 +12,7 @@ class AppleScreen extends StatelessWidget {
     required this.title,
     required this.child,
     this.trailing,
+    this.leading,
     this.backgroundColor,
     this.safeAreaBottom = true,
     super.key,
@@ -19,6 +21,7 @@ class AppleScreen extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? trailing;
+  final Widget? leading;
   final Color? backgroundColor;
   final bool safeAreaBottom;
 
@@ -27,10 +30,15 @@ class AppleScreen extends StatelessWidget {
     return CupertinoPageScaffold(
       backgroundColor: backgroundColor,
       navigationBar: CupertinoNavigationBar(
+        leading: leading,
         middle: Text(title, style: AppType.headline),
         trailing: trailing,
       ),
-      child: SafeArea(bottom: safeAreaBottom, child: child),
+      // 透明 Material 层：过渡期页内仍有 InkWell/TextField 等 Material 控件需要祖先。
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(bottom: safeAreaBottom, child: child),
+      ),
     );
   }
 }

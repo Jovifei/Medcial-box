@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart' show CupertinoTabBar;
+import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton, CupertinoTabBar;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_medicine_flutter/app.dart';
@@ -272,7 +272,10 @@ void main() {
       expect(switches, 1);
       expect(find.text('先选择你的家庭'), findsOneWidget);
       expect(find.text('切换失败'), findsOneWidget);
-      await tester.tap(find.byType(BackButton));
+      // 失败提示现为 iOS 模态弹窗，先关闭再返回。
+      await tester.tap(find.text('好'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       expect(find.text('测试家庭'), findsOneWidget);
       expect(find.text('切换、创建或加入家庭'), findsOneWidget);

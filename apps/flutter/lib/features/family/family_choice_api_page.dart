@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_auth_repository.dart';
 import '../../data/api_client.dart';
 
@@ -76,29 +78,42 @@ class FamilyChoiceApiPage extends StatelessWidget {
   }
 
   static void _showError(BuildContext context, Object error) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
+    // 页面无 Scaffold（Cupertino 壳），错误提示改 iOS 弹窗而非 SnackBar。
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('操作失败'),
+        content: Text(friendlyApiError(error)),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('好'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: BackButton(onPressed: () {
+  Widget build(BuildContext context) => AppleScreen(
+    title: '选择家庭',
+    leading: CupertinoNavigationBarBackButton(
+      onPressed: () {
         if (context.canPop()) {
           context.pop();
         } else {
           context.go('/home?tab=my&section=family');
         }
-      }),
-      title: const Text('家庭药箱'),
+      },
     ),
-    bottomNavigationBar: SafeArea(
-      child: TextButton(
-        onPressed: () => context.go('/home'),
-        child: const Text('返回药箱首页'),
-      ),
+    trailing: CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: () => context.go('/home'),
+      child: const Text('返回首页'),
     ),
-    body: AppPage(
+    child: AppPage(
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -123,7 +138,7 @@ class FamilyChoiceApiPage extends StatelessWidget {
                       ),
                     for (final family
                         in snapshot.data ?? <Map<String, dynamic>>[])
-                      ListTile(
+                      CupertinoListTile(
                         title: Text(family['name'] as String),
                         subtitle: Text(
                           family['isCurrent'] == true
