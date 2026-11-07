@@ -68,7 +68,7 @@ npm test --workspace @home-medicine/miniprogram
 npm run check:miniprogram
 ~~~
 
-`check:miniprogram` 调用微信开发者工具自带的 `wcc`/`wcsc`，按依赖组编译 WXML 与 WXSS；它证明模板和样式可编译，不证明页面交互或真实微信网络调用正确。2026-10-03 本机这四项结果与 API 主机端口问题见[本地验证记录](../operations/02-RPT-本地微信小程序导入与编译验证.md)。
+`check:miniprogram` 调用微信开发者工具自带的 `wcc`/`wcsc`，按依赖组编译 WXML 与 WXSS；它证明模板和样式可编译，不证明页面交互或真实微信网络调用正确。2026-10-03 本机这四项结果与 API 主机端口问题见[本地验证记录](../operations/archive/02-RPT-本地微信小程序导入与编译验证.md)。
 
 ## 尚未由代码测试替代的验收
 

@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-当前进度、精确版本和剩余门槛见[当前状态](tasks/status.md)、[build 10 修复与部署身份门禁回执](docs/operations/56-RECEIPT-build10用途草稿与部署身份门禁-20261025.md)、[实施计划](docs/operations/55-PLAN-build9复审与既有部署身份门禁-20261025.md)、[build 9 授权部署回执](docs/operations/48-RECEIPT-修复批次-导出用途标签与扫码候选-20261025.md)及[小程序发布验收计划](docs/operations/45-PLAN-1.0.6小程序发布验收-20261021.md)。[PR #6 回执](docs/operations/53-RECEIPT-PR6家庭隔离与最终复审-20261024.md)是上一阶段 build 8 的证据；历史报告只对应其日期和提交。
+当前进度、精确版本和剩余门槛见[当前状态](tasks/status.md)与[最新交付回执](docs/operations/66-RECEIPT-主线更新与API版本巡检上线-20261107.md)。build 9/build 10 与 1.0.6 阶段的历史回执已移入 docs/operations/archive/，只对应其日期和提交。
 
 - 微信小程序与 Flutter 源码均为 1.0.6 候选，本次修复候选递增为 Android build 10。48 号第 6 节记录现役 API 已另经授权部署 5cfc4a0；本轮仅继承该部署回执，公开 ready 响应不能证明容器或源码身份。源码、服务、平台上传和手机验收分别记状态。
 - 单账号支持保留自建家庭并加入其他家庭，当前家庭按会话显式选择；服务端仍逐请求验证成员资格。
@@ -50,4 +50,4 @@ npm run build
 node scripts/prepare-miniprogram.mjs --appid wx1f6dd99d28aab8e5 --api-base https://medbox.joviluma.com
 ~~~
 
-在开发者工具打开命令返回的目录；生成包保留域名校验且不含服务端密钥。平台上传、体验、真机业务、审核与正式发布须按[发布验收计划](docs/operations/45-PLAN-1.0.6小程序发布验收-20261021.md)分别核验。
+在开发者工具打开命令返回的目录；生成包保留域名校验且不含服务端密钥。平台上传、体验、真机业务、审核与正式发布须按[发布验收计划](docs/operations/archive/45-PLAN-1.0.6小程序发布验收-20261021.md)分别核验。

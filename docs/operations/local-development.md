@@ -66,4 +66,4 @@ npm test --workspace @home-medicine/miniprogram
 
 `prepare:mini` 只允许 credential-free loopback HTTP origin，把本地副本写入 Git 忽略的 `.local-data/mini-local-<UUID>`，并关闭该副本的域名校验。不要把 AppSecret、模型密钥或其他服务端配置复制到小程序目录。`check:miniprogram` 调用 DevTools 自带 WXML/WXSS 编译器；通过只证明模板和样式可编译。模拟器点击、真实身份、真机分享和消息送达仍须单独记录。
 
-本机一次性结果与 API 端口诊断见[2026-10-03 本地验证报告](02-RPT-本地微信小程序导入与编译验证.md)。
+本机一次性结果与 API 端口诊断见[2026-10-03 本地验证报告](archive/02-RPT-本地微信小程序导入与编译验证.md)。

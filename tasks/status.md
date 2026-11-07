@@ -2,9 +2,9 @@
 
 ## build 9 独立复审与下一阶段实施
 
-本轮从 `codex/medbox-fix-batch-20261025@20c55af7d0b63fd9b84e9bf8d00d1f466cd15f9c` 接续，按 [55 号计划](../docs/operations/55-PLAN-build9复审与既有部署身份门禁-20261025.md)修复用途候选、人工清空草稿与导出边界，并实施既有部署身份、绑定备份和仅 API 受控替换门禁。修复候选为 `1.0.6 / candidate / Android build 10`；本地 Codex 在最终固定 SHA 后接收验证，不在原 E 盘抢做实现。
+本轮从 `codex/medbox-fix-batch-20261025@20c55af7d0b63fd9b84e9bf8d00d1f466cd15f9c` 接续，按 [55 号计划](../docs/operations/archive/55-PLAN-build9复审与既有部署身份门禁-20261025.md)修复用途候选、人工清空草稿与导出边界，并实施既有部署身份、绑定备份和仅 API 受控替换门禁。修复候选为 `1.0.6 / candidate / Android build 10`；本地 Codex 在最终固定 SHA 后接收验证，不在原 E 盘抢做实现。
 
-实现、真实红测、独立复审与许可选择见 [56 号回执](../docs/operations/56-RECEIPT-build10用途草稿与部署身份门禁-20261025.md)；最终固定 SHA、四项 CI 和实际候选摘要统一由 [Draft PR #7](https://github.com/Jovifei/Medcial-box/pull/7)绑定。旧 PR #6 仍保留上一阶段的源码和回执。
+实现、真实红测、独立复审与许可选择见 [56 号回执](../docs/operations/archive/56-RECEIPT-build10用途草稿与部署身份门禁-20261025.md)；最终固定 SHA、四项 CI 和实际候选摘要统一由 [Draft PR #7](https://github.com/Jovifei/Medcial-box/pull/7)绑定。旧 PR #6 仍保留上一阶段的源码和回执。
 
 基线 20c 自身的 push CI `40119219274` 四项成功，与 5cfc 的 `40117329990` 和 PR #6 的 build 8 证据分别记录。本次最终结果必须另绑定新的固定 SHA、同 SHA 四项 CI 与候选摘要。原有家庭竞态、批次 ACK 和离线准入不重复实施。
 
@@ -16,13 +16,13 @@
 
 原 Draft PR #6 接续 `7957365dbf58ac22ad16a23d7efe3df721219438`：修复 Flutter 明确失去家庭成员资格后残留私有草稿；补齐备份与家庭设置的显示身份、在途请求收尾和切家清屏；真实 PostgreSQL 红测确认并修复退家与邀请重放／切家的锁顺序。原批次 ACK、双家庭并行退出和合法未选家庭回归保留。已实现的固定源码候选与离线家庭试用准入经过独立复审，无新增生产依赖或数据库迁移。
 
-本轮执行和许可来源见[53 号复审回执](../docs/operations/53-RECEIPT-PR6家庭隔离与最终复审-20261024.md)。最终 40 位 SHA、root/mini tree、同 SHA verify / backup-docker / flutter / candidate-delivery 与候选摘要由 [PR #6 交付回执](https://github.com/Jovifei/Medcial-box/pull/6)固定；795 的失败 CI 和旧 f83 四绿均不能作为本轮接收证据。
+本轮执行和许可来源见[53 号复审回执](../docs/operations/archive/53-RECEIPT-PR6家庭隔离与最终复审-20261024.md)。最终 40 位 SHA、root/mini tree、同 SHA verify / backup-docker / flutter / candidate-delivery 与候选摘要由 [PR #6 交付回执](https://github.com/Jovifei/Medcial-box/pull/6)固定；795 的失败 CI 和旧 f83 四绿均不能作为本轮接收证据。
 
 版本仍为 `1.0.6 / candidate`、Android build 8。`main@bd769f0` 与 E 盘脏树保留；现役 API 按原约束仍钉 `10f284b`，本轮未部署、未写真实家庭、未合 main。微信官方编译／上传／真机、Android 发行签名／保数据安装分别待验，不能把源码候选称为正式发布。
 
 ## 历史状态 · 2026-10-23
 
-`main` 已快进并推送到 `10f284ba6a70659cf2af954466be7fee1126fb1a`。1.0.6 候选 API 已用独立镜像标签保数据升级，公网 ready 与实际合成模型推理通过；停写配对备份已在断网隔离环境恢复，原两家庭稳定 ID 摘要及所列计数一致。精确功能分支与主线同 SHA CI 均三项成功。微信 HTTPS 候选包门禁通过，但官方开发者工具授权/编译、体验版、真机拍扫和正式平台审核未完成；Android 正式签名/手机覆盖安装未验。现有显卡通道运行，旧计划任务安装清单仍需独立受控升级。证据与限制见[46 号回执](../docs/operations/46-RECEIPT-主线合并与1.0.6服务升级-20261023.md)。
+`main` 已快进并推送到 `10f284ba6a70659cf2af954466be7fee1126fb1a`。1.0.6 候选 API 已用独立镜像标签保数据升级，公网 ready 与实际合成模型推理通过；停写配对备份已在断网隔离环境恢复，原两家庭稳定 ID 摘要及所列计数一致。精确功能分支与主线同 SHA CI 均三项成功。微信 HTTPS 候选包门禁通过，但官方开发者工具授权/编译、体验版、真机拍扫和正式平台审核未完成；Android 正式签名/手机覆盖安装未验。现有显卡通道运行，旧计划任务安装清单仍需独立受控升级。证据与限制见[46 号回执](../docs/operations/archive/46-RECEIPT-主线合并与1.0.6服务升级-20261023.md)。
 
 后续独立复审发现微信 GS1 有效期错误提示会被资料查询覆盖。小程序候选已改为对无效日期保留原码并停止自动查询，补了页面流程回归；本修复仅影响小程序源码，已部署 API 镜像仍绑定上述 `10f284b`。新的小程序固定提交、CI 与候选包以本次后续回执为准。
 
@@ -32,7 +32,7 @@
 
 1.0.6+8在codex/recognition-chain-20261016分支：拍扫失败分类、20位中性说明及迟到/损坏预览修复后，原网页又发现e445327跨身份识别派发P1和旧扫码收尾P2；已在本轮RED→GREEN收口。mini490PASS；Flutter779PASS/19平台SKIP、专项121PASS、analyze无问题；专属真实PG确认链与676请求稳定负载2PASS，本机真实HTTP→实际模型→PG确认保存→重开字段及原图字节通过。修复后跨层及精确mini树独立审查无剩余明确P1/P2。e445327虽CI绿色仍是中间候选，不当最终交付。
 
-最终固定SHA/CI与原网页集中复审以同SHA运行回执为准；本轮不合main、不部署或更新1.0.5预览码。两个真实家庭所选基线与15日一致，未写真实数据。线上仍旧服务、私有模型连接断；目录20条无Key；原审批拒绝与额外竞态未解除。当前本机闭环完成不等于线上/手机识别完成。详见[拍扫分支回执](../docs/operations/34-RECEIPT-拍扫完整链路与分支候选-20261016.md)。
+最终固定SHA/CI与原网页集中复审以同SHA运行回执为准；本轮不合main、不部署或更新1.0.5预览码。两个真实家庭所选基线与15日一致，未写真实数据。线上仍旧服务、私有模型连接断；目录20条无Key；原审批拒绝与额外竞态未解除。当前本机闭环完成不等于线上/手机识别完成。详见[拍扫分支回执](../docs/operations/archive/34-RECEIPT-拍扫完整链路与分支候选-20261016.md)。
 
 以下保留上一候选快照，不能作为1.0.6最终证据：
 
@@ -45,13 +45,13 @@
 - 线上仍pr3-1867792；条码库20条且无外部Key；原有模型桥的合成探测通过后私有连接再次断连，稳定在线未解决，手机相机到API失败类别尚未证实。不能称拍照识别已修复或项目已上线。
 - 原部署准备拒绝、旧额外status/confirm竞态仍BLOCKED，不重试或换入口。Hub revision连接拒绝，保留pending不自动重试。
 
-计划与资源指引见[拍扫验证计划](../docs/operations/26-PLAN-拍扫识别与上线验证-20261015.md)、[条码库开通指引](../docs/operations/27-GUIDE-条码资料库私有配置.md)、[独审收口](../docs/operations/30-RECEIPT-独审收口与电脑验收-20261015.md)。6fe旧候选CI三项成功已保留，新修复必须由新SHA的最终CI/复审验收。
+计划与资源指引见[拍扫验证计划](../docs/operations/archive/26-PLAN-拍扫识别与上线验证-20261015.md)、[条码库开通指引](../docs/operations/27-GUIDE-条码资料库私有配置.md)、[独审收口](../docs/operations/archive/30-RECEIPT-独审收口与电脑验收-20261015.md)。6fe旧候选CI三项成功已保留，新修复必须由新SHA的最终CI/复审验收。
 
 ## 2026-10-14 主线整合记录
 
 主线归一已完成：PR5于2026-10-14合入main `ebe3df2`（源候选`2a4f047`），PR3自动标记merged，PR4作为已包含内容关闭。E原目录已切至main并同步；4个旧远端分支已删除，远端仅main。8个冗余本地分支删除，独有历史/旧脏工作区以2个archive分支保留。
 
-候选CI [38578731818](https://github.com/Jovifei/Medcial-box/actions/runs/38578731818) 的verify/backup-docker/flutter全部SUCCESS，主线合并树与候选树一致。当前文档提交只补充完成记录；最新Git HEAD与CI状态可在GitHub直接核验。详见[本次整合记录](../docs/operations/24-RECEIPT-main-consolidation-20261014.md)。
+候选CI [38578731818](https://github.com/Jovifei/Medcial-box/actions/runs/38578731818) 的verify/backup-docker/flutter全部SUCCESS，主线合并树与候选树一致。当前文档提交只补充完成记录；最新Git HEAD与CI状态可在GitHub直接核验。详见[本次整合记录](../docs/operations/archive/24-RECEIPT-main-consolidation-20261014.md)。
 - 已有功能：家庭库存/批次/效期、私照草稿、计划提醒、导出；本轮整合多家庭会话、邀请落地与底部导航、升级恢复证据及资料查询修复。
 - 已补齐：导航子页高亮与对比度，精简四等分 CSS；未调用用途猜测函数和 4 个旧声明式 fixture 删除。有效回归及审计证据保留。
 - 仍未完成：服务器版本/迁移与客户端匹配、保数据部署、真实双账号双设备加入切家与照片识别、通知实收、正式 Android 签名/保数据安装及完整平台验收。

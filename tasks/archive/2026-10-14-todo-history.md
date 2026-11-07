@@ -473,7 +473,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 
 ### Review 2026-10-04 分支整合
 
-验证明细见 docs/operations/05-RPT-分支合并与手机验证.md。main 包含远端 f5e17e5；Release数据保留安装与启动PASS；旧登录安全隔离，用户重新连接与登录后业务验收PENDING。
+验证明细见 docs/operations/archive/05-RPT-分支合并与手机验证.md。main 包含远端 f5e17e5；Release数据保留安装与启动PASS；旧登录安全隔离，用户重新连接与登录后业务验收PENDING。
 
 
 ## 2026-10-04 批次编辑、统一日期与分类/识别
@@ -661,7 +661,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 - [x] 读取AGENTS、旧Codex/远端会话及Obsidian，核当前GitHub候选。
 - [x] Jovi明确授权原目录接收和远端审核/修复/规划实施/测试/提交完整阶段。
 - [x] 备份5份Owner未提交文档，E原目录fast-forward至17f0854，逐份SHA256不变。
-- [x] 建立接收分支codex/remote-stage-reception-20261011及接力执行契约docs/operations/18-HANDOFF-远端完整阶段与原目录接收-20261011.md。
+- [x] 建立接收分支codex/remote-stage-reception-20261011及接力执行契约docs/operations/archive/18-HANDOFF-远端完整阶段与原目录接收-20261011.md。
 - [x] 原远端会话已派发一次完整阶段，GitHub契约评论6106520558；页面正在回应，最终交付仍待接收。
 - [ ] 远端最终固定SHA返回后，在E原目录保留dirty内容接收、独立验证并回传。
 审查：当前仅接收源码和编写文档；新17f0854本机测试NOT_RUN，设备/发布门槛分列；Hub revision WinError10061，未上报成功、不自动重试。
@@ -683,7 +683,7 @@ Jovi 在本地试用指出录入字段过多。改为拍照识别优先、常用
 ## 2026-10-11 多家庭、邀请返回与底部导航完整阶段（本会话继续）
 - [x] 核原会话、PR4和多家庭9a4be59基础分支；读取另一Agent部署报告，来源与本机验证分列。
 - [x] Jovi明确授权完整修复两家庭保留、邀请加入/切换、底部首页导航与远端下一阶段执行。
-- [x] 完整阶段契约写入docs/operations/19-HANDOFF-多家庭邀请导航与完整阶段-20261011.md。
+- [x] 完整阶段契约写入docs/operations/archive/19-HANDOFF-多家庭邀请导航与完整阶段-20261011.md。
 - [ ] 同一原ChatGPT会话使用GitHub插件派发一个完整阶段，保持生成中不重复催发。
 - [ ] 远端完成PR4收尾、多家庭/邀请/全局导航及下一阶段整合，实测独立复审后交最终SHA。
 - [ ] E原目录保dirty接收冻结SHA，独立回归构建、同签名保数据更新，再验证首页/家庭/拍照。

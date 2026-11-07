@@ -1,5 +1,15 @@
 # 当前任务：微信小程序参数与交互审核修复（2026-11-02）
 
+## 2026-11-07 分支与文档清理收尾（Jovi 授权）
+
+- [x] 远端删除 4 个已合并分支：`ui-stage1-closeout-20261031`、`medbox-home-archive-20261028`、`ui-overhaul-p0-20261026`、`muse/medbox-health-build-info-20261105`。
+- [x] 本地删除 8 个已合并分支；保留 `codex/archive/local-delivery-handoff-20261008`（唯一未合并历史）与含未跟踪本地产物的 `codex/medbox-pr6-local-repair-20261024`、`codex/ui-simplify-20261025`、`codex/archive/flutter-ui-prototype`。
+- [x] 移除 6 个干净 worktree 并 prune 4 个失效记录；8 个含未跟踪产物的 worktree/目录按安全规则保留未强制删除。
+- [x] 历史文档归档：52 篇 01–59 期回执/计划/交接移入 `docs/operations/archive/`，根目录仅留 15 个有效文档 + 索引 `docs/operations/README.md`。
+- [x] 全量 Markdown 相对链接校验：移动相关断链全部修复（docs/README、根 README、flutter README、overview、status、todo、lessons、archive 内部）；仅剩 3 条移动前即存在的本机证据绝对路径。
+- [x] `npm run test:tooling` 通过（232 PASS / 0 FAIL / 30 SKIP，与基线一致）。
+- [ ] 待 Owner：关闭陈旧 Draft PR #7（其 head/base 分支内容已全部在 main，关闭后可一并删除 `codex/medbox-fix-batch-20261025` 与 `codex/medbox-106-p1p3-20261023`）。
+
 ## 2026-11-07 项目阶段收尾（Jovi 确认"该做的已做完"）
 
 - [x] 主线与远端一致：`main` = `origin/main` = `54157bb`，工作区仅余 `AGENTS.md` 本机 Token 控制规则，本轮一并入库。
@@ -126,7 +136,7 @@
 - [x] 服务器从精确源码构建 `medbox-api:1.1.2-a80e6aa` 镜像，安全切换并保留旧镜像与原 compose 配置。
 - [x] 生产服务升级后公网 health/ready 恢复 200，035 迁移成功应用（37 项），原有 11 药品、11 批次、22 照片与 2 家庭数据无损。
 - [x] 微信开发者工具验证登录，上传 1.1.2 体验版包体（617 KB），生成本地预览二维码图片。
-- [x] 形成 62 号交付回执（[62 号回执](docs/operations/62-RECEIPT-合并部署与体验版上线-20261028.md)）。
+- [x] 形成 62 号交付回执（[62 号回执](../docs/operations/62-RECEIPT-合并部署与体验版上线-20261028.md)）。
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## 当前 HEAD 与本机补充核验
 
-- 2026-10-04 本机未提交复核：Flutter 补齐“凝胶”药名抽取、选项式库存单位和中文日期滚轮；共享 API/小程序单位契约新增 `tube`，迁移 `029_tube_quantity_unit.sql`。当前实现与验证见[Android 新报告](../../../docs/operations/04-RPT-Android识药单位日期与Release验证.md)。这不是 GitHub 已发布提交。
+- 2026-10-04 本机未提交复核：Flutter 补齐“凝胶”药名抽取、选项式库存单位和中文日期滚轮；共享 API/小程序单位契约新增 `tube`，迁移 `029_tube_quantity_unit.sql`。当前实现与验证见[Android 新报告](../../../docs/operations/archive/04-RPT-Android识药单位日期与Release验证.md)。这不是 GitHub 已发布提交。
 - Release R8 现已在本机构建成功，APK 编译时传入 `API_BASE_URL=https://medbox-test.joviluma.com`。该域名仍未解析，Release 仅为 debug 证书构建，未安装为发布包；生产 API 与正式签名仍未验收。
 - GM1910 上最终 Debug APK 使用保留数据方式更新，首次安装时间不变；本机合成 OAuth 网关、隔离家庭读取及中文日期选择通过。真实微信用户和原始药盒照片的识别准确率仍 `NOT_RUN`。
 
@@ -15,9 +15,9 @@
 - 本地工作区已从 `b90bc1d` 快进到 `736d762`；该提交的 GitHub Actions [run 37107940730](https://github.com/Jovifei/Medcial-box/actions/runs/37107940730) 页面状态为 Success，`verify` 与 `flutter` 作业均成功。
 - 计划创建幂等修复已合入：迁移 `028_medication_plan_create_receipts.sql` 保存用户/家庭/请求键、规范化载荷哈希和原始响应；相同键同内容回放原响应，不同内容冲突。后续数据库增量还包含 `029_tube_quantity_unit.sql`；部署顺序为应用待用迁移 → API → 客户端。
 - 本机 Windows 小程序验收：运行时测试 220/220、lint、typecheck、官方 WXML/WXSS 编译 51 文件均 PASS；隔离项目由 DevTools CLI 接受打开。页面人工点击未验证。
-- 本机 API 容器内部 readiness HTTP 200，但 Windows 对映射端口 127.0.0.1:13301 收到空 HTTP 响应；因此登录/家庭/API 页面联调 NOT_RUN。完整记录见 [本地验证报告](../../../docs/operations/02-RPT-本地微信小程序导入与编译验证.md)。
+- 本机 API 容器内部 readiness HTTP 200，但 Windows 对映射端口 127.0.0.1:13301 收到空 HTTP 响应；因此登录/家庭/API 页面联调 NOT_RUN。完整记录见 [本地验证报告](../../../docs/operations/archive/02-RPT-本地微信小程序导入与编译验证.md)。
 - 本地验证未向微信平台上传或发布；真实账号/两台手机、通知送达、系统分享、正式签名、HTTPS 部署和数据库/图片恢复保持 NOT_RUN。
-- 本机 Android 已在 OnePlus GM1910 安装并启动当前源码 Debug APK，首次安装时间未变；这只证明保留数据安装和进程启动。Flutter 本机测试 259 PASS/9 Windows 环境失败；Release R8 因 ML Kit 缺类未生成 APK。完整记录见 [Android 实体机报告](../../../docs/operations/03-RPT-Android实体机安装与启动验证.md)。
+- 本机 Android 已在 OnePlus GM1910 安装并启动当前源码 Debug APK，首次安装时间未变；这只证明保留数据安装和进程启动。Flutter 本机测试 259 PASS/9 Windows 环境失败；Release R8 因 ML Kit 缺类未生成 APK。完整记录见 [Android 实体机报告](../../../docs/operations/archive/03-RPT-Android实体机安装与启动验证.md)。
 
 以下历史逐项证据仍按其精确来源提交与测试环境解读；本机 220 项小程序测试和 51 个文件的官方编译为 Windows 工作区新证据。
 
@@ -103,4 +103,4 @@
 
 ### 2026-10-04 本地整合补充
 
-远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。
+远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/archive/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。

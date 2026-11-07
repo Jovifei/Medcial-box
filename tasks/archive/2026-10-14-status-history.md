@@ -57,7 +57,7 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 - 精确提交 GitHub Actions [run 37107940730](https://github.com/Jovifei/Medcial-box/actions/runs/37107940730) 显示 Success，包含 verify 与 flutter 作业。
 - 本机小程序：运行时测试 220/220、lint、typecheck 与官方 WXML/WXSS 编译 51 个文件 PASS；DevTools CLI 接受隔离项目打开。未观察页面渲染或逐项点击。
 - 本机 Android：最终源码 Debug APK 经 `adb install -r` 更新到 OnePlus GM1910，首次安装时间未变；本机合成 API 下设备连接与家庭读取通过。日期滚轮与选中值已在真机验证为中文。Release R8 已构建 PASS，但使用 debug 证书。
-- 本机 Debug API 为 `127.0.0.1:13300` 的假微信/隔离 PostgreSQL 联调环境，当前进程和手机 ADB reverse 仍启用；测试家庭是合成数据。`medbox-test.joviluma.com` 当前无 DNS。真实微信 OAuth、相机照片识别准确率、通知、生产家庭数据均 `NOT_RUN`。小程序源码回归和官方编译仍 PASS；完整证据见 [Android 识药、单位、日期与 Release 报告](../../docs/operations/04-RPT-Android识药单位日期与Release验证.md)。
+- 本机 Debug API 为 `127.0.0.1:13300` 的假微信/隔离 PostgreSQL 联调环境，当前进程和手机 ADB reverse 仍启用；测试家庭是合成数据。`medbox-test.joviluma.com` 当前无 DNS。真实微信 OAuth、相机照片识别准确率、通知、生产家庭数据均 `NOT_RUN`。小程序源码回归和官方编译仍 PASS；完整证据见 [Android 识药、单位、日期与 Release 报告](../../docs/operations/archive/04-RPT-Android识药单位日期与Release验证.md)。
 - Docs 索引、架构/Flutter 本地构建说明与 Android 验证报告已更新；Obsidian overview/progress/decision checkpoint 及 7 份文档镜像为 `MEMORY_UPDATED`，源/目标哈希一致。
 - 本轮未向微信平台上传/发布，也未操作 ECS。两账号两手机、提醒模板/送达、系统分享、HTTPS、正式签名及数据库/图片恢复均 `NOT_RUN`。
 - 仍需补齐：Android 计划表单的星期选择、药箱药品关联、普通表单草稿；Flutter 跨重启安全恢复与跨进程导出文件清理。C1 计划创建幂等已在 736d762 完成。
@@ -250,4 +250,4 @@ main基线f675416；本轮计划分支codex/two-stage-audit-20261008。状态PLA
 
 ### 2026-10-04 本地整合补充
 
-远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。
+远端功能进展以 f5e17e5 为基线；本地中文日期滚轮、OCR 药名清洗、支(tube)单位及迁移029一并保留。先前本地真机与构建证据见 docs/operations/archive/04-RPT-Android识药单位日期与Release验证.md；不视为本次整合后验证。真实身份、通知及正式部署仍待验收。
