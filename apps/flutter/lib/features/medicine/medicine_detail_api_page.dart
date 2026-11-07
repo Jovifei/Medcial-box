@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../core/widgets/expiry_date_wheel_picker.dart';
 import '../../core/widgets/medicine_tags.dart';
 import '../../core/widgets/private_medicine_image.dart';
@@ -385,45 +387,71 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(friendlyApiError(error))));
 
+  Future<void> _showMoreActions() async {
+    final medicine = await medicineFuture;
+    if (!mounted || submitting) return;
+    if (!mounted) return;
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: const Text('更多操作'),
+        actions: [
+          for (final entry in const [
+            ('tags', '补充用途与分类'),
+            ('threshold', '低库存提醒'),
+            ('note', '个人剂量备注'),
+            ('restock', '加入补货清单'),
+            ('plan', '创建用药计划'),
+            ('export', '导出药箱清单'),
+            ('history', '家庭变更记录'),
+          ])
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(entry.$1),
+              child: Text(entry.$2),
+            ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(sheetContext).pop('archive'),
+            child: const Text('归档药品'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+    if (!mounted || !context.mounted) return;
+    switch (action) {
+      case 'tags':
+        _editTags(medicine);
+      case 'threshold':
+        _editThreshold(medicine);
+      case 'note':
+        _editNote(medicine);
+      case 'restock':
+        _addRestock(medicine);
+      case 'plan':
+        context.push('/plans/new');
+      case 'export':
+        context.push('/export');
+      case 'history':
+        context.push('/audit');
+      case 'archive':
+        _archive(medicine);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('药品详情'),
+    appBar: appleAppBar(
+      '药品详情',
       actions: [
-        PopupMenuButton<String>(
-          tooltip: '更多操作',
-          onSelected: (value) async {
-            final medicine = await medicineFuture;
-            if (!mounted || !context.mounted || submitting) return;
-            switch (value) {
-              case 'tags':
-                _editTags(medicine);
-              case 'threshold':
-                _editThreshold(medicine);
-              case 'note':
-                _editNote(medicine);
-              case 'restock':
-                _addRestock(medicine);
-              case 'plan':
-                context.push('/plans/new');
-              case 'export':
-                context.push('/export');
-              case 'history':
-                context.push('/audit');
-              case 'archive':
-                _archive(medicine);
-            }
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'tags', child: Text('补充用途与分类')),
-            PopupMenuItem(value: 'threshold', child: Text('低库存提醒')),
-            PopupMenuItem(value: 'note', child: Text('个人剂量备注')),
-            PopupMenuItem(value: 'restock', child: Text('加入补货清单')),
-            PopupMenuItem(value: 'plan', child: Text('创建用药计划')),
-            PopupMenuItem(value: 'export', child: Text('导出药箱清单')),
-            PopupMenuItem(value: 'history', child: Text('家庭变更记录')),
-            PopupMenuItem(value: 'archive', child: Text('归档药品')),
-          ],
+        CupertinoButton(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          onPressed: submitting ? null : _showMoreActions,
+          child: const Icon(CupertinoIcons.ellipsis_circle, size: 22),
         ),
       ],
     ),
