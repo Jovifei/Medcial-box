@@ -1,4 +1,22 @@
-# 当前任务：微信小程序参数与交互审核修复（2026-11-02）
+# 当前任务：Flutter App 功能对齐小程序与苹果风收尾（2026-11-08）
+
+## 2026-11-08 Flutter App 功能对齐小程序（已完成，已在 codex/flutter-app-parity 提交）
+
+- [x] 新建专用开发分支：`codex/flutter-app-parity`。
+- [x] 药品详情页对齐小程序 `onDeleteMedicine`：
+  - `ApiMedicineRepository` 补齐 `deleteMedicine`（`POST /api/v1/medicines/$id/trash`），清理内存与持久化快照。
+  - `MedicineDetailApiPage` 动作表单新增“删除药品”（移入回收站），30 天内可在回收站恢复；保留原有“归档药品”（不进回收站）。
+- [x] 家庭设置页对齐小程序邀请流程：
+  - 管理员在家庭成员列表区直接提供“生成邀请码”操作，一键生成 72 小时一次性邀请码并支持复制与系统分享。
+- [x] 资料编辑与归档/盘点页面接入苹果风：
+  - `MedicineEditDetailsPage`、`StocktakePage`、`ArchivedMedicinesPage` 全量接入 `appleAppBar` 玻璃导航栏。
+  - `app.dart` 补齐 `/archived-medicines` 独立路由。
+- [x] 自动化测试与质量门禁全部通过：
+  - `flutter analyze`：0 错误、0 警告。
+  - `flutter test`：902 项测试全部通过（0 失败，19 跳过）。
+  - `npm run lint`：通过（0 警告，版本一致性 1.2.1/19 校验通过）。
+  - `npm run test:tooling`：232 PASS / 0 FAIL / 30 SKIP。
+- [x] Local Project Hub 状态上报成功（revision 1，stage s6，event `9b109d38-65ad-43f9-af83-346f2df73159`）。
 
 ## 2026-11-07 文档归档与本机大清理（Jovi 授权，grill-me 逐项确认）
 
