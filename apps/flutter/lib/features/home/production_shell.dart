@@ -610,7 +610,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                           Divider(
                             height: 0.5,
                             thickness: 0.5,
-                            indent: 62,
+                            indent: 74,
                             color: CupertinoColors.separator.resolveFrom(
                               context,
                             ),
@@ -851,7 +851,7 @@ class _MedicineRow extends StatelessWidget {
     return InkWell(
           onTap: () => context.push('/medicine/${medicine.id}'),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -861,8 +861,8 @@ class _MedicineRow extends StatelessWidget {
                     loader: imageLoader,
                     medicineId: medicine.id,
                     photoId: medicine.coverPhotoId,
-                    width: 42,
-                    height: 42,
+                    width: 46,
+                    height: 46,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -890,7 +890,7 @@ class _MedicineRow extends StatelessWidget {
                           _MedicineStatus(medicine: medicine, batch: batch),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         medicine.specificationDisplay,
                         maxLines: 1,
@@ -901,7 +901,7 @@ class _MedicineRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text.rich(
                         TextSpan(
                           children: [
