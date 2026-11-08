@@ -344,6 +344,102 @@ void main() {
     expect(requests, 0);
     expect((await cache.readInventory())!.single.batches.single.openedState, 'unknown');
   });
+
+  test('deleteMedicine posts to trash and evicts from cache and in-memory list', () async {
+    final cache = MemoryInventoryLocalStore();
+    var trashCalled = false;
+    final repository = ApiMedicineRepository(
+      api: ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => 'session-token',
+        client: MockClient((request) async {
+          if (request.method == 'GET' && request.url.path == '/api/v1/medicines') {
+            return http.Response.bytes(
+              utf8.encode(jsonEncode({
+                'medicines': [
+                  {
+                    'id': 'm1',
+                    'name': '待删除药',
+                    'specification': '10片/盒',
+                    'manufacturer': null,
+                    'approvalNumber': null,
+                    'activeIngredients': const <String>[],
+                    'purposeCategory': null,
+                    'leaflet': null,
+                    'batches': const <Map<String, Object?>>[],
+                  },
+                ],
+              })),
+              200,
+            );
+          }
+          if (request.method == 'POST' && request.url.path == '/api/v1/medicines/m1/trash') {
+            trashCalled = true;
+            return http.Response('{}', 200);
+          }
+          throw StateError('Unexpected request: ${request.method} ${request.url}');
+        }),
+      ),
+      localStore: cache,
+    );
+
+    await repository.listMedicines();
+    expect(repository.medicines.map((m) => m.id), ['m1']);
+    expect((await cache.readInventory())!.map((m) => m.id), ['m1']);
+
+    await repository.deleteMedicine('m1');
+    expect(trashCalled, isTrue);
+    expect(repository.medicines, isEmpty);
+    expect((await cache.readInventory())!, isEmpty);
+  });
+
+  test('archiveMedicine deletes from api and evicts from cache and in-memory list', () async {
+    final cache = MemoryInventoryLocalStore();
+    var archiveCalled = false;
+    final repository = ApiMedicineRepository(
+      api: ApiClient(
+        baseUrl: 'https://medicine.example',
+        tokenProvider: () async => 'session-token',
+        client: MockClient((request) async {
+          if (request.method == 'GET' && request.url.path == '/api/v1/medicines') {
+            return http.Response.bytes(
+              utf8.encode(jsonEncode({
+                'medicines': [
+                  {
+                    'id': 'm2',
+                    'name': '待归档药',
+                    'specification': '20粒/瓶',
+                    'manufacturer': null,
+                    'approvalNumber': null,
+                    'activeIngredients': const <String>[],
+                    'purposeCategory': null,
+                    'leaflet': null,
+                    'batches': const <Map<String, Object?>>[],
+                  },
+                ],
+              })),
+              200,
+            );
+          }
+          if (request.method == 'DELETE' && request.url.path == '/api/v1/medicines/m2') {
+            archiveCalled = true;
+            return http.Response('', 204);
+          }
+          throw StateError('Unexpected request: ${request.method} ${request.url}');
+        }),
+      ),
+      localStore: cache,
+    );
+
+    await repository.listMedicines();
+    expect(repository.medicines.map((m) => m.id), ['m2']);
+    expect((await cache.readInventory())!.map((m) => m.id), ['m2']);
+
+    await repository.archiveMedicine('m2');
+    expect(archiveCalled, isTrue);
+    expect(repository.medicines, isEmpty);
+    expect((await cache.readInventory())!, isEmpty);
+  });
 }
 
 Map<String, Object?> _splitBatchJson({

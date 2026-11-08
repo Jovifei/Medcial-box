@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/apple_screen.dart';
+
 import '../../data/api_client.dart';
 import '../../data/api_workflow_repository.dart';
 import '../../models/medicine_models.dart';
@@ -105,7 +107,7 @@ class _ArchivedMedicinesPageState extends State<ArchivedMedicinesPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('已归档药品')),
+    appBar: appleAppBar('已归档药品'),
     body: _scopeChanged
         ? const Center(child: Text('家庭已变更，请返回药箱重新打开。'))
         : _loading

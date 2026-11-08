@@ -1,4 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons, SelectableText, ScaffoldMessenger, SnackBar;
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../core/widgets/app_surfaces.dart';
 
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_colors.dart';
@@ -86,7 +90,50 @@ class _FamilySettingsPageState extends State<FamilySettingsPage> {
     }
   }
 
-  Future<void> _updateInterval(String interval) async {
+    Future<void> _createInvite() async {
+    try {
+      final code = await widget.services.families!.createInvitation();
+      if (!mounted) return;
+      await showAppSheet<void>(
+        context,
+        title: '邀请家人加入',
+        builder: (sheetContext) => Column(
+          children: [
+            const Text('该邀请码 72 小时内有效，只能使用一次。分享前请确认收件人。'),
+            const SizedBox(height: 14),
+            SelectableText(
+              code,
+              style: AppType.title2.copyWith(letterSpacing: 2),
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              label: '复制邀请码',
+              icon: Icons.copy_rounded,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (sheetContext.mounted) {
+                  ScaffoldMessenger.of(sheetContext)
+                      .showSnackBar(const SnackBar(content: Text('邀请码已复制')));
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            SoftButton(
+              label: '分享邀请码',
+              icon: Icons.share_outlined,
+              onPressed: () => SharePlus.instance.share(
+                ShareParams(text: '加入我的家庭药箱，邀请码：$code'),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (_isCurrent) await _showAlert('生成邀请码失败', '$error');
+    }
+  }
+
+Future<void> _updateInterval(String interval) async {
     if (_busy || _settings?.stocktakeInterval == interval) return;
     setState(() => _busy = true);
     try {
@@ -292,6 +339,13 @@ class _FamilySettingsPageState extends State<FamilySettingsPage> {
                       ? const Icon(CupertinoIcons.ellipsis, size: 18)
                       : null,
                   onTap: _busy ? null : () => _memberActions(member),
+                ),
+              if (_family!.role == 'owner')
+                CupertinoListTile(
+                  leading: Icon(CupertinoIcons.person_add, color: c.accent, size: 22),
+                  title: Text('生成邀请码', style: AppType.body.copyWith(color: c.accent)),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: _busy ? null : _createInvite,
                 ),
             ],
           ),

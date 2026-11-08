@@ -25,6 +25,7 @@ import 'features/medicine/medicine_detail_api_page.dart';
 import 'features/medicine/medicine_detail_page.dart';
 import 'features/medicine/medicine_entry_api_page.dart';
 import 'features/medicine/leaflet_photo_page.dart';
+import 'features/medicine/archived_medicines_page.dart';
 import 'features/my/notification_settings_page.dart';
 import 'features/my/trash_audit_pages.dart';
 import 'features/my/release_notes_page.dart';
@@ -200,6 +201,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
           ),
         ),
         _route('/audit', AuditPage(workflow: services.workflow!)),
+        _route('/archived-medicines', ArchivedMedicinesPage(workflow: services.workflow!)),
         _route('/release-notes', const ReleaseNotesPage()),
         _route('/plans/new', PlanFormPage(repository: services.plans!)),
         GoRoute(
