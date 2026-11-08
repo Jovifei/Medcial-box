@@ -177,6 +177,9 @@ const reviewedSourceTrees = new Set([
   // 2026-11-07 版本说明文案更新：相对 1665ebb 树仅 app-update.ts 版本说明 items 文案，
   // 无运行时逻辑/能力变化。
   '75bb7c66fe58eb8704d4e4de18336b1d0000a1d3',
+  // 2026-11-08 版本 1.2.1：相对 75bb7c 树仅 app-update.ts 版本号与版本说明条目（纯元数据），
+  // 无运行时逻辑/能力变化。
+  '6b6f122afe721b266dff44ca46bd457a5f7702c7',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
