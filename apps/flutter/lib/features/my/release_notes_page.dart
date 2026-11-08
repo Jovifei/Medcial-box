@@ -5,7 +5,7 @@ import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/apple_screen.dart';
 
 /// 当前版本标识（与小程序 app-update.ts 的 APP_VERSION 保持一致）。
-const String appVersion = '1.2.0';
+const String appVersion = '1.2.1';
 
 class ReleaseNote {
   const ReleaseNote({

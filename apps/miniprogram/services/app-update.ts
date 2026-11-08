@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.2.1";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.2.1",
+    date: "2026-11-08",
+    items: ["安卓 App 全部页面接入苹果风玻璃导航栏，药品详情操作菜单改为 iOS 操作单。", "全局深色模式与字号三档（小/标准/大）保持一致体验。", "统一卡片圆角、页边距与标题字号，视觉更整齐。"],
+  },
   {
     version: "1.2.0",
     date: "2026-11-07",
