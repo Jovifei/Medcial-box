@@ -5,7 +5,7 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction, CupertinoNavigationBarBackButton;
+import 'package:flutter/cupertino.dart' show CupertinoDialogAction, CupertinoListTile, CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -371,32 +371,35 @@ void main() {
   );
 
   testWidgets(
-    'home exposes compact filter entries and opens only the selected panel',
+    'home keeps filters in a nav-bar sheet instead of flat chips',
     (tester) async {
       final f = _Fixture();
       await f.accepted();
       await f.cache();
       await _mount(tester, f);
-      expect(find.text('用途 ▾'), findsOneWidget);
-      expect(find.text('人群 ▾'), findsOneWidget);
-      expect(find.text('状态 ▾'), findsOneWidget);
-      expect(find.text('排序 ▾'), findsOneWidget);
-      expect(find.widgetWithText(FilterChip, '儿童'), findsNothing);
-      await tester.tap(find.text('人群 ▾'));
+      // 首页不再平铺筛选胶囊，整行留给列表内容。
+      expect(find.text('状态 ▾'), findsNothing);
+      expect(find.text('用途 ▾'), findsNothing);
+      await tester.tap(find.byTooltip('筛选与排序'));
       await _pump(tester);
-      expect(find.widgetWithText(FilterChip, '儿童'), findsOneWidget);
-      await tester.tap(find.text('状态 ▾'));
+      // 弹层内按 iOS 分组呈现，四类条件都在。
+      expect(find.text('筛选与排序'), findsOneWidget);
+      expect(find.text('状态'), findsOneWidget);
+      // 分组顺序在下方，允许在滚动区外。
+      expect(find.text('用途', skipOffstage: false), findsWidgets);
+      expect(find.text('人群', skipOffstage: false), findsWidgets);
+      expect(find.text('排序', skipOffstage: false), findsWidgets);
+      await tester.tap(find.widgetWithText(CupertinoListTile, '临期/过期'));
       await _pump(tester);
-      expect(find.widgetWithText(FilterChip, '儿童'), findsNothing);
-      expect(find.widgetWithText(FilterChip, '临期/过期'), findsOneWidget);
-      await tester.tap(find.text('状态 ▾'));
+      await tester.tap(find.text('完成'));
       await _pump(tester);
-      expect(find.widgetWithText(FilterChip, '临期/过期'), findsNothing);
+      expect(find.text('筛选与排序'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     },
   );
+
 
   testWidgets(
     'home attention count and status filters keep unknown stock separate',
@@ -434,19 +437,29 @@ void main() {
       await f.accepted();
       await _mount(tester, f);
       expect(find.text('需关注 2 种'), findsOneWidget);
-      await tester.tap(find.text('状态 ▾'));
+      await tester.tap(find.byTooltip('筛选与排序'));
       await _pump(tester);
-      await tester.tap(find.widgetWithText(FilterChip, '库存不足'));
+      await tester.tap(find.widgetWithText(CupertinoListTile, '库存不足'));
+      await _pump(tester);
+      await tester.tap(find.text('完成'));
       await _pump(tester);
       expect(find.text('低库存'), findsOneWidget);
       expect(find.text('用完'), findsOneWidget);
       expect(find.text('数量未知'), findsNothing);
-      await tester.tap(find.widgetWithText(FilterChip, '待补资料'));
+      await tester.tap(find.byTooltip('筛选与排序'));
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(CupertinoListTile, '待补资料'));
+      await _pump(tester);
+      await tester.tap(find.text('完成'));
       await _pump(tester);
       expect(find.text('缺成分'), findsOneWidget);
       expect(find.text('资料完整'), findsNothing);
       expect(find.text('低库存'), findsNothing);
-      await tester.tap(find.widgetWithText(FilterChip, '数量/日期未知'));
+      await tester.tap(find.byTooltip('筛选与排序'));
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(CupertinoListTile, '数量/日期未知'));
+      await _pump(tester);
+      await tester.tap(find.text('完成'));
       await _pump(tester);
       expect(find.text('数量未知'), findsOneWidget);
       expect(find.text('日期未知'), findsOneWidget);

@@ -73,9 +73,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('暂时无法读取药箱'), findsNothing);
       expect(find.text('还没有记录药品'), findsOneWidget);
-      await tester.tap(find.text('状态 ▾'));
+      // 筛选已收进导航栏按钮 + iOS 弹层（不再平铺胶囊）。
+      await tester.tap(find.byTooltip('筛选与排序'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('已归档'));
+      await tester.tap(find.text('已归档药品'));
       await tester.pumpAndSettle();
       expect(find.text('已归档药品'), findsOneWidget);
       expect(find.text('暂无已归档药品'), findsOneWidget);

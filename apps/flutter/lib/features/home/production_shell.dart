@@ -237,6 +237,13 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   static const _purposeLabels = medicinePurposeLabels;
   String? filterPanel;
 
+  /// 已生效的筛选/排序条件数（用于导航栏徽标）。
+  int get _filterCount =>
+      (filter == MedicineFilter.all ? 0 : 1) +
+      selectedPurposes.length +
+      selectedPopulations.length +
+      (sortOrder == 'expiry' ? 0 : 1);
+
   @override
   void initState() {
     super.initState();
@@ -453,6 +460,15 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
             ),
           ),
           IconButton(
+            tooltip: '筛选与排序',
+            onPressed: _showFilterSheet,
+            icon: Badge(
+              isLabelVisible: _filterCount > 0,
+              label: Text('$_filterCount'),
+              child: const Icon(CupertinoIcons.slider_horizontal_3),
+            ),
+          ),
+          IconButton(
             tooltip: '关注事项',
             onPressed:
                 widget.onAttention ?? () => context.go('/home?tab=pending'),
@@ -559,81 +575,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   },
                 ),
               ],
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _filterEntry('用途', 'purpose'),
-                    const SizedBox(width: 6),
-                    _filterEntry('人群', 'population'),
-                    const SizedBox(width: 6),
-                    _filterEntry('状态', 'status'),
-                    const SizedBox(width: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.secondarySystemBackground
-                            .resolveFrom(context),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: CupertinoColors.separator.resolveFrom(context),
-                        ),
-                      ),
-                      child: PopupMenuButton<String>(
-                        tooltip: '排序',
-                        initialValue: sortOrder,
-                        onSelected: (value) =>
-                            setState(() => sortOrder = value),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'expiry', child: Text('到期优先')),
-                          PopupMenuItem(value: 'recent', child: Text('最近录入')),
-                          PopupMenuItem(value: 'name', child: Text('药名排序')),
-                        ],
-                        child: _filterPill('排序 ▾'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (filterPanel != null)
-                AppCard(
-                  padding: const EdgeInsets.all(12),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      if (filterPanel == 'purpose')
-                        ..._purposeLabels.entries.map(
-                          (entry) => _tagChip(
-                            entry.value,
-                            selectedPurposes,
-                            entry.key,
-                          ),
-                        ),
-                      if (filterPanel == 'population') ...[
-                        _tagChip('成人', selectedPopulations, 'adult'),
-                        _tagChip('儿童', selectedPopulations, 'child'),
-                      ],
-                      if (filterPanel == 'status') ...[
-                        _filterChip('全部', MedicineFilter.all),
-                        _filterChip('临期/过期', MedicineFilter.expiry),
-                        _filterChip('库存不足', MedicineFilter.lowStock),
-                        _filterChip('待补资料', MedicineFilter.missingInfo),
-                        _filterChip('数量/日期未知', MedicineFilter.unknown),
-                        ActionChip(
-                          label: const Text('已归档'),
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => ArchivedMedicinesPage(
-                                workflow: widget.workflow,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
               const SizedBox(height: 12),
               if (widget.repository.medicines.isEmpty && loading)
                 const Center(child: CircularProgressIndicator())
@@ -654,10 +595,32 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   },
                 )
               else
-                ..._visibleMedicines.map(
-                  (medicine) => _MedicineCard(
-                    medicine: medicine,
-                    imageLoader: imageLoader,
+                // iOS plain list：同质长列表用连续行 + 分隔线，不用每行一张卡片。
+                Container(
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.secondarySystemBackground
+                        .resolveFrom(context),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < _visibleMedicines.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            indent: 62,
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        _MedicineRow(
+                          medicine: _visibleMedicines[i],
+                          imageLoader: imageLoader,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
             ],
@@ -667,57 +630,197 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     );
   }
 
-  Widget _filterEntry(String label, String panel) => Material(
-    color: filterPanel == panel
-        ? CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.12)
-        : CupertinoColors.secondarySystemBackground.resolveFrom(context),
-    shape: StadiumBorder(
-      side: BorderSide(
-        color: filterPanel == panel
-            ? CupertinoTheme.of(context).primaryColor
-            : CupertinoColors.separator.resolveFrom(context),
+
+  /// 筛选与排序：收进 iOS 弹层，把列表整行还给内容（不再平铺胶囊）。
+  Future<void> _showFilterSheet() async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          void refresh(VoidCallback change) {
+            change();
+            setSheetState(() {});
+            setState(() {});
+          }
+
+          Widget check(bool on) => on
+              ? Icon(
+                  CupertinoIcons.check_mark,
+                  size: 18,
+                  color: CupertinoTheme.of(sheetContext).primaryColor,
+                )
+              : const SizedBox.shrink();
+
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
+            ),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemGroupedBackground.resolveFrom(
+                sheetContext,
+              ),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+                    child: Row(
+                      children: [
+                        Text('筛选与排序', style: AppType.headline),
+                        const Spacer(),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          onPressed: () => refresh(() {
+                            filter = MedicineFilter.all;
+                            selectedPurposes.clear();
+                            selectedPopulations.clear();
+                            sortOrder = 'expiry';
+                          }),
+                          child: Text(
+                            '重置',
+                            style: AppType.body.copyWith(
+                              color: CupertinoTheme.of(
+                                sheetContext,
+                              ).primaryColor,
+                            ),
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: Size.zero,
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          child: Text(
+                            '完成',
+                            style: AppType.headline.copyWith(
+                              color: CupertinoTheme.of(
+                                sheetContext,
+                              ).primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                        CupertinoListSection.insetGrouped(
+                          header: const Text('状态'),
+                          children: [
+                            for (final entry in const [
+                              (MedicineFilter.all, '全部'),
+                              (MedicineFilter.expiry, '临期/过期'),
+                              (MedicineFilter.lowStock, '库存不足'),
+                              (MedicineFilter.missingInfo, '待补资料'),
+                              (MedicineFilter.unknown, '数量/日期未知'),
+                            ])
+                              CupertinoListTile(
+                                title: Text(entry.$2, style: AppType.body),
+                                trailing: check(filter == entry.$1),
+                                onTap: () => refresh(() => filter = entry.$1),
+                              ),
+                            CupertinoListTile(
+                              title: Text('已归档药品', style: AppType.body),
+                              trailing: const CupertinoListTileChevron(),
+                              onTap: () {
+                                Navigator.of(sheetContext).pop();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => ArchivedMedicinesPage(
+                                      workflow: widget.workflow,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        CupertinoListSection.insetGrouped(
+                          header: const Text('用途'),
+                          children: [
+                            for (final entry in _purposeLabels.entries)
+                              CupertinoListTile(
+                                title: Text(entry.value, style: AppType.body),
+                                trailing: check(
+                                  selectedPurposes.contains(entry.key),
+                                ),
+                                onTap: () => refresh(() {
+                                  if (selectedPurposes.contains(entry.key)) {
+                                    selectedPurposes.remove(entry.key);
+                                  } else {
+                                    selectedPurposes.add(entry.key);
+                                  }
+                                }),
+                              ),
+                          ],
+                        ),
+                        CupertinoListSection.insetGrouped(
+                          header: const Text('人群'),
+                          children: [
+                            for (final entry in const [
+                              ('adult', '成人'),
+                              ('child', '儿童'),
+                            ])
+                              CupertinoListTile(
+                                title: Text(entry.$2, style: AppType.body),
+                                trailing: check(
+                                  selectedPopulations.contains(entry.$1),
+                                ),
+                                onTap: () => refresh(() {
+                                  if (selectedPopulations.contains(entry.$1)) {
+                                    selectedPopulations.remove(entry.$1);
+                                  } else {
+                                    selectedPopulations.add(entry.$1);
+                                  }
+                                }),
+                              ),
+                          ],
+                        ),
+                        CupertinoListSection.insetGrouped(
+                          header: const Text('排序'),
+                          children: [
+                            for (final entry in const [
+                              ('expiry', '到期优先'),
+                              ('recent', '最近录入'),
+                              ('name', '药名排序'),
+                            ])
+                              CupertinoListTile(
+                                title: Text(entry.$2, style: AppType.body),
+                                trailing: check(sortOrder == entry.$1),
+                                onTap: () => refresh(
+                                  () => sortOrder = entry.$1,
+                                ),
+                              ),
+                          ],
+                        ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: () =>
-          setState(() => filterPanel = filterPanel == panel ? null : panel),
-      child: _filterPill('$label ▾'),
-    ),
-  );
+    );
+  }
 
-  Widget _filterPill(String label) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: Text(
-      label,
-      style: AppType.subhead.copyWith(
-        color: CupertinoColors.label.resolveFrom(context),
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
 
-  Widget _filterChip(String label, MedicineFilter value) => FilterChip(
-    label: Text(label),
-    selected: filter == value,
-    onSelected: (_) => setState(() => filter = value),
-  );
-
-  Widget _tagChip(String label, Set<String> bucket, String value) => FilterChip(
-    label: Text(label),
-    selected: bucket.contains(value),
-    onSelected: (on) => setState(() {
-      if (on) {
-        bucket.add(value);
-      } else {
-        bucket.remove(value);
-      }
-    }),
-  );
 }
 
-class _MedicineCard extends StatelessWidget {
-  const _MedicineCard({required this.medicine, required this.imageLoader});
+class _MedicineRow extends StatelessWidget {
+  const _MedicineRow({required this.medicine, required this.imageLoader});
   final MedicineRecord medicine;
   final PrivateMedicineImageLoader imageLoader;
 
@@ -745,25 +848,21 @@ class _MedicineCard extends StatelessWidget {
     ].contains(batch?.managementExpiryState.state);
     final expiryDate =
         batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Card(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+    return InkWell(
           onTap: () => context.push('/medicine/${medicine.id}'),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(7),
                   child: PrivateMedicineImage(
                     loader: imageLoader,
                     medicineId: medicine.id,
                     photoId: medicine.coverPhotoId,
-                    width: 54,
-                    height: 54,
+                    width: 42,
+                    height: 42,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -779,7 +878,8 @@ class _MedicineCard extends StatelessWidget {
                               medicine.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppType.headline.copyWith(
+                              style: AppType.body.copyWith(
+                                fontWeight: FontWeight.w500,
                                 color: CupertinoColors.label.resolveFrom(
                                   context,
                                 ),
@@ -834,8 +934,6 @@ class _MedicineCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
     );
   }
 
