@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -244,7 +245,7 @@ void main() {
       '4',
     );
     await tester.pump();
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     expect(find.text('保留这次录入？'), findsOneWidget);
 
@@ -302,7 +303,7 @@ void main() {
           .canPop,
       isFalse,
     );
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('放弃修改'));
     await tester.pumpAndSettle();

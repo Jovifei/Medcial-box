@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../core/widgets/expiry_date_wheel_picker.dart';
 import '../../core/widgets/medicine_tags.dart';
 import '../../data/api_client.dart';
@@ -3437,8 +3438,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       }
     },
     child: Scaffold(
-      appBar: AppBar(
-        title: const Text('添加药品'),
+      appBar: appleAppBar(
+        '添加药品',
         actions: [
           if (savedMedicineId != null && !evidenceSynced && !_isCleanupDraft)
             IconButton(
@@ -4136,7 +4137,7 @@ class _BarcodeScanPageState extends State<_BarcodeScanPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('扫描药盒编码')),
+    appBar: appleAppBar('扫描药盒编码'),
     body: Stack(
       children: [
         MobileScanner(

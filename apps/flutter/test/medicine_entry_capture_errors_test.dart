@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -220,11 +221,11 @@ void main() {
     );
     expect(state.scannedCode, isNull);
     expect(find.text('查询药品资料？'), findsNothing);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     await scan(tester, [const Barcode(rawValue: ' ')]);
     expect(state.scannedCode, isNull);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     expect(find.byType(SnackBar), findsNothing);
   });
@@ -253,7 +254,7 @@ void main() {
     final callback = tester
         .widget<MobileScanner>(find.byType(MobileScanner))
         .onDetect!;
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     callback(
       const BarcodeCapture(barcodes: [Barcode(rawValue: '6901234567890')]),

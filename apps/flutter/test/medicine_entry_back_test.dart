@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -132,7 +133,7 @@ Future<void> _edit(WidgetTester tester, String name) async {
 Future<List<Object>> _leave(WidgetTester tester, String action) async {
   final errors = <Object>[];
   await runZonedGuarded(() async {
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text(action));
     await tester.pumpAndSettle();
@@ -261,7 +262,7 @@ void main() {
       final gate = store.writeGate = Completer<void>();
       expect(await _leave(tester, '保留草稿'), isEmpty);
       await _edit(tester, '等待期间新编辑');
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       await _capture(tester, 'pending-keep-repeated-back');
       final duplicateDialog = find.text('保留这次录入？').evaluate().isNotEmpty;
@@ -503,7 +504,7 @@ void main() {
       final store = _ControlledStore();
       await _openEntry(tester, store, identity: identity);
       await _edit(tester, '原家庭草稿');
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       await identity.recordOwner(
         expectedGeneration: identity.generation!,

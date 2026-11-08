@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_plan_repository.dart';
 import '../../data/plan_creation_operations.dart';
@@ -555,7 +556,7 @@ class _PlanFormPageState extends State<PlanFormPage> {
       if (!didPop) unawaited(_leave());
     },
     child: Scaffold(
-      appBar: AppBar(title: Text(widget.isEdit ? '编辑计划' : '新建计划')),
+      appBar: appleAppBar(widget.isEdit ? '编辑计划' : '新建计划'),
       body: FutureBuilder<void>(
         future: _load,
         builder: (context, snapshot) {

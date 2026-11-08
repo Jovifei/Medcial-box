@@ -5,7 +5,7 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
+import 'package:flutter/cupertino.dart' show CupertinoDialogAction, CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -795,7 +795,7 @@ void main() {
         findsOneWidget,
       );
       final first = tester.state(find.byType(MedicineEntryApiPage));
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await _pump(tester);
       expect(
         find.byType(MedicineEntryApiPage, skipOffstage: false),

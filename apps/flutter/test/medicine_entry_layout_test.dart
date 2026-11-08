@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -561,13 +562,13 @@ void main() {
         '毫升',
         2,
       );
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       await capture(tester, 'back-dialog-320-200');
       await tester.tap(find.text('继续编辑'));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(name).controller!.text, '合成草稿药品');
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       await tester.tap(find.text('保留草稿'));
       await tester.pumpAndSettle();
@@ -586,7 +587,7 @@ void main() {
         '4',
       );
       expect(find.byKey(const ValueKey('ml')), findsOneWidget);
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       await tester.tap(find.text('放弃修改'));
       await tester.pumpAndSettle();
