@@ -8,7 +8,7 @@ abstract final class AppSpacing {
   static const double cardPad = 16;
 
   /// 卡片/分组容器圆角。
-  static const double cardRadius = 14;
+  static const double cardRadius = 10;
 
   /// 小控件（输入框、缩略图）圆角。
   static const double controlRadius = 10;

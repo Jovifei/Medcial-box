@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/medicine_tags.dart';
@@ -422,7 +423,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -474,12 +474,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         builder: (context, _) => RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              MediaQuery.paddingOf(context).top + kToolbarHeight + 4,
-              20,
-              bottomInset + 120,
-            ),
+            padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset + 100),
             children: [
               if (widget.repository.isOffline)
                 _ConnectionBanner(
@@ -502,30 +497,13 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                     ],
                   ),
                 ),
-              Material(
-                color: CupertinoColors.secondarySystemBackground.resolveFrom(
-                  context,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                elevation: 0,
-                child: TextField(
-                  controller: searchController,
-                  onChanged: (value) => setState(() => keyword = value.trim()),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: '搜索药名、规格、厂家、成分、位置',
-                    suffixIcon: keyword.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: '清除搜索',
-                            onPressed: () {
-                              searchController.clear();
-                              setState(() => keyword = '');
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                  ),
-                ),
+              CupertinoSearchTextField(
+                controller: searchController,
+                onChanged: (value) => setState(() => keyword = value.trim()),
+                placeholder: '搜索药名、规格、厂家、成分',
+                style: AppType.body,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemSize: 18,
               ),
               if (attentionUnavailable)
                 TextButton.icon(
@@ -534,7 +512,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   label: const Text('关注事项暂不可用，点击重试'),
                 ),
               if (_actionable.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Builder(
                   builder: (context) {
                     final count = _actionable
@@ -553,12 +531,26 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                       if (stocktake) '药箱盘点',
                     ];
                     if (parts.isEmpty) return const SizedBox.shrink();
-                    return AppCard(
-                      color: const Color(0xFFFFF5E8),
-                      padding: EdgeInsets.zero,
-                      child: ListTile(
-                        title: Text(parts.join(' · ')),
-                        trailing: const Icon(Icons.chevron_right),
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.secondarySystemBackground
+                            .resolveFrom(context),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.cardRadius,
+                        ),
+                      ),
+                      child: CupertinoListTile.notched(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        leading: const Icon(
+                          CupertinoIcons.exclamationmark_circle,
+                          size: 20,
+                          color: CupertinoColors.systemOrange,
+                        ),
+                        title: Text(parts.join(' · '), style: AppType.body),
+                        trailing: const CupertinoListTileChevron(),
                         onTap:
                             widget.onAttention ??
                             () => context.go('/home?tab=pending'),
@@ -567,22 +559,25 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                   },
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
                     _filterEntry('用途', 'purpose'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _filterEntry('人群', 'population'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _filterEntry('状态', 'status'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: CupertinoColors.secondarySystemBackground
+                            .resolveFrom(context),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: CupertinoColors.separator.resolveFrom(context)),
+                        border: Border.all(
+                          color: CupertinoColors.separator.resolveFrom(context),
+                        ),
                       ),
                       child: PopupMenuButton<String>(
                         tooltip: '排序',
@@ -692,7 +687,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   );
 
   Widget _filterPill(String label) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     child: Text(
       label,
       style: AppType.subhead.copyWith(
@@ -744,16 +739,17 @@ class _MedicineCard extends StatelessWidget {
     final expired =
         batch?.isExpired == true ||
         batch?.managementExpiryState.state == 'expired';
-    final expiringSoon = ['due_this_month', 'expiring_soon'].contains(
-      batch?.managementExpiryState.state,
-    );
+    final expiringSoon = [
+      'due_this_month',
+      'expiring_soon',
+    ].contains(batch?.managementExpiryState.state);
     final expiryDate =
         batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
           onTap: () => context.push('/medicine/${medicine.id}'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -843,7 +839,7 @@ class _MedicineCard extends StatelessWidget {
     );
   }
 
-    String _totalDisplay(List<BatchRecord> batches) {
+  String _totalDisplay(List<BatchRecord> batches) {
     if (batches.isEmpty) return '无批次';
     final unknown = batches.any((batch) => batch.quantity == null);
     final groups = <String, double>{};

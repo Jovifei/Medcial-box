@@ -3371,8 +3371,8 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       // Reserve the arrow and its spacing as well as the widest unit, even
       // when a shorter unit is selected. Never shrink the user's text scale.
       final unitWidth =
-          (_labelWidth(unitLabels, theme.textTheme.titleSmall) + padding + 32)
-              .clamp(112.0, double.infinity);
+          (_labelWidth(unitLabels, theme.textTheme.titleSmall) + padding + 44)
+              .clamp(124.0, double.infinity);
       final stacked = constraints.maxWidth < quantityWidth + 10 + unitWidth;
       return Wrap(
         spacing: 10,
