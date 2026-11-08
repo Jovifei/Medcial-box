@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
@@ -208,7 +209,6 @@ class _PlansPageState extends State<PlansPage> {
         Brightness.dark;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -252,7 +252,7 @@ class _PlansPageState extends State<PlansPage> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
                 18,
-                MediaQuery.paddingOf(context).top + kToolbarHeight + 10,
+                6,
                 18,
                 MediaQuery.paddingOf(context).bottom + 100,
               ),
@@ -262,14 +262,20 @@ class _PlansPageState extends State<PlansPage> {
                     color: const Color(0xFFFFF2ED),
                     child: Text(friendlyApiError(_failure!)),
                   ),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('今天')),
-                    ButtonSegment(value: true, label: Text('全部计划')),
-                  ],
-                  selected: {_showAll},
-                  onSelectionChanged: (value) =>
-                      setState(() => _showAll = value.single),
+                CupertinoSlidingSegmentedControl<bool>(
+                  groupValue: _showAll,
+                  children: const {
+                    false: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('今天'),
+                    ),
+                    true: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('全部计划'),
+                    ),
+                  },
+                  onValueChanged: (value) =>
+                      setState(() => _showAll = value ?? false),
                 ),
                 const SizedBox(height: 16),
                 if (_showAll)
@@ -290,85 +296,132 @@ class _PlansPageState extends State<PlansPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Eyebrow('今日安排'),
-        const SizedBox(height: 6),
-        Text(
-          schedule == null ? '正在读取今天的安排…' : '${schedule.date} · 日期以服务端为准',
-          style: Theme.of(context).textTheme.bodyMedium,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+          child: Text(
+            schedule == null ? '今日安排' : '今日安排 · ${schedule.date}',
+            style: AppType.subhead.copyWith(
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
         ),
-        const SizedBox(height: 10),
         if (schedule != null && entries.isEmpty)
-          const AppCard(child: Text('今天没有需要确认的服药安排。')),
-        ...entries.map(_entryCard),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+            decoration: BoxDecoration(
+              color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                context,
+              ),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            ),
+            child: Text(
+              '今天没有需要确认的服药安排。',
+              style: AppType.body.copyWith(
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+          )
+        else if (entries.isNotEmpty)
+          // iOS plain list：同质长列表用连续行 + 分隔线，与首页一致。
+          Container(
+            decoration: BoxDecoration(
+              color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                context,
+              ),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < entries.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      indent: 14,
+                      color: CupertinoColors.separator.resolveFrom(context),
+                    ),
+                  _entryRow(entries[i]),
+                ],
+              ],
+            ),
+          ),
       ],
     );
   }
 
-  Widget _entryCard(ScheduleEntry entry) {
+  Widget _entryRow(ScheduleEntry entry) {
     final date = _schedule!.date;
     final pending = _operations.pendingFor(entry.occurrenceId, date);
     final busy = _loading || _operations.isBusy(entry.occurrenceId, date);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  entry.medicineName,
+                  style: AppType.body.copyWith(fontWeight: FontWeight.w500),
+                ),
+              ),
+              StatusPill(
+                label: entry.statusLabel,
+                color: entry.isPending ? AppColors.amber : AppColors.leafDeep,
+                background: entry.isPending
+                    ? const Color(0xFFF7EAD6)
+                    : AppColors.mist,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${entry.careProfileName} · ${entry.time} · ${entry.dosageText}',
+            style: AppType.subhead.copyWith(
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
+          if (!entry.isPending && pending != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              '上次记录的返回结果尚未确定，请明确重试以核对结果。',
+              style: AppType.footnote.copyWith(
+                color: CupertinoColors.systemOrange.resolveFrom(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SoftButton(
+              label: '重试上次记录',
+              icon: Icons.refresh_rounded,
+              onPressed: busy ? null : () => _confirm(entry, pending.action),
+            ),
+          ],
+          if (entry.isPending) ...[
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    entry.medicineName,
-                    style: Theme.of(context).textTheme.titleSmall,
+                  child: SoftButton(
+                    label: busy ? '处理中…' : '已服用',
+                    icon: Icons.check_rounded,
+                    onPressed: busy ? null : () => _confirm(entry, 'taken'),
                   ),
                 ),
-                StatusPill(
-                  label: entry.statusLabel,
-                  color: entry.isPending ? AppColors.amber : AppColors.leafDeep,
-                  background: entry.isPending
-                      ? const Color(0xFFF7EAD6)
-                      : AppColors.mist,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SoftButton(
+                    label: '跳过',
+                    icon: Icons.close_rounded,
+                    onPressed: busy ? null : () => _confirm(entry, 'skipped'),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${entry.careProfileName} · ${entry.time} · ${entry.dosageText}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (!entry.isPending && pending != null) ...[
-              const SizedBox(height: 12),
-              const Text('上次记录的返回结果尚未确定，请明确重试以核对结果。'),
-              SoftButton(
-                label: '重试上次记录',
-                icon: Icons.refresh_rounded,
-                onPressed: busy ? null : () => _confirm(entry, pending.action),
-              ),
-            ],
-            if (entry.isPending) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: SoftButton(
-                      label: busy ? '处理中…' : '已服用',
-                      icon: Icons.check_rounded,
-                      onPressed: busy ? null : () => _confirm(entry, 'taken'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SoftButton(
-                      label: '跳过',
-                      icon: Icons.close_rounded,
-                      onPressed: busy ? null : () => _confirm(entry, 'skipped'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -377,49 +430,109 @@ class _PlansPageState extends State<PlansPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Eyebrow('我的用药计划'),
-        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+          child: Text(
+            '我的用药计划',
+            style: AppType.subhead.copyWith(
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
+        ),
         if (_plans.isEmpty)
-          const AppCard(child: Text('还没有用药计划。点右下角“新建计划”，为家人安排每天该吃的药。'))
-        else
-          ..._plans.map(
-            (plan) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    plan.medicineName,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  subtitle: Text(
-                    '${plan.careProfileName} · ${plan.scheduleLabel}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      StatusPill(
-                        label: plan.statusLabel,
-                        color: plan.isOngoing
-                            ? AppColors.leafDeep
-                            : AppColors.muted,
-                        background: plan.isOngoing
-                            ? AppColors.mist
-                            : const Color(0xFFEDEFEA),
-                      ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.muted,
-                      ),
-                    ],
-                  ),
-                  onTap: () => context.push('/plan/${plan.id}'),
-                ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+            decoration: BoxDecoration(
+              color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                context,
               ),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            ),
+            child: Text(
+              '还没有用药计划。点右下角“新建计划”，为家人安排每天该吃的药。',
+              style: AppType.body.copyWith(
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                context,
+              ),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < _plans.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      indent: 14,
+                      color: CupertinoColors.separator.resolveFrom(context),
+                    ),
+                  InkWell(
+                    onTap: () => context.push('/plan/${_plans[i].id}'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _plans[i].medicineName,
+                                  style: AppType.body.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${_plans[i].careProfileName} · ${_plans[i].scheduleLabel}',
+                                  style: AppType.subhead.copyWith(
+                                    color: CupertinoColors.secondaryLabel
+                                        .resolveFrom(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusPill(
+                            label: _plans[i].statusLabel,
+                            color: _plans[i].isOngoing
+                                ? AppColors.leafDeep
+                                : AppColors.muted,
+                            background: _plans[i].isOngoing
+                                ? AppColors.mist
+                                : const Color(0xFFEDEFEA),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            CupertinoIcons.chevron_forward,
+                            size: 15,
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
       ],
     );
   }
 }
+
+

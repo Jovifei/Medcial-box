@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../core/widgets/apple_screen.dart';
 import '../../core/widgets/expiry_date_wheel_picker.dart';
@@ -606,7 +607,7 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                             Expanded(
                               child: Text(
                                 '库存批次',
-                                style: Theme.of(context).textTheme.titleLarge,
+                                style: AppType.headline,
                               ),
                             ),
                             IconButton(
@@ -626,16 +627,31 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
                             child: Text('暂无库存批次。'),
                           )
                         else
-                          ...medicine.batches.map(
-                            (batch) => _BatchCard(
-                              batch: batch,
-                              onQuantity: () => _editQuantity(medicine, batch),
-                              onOpen: batch.openedState == 'opened'
+                          for (var i = 0; i < medicine.batches.length; i++) ...[
+                            if (i > 0)
+                              Divider(
+                                height: 0.5,
+                                thickness: 0.5,
+                                color: CupertinoColors.separator.resolveFrom(
+                                  context,
+                                ),
+                              ),
+                            _BatchCard(
+                              batch: medicine.batches[i],
+                              onQuantity: () => _editQuantity(
+                                medicine,
+                                medicine.batches[i],
+                              ),
+                              onOpen: medicine.batches[i].openedState == 'opened'
                                   ? null
-                                  : () => _markOpened(medicine, batch),
-                              onTrash: () => _trashBatch(medicine, batch),
+                                  : () => _markOpened(
+                                      medicine,
+                                      medicine.batches[i],
+                                    ),
+                              onTrash: () =>
+                                  _trashBatch(medicine, medicine.batches[i]),
                             ),
-                          ),
+                          ],
                         const SizedBox(height: 4),
                         SoftButton(
                           label: '新增一个批次',
@@ -738,14 +754,8 @@ class _BatchCard extends StatelessWidget {
   final VoidCallback onTrash;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(top: 10, bottom: 6),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF7F9F6),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.line),
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -754,7 +764,7 @@ class _BatchCard extends StatelessWidget {
             Expanded(
               child: Text(
                 '批次 ${batch.lotNumber ?? '未记录'}',
-                style: Theme.of(context).textTheme.titleSmall,
+                style: AppType.body.copyWith(fontWeight: FontWeight.w500),
               ),
             ),
             PopupMenuButton<String>(

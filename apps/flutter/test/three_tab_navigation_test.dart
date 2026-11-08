@@ -190,12 +190,12 @@ void main() {
     tester,
   ) async {
     await _mount(tester, '/home?tab=plans');
-    expect(find.text('今日安排'), findsOneWidget);
+    expect(find.textContaining('今日安排'), findsOneWidget);
     expect(find.text('我的用药计划'), findsNothing);
     await tester.tap(find.text('全部计划'));
     await tester.pumpAndSettle();
     expect(find.text('我的用药计划'), findsOneWidget);
-    expect(find.text('今日安排'), findsNothing);
+    expect(find.textContaining('今日安排'), findsNothing);
   });
 
   testWidgets('cabinet remains usable at 320 width with double-sized text', (
