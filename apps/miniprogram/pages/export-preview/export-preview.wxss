@@ -19,7 +19,7 @@
   padding: 18rpx;
   border: 1rpx solid #dfe5df;
   border-radius: 14rpx;
-  background: #fbfcfb;
+  background: var(--med-background, #f2f2f7);
   font-size: 22rpx;
   line-height: 1.6;
 }

@@ -1,6 +1,6 @@
 .page {
   padding: 32rpx 32rpx calc(180rpx + env(safe-area-inset-bottom));
-  background: #f5f7f4;
+  background: var(--med-background, #f2f2f7);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -8,7 +8,7 @@
 .card {
   background: #ffffff;
   border-radius: 32rpx;
-  border: 1rpx solid #e4ebe5;
+  border: 1rpx solid var(--med-line, #dcdce1);
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
@@ -16,13 +16,13 @@
 .section-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
   margin-bottom: 16rpx;
 }
 
 .hint {
   font-size: 25rpx;
-  color: #596a60;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
 }
 
@@ -37,7 +37,7 @@
   min-width: 0;
   font-size: 32rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .profile-kind {
@@ -54,14 +54,14 @@
 }
 
 .profile-kind.shared {
-  color: #2f7d4f;
-  background: #e2f2e8;
+  color: var(--med-success, #146c43);
+  background: var(--med-success-tint, #e9f6ee);
 }
 
 .profile-line {
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
 }
 
 .grant-row {
@@ -70,12 +70,12 @@
   justify-content: space-between;
   margin-top: 16rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid #eef1ee;
+  border-top: 1rpx solid var(--med-inset, #f2f2f7);
 }
 
 .grant-name {
   font-size: 26rpx;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .profile-actions {
@@ -95,13 +95,13 @@
 
 .action-btn.ghost {
   background: #ffffff;
-  border: 1rpx solid #cfdcd3;
-  color: #3f7d5c;
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-accent, #087f5b);
 }
 
 .safety-note {
   font-size: 22rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
   text-align: center;
 }
@@ -119,7 +119,7 @@
   line-height: 96rpx;
   text-align: center;
   border-radius: 32rpx;
-  background: #3f7d5c;
+  background: var(--med-accent, #087f5b);
   color: #ffffff;
   font-size: 30rpx;
   font-weight: 600;
@@ -148,7 +148,7 @@
   max-height: 88vh;
   padding: 24rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
   border-radius: 32rpx 32rpx 0 0;
-  background: #f5f7f4;
+  background: var(--med-background, #f2f2f7);
   overflow-y: auto;
 }
 
@@ -157,13 +157,13 @@
   height: 8rpx;
   margin: 0 auto 20rpx;
   border-radius: 999rpx;
-  background: #d5ded7;
+  background: var(--med-line, #dcdce1);
 }
 
 .sheet-title {
   font-size: 34rpx;
   font-weight: 700;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
   text-align: center;
 }
 
@@ -177,13 +177,13 @@
   padding: 24rpx;
   border-radius: 24rpx;
   background: #ffffff;
-  border: 1rpx solid #e4ebe5;
+  border: 1rpx solid var(--med-line, #dcdce1);
 }
 
 .field-label {
   margin-bottom: 12rpx;
   font-size: 24rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
 }
 
 .row-line {
@@ -202,10 +202,10 @@
   height: 88rpx;
   padding: 0 18rpx;
   border-radius: 16rpx;
-  background: #f7f9f7;
-  border: 1rpx solid #e1e7e1;
+  background: var(--med-inset, #f2f2f7);
+  border: 1rpx solid var(--med-line, #dcdce1);
   font-size: 27rpx;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .picker-box {
@@ -213,10 +213,10 @@
   line-height: 88rpx;
   padding: 0 18rpx;
   border-radius: 16rpx;
-  background: #f7f9f7;
-  border: 1rpx solid #e1e7e1;
+  background: var(--med-inset, #f2f2f7);
+  border: 1rpx solid var(--med-line, #dcdce1);
   font-size: 27rpx;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 /* —— 按钮 —— */
@@ -232,20 +232,20 @@
 }
 
 .btn-primary {
-  background: #3f7d5c;
+  background: var(--med-accent, #087f5b);
   color: #ffffff;
 }
 
 .btn-ghost {
   background: #ffffff;
-  border: 1rpx solid #cfdcd3;
-  color: #52685c;
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-secondary, #636366);
 }
 
 .btn-danger {
-  background: #fdf5f5;
-  border: 1rpx solid #eccfcf;
-  color: #b4544f;
+  background: var(--med-danger-tint, #fff0ee);
+  border: 1rpx solid var(--med-danger-line, #efc8c3);
+  color: var(--med-danger, #b42318);
 }
 
 .btn.disabled {

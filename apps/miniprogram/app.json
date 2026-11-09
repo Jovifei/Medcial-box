@@ -29,13 +29,13 @@
   ],
   "window": {
     "navigationBarTitleText": "JF小药箱",
-    "navigationBarBackgroundColor": "#f5f7f4",
+    "navigationBarBackgroundColor": "#f2f2f7",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f5f7f4"
+    "backgroundColor": "#f2f2f7"
   },
   "tabBar": {
-    "color": "#52685c",
-    "selectedColor": "#3f7d5c",
+    "color": "#636366",
+    "selectedColor": "#087f5b",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

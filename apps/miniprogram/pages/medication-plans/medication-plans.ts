@@ -68,6 +68,7 @@ interface MedicationPlansPageData {
   errorMessage: string;
   date: string;
   entries: ScheduleCard[];
+  isToday: boolean;
   plans: PlanCard[];
   visibleEntries: ScheduleCard[];
   visiblePlans: PlanCard[];
@@ -131,6 +132,7 @@ Page({
     loading: false,
     errorMessage: "",
     date: shanghaiDate(0),
+    isToday: true,
     entries: [] as ScheduleCard[],
     plans: [] as PlanCard[],
     visibleEntries: [] as ScheduleCard[],
@@ -186,7 +188,7 @@ Page({
     }
     const seq = ++this.requestSeq;
     const requestedDate = (this.data as MedicationPlansPageData).date;
-    this.setData({ loading: true, errorMessage: "" });
+    this.setData({ loading: true, errorMessage: "", isToday: requestedDate === shanghaiDate(0) });
     try {
       await ensureLoggedIn();
       const identity = captureSessionIdentity();
@@ -325,12 +327,19 @@ Page({
 
   onShiftDate(event: { currentTarget: { dataset: { delta?: string } } }): void {
     const delta = Number(event.currentTarget.dataset.delta ?? 0);
+    if (!Number.isInteger(delta) || delta === 0) return;
     const [year, month, day] = (this.data as MedicationPlansPageData).date.split("-").map(Number);
     const shifted = new Date(Date.UTC(year, month - 1, day + delta)).toISOString().slice(0, 10);
     // 手动切到今天则恢复今日模式；切到其它日期则保留用户选择，回前台不再自动前进。
     this.followToday = shifted === shanghaiDate(0);
-    this.setData({ date: shifted });
+    this.setData({ date: shifted, isToday: this.followToday });
     this.refresh();
+  },
+
+  async onReturnToday(): Promise<void> {
+    this.followToday = true;
+    this.setData({ date: shanghaiDate(0), isToday: true });
+    await this.refresh();
   },
 
   /** Same explicit retry reuses its key; unresolved writes cannot be corrected. */

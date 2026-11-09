@@ -1,4 +1,4 @@
-.date-box { display:flex; align-items:center; justify-content:space-between; padding:22rpx 24rpx; border:1rpx solid #dce5df; border-radius:16rpx; background:#fff; color:#25382d; font-size:30rpx; }
-.date-arrow { margin-left:16rpx; color:#758278; }
+.date-box { display:flex; align-items:center; justify-content:space-between; padding:22rpx 24rpx; border:1rpx solid var(--med-line, #dcdce1); border-radius:16rpx; background:#fff; color:var(--med-label, #1c1c1e); font-size:30rpx; }
+.date-arrow { margin-left:16rpx; color:var(--med-secondary, #636366); }
 .disabled { opacity:.55; }
 .precision-choice{padding:12rpx 8rpx;color:#537461;font-size:24rpx}

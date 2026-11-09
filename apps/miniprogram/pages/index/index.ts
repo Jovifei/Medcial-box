@@ -193,6 +193,8 @@ interface IndexPageData {
   stageLabel: string;
   isExample: boolean;
   isFiltered: boolean;
+  hasActiveFilters: boolean;
+  cabinetCount: number;
   expiringCount: number;
   expiredCount: number;
   pendingCount: number;
@@ -230,6 +232,8 @@ Page({
     stageLabel: "药箱首页",
     isExample: false,
     isFiltered: false,
+    hasActiveFilters: false,
+    cabinetCount: 0,
     expiringCount: 0,
     expiredCount: 0,
     pendingCount: 0,
@@ -289,7 +293,7 @@ Page({
     ++this.coverToken;
     this.coverCacheOwner = "";
     this.coverCache = null;
-    this.setData({ allItems: [], items: [], familyName: "", errorMessage: "", loading: true,
+    this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "", loading: true,
       highlightedId: "", savedMessage: "",
       expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
       attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
@@ -305,7 +309,7 @@ Page({
       this.displayedIdentity = identity;
       this.coverCacheOwner = "";
       this.coverCache = null;
-      this.setData({ allItems: [], items: [], familyName: "", errorMessage: "",
+      this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "",
         expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
         attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
     }
@@ -496,6 +500,7 @@ Page({
       familyName: "",
       allItems: [],
       items: [],
+      cabinetCount: 0,
       expiredCount: 0,
       expiringCount: 0,
       lowStockCount: 0,
@@ -546,7 +551,10 @@ Page({
     const labels: Record<CabinetFilter, string> = { all: "全部", expiring: "临期/过期", expired: "已过期", low: "库存不足", missing: "资料完善建议", opened: "已开封", archived: "已归档", unknown: "数量/日期未知", exhausted: "已用完", pending: "需关注" };
     const populations = POPULATION_CHIPS.filter((chip) => data.selectedPopulations.includes(chip.value)).map((chip) => chip.label);
     const summary = [labels[data.filterKind], ...populations, ...data.selectedPurposes, data.sortLabels[data.sortIndex]].join(" · ");
-    this.setData({ items, filterLabel: labels[data.filterKind], filterSummary: summary, isFiltered: keyword !== "" || data.filterKind !== "all" || tagFiltersActive });
+    const hasActiveFilters = data.filterKind !== "all" || tagFiltersActive;
+    this.setData({ items, cabinetCount: data.allItems.filter((item) => !item.isArchived).length,
+      filterLabel: labels[data.filterKind], filterSummary: summary, hasActiveFilters,
+      isFiltered: keyword !== "" || hasActiveFilters });
   },
 
   onTogglePopulation(event: { currentTarget: { dataset: { value?: string } } }): void {
@@ -591,7 +599,7 @@ Page({
     const selected = event.currentTarget.dataset.kind;
     if (!selected) return;
     const current = (this.data as IndexPageData).filterKind;
-    this.setData({ filterKind: current === selected ? "all" : selected });
+    this.setData({ filterKind: current === selected ? "all" : selected, filterPanel: "" });
     this.applyFilter();
   },
 
@@ -610,10 +618,19 @@ Page({
   },
 
   onClearFilters(): void {
-    this.setData({ filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0 });
+    this.setData({ filterKind: "all", selectedPopulations: [], selectedPurposes: [], sortKey: "deadline_asc", sortIndex: 0,
+      filterPanel: "", statusMoreExpanded: false });
     this.syncFilterChips();
     this.applyFilter();
   },
+
+  /** 空结果的一次恢复动作；普通“重置筛选”仍保留用户输入的搜索词。 */
+  onResetSearch(): void {
+    this.setData({ keyword: "" });
+    this.onClearFilters();
+  },
+
+  onCloseFilterPanel(): void { this.setData({ filterPanel: "" }); },
 
   onSearchInput(event: { detail: { value: string } }): void {
     this.setData({ keyword: event.detail.value });

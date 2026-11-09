@@ -88,3 +88,39 @@ test('attention service failure leaves the medicine list available and reports t
   const page = makePageContext(definition); await page.refresh();
   assert.equal(page.data.items.length, 1); assert.equal(page.data.attentionUnavailable, true);
 });
+
+test('empty-result recovery clears the query and all filters while ordinary filter reset keeps the query', () => {
+  const { definition } = loadPage('pages/index/index.ts', { modules: {
+    '../../services/api': apiModule({}), '../../services/auth': auth,
+  } });
+  const page = makePageContext(definition);
+  page.applyMedicines([medicine('in-cabinet'), { ...medicine('archived'), isArchived: true }], '合成家庭');
+  page.setData({ keyword: '不匹配', filterKind: 'low', selectedPopulations: ['child'], selectedPurposes: ['发热'], sortKey: 'name', sortIndex: 2, filterPanel: 'status' });
+  page.applyFilter();
+  assert.equal(page.data.items.length, 0);
+  assert.equal(page.data.hasActiveFilters, true);
+  page.onResetSearch();
+  assert.equal(page.data.keyword, '');
+  assert.equal(page.data.filterKind, 'all');
+  assert.equal(page.data.sortKey, 'deadline_asc');
+  assert.equal(page.data.filterPanel, '');
+  assert.equal(page.data.hasActiveFilters, false);
+  assert.equal(page.data.isFiltered, false);
+  assert.equal(page.data.items.length, 1);
+  assert.equal(page.data.items[0].id, 'in-cabinet');
+  assert.equal(page.data.cabinetCount, 1, 'archived records must not inflate the non-archived count');
+});
+
+test('choosing a status closes its panel and retains the current search', () => {
+  const { definition } = loadPage('pages/index/index.ts', { modules: {
+    '../../services/api': apiModule({}), '../../services/auth': auth,
+  } });
+  const page = makePageContext(definition);
+  page.setData({ keyword: '合成', filterPanel: 'status' });
+  page.onSelectFilter({ currentTarget: { dataset: { kind: 'unknown' } } });
+  assert.equal(page.data.keyword, '合成');
+  assert.equal(page.data.filterKind, 'unknown');
+  assert.equal(page.data.filterLabel, '数量/日期未知');
+  assert.equal(page.data.filterPanel, '');
+  assert.equal(page.data.hasActiveFilters, true);
+});

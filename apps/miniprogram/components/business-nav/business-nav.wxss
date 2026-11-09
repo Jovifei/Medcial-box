@@ -53,12 +53,15 @@
 .business-nav-text {
   font-size: 28rpx;
   font-weight: 500;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
   letter-spacing: 0.5rpx;
   transition: color 0.15s ease;
 }
 
 .business-nav-tab.active .business-nav-text {
-  color: #3f7d5c;
+  color: var(--med-accent, #087f5b);
   font-weight: 600;
 }
+
+.business-nav-bar, .business-nav-tab { min-height: 48px; }
+.business-nav-text { font-size: 13px; line-height: 1.4; letter-spacing: 0; overflow-wrap: anywhere; }

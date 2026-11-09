@@ -1,6 +1,11 @@
 .page { padding-bottom: 60rpx; }
 .family-name { font-size: 34rpx; font-weight: 700; }
-.member-row { padding: 16rpx 0; border-bottom: 1rpx solid #edf0ec; }
+.member-row { padding: 16rpx 0; border-bottom: 1rpx solid var(--med-inset, #f2f2f7); }
 .member-row:last-child { border-bottom: 0; }
 .member-name { font-size: 25rpx; font-weight: 650; }
-.error-card { padding: 22rpx; border: 1rpx solid #efd4cb; border-radius: 16rpx; background: #fff8f5; }
+.error-card { padding: 22rpx; border: 1rpx solid var(--med-danger-line, #efc8c3); border-radius: 16rpx; background: var(--med-danger-tint, #fff0ee); }
+
+.page { padding: 16px; }
+.family-name { font-size: 24px; font-weight: 400; overflow-wrap: anywhere; }
+.member-name { font-size: 15px; overflow-wrap: anywhere; }
+.member-row .btn { min-height: 48px; }

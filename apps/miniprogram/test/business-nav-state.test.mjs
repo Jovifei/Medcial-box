@@ -107,14 +107,26 @@ function contrast(a, b) {
 }
 test("native and business tabs share legible colors and retain footer structure", () => {
   const css = read("components/business-nav/business-nav.wxss");
-  const normal = css.match(/\.business-nav-text\s*\{[^}]*color:\s*(#[\da-f]+)/i)[1];
-  const active = css.match(/\.business-nav-tab\.active \.business-nav-text\s*\{[^}]*color:\s*(#[\da-f]+)/i)[1];
-  assert.equal(normal, "#52685c"); assert.equal(normal, app.tabBar.color);
-  assert.equal(active, "#3f7d5c"); assert.equal(active, app.tabBar.selectedColor);
+  const tokens = read("app.wxss");
+  const resolveColor = pattern => {
+    const declaration = css.match(pattern)?.[1].trim();
+    assert.ok(declaration, "navigation foreground declaration must exist");
+    if (declaration.startsWith("#")) return declaration;
+    const variable = declaration.match(/^var\((--[\w-]+),\s*(#[\da-f]{6})\)$/i);
+    assert.ok(variable, "semantic navigation color must include a literal fallback");
+    const value = tokens.match(new RegExp(`${variable[1]}:\\s*(#[\\da-f]{6})`, "i"))?.[1];
+    assert.equal(value, variable[2], "isolated component fallback must match the shared token");
+    return value;
+  };
+  const normal = resolveColor(/\.business-nav-text\s*\{[^}]*color:\s*([^;]+)/i);
+  const active = resolveColor(/\.business-nav-tab\.active \.business-nav-text\s*\{[^}]*color:\s*([^;]+)/i);
+  assert.equal(normal, app.tabBar.color);
+  assert.equal(active, app.tabBar.selectedColor);
   assert.ok(contrast(normal, "#ffffff") >= 4.5);
   assert.ok(contrast(active, "#ffffff") >= 4.5);
   assert.doesNotMatch(css, /!important/);
-  assert.match(css, /\.business-nav-tab\s*\{[^}]*width:\s*33\.333%[^}]*min-height:\s*96rpx/);
+  assert.match(css, /\.business-nav-tab\s*\{[^}]*width:\s*33\.333%/);
+  assert.match(css, /\.business-nav-bar, \.business-nav-tab\s*\{\s*min-height:\s*48px/);
   assert.match(css, /flex-wrap:\s*nowrap/);
   assert.match(css, /padding-bottom:\s*env\(safe-area-inset-bottom\)/);
   assert.match(css, /\.business-nav-wrapper\s*\{\s*position:\s*fixed/);

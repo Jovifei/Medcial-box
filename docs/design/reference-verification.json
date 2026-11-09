@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-09",
+  "artifact": "apple-ui-reference.html",
+  "kind": "Non-browser JavaScript/template verification only",
+  "passed": 11,
+  "tests": [
+    "all eight template scenes render",
+    "three navigation items retained",
+    "appearance, width, 200 percent toggle state",
+    "empty differs from initial failure and cached failure",
+    "status filtering and clear",
+    "required name validation and escaped local save",
+    "selected date is reflected in empty state and back to today",
+    "all plans independent of selected date",
+    "dose status and correction",
+    "restore has visible local result",
+    "search gives result count"
+  ],
+  "visualVerification": "NOT PERFORMED: Chromium socket restriction; cloud browser localhost connection refused and data URL blocked by policy. No screenshots are available."
+}

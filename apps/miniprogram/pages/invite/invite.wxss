@@ -10,8 +10,8 @@
   padding: 22rpx 20rpx;
   border: 1rpx dashed #9db8a6;
   border-radius: 14rpx;
-  background: #f2f7f3;
-  color: #24352c;
+  background: var(--med-inset, #f2f2f7);
+  color: var(--med-label, #1c1c1e);
   font-size: 30rpx;
   font-weight: 700;
   letter-spacing: 2rpx;
@@ -26,11 +26,11 @@
   margin-top: 18rpx;
   padding: 18rpx;
   border-radius: 14rpx;
-  background: #f2f7f3;
+  background: var(--med-inset, #f2f2f7);
 }
 
 .preview-title {
-  color: #24352c;
+  color: var(--med-label, #1c1c1e);
   font-size: 30rpx;
   font-weight: 700;
 }
@@ -45,7 +45,7 @@
 
 .error {
   margin-top: 14rpx;
-  color: #b74a32;
+  color: var(--med-danger, #b42318);
   font-size: 26rpx;
   line-height: 1.5;
 }
@@ -85,7 +85,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #e5ece7;
+  border-bottom: 1rpx solid var(--med-line, #dcdce1);
 }
 
 .member-info {
@@ -95,13 +95,13 @@
 
 .member-role {
   font-size: 28rpx;
-  color: #24352c;
+  color: var(--med-label, #1c1c1e);
   font-weight: 600;
 }
 
 .member-joined {
   font-size: 24rpx;
-  color: #7d8a82;
+  color: var(--med-secondary, #636366);
 }
 
 .member-actions {
@@ -113,3 +113,10 @@
   padding: 10rpx 20rpx;
   font-size: 26rpx;
 }
+
+.page { padding: 16px; }
+.invite-code { font-size: 18px; padding: 16px; border: 1px solid var(--med-line, #dcdce1); border-radius: 10px; background: var(--med-inset, #f2f2f7); }
+.preview { padding: 16px; border-radius: 10px; }
+.preview-title { font-size: 18px; overflow-wrap: anywhere; }
+.member-row, .member-actions { flex-wrap: wrap; gap: 8px; }
+.btn-small { min-height: 48px; font-size: 13px; }

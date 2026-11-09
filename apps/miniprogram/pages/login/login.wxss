@@ -7,7 +7,7 @@
 }
 
 .eyebrow {
-  color: #3f7d5c;
+  color: var(--med-accent, #087f5b);
   font-size: 24rpx;
   font-weight: 650;
   letter-spacing: 3rpx;
@@ -22,7 +22,7 @@
 
 .subtitle {
   margin-top: 18rpx;
-  color: #718078;
+  color: var(--med-secondary, #636366);
   font-size: 26rpx;
   line-height: 1.7;
 }
@@ -35,8 +35,8 @@
   margin-top: 18rpx;
   padding: 16rpx 18rpx;
   border-radius: 12rpx;
-  background: #fff3ef;
-  color: #a45437;
+  background: var(--med-danger-tint, #fff0ee);
+  color: var(--med-danger, #b42318);
   font-size: 24rpx;
   line-height: 1.5;
 }

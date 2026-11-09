@@ -1,6 +1,6 @@
 .page {
   padding: 32rpx 32rpx calc(180rpx + env(safe-area-inset-bottom));
-  background: #f5f7f4;
+  background: var(--med-background, #f2f2f7);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -12,7 +12,7 @@
   margin-bottom: 24rpx;
   padding: 6rpx;
   border-radius: 32rpx;
-  background: #e8efe9;
+  background: var(--med-inset, #f2f2f7);
 }
 
 .view-tab {
@@ -21,13 +21,13 @@
   line-height: 76rpx;
   text-align: center;
   border-radius: 28rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
   font-size: 27rpx;
 }
 
 .view-tab.active {
   background: #ffffff;
-  color: #315f46;
+  color: var(--med-accent, #087f5b);
   font-weight: 600;
   box-shadow: 0 2rpx 8rpx rgba(63, 125, 92, 0.12);
 }
@@ -37,26 +37,26 @@
 .card {
   background: #ffffff;
   border-radius: 32rpx;
-  border: 1rpx solid #e4ebe5;
+  border: 1rpx solid var(--med-line, #dcdce1);
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
 
 .error-card {
-  border-color: #eccfcf;
-  background: #fdf5f5;
+  border-color: var(--med-danger-line, #efc8c3);
+  background: var(--med-danger-tint, #fff0ee);
 }
 
 .section-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
   margin-bottom: 16rpx;
 }
 
 .hint {
   font-size: 25rpx;
-  color: #596a60;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
 }
 
@@ -77,15 +77,15 @@
   text-align: center;
   border-radius: 999rpx;
   background: #ffffff;
-  border: 1rpx solid #e1e7e1;
-  color: #3f7d5c;
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-accent, #087f5b);
   font-size: 24rpx;
 }
 
 .date-current {
   font-size: 30rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 /* —— 今日安排 —— */
@@ -104,7 +104,7 @@
 .schedule-time {
   font-size: 36rpx;
   font-weight: 700;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .schedule-status {
@@ -114,44 +114,44 @@
 }
 
 .schedule-status.pending {
-  color: #8a6a1f;
-  background: #fbf1da;
+  color: var(--med-warning, #8a5700);
+  background: var(--med-warning-tint, #fff4de);
 }
 
 .schedule-status.taken {
-  color: #2f7d4f;
-  background: #e2f2e8;
+  color: var(--med-success, #146c43);
+  background: var(--med-success-tint, #e9f6ee);
 }
 
 .schedule-status.skipped {
-  color: #596a60;
-  background: #eef1ee;
+  color: var(--med-secondary, #636366);
+  background: var(--med-inset, #f2f2f7);
 }
 
 .schedule-profile {
   font-size: 23rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .schedule-medicine {
   margin-top: 6rpx;
   font-size: 30rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .schedule-dosage {
   margin-top: 6rpx;
   font-size: 25rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
 }
 
 .overdue-note {
   margin-top: 14rpx;
   padding: 14rpx 18rpx;
   border-radius: 16rpx;
-  background: #fbf1da;
-  color: #8a6a1f;
+  background: var(--med-warning-tint, #fff4de);
+  color: var(--med-warning, #8a5700);
   font-size: 23rpx;
   line-height: 1.5;
 }
@@ -174,14 +174,14 @@
 }
 
 .action-btn.primary {
-  background: #3f7d5c;
+  background: var(--med-accent, #087f5b);
   color: #ffffff;
 }
 
 .action-btn.ghost {
   background: #ffffff;
-  border: 1rpx solid #cfdcd3;
-  color: #3f7d5c;
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-accent, #087f5b);
 }
 
 .action-btn.busy {
@@ -191,7 +191,7 @@
 .correct-hint {
   flex: none;
   font-size: 21rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 /* —— 服药提醒 —— */
@@ -210,36 +210,36 @@
   justify-content: space-between;
   margin-top: 12rpx;
   padding-top: 12rpx;
-  border-top: 1rpx solid #eef1ee;
+  border-top: 1rpx solid var(--med-inset, #f2f2f7);
 }
 
 .delivery-when {
   font-size: 24rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
 }
 
 .delivery-status {
   padding: 4rpx 16rpx;
   border-radius: 999rpx;
   font-size: 21rpx;
-  color: #596a60;
-  background: #eef1ee;
+  color: var(--med-secondary, #636366);
+  background: var(--med-inset, #f2f2f7);
 }
 
 .delivery-status.sent {
-  color: #2f7d4f;
-  background: #e2f2e8;
+  color: var(--med-success, #146c43);
+  background: var(--med-success-tint, #e9f6ee);
 }
 
 .delivery-status.failed {
-  color: #b4544f;
-  background: #fdf5f5;
+  color: var(--med-danger, #b42318);
+  background: var(--med-danger-tint, #fff0ee);
 }
 
 .delivery-status.cancelled,
 .delivery-status.blocked {
-  color: #7c867e;
-  background: #f4f6f4;
+  color: var(--med-secondary, #636366);
+  background: var(--med-inset, #f2f2f7);
 }
 
 /* —— 筛选条 —— */
@@ -255,17 +255,17 @@
   align-items: center;
   margin-right: 12rpx;
   padding: 14rpx 22rpx;
-  border: 1rpx solid #e1e7e1;
+  border: 1rpx solid var(--med-line, #dcdce1);
   border-radius: 999rpx;
   background: #ffffff;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
   font-size: 23rpx;
 }
 
 .filter-chip.selected {
-  border-color: #3f7d5c;
-  background: #e9f2ec;
-  color: #315f46;
+  border-color: var(--med-accent, #087f5b);
+  background: var(--med-accent-tint, #edf6f2);
+  color: var(--med-accent, #087f5b);
 }
 
 /* —— 全部计划 —— */
@@ -282,7 +282,7 @@
   min-width: 0;
   font-size: 30rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .plan-status {
@@ -294,41 +294,41 @@
 }
 
 .plan-status.active {
-  color: #2f7d4f;
-  background: #e2f2e8;
+  color: var(--med-success, #146c43);
+  background: var(--med-success-tint, #e9f6ee);
 }
 
 .plan-status.paused {
-  color: #596a60;
-  background: #eef1ee;
+  color: var(--med-secondary, #636366);
+  background: var(--med-inset, #f2f2f7);
 }
 
 .plan-status.ended {
-  color: #7c867e;
-  background: #f4f6f4;
+  color: var(--med-secondary, #636366);
+  background: var(--med-inset, #f2f2f7);
 }
 
 .plan-detail-link {
   font-size: 23rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .plan-profile {
   font-size: 23rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .plan-detail {
   margin-top: 8rpx;
   font-size: 25rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
   line-height: 1.5;
 }
 
 .plan-range {
   margin-top: 6rpx;
   font-size: 22rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .plan-actions {
@@ -342,7 +342,7 @@
 .safety-note {
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
   text-align: center;
 }
@@ -360,7 +360,7 @@
   line-height: 96rpx;
   text-align: center;
   border-radius: 32rpx;
-  background: #3f7d5c;
+  background: var(--med-accent, #087f5b);
   color: #ffffff;
   font-size: 30rpx;
   font-weight: 600;
@@ -389,7 +389,7 @@
   max-height: 88vh;
   padding: 24rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
   border-radius: 32rpx 32rpx 0 0;
-  background: #f5f7f4;
+  background: var(--med-background, #f2f2f7);
   overflow-y: auto;
 }
 
@@ -398,13 +398,13 @@
   height: 8rpx;
   margin: 0 auto 20rpx;
   border-radius: 999rpx;
-  background: #d5ded7;
+  background: var(--med-line, #dcdce1);
 }
 
 .sheet-title {
   font-size: 34rpx;
   font-weight: 700;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
   text-align: center;
 }
 
@@ -418,13 +418,13 @@
   padding: 24rpx;
   border-radius: 24rpx;
   background: #ffffff;
-  border: 1rpx solid #e4ebe5;
+  border: 1rpx solid var(--med-line, #dcdce1);
 }
 
 .field-label {
   margin-bottom: 12rpx;
   font-size: 24rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
 }
 
 .row-line {
@@ -443,10 +443,10 @@
   height: 88rpx;
   padding: 0 18rpx;
   border-radius: 16rpx;
-  background: #f7f9f7;
-  border: 1rpx solid #e1e7e1;
+  background: var(--med-inset, #f2f2f7);
+  border: 1rpx solid var(--med-line, #dcdce1);
   font-size: 27rpx;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .picker-box {
@@ -454,10 +454,10 @@
   line-height: 88rpx;
   padding: 0 18rpx;
   border-radius: 16rpx;
-  background: #f7f9f7;
-  border: 1rpx solid #e1e7e1;
+  background: var(--med-inset, #f2f2f7);
+  border: 1rpx solid var(--med-line, #dcdce1);
   font-size: 27rpx;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .time-add-row {
@@ -491,14 +491,14 @@
   gap: 8rpx;
   padding: 10rpx 20rpx;
   border-radius: 999rpx;
-  background: #e9f2ec;
-  color: #315f46;
+  background: var(--med-accent-tint, #edf6f2);
+  color: var(--med-accent, #087f5b);
   font-size: 24rpx;
 }
 
 .slot-remove {
   font-size: 26rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .weekday-row {
@@ -514,15 +514,15 @@
   line-height: 76rpx;
   text-align: center;
   border-radius: 999rpx;
-  background: #f7f9f7;
-  border: 1rpx solid #e1e7e1;
-  color: #52685c;
+  background: var(--med-inset, #f2f2f7);
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-secondary, #636366);
   font-size: 25rpx;
 }
 
 .weekday-chip.on {
-  background: #3f7d5c;
-  border-color: #3f7d5c;
+  background: var(--med-accent, #087f5b);
+  border-color: var(--med-accent, #087f5b);
   color: #ffffff;
 }
 
@@ -539,16 +539,45 @@
 }
 
 .btn-primary {
-  background: #3f7d5c;
+  background: var(--med-accent, #087f5b);
   color: #ffffff;
 }
 
 .btn-ghost {
   background: #ffffff;
-  border: 1rpx solid #cfdcd3;
-  color: #52685c;
+  border: 1rpx solid var(--med-line, #dcdce1);
+  color: var(--med-secondary, #636366);
 }
 
 .btn.disabled {
   opacity: 0.55;
 }
+
+/* 与药箱共用的中文紧凑档；文字换行时控件增高。 */
+.page { padding: 16px 16px calc(104px + env(safe-area-inset-bottom)); }
+.view-tabs { border-radius: 10px; padding: 3px; background: #e8e8ed; }
+.view-tab { display: flex; align-items: center; justify-content: center; min-height: 48px; height: auto; padding: 8px 6px; border-radius: 8px; box-sizing: border-box; font-size: 14px; line-height: 1.4; }
+.view-tab.active { color: var(--med-label, #1c1c1e); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.card { border: 0; border-radius: 12px; padding: 16px; }
+.section-title { font-size: 16px; }
+.hint, .schedule-dosage, .plan-detail { font-size: 13px; overflow-wrap: anywhere; }
+.date-row { gap: 8px; margin-bottom: 8px; }
+.date-shift { min-width: 48px; min-height: 48px; height: auto; display: flex; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box; line-height: 1.4; font-size: 12px; border: 0; border-radius: 10px; }
+.date-current { flex: 1; min-width: 0; text-align: center; font-size: 15px; overflow-wrap: anywhere; }
+.date-context { font-size: 11px; font-weight: 400; color: var(--med-secondary, #636366); }
+.today-reset { min-height: 48px; display: flex; align-items: center; justify-content: center; color: var(--med-accent, #087f5b); font-size: 13px; margin-bottom: 8px; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 8px; white-space: normal; }
+.filter-chip { min-height: 48px; margin: 0; box-sizing: border-box; padding: 8px 12px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.schedule-time { font-size: 20px; font-weight: 400; }
+.schedule-top, .plan-top { gap: 8px; flex-wrap: wrap; }
+.schedule-medicine, .plan-medicine { font-size: 16px; overflow-wrap: anywhere; }
+.schedule-profile, .plan-profile, .plan-range { font-size: 12px; overflow-wrap: anywhere; }
+.schedule-status, .plan-status { border-radius: 6px; font-size: 11px; line-height: 1.5; max-width: 100%; }
+.schedule-actions, .plan-actions { flex-wrap: wrap; gap: 8px; }
+.action-btn { flex: 1 1 96px; min-width: 0; min-height: 48px; height: auto; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; line-height: 1.4; font-size: 14px; }
+.correct-hint { flex: 1 0 100%; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.overdue-note { font-size: 12px; }
+.reminder-card .section-title { min-height: 48px; display: flex; align-items: center; margin-bottom: 0; }
+.delivery-row { gap: 8px; flex-wrap: wrap; }
+.safety-note { text-align: left; font-size: 11px; }
+.floating-add { left: auto; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); min-height: 48px; height: auto; max-width: calc(100% - 32px); padding: 12px 18px; box-sizing: border-box; border-radius: 12px; font-size: 14px; line-height: 1.5; box-shadow: 0 3px 12px rgba(0,0,0,.12); }

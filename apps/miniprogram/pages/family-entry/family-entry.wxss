@@ -7,7 +7,7 @@
 }
 
 .eyebrow {
-  color: #3f7d5c;
+  color: var(--med-accent, #087f5b);
   font-size: 23rpx;
   font-weight: 650;
   letter-spacing: 2rpx;
@@ -21,7 +21,7 @@
 
 .subtitle {
   margin-top: 14rpx;
-  color: #718078;
+  color: var(--med-secondary, #636366);
   font-size: 25rpx;
   line-height: 1.7;
 }
@@ -30,11 +30,11 @@
   margin-top: 22rpx;
   padding: 20rpx;
   border-radius: 14rpx;
-  background: #f2f7f3;
+  background: var(--med-inset, #f2f2f7);
 }
 
 .preview-title {
-  color: #315f46;
+  color: var(--med-accent, #087f5b);
   font-size: 30rpx;
   font-weight: 680;
 }
@@ -43,8 +43,8 @@
   margin-top: 18rpx;
   padding: 14rpx 16rpx;
   border-radius: 12rpx;
-  background: #fff3ef;
-  color: #a45437;
+  background: var(--med-danger-tint, #fff0ee);
+  color: var(--med-danger, #b42318);
   font-size: 24rpx;
   line-height: 1.5;
 }
@@ -60,7 +60,7 @@
 /* ===== 58号设计：家庭列表优先 + 渐进展开 ===== */
 .page-hint {
   margin-top: 8rpx;
-  color: #718078;
+  color: var(--med-secondary, #636366);
   font-size: 24rpx;
   line-height: 1.5;
 }
@@ -75,10 +75,10 @@
   gap: 16rpx;
   padding: 20rpx 24rpx;
   text-align: left;
-  border: 1rpx solid #e1e9e2;
+  border: 1rpx solid var(--med-line, #dcdce1);
   border-radius: 20rpx;
   background: #fff;
-  color: #24352c;
+  color: var(--med-label, #1c1c1e);
   font-size: 30rpx;
   line-height: 1.35;
 }
@@ -106,7 +106,7 @@
 
 .family-role {
   margin-top: 6rpx;
-  color: #718078;
+  color: var(--med-secondary, #636366);
   font-size: 23rpx;
 }
 
@@ -141,7 +141,7 @@
 }
 
 .toggle-label {
-  color: #3f7d5c;
+  color: var(--med-accent, #087f5b);
   font-size: 25rpx;
   font-weight: 650;
 }

@@ -13,9 +13,10 @@
   <block wx:if="{{view === 'today'}}">
     <view class="date-row">
       <view class="date-shift" data-delta="-1" bindtap="onShiftDate">‹ 前一天</view>
-      <view class="date-current">{{date}}</view>
+      <view class="date-current">{{date}}<view class="date-context">{{isToday ? '今天' : '所选日期'}}</view></view>
       <view class="date-shift" data-delta="1" bindtap="onShiftDate">后一天 ›</view>
     </view>
+    <view class="today-reset" wx:if="{{!isToday}}" bindtap="onReturnToday" aria-role="button">回到今天</view>
 
     <view class="filter-row" wx:if="{{profileOptions.length > 2}}">
       <view class="filter-chip {{profileFilter === item.id ? 'selected' : ''}}"
@@ -24,13 +25,14 @@
     </view>
 
     <view class="card" wx:if="{{loading}}">
-      <view class="hint">正在读取今日安排…</view>
+      <view class="hint">正在读取安排…</view>
     </view>
     <view class="card" wx:elif="{{visibleEntries.length === 0 && errorMessage === ''}}">
-      <view class="section-title">{{profileFilter === '' ? '今天没有安排' : '该照护对象今天没有安排'}}</view>
-      <view class="hint">{{hasAnyProfile ? '还没有用药计划；点击下方创建第一个计划。' : '创建计划前会先为“我自己”建立照护对象；孩子的计划可在授权后由家人代记。'}}</view>
+      <view class="section-title">{{profileFilter === '' ? (isToday ? '今天没有安排' : '这一天没有安排') : (isToday ? '该照护对象今天没有安排' : '该照护对象这一天没有安排')}}</view>
+      <view class="hint">{{plans.length > 0 ? '已创建的计划仍在“全部计划”中，可查看执行日期和状态。' : hasAnyProfile ? '还没有用药计划；点击下方创建第一个计划。' : '创建计划前会先为“我自己”建立照护对象；孩子的计划可在授权后由家人代记。'}}</view>
     </view>
 
+    <block wx:if="{{!loading && errorMessage === ''}}">
     <view wx:for="{{visibleEntries}}" wx:key="occurrenceId" class="card schedule-card">
       <view class="schedule-top">
         <view class="schedule-time">{{item.time}}</view>
@@ -54,6 +56,7 @@
         <view class="correct-hint">纠正会保留操作历史</view>
       </view>
     </view>
+    </block>
   </block>
 
   <block wx:if="{{view === 'all'}}">
@@ -71,6 +74,7 @@
       <view class="section-title">这个状态没有计划</view>
       <view class="hint">点击下方“＋创建计划”，为家人或自己安排固定时间的用药提醒；已结束的计划保留历史记录。</view>
     </view>
+    <block wx:if="{{!loading && errorMessage === ''}}">
     <view wx:for="{{visiblePlans}}" wx:key="id" class="card plan-card" data-id="{{item.id}}" bindtap="onOpenPlanDetail">
       <view class="plan-top">
         <view class="plan-medicine">{{item.medicineName}}</view>
@@ -85,6 +89,7 @@
         <view class="plan-detail-link" wx:if="{{item.status === 'ended'}}">点击查看历史记录</view>
       </view>
     </view>
+    </block>
   </block>
 
   <view class="card reminder-card">

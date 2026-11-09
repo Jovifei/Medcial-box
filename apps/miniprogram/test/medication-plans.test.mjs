@@ -504,3 +504,30 @@ test("实例已不在当前日期列表时作废点击", async () => {
   await page.onConfirmDose({ currentTarget: { dataset: { id: "occ-missing", action: "taken" } } });
   assert.equal(calls.some(([kind]) => kind === "confirm"), false, "不属于当前列表的实例不应写入");
 });
+
+test('return-to-today restores the live date and requests that date without deleting plans', async () => {
+  const { load, state, calls } = loadPlansPage();
+  state.plans = [plan()];
+  const page = load();
+  page.followToday = false;
+  page.data.date = shanghaiDate(-3);
+  await page.refresh();
+  assert.equal(page.data.isToday, false);
+  await page.onReturnToday();
+  assert.equal(page.data.date, shanghaiDate(0));
+  assert.equal(page.followToday, true);
+  assert.equal(page.data.isToday, true);
+  assert.equal(page.data.plans.length, 1);
+  assert.deepEqual(calls.filter(([kind]) => kind === 'schedule').map(([, date]) => date), [shanghaiDate(-3), shanghaiDate(0)]);
+});
+
+test('invalid date shift leaves the displayed date and schedule untouched', () => {
+  const { load, calls } = loadPlansPage();
+  const page = load();
+  const initial = page.data.date;
+  for (const delta of ['NaN', '1.5', '', 'Infinity']) {
+    page.onShiftDate({ currentTarget: { dataset: { delta } } });
+  }
+  assert.equal(page.data.date, initial);
+  assert.equal(calls.length, 0);
+});

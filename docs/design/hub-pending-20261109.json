@@ -1,0 +1,12 @@
+{
+  "kind": "local-hub-report-pending",
+  "date": "2026-11-09",
+  "project_id": "medcial-box",
+  "branch": "codex/miniprogram-apple-ui-20261109",
+  "actual_worktree": "/workspace/scratch/26bc2b1ecc02/medcial-mini",
+  "status": "NOT_SENT",
+  "reason": "Windows bound_report.py is unavailable in this execution environment; revision read failed with file not found.",
+  "revision": null,
+  "canonical_event_created": false,
+  "next": "Run the registered bound_report.py revision/template/send workflow locally for the actual receiving worktree. Do not send this notice as a canonical event."
+}

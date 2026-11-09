@@ -1,6 +1,6 @@
 .page {
   padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
-  background: #f5f7f4;
+  background: var(--med-background, #f2f2f7);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -8,7 +8,7 @@
 .card {
   background: #ffffff;
   border-radius: 32rpx;
-  border: 1rpx solid #e4ebe5;
+  border: 1rpx solid var(--med-line, #dcdce1);
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
@@ -16,19 +16,19 @@
 .section-label {
   margin: 8rpx 0 16rpx 4rpx;
   font-size: 24rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .section-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
   margin-bottom: 16rpx;
 }
 
 .hint {
   font-size: 25rpx;
-  color: #596a60;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
 }
 
@@ -41,34 +41,34 @@
 .note-version {
   font-size: 30rpx;
   font-weight: 600;
-  color: #24382e;
+  color: var(--med-label, #1c1c1e);
 }
 
 .note-badge {
   padding: 4rpx 16rpx;
   border-radius: 999rpx;
-  background: #e2f2e8;
-  color: #2f7d4f;
+  background: var(--med-success-tint, #e9f6ee);
+  color: var(--med-success, #146c43);
   font-size: 21rpx;
 }
 
 .note-date {
   margin-top: 6rpx;
   font-size: 22rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
 }
 
 .note-item {
   margin-top: 12rpx;
   font-size: 25rpx;
-  color: #52685c;
+  color: var(--med-secondary, #636366);
   line-height: 1.7;
 }
 
 .safety-note {
   margin-top: 16rpx;
   font-size: 22rpx;
-  color: #7c867e;
+  color: var(--med-secondary, #636366);
   line-height: 1.6;
   text-align: center;
 }

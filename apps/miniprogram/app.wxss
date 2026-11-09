@@ -4,21 +4,40 @@
    - 标准 4 阶字阶：标题 36rpx、正文/输入 30rpx、次要说明 26rpx、辅助标签 22rpx
    - 8rpx 网格：卡片圆角 24rpx，控件圆角 16rpx，标准间距 16rpx / 24rpx / 32rpx
 */
+/* Apple 分组列表语义色。每个 var 同时保留字面 fallback，供独立组件使用。
+   品牌绿只用于动作/选中态；危险与待核对必须同时有文字说明。 */
 page {
-  background: #f8fafc;
-  color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 30rpx;
+  --med-background: #f2f2f7;
+  --med-surface: #ffffff;
+  --med-inset: #f2f2f7;
+  --med-label: #1c1c1e;
+  --med-secondary: #636366;
+  --med-line: #dcdce1;
+  --med-accent: #087f5b;
+  --med-accent-tint: #edf6f2;
+  --med-success: #146c43;
+  --med-success-tint: #e9f6ee;
+  --med-warning: #8a5700;
+  --med-warning-tint: #fff4de;
+  --med-danger: #b42318;
+  --med-danger-tint: #fff0ee;
+  --med-danger-line: #efc8c3;
+  background: var(--med-background, #f2f2f7);
+  color: var(--med-label, #1c1c1e);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
   line-height: 1.5;
 }
+
+.page { padding: 16px; box-sizing: border-box; }
 
 .card {
   margin-bottom: 24rpx;
   padding: 24rpx;
-  border: 1rpx solid #e2e8f0;
-  border-radius: 24rpx;
+  border: 0;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.03);
+  box-shadow: none;
   box-sizing: border-box;
 }
 
@@ -27,7 +46,7 @@ page {
   font-size: 36rpx;
   font-weight: 650;
   line-height: 1.4;
-  color: #0f172a;
+  color: var(--med-label, #1c1c1e);
   text-align: left;
 }
 
@@ -37,7 +56,7 @@ page {
 
 .field-label {
   margin-bottom: 12rpx;
-  color: #334155;
+  color: var(--med-label, #1c1c1e);
   font-size: 26rpx;
   font-weight: 600;
   line-height: 1.5;
@@ -46,7 +65,7 @@ page {
 
 .field-hint {
   margin-top: 8rpx;
-  color: #64748b;
+  color: var(--med-secondary, #636366);
   font-size: 26rpx;
   line-height: 1.5;
   text-align: left;
@@ -56,14 +75,14 @@ page {
 .textarea {
   width: 100%;
   box-sizing: border-box;
-  min-height: 88rpx;
+  min-height: 48px;
   padding: 20rpx 24rpx;
-  border: 1rpx solid #cbd5e1;
+  border: 1rpx solid var(--med-line, #dcdce1);
   border-radius: 16rpx;
   background: #ffffff;
   font-size: 30rpx;
   line-height: 1.45;
-  color: #0f172a;
+  color: var(--med-label, #1c1c1e);
   text-align: left;
 }
 
@@ -72,20 +91,20 @@ page {
 }
 
 .picker-box {
-  min-height: 88rpx;
+  min-height: 48px;
   box-sizing: border-box;
   padding: 20rpx 24rpx;
-  border: 1rpx solid #cbd5e1;
+  border: 1rpx solid var(--med-line, #dcdce1);
   border-radius: 16rpx;
   background: #ffffff;
-  color: #0f172a;
+  color: var(--med-label, #1c1c1e);
   font-size: 30rpx;
   line-height: 1.45;
   text-align: left;
 }
 
 .btn {
-  min-height: 88rpx;
+  min-height: 48px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -100,21 +119,21 @@ page {
 }
 
 .btn-primary {
-  background: #047857;
+  background: var(--med-accent, #087f5b);
   color: #fff;
-  box-shadow: 0 4rpx 12rpx rgba(4, 120, 87, 0.2);
+  box-shadow: none;
 }
 
 .btn-ghost {
-  border: 1rpx solid #cbd5e1;
+  border: 1rpx solid var(--med-line, #dcdce1);
   background: #fff;
-  color: #047857;
+  color: var(--med-accent, #087f5b);
 }
 
 .btn-danger {
-  border: 1rpx solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
+  border: 1rpx solid var(--med-danger-line, #efc8c3);
+  background: var(--med-danger-tint, #fff0ee);
+  color: var(--med-danger, #b42318);
 }
 
 .btn[disabled] {
@@ -133,32 +152,32 @@ page {
 }
 
 .badge-expired {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--med-danger-tint, #fff0ee);
+  color: var(--med-danger, #b42318);
 }
 
 .badge-due {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--med-warning-tint, #fff4de);
+  color: var(--med-warning, #8a5700);
 }
 
 .badge-soon {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--med-warning-tint, #fff4de);
+  color: var(--med-warning, #8a5700);
 }
 
 .badge-ok {
-  background: #ecfdf5;
-  color: #065f46;
+  background: var(--med-success-tint, #e9f6ee);
+  color: var(--med-success, #146c43);
 }
 
 .badge-unknown {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--med-inset, #f2f2f7);
+  color: var(--med-secondary, #636366);
 }
 
 .hint {
-  color: #64748b;
+  color: var(--med-secondary, #636366);
   font-size: 26rpx;
   line-height: 1.5;
   text-align: left;
@@ -170,3 +189,9 @@ page {
   justify-content: space-between;
   gap: 16rpx;
 }
+
+/* 微信窄屏仍保证逻辑像素触控尺寸；局部组件通过同语义类复用。 */
+.btn, .link-btn, .inline-action { min-width: 48px; min-height: 48px; box-sizing: border-box; }
+.inline-action { display: flex; align-items: center; justify-content: center; padding: 0 8px; color: var(--med-accent, #087f5b); font-size: 13px; flex: none; }
+.btn::after { border: 0; }
+.btn, .input, .textarea, .picker-box { overflow-wrap: anywhere; }

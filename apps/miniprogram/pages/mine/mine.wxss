@@ -1,28 +1,46 @@
 .page { padding-bottom: 60rpx; }
-.mine-family { padding: 34rpx 30rpx; background: #e9f3ec; border-color: #d8e8dc; border-radius: 28rpx; }
-.family-caption { color: #7c867e; font-size: 22rpx; }
+.mine-family { padding: 34rpx 30rpx; background: var(--med-accent-tint, #edf6f2); border-color: #d8e8dc; border-radius: 28rpx; }
+.family-caption { color: var(--med-secondary, #636366); font-size: 22rpx; }
 .family-name { margin-top: 8rpx; font-size: 36rpx; font-weight: 700; }
-.section-label { margin: 28rpx 8rpx 12rpx; color: #758278; font-size: 23rpx; font-weight: 650; }
-.menu-card { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 24rpx; border-bottom: 1rpx solid #edf0ec; background: #fff; }
+.section-label { margin: 28rpx 8rpx 12rpx; color: var(--med-secondary, #636366); font-size: 23rpx; font-weight: 650; }
+.menu-card { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 24rpx; border-bottom: 1rpx solid var(--med-inset, #f2f2f7); background: #fff; }
 .menu-card:last-child { border-bottom: 0; }
 .menu-title { font-size: 27rpx; font-weight: 650; }
-.menu-hint { margin-top: 6rpx; color: #7c867e; font-size: 21rpx; line-height: 1.5; }
-.menu-arrow { color: #87938a; font-size: 40rpx; }
+.menu-hint { margin-top: 6rpx; color: var(--med-secondary, #636366); font-size: 21rpx; line-height: 1.5; }
+.menu-arrow { color: var(--med-secondary, #636366); font-size: 40rpx; }
 .devices-card { padding-top: 10rpx; padding-bottom: 10rpx; }
-.device-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid #edf0ec; }
+.device-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--med-inset, #f2f2f7); }
 .device-row:last-child { border-bottom: 0; }
 .device-info { min-width: 0; flex: 1; }
 .device-title { margin-bottom: 4rpx; font-size: 26rpx; font-weight: 650; word-break: break-word; }
-.current-device { margin-top: 5rpx; color: #52685c; }
+.current-device { margin-top: 5rpx; color: var(--med-secondary, #636366); }
 .revoke-button { flex: 0 0 170rpx; min-height: 70rpx; margin-top: 0; padding: 12rpx; font-size: 22rpx; }
-.retry-link { color: #3f7d5c; }
-.safety-note { margin: 28rpx 8rpx; color: #7c867e; font-size: 21rpx; line-height: 1.6; }
+.retry-link { color: var(--med-accent, #087f5b); }
+.safety-note { margin: 28rpx 8rpx; color: var(--med-secondary, #636366); font-size: 21rpx; line-height: 1.6; }
 
 
 
 .entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; }
-.entry-card { padding: 24rpx; border: 1rpx solid #e1e9e2; border-radius: 22rpx; background: #fff; }
-.entry-mark { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; margin-bottom: 16rpx; border-radius: 18rpx; background: #edf5ef; color: #3f795b; font-size: 27rpx; font-weight: 700; }
+.entry-card { padding: 24rpx; border: 1rpx solid var(--med-line, #dcdce1); border-radius: 22rpx; background: #fff; }
+.entry-mark { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; margin-bottom: 16rpx; border-radius: 18rpx; background: var(--med-accent-tint, #edf6f2); color: var(--med-accent, #087f5b); font-size: 27rpx; font-weight: 700; }
 .entry-card .menu-hint { font-size: 22rpx; }
-.settings-group { overflow: hidden; border: 1rpx solid #e1e9e2; border-radius: 22rpx; background: #fff; }
-.devices-card { padding: 0 24rpx; background: #f7faf7; }
+.settings-group { overflow: hidden; border: 1rpx solid var(--med-line, #dcdce1); border-radius: 22rpx; background: #fff; }
+.devices-card { padding: 0 24rpx; background: var(--med-inset, #f2f2f7); }
+
+/* iOS 设置式分组，保持全部既有工具入口。 */
+.page { padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+.mine-family { padding: 20px 16px; border: 0; border-radius: 12px; background: #fff; }
+.family-caption { font-size: 12px; }
+.family-name { color: var(--med-label, #1c1c1e); font-size: 24px; font-weight: 400; overflow-wrap: anywhere; }
+.section-label { margin: 24px 12px 8px; font-size: 12px; font-weight: 400; }
+.settings-group { border: 0; border-radius: 12px; }
+.menu-card { min-height: 64px; box-sizing: border-box; padding: 14px 16px; }
+.menu-card > view:first-child { flex: 1; min-width: 0; }
+.menu-title { font-size: 15px; font-weight: 400; overflow-wrap: anywhere; }
+.menu-hint { font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; }
+.menu-arrow { flex: none; font-size: 24px; }
+.device-row { flex-wrap: wrap; }
+.device-info { flex: 1 1 160px; }
+.revoke-button { flex: 0 1 auto; min-height: 48px; padding: 10px 14px; font-size: 13px; }
+.retry-link { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; }
+.safety-note { font-size: 11px; }
