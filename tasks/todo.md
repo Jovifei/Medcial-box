@@ -1,5 +1,17 @@
 # 当前任务：微信小程序参数与交互审核修复（2026-11-02）
 
+## 2026-11-09 双平台 Apple 风 UI 分支优化
+
+- [x] 实时核对 `main@3a9afefe3fcae0f5a827a728c7b71faa5fec102a`，建立独立 App 与微信小程序工作区。
+- [x] 保留“药箱 / 用药计划 / 我的”三栏、中文紧凑字号和全部原有业务入口，分别优化筛选、状态反馈与平台布局。
+- [x] 设计原则、源码功能清单、平台差异和分支接入方法写入 [本轮交付说明](../docs/design/APPLE_UI_DELIVERY_20261109.md)。
+- [x] 提供可点击的 HTML 设计参考；Figma 新文件为空白，因 Starter MCP 额度耗尽尚未回填。
+- [ ] `codex/flutter-app-parity@7ecc7b3…` 两个本地提交尚未取得，不能标记与本轮合并完成；待该分支推送后按交付说明合入并复验。
+- [ ] 官方微信渲染、真实设备、签名及保数据安装按原门槛核验；历史 902 PASS / 19 SKIP 不计作本轮结果。
+- [ ] Windows 本机 Hub wrapper 在当前执行环境不存在，revision 读取失败；待本机生成正式上报事件，状态保留在设计目录 pending JSON。
+
+各端最终测试与提交结果以各自 `docs/design` 交付回执和独立 PR 为准。本轮不复用旧 Draft PR #7，不改变生产服务与版本号。
+
 ## 2026-11-07 文档归档与本机大清理（Jovi 授权，grill-me 逐项确认）
 
 - [x] `.local-data` 7.6GB→2.3MB：删除 10 月审计/交付副本（含 4 个内嵌 detached worktree）、旧 QA/mini 隔离包与 candidate 日志；保留 logs/、medicine-catalog/、ide-verify-20261107/ 截图、staging-target.json、现行 mini 两个隔离包与 hub-pending-20261023.json（Hub 上报契约要求保留）。

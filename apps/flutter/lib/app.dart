@@ -90,9 +90,7 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
   }
 
   GoRouter _createRouter(AppServices services) {
-    final routes = <RouteBase>[
-      _route('/', BootGatePage(services: services)),
-    ];
+    final routes = <RouteBase>[_route('/', BootGatePage(services: services))];
     if (kDebugMode) {
       final demo = services.demoMedicineRepository;
       routes.addAll([
@@ -137,7 +135,8 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
                 _ => 0,
               },
               initialAttention: state.uri.queryParameters['tab'] == 'pending',
-              initialFamilyManagement: state.uri.queryParameters['tab'] == 'my' &&
+              initialFamilyManagement:
+                  state.uri.queryParameters['tab'] == 'my' &&
                   state.uri.queryParameters['section'] == 'family',
             ),
           ),
@@ -264,7 +263,9 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         services.familyInvalidated,
       ]),
       redirect: (context, state) {
-        if (kDebugMode && state.matchedLocation.startsWith('/demo')) return null;
+        if (kDebugMode && state.matchedLocation.startsWith('/demo')) {
+          return null;
+        }
         if (services.sessionInvalidated.value) {
           return state.matchedLocation == '/connect' ? null : '/connect';
         }
@@ -366,13 +367,17 @@ class _HomeMedicineAppState extends State<HomeMedicineApp> {
         builder: (context, child) {
           // Cupertino 语义色/阶梯主题 + 字号档位在此注入；壳仍为 Material（过渡期），
           // Stage C 逐屏 Cupertino 化完成后整体切换 CupertinoApp。
-          final brightness = View.of(context).platformDispatcher.platformBrightness;
+          final brightness = View.of(context)
+              .platformDispatcher
+              .platformBrightness;
           return AnimatedBuilder(
             animation: fontScale,
             builder: (context, _) {
               final scaled = MediaQuery(
                 data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(fontScale.factor),
+                  textScaler: fontScale.combineWithSystem(
+                    MediaQuery.textScalerOf(context),
+                  ),
                 ),
                 child: child!,
               );

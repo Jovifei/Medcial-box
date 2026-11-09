@@ -10,7 +10,12 @@ class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.fromLTRB(AppSpacing.pageH, 16, AppSpacing.pageH, 28),
+    this.padding = const EdgeInsets.fromLTRB(
+      AppSpacing.pageH,
+      16,
+      AppSpacing.pageH,
+      28,
+    ),
   });
   final Widget child;
   final EdgeInsets padding;
@@ -74,7 +79,8 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: onPressed,
         icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 19),
-        label: Text(label, style: AppType.headline.copyWith(color: Colors.white)),
+        // Let the button theme resolve light/dark and disabled foregrounds.
+        label: Text(label, style: AppType.headline),
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
@@ -144,7 +150,10 @@ class StatusPill extends StatelessWidget {
     ),
     child: Text(
       label,
-      style: AppType.caption1.copyWith(color: color, fontWeight: FontWeight.w600),
+      style: AppType.caption1.copyWith(
+        color: color,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 }
@@ -235,7 +244,9 @@ Widget choiceTile(
                   Text(
                     subtitle,
                     style: AppType.footnote.copyWith(
-                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                      color: CupertinoColors.secondaryLabel.resolveFrom(
+                        context,
+                      ),
                     ),
                   ),
                 ],

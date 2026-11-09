@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton, CupertinoTabBar;
+import 'package:flutter/cupertino.dart'
+    show CupertinoNavigationBarBackButton, CupertinoTabBar;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_medicine_flutter/app.dart';
@@ -115,7 +116,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('待处理事项'), findsNothing);
-    expect(find.text('JF小药箱'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '测试家庭'), findsOneWidget);
   });
 
   testWidgets(
@@ -173,9 +174,17 @@ void main() {
     },
   );
 
-  testWidgets('returning from attention refreshes the cabinet summary', (tester) async {
+  testWidgets('returning from attention refreshes the cabinet summary', (
+    tester,
+  ) async {
     final pending = <Map<String, Object?>>[
-      {'type': 'expired', 'medicineId': 'a', 'medicineName': '药甲', 'message': '甲已过期', 'action': 'edit_batch'},
+      {
+        'type': 'expired',
+        'medicineId': 'a',
+        'medicineName': '药甲',
+        'message': '甲已过期',
+        'action': 'edit_batch',
+      },
     ];
     await _mount(tester, '/home', pending: pending);
     await tester.tap(find.text('需关注 1 种'));
@@ -250,7 +259,12 @@ void main() {
       );
       await tester.tap(find.text('测试家庭'));
       await tester.pumpAndSettle();
-      expect(tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex, 2);
+      expect(
+        tester
+            .widget<CupertinoTabBar>(find.byType(CupertinoTabBar))
+            .currentIndex,
+        2,
+      );
       expect(find.text('家庭'), findsOneWidget);
       expect(find.text('切换、创建或加入家庭'), findsOneWidget);
       expect(find.text('第二家庭'), findsNothing);
@@ -282,9 +296,14 @@ void main() {
     },
   );
 
-  testWidgets('family management deep link opens the management group', (tester) async {
+  testWidgets('family management deep link opens the management group', (
+    tester,
+  ) async {
     await _mount(tester, '/home?tab=my&section=family');
-    expect(tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex, 2);
+    expect(
+      tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar)).currentIndex,
+      2,
+    );
     expect(find.text('切换、创建或加入家庭'), findsOneWidget);
   });
 }

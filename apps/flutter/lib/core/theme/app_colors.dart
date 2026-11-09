@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoDynamicColor;
 
 /// iOS 语义色 token（HIG）：浅色/深色两套，禁止在业务代码里写散装 hex。
 /// 品牌强调色只有一个（accent，药箱绿），其余全部走系统语义色。
@@ -40,11 +41,32 @@ abstract final class AppSemanticColors {
   static const systemGray5 = Color(0xFFE5E5EA);
   static const systemGray6 = Color(0xFFF2F2F7);
 
+  /// Small status text needs a darker foreground than the system tint on light
+  /// surfaces. Keep icon/fill colors separate from these readable text tokens.
+  static const dangerLabel = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFB42318),
+    darkColor: Color(0xFFFF8A80),
+  );
+  static const warningLabel = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFF8A4B00),
+    darkColor: Color(0xFFFFCC66),
+  );
+
   /// 按当前亮度取值；组件代码通过 of(brightness) 拿整组。
-  static ({Color accent, Color label, Color secondaryLabel, Color tertiaryLabel,
-      Color background, Color secondaryBackground, Color tertiaryBackground,
-      Color separator, Color danger, Color success, Color warning}) of(
-      Brightness brightness) {
+  static ({
+    Color accent,
+    Color label,
+    Color secondaryLabel,
+    Color tertiaryLabel,
+    Color background,
+    Color secondaryBackground,
+    Color tertiaryBackground,
+    Color separator,
+    Color danger,
+    Color success,
+    Color warning,
+  })
+  of(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     return (
       accent: dark ? accentDark : accentLight,
@@ -52,10 +74,12 @@ abstract final class AppSemanticColors {
       secondaryLabel: dark ? secondaryLabelDark : secondaryLabelLight,
       tertiaryLabel: dark ? tertiaryLabelDark : tertiaryLabelLight,
       background: dark ? systemBackgroundDark : systemBackgroundLight,
-      secondaryBackground:
-          dark ? secondarySystemBackgroundDark : secondarySystemBackgroundLight,
-      tertiaryBackground:
-          dark ? tertiarySystemBackgroundDark : tertiarySystemBackgroundLight,
+      secondaryBackground: dark
+          ? secondarySystemBackgroundDark
+          : secondarySystemBackgroundLight,
+      tertiaryBackground: dark
+          ? tertiarySystemBackgroundDark
+          : tertiarySystemBackgroundLight,
       separator: dark ? separatorDark : separatorLight,
       danger: systemRed,
       success: systemGreen,

@@ -18,6 +18,32 @@ extension FontScaleSettingFactor on FontScaleSetting {
   }
 }
 
+/// Applies the in-app preference after the platform's complete scaling curve.
+/// The platform may scale small and large text differently; sampling scale(1)
+/// and replacing it with a linear scaler would discard that accessibility rule.
+class SystemAndAppTextScaler extends TextScaler {
+  const SystemAndAppTextScaler({required this.system, required this.factor});
+
+  final TextScaler system;
+  final double factor;
+
+  @override
+  double scale(double fontSize) => system.scale(fontSize) * factor;
+
+  // Compatibility estimate only. Rendering always uses scale(fontSize).
+  @override
+  double get textScaleFactor => scale(14) / 14;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SystemAndAppTextScaler &&
+      other.system == system &&
+      other.factor == factor;
+
+  @override
+  int get hashCode => Object.hash(system, factor);
+}
+
 class FontScaleController extends ChangeNotifier {
   FontScaleController._(this.setting);
 
@@ -52,6 +78,10 @@ class FontScaleController extends ChangeNotifier {
         return 1.20;
     }
   }
+
+  TextScaler combineWithSystem(TextScaler system) => factor == 1
+      ? system
+      : SystemAndAppTextScaler(system: system, factor: factor);
 
   String get label {
     switch (setting) {
