@@ -27,9 +27,24 @@
 
 单平台的现行文档与归档随其端目录存放。
 
+## 本地工作区与交付约定
+
+两个工作区属于同一个 Git 仓库，各自检出完整源码并绑定自己的集成分支。源文件和文档以仓库内路径确定归属。用 `git worktree list` 查看实际检出路径和分支。
+
+| 接收线 | Windows 入口 | 集成起点 |
+| --- | --- | --- |
+| 微信小程序 | `E:\project\medcial_box-miniprogram` | 已核对的远端小程序提交。该入口指向 Codex 管理的实际检出。 |
+| Android App | `E:\project\medcial_box` | 本地 Flutter 功能候选，再合入已核对的远端 App UI。 |
+
+接收顺序为小程序、本地 App 集成。共用 API、契约、版本和跨端设计集中管理。各端的操作说明、验收回执和预览归入各自的 `docs/`，从「各端专用」表的文档索引进入。
+
+以根 `VERSION.json` 为版本基准。每个候选记录完整提交、源码树、同提交 CI、包摘要、API 地址和迁移清单。分别记录自动化、设备验收和平台发布。小程序按微信后台和他人真机门槛取证，App 按正式签名、保数据安装和真机门槛取证。
+
 ## 现行文档索引
 
 - [当前状态](../tasks/status.md)与[最新交付回执](operations/69-RECEIPT-App苹果风改版与功能对齐第一批-20261107.md)：最新入口。
+- [双端 Apple 风 UI 交付](design/APPLE_UI_DELIVERY_20261109.md) 记录共同设计、平台差异和接收边界。
+- [本地接收台账](../tasks/todo.md) 记录各分支的提交与验证状态。
 - [项目 README](../README.md)：模块、当前门槛和常用开发命令。
 - [产品需求](product/requirements.md)：首版用户目标和健康信息边界。
 - [技术架构与运行边界](architecture/overview.md)：微信小程序、Flutter、API、数据库和重试/提醒/导出责任。

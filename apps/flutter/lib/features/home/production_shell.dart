@@ -6,10 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_list_row.dart';
 import '../../core/widgets/medicine_tags.dart';
 import '../../core/widgets/private_medicine_image.dart';
 import '../../data/api_auth_repository.dart';
@@ -235,7 +236,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
   final Set<String> selectedPopulations = <String>{};
   final Set<String> selectedPurposes = <String>{};
   static const _purposeLabels = medicinePurposeLabels;
-  String? filterPanel;
 
   /// 已生效的筛选/排序条件数（用于导航栏徽标）。
   int get _filterCount =>
@@ -243,6 +243,37 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       selectedPurposes.length +
       selectedPopulations.length +
       (sortOrder == 'expiry' ? 0 : 1);
+
+  String get _sortLabel => switch (sortOrder) {
+    'name' => '药名排序',
+    'recent' => '最近录入',
+    _ => '到期优先',
+  };
+
+  String get _filterSummary => [
+    if (keyword.isNotEmpty) '搜索“$keyword”',
+    if (filter != MedicineFilter.all)
+      switch (filter) {
+        MedicineFilter.expiry => '临期/过期',
+        MedicineFilter.lowStock => '库存不足',
+        MedicineFilter.missingInfo => '待补资料',
+        MedicineFilter.unknown => '数量/日期未知',
+        MedicineFilter.all => '',
+      },
+    ...selectedPurposes.map((value) => _purposeLabels[value] ?? value),
+    ...selectedPopulations.map((value) => value == 'child' ? '儿童' : '成人'),
+  ].join(' · ');
+
+  void _clearSearchAndFilters() {
+    searchController.clear();
+    setState(() {
+      keyword = '';
+      filter = MedicineFilter.all;
+      selectedPopulations.clear();
+      selectedPurposes.clear();
+      sortOrder = 'expiry';
+    });
+  }
 
   @override
   void initState() {
@@ -434,7 +465,22 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text('JF小药箱', style: AppType.headline),
+        titleSpacing: 8,
+        title: TextButton.icon(
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed:
+              widget.onManageFamily ??
+              () => context.go('/home?tab=my&section=family'),
+          icon: const Icon(CupertinoIcons.house, size: 20),
+          label: Text(
+            family?.name ?? '家庭药箱',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppType.headline.copyWith(
+              color: CupertinoColors.label.resolveFrom(context),
+            ),
+          ),
+        ),
         flexibleSpace: ClipRect(
           // iOS 导航层玻璃：内容滚到栏下时实时模糊（DESIGN.md 允许的材质位置）。
           child: BackdropFilter(
@@ -445,20 +491,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
           ),
         ),
         actions: [
-          TextButton.icon(
-            onPressed:
-                widget.onManageFamily ??
-                () => context.go('/home?tab=my&section=family'),
-            icon: const Icon(CupertinoIcons.house),
-            label: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 100),
-              child: Text(
-                family?.name ?? '家庭',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
           IconButton(
             tooltip: '筛选与排序',
             onPressed: _showFilterSheet,
@@ -481,7 +513,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         child: FloatingActionButton.extended(
           heroTag: 'cabinet-add-medicine',
           onPressed: _openEntry,
-          icon: const Icon(Icons.add_rounded),
+          tooltip: '添加药品',
+          icon: const Icon(CupertinoIcons.add),
           label: const Text('录入'),
         ),
       ),
@@ -490,6 +523,8 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
         builder: (context, _) => RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset + 100),
             children: [
               if (widget.repository.isOffline)
@@ -498,12 +533,16 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                       ? '离线查看 · 显示本机缓存，修改不会自动上传'
                       : '离线查看 · 最近同步 ${_formatLastSync(widget.repository.lastSyncedAt!)} · 修改不会自动上传',
                 ),
-              if (failure != null && widget.repository.medicines.isEmpty)
+              if (failure != null)
                 AppCard(
-                  color: const Color(0xFFFFF2ED),
+                  color: CupertinoColors.secondarySystemBackground.resolveFrom(
+                    context,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (widget.repository.medicines.isNotEmpty)
+                        const Text('暂时无法更新，正在显示上次读取的药箱。'),
                       Text(
                         friendlyApiError(failure!),
                         style: Theme.of(context).textTheme.bodyMedium,
@@ -513,14 +552,65 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                     ],
                   ),
                 ),
-              CupertinoSearchTextField(
-                controller: searchController,
-                onChanged: (value) => setState(() => keyword = value.trim()),
-                placeholder: '搜索药名、规格、厂家、成分',
-                style: AppType.body,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                itemSize: 18,
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: CupertinoSearchTextField(
+                  controller: searchController,
+                  onChanged: (value) => setState(() => keyword = value.trim()),
+                  placeholder: '搜索药名、成分或存放位置',
+                  style: AppType.body,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 14,
+                  ),
+                  itemSize: 18,
+                ),
               ),
+              if (widget.repository.medicines.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _filterSummary.isEmpty
+                            ? '共 ${widget.repository.medicines.length} 种 · $_sortLabel'
+                            : '显示 ${_visibleMedicines.length} / ${widget.repository.medicines.length} 种 · $_sortLabel',
+                        style: AppType.subhead.copyWith(
+                          color: CupertinoColors.secondaryLabel.resolveFrom(
+                            context,
+                          ),
+                        ),
+                      ),
+                      if (_filterSummary.isNotEmpty || _filterCount > 0)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Text(
+                                  _filterSummary.isEmpty
+                                      ? '已调整排序'
+                                      : _filterSummary,
+                                  style: AppType.subhead,
+                                ),
+                              ),
+                            ),
+                            CupertinoButton(
+                              key: const Key('cabinet-clear-filters'),
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.only(left: 12),
+                              onPressed: _clearSearchAndFilters,
+                              child: const Text('清除', style: AppType.body),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               if (attentionUnavailable)
                 TextButton.icon(
                   onPressed: _refresh,
@@ -555,11 +645,7 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                           AppSpacing.cardRadius,
                         ),
                       ),
-                      child: CupertinoListTile.notched(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
+                      child: AppleListRow(
                         leading: const Icon(
                           CupertinoIcons.exclamationmark_circle,
                           size: 20,
@@ -577,23 +663,13 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
               ],
               const SizedBox(height: 12),
               if (widget.repository.medicines.isEmpty && loading)
-                const Center(child: CircularProgressIndicator())
+                const Center(child: CupertinoActivityIndicator())
               else if (widget.repository.medicines.isEmpty && failure != null)
                 const SizedBox.shrink()
               else if (widget.repository.medicines.isEmpty)
                 const _EmptyCabinet()
               else if (_visibleMedicines.isEmpty)
-                _NoSearchResults(
-                  onClear: () {
-                    searchController.clear();
-                    setState(() {
-                      keyword = '';
-                      filter = MedicineFilter.all;
-                      selectedPopulations.clear();
-                      selectedPurposes.clear();
-                    });
-                  },
-                )
+                _NoSearchResults(onClear: _clearSearchAndFilters)
               else
                 // iOS plain list：同质长列表用连续行 + 分隔线，不用每行一张卡片。
                 Container(
@@ -630,7 +706,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
     );
   }
 
-
   /// 筛选与排序：收进 iOS 弹层，把列表整行还给内容（不再平铺胶囊）。
   Future<void> _showFilterSheet() async {
     await showCupertinoModalPopup<void>(
@@ -651,163 +726,180 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
                 )
               : const SizedBox.shrink();
 
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
-            ),
-            decoration: BoxDecoration(
-              color: CupertinoColors.systemGroupedBackground.resolveFrom(
-                sheetContext,
+          return DefaultTextStyle(
+            style: CupertinoTheme.of(sheetContext).textTheme.textStyle,
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
               ),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGroupedBackground.resolveFrom(
+                  sheetContext,
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-                    child: Row(
-                      children: [
-                        Text('筛选与排序', style: AppType.headline),
-                        const Spacer(),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          onPressed: () => refresh(() {
-                            filter = MedicineFilter.all;
-                            selectedPurposes.clear();
-                            selectedPopulations.clear();
-                            sortOrder = 'expiry';
-                          }),
-                          child: Text(
-                            '重置',
-                            style: AppType.body.copyWith(
-                              color: CupertinoTheme.of(
-                                sheetContext,
-                              ).primaryColor,
-                            ),
-                          ),
-                        ),
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          minimumSize: Size.zero,
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          child: Text(
-                            '完成',
-                            style: AppType.headline.copyWith(
-                              color: CupertinoTheme.of(
-                                sheetContext,
-                              ).primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+                      child: Row(
                         children: [
-                        CupertinoListSection.insetGrouped(
-                          header: const Text('状态'),
-                          children: [
-                            for (final entry in const [
-                              (MedicineFilter.all, '全部'),
-                              (MedicineFilter.expiry, '临期/过期'),
-                              (MedicineFilter.lowStock, '库存不足'),
-                              (MedicineFilter.missingInfo, '待补资料'),
-                              (MedicineFilter.unknown, '数量/日期未知'),
-                            ])
-                              CupertinoListTile(
-                                title: Text(entry.$2, style: AppType.body),
-                                trailing: check(filter == entry.$1),
-                                onTap: () => refresh(() => filter = entry.$1),
+                          const Expanded(
+                            child: Text('筛选与排序', style: AppType.headline),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(48, 48),
+                            onPressed: () => refresh(() {
+                              filter = MedicineFilter.all;
+                              selectedPurposes.clear();
+                              selectedPopulations.clear();
+                              sortOrder = 'expiry';
+                            }),
+                            child: Text(
+                              '重置',
+                              style: AppType.body.copyWith(
+                                color: CupertinoTheme.of(sheetContext)
+                                    .primaryColor,
                               ),
-                            CupertinoListTile(
-                              title: Text('已归档药品', style: AppType.body),
-                              trailing: const CupertinoListTileChevron(),
-                              onTap: () {
-                                Navigator.of(sheetContext).pop();
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => ArchivedMedicinesPage(
-                                      workflow: widget.workflow,
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
-                          ],
-                        ),
-                        CupertinoListSection.insetGrouped(
-                          header: const Text('用途'),
-                          children: [
-                            for (final entry in _purposeLabels.entries)
-                              CupertinoListTile(
-                                title: Text(entry.value, style: AppType.body),
-                                trailing: check(
-                                  selectedPurposes.contains(entry.key),
-                                ),
-                                onTap: () => refresh(() {
-                                  if (selectedPurposes.contains(entry.key)) {
-                                    selectedPurposes.remove(entry.key);
-                                  } else {
-                                    selectedPurposes.add(entry.key);
-                                  }
-                                }),
+                          ),
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            minimumSize: const Size(48, 48),
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: Text(
+                              '完成',
+                              style: AppType.headline.copyWith(
+                                color: CupertinoTheme.of(sheetContext)
+                                    .primaryColor,
                               ),
-                          ],
-                        ),
-                        CupertinoListSection.insetGrouped(
-                          header: const Text('人群'),
-                          children: [
-                            for (final entry in const [
-                              ('adult', '成人'),
-                              ('child', '儿童'),
-                            ])
-                              CupertinoListTile(
-                                title: Text(entry.$2, style: AppType.body),
-                                trailing: check(
-                                  selectedPopulations.contains(entry.$1),
-                                ),
-                                onTap: () => refresh(() {
-                                  if (selectedPopulations.contains(entry.$1)) {
-                                    selectedPopulations.remove(entry.$1);
-                                  } else {
-                                    selectedPopulations.add(entry.$1);
-                                  }
-                                }),
-                              ),
-                          ],
-                        ),
-                        CupertinoListSection.insetGrouped(
-                          header: const Text('排序'),
-                          children: [
-                            for (final entry in const [
-                              ('expiry', '到期优先'),
-                              ('recent', '最近录入'),
-                              ('name', '药名排序'),
-                            ])
-                              CupertinoListTile(
-                                title: Text(entry.$2, style: AppType.body),
-                                trailing: check(sortOrder == entry.$1),
-                                onTap: () => refresh(
-                                  () => sortOrder = entry.$1,
-                                ),
-                              ),
-                          ],
-                        ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CupertinoListSection.insetGrouped(
+                              header: const Text('状态'),
+                              children: [
+                                for (final entry in const [
+                                  (MedicineFilter.all, '全部'),
+                                  (MedicineFilter.expiry, '临期/过期'),
+                                  (MedicineFilter.lowStock, '库存不足'),
+                                  (MedicineFilter.missingInfo, '待补资料'),
+                                  (MedicineFilter.unknown, '数量/日期未知'),
+                                ])
+                                  AppleListRow(
+                                    title: Text(entry.$2, style: AppType.body),
+                                    selected: filter == entry.$1,
+                                    trailing: check(filter == entry.$1),
+                                    onTap: () =>
+                                        refresh(() => filter = entry.$1),
+                                  ),
+                                AppleListRow(
+                                  title: Text('已归档药品', style: AppType.body),
+                                  trailing: const CupertinoListTileChevron(),
+                                  onTap: () {
+                                    Navigator.of(sheetContext).pop();
+                                    Navigator.of(context).push(
+                                      CupertinoPageRoute<void>(
+                                        builder: (_) => ArchivedMedicinesPage(
+                                          workflow: widget.workflow,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            CupertinoListSection.insetGrouped(
+                              header: const Text('用途'),
+                              children: [
+                                for (final entry in _purposeLabels.entries)
+                                  AppleListRow(
+                                    title: Text(
+                                      entry.value,
+                                      style: AppType.body,
+                                    ),
+                                    selected: selectedPurposes.contains(
+                                      entry.key,
+                                    ),
+                                    trailing: check(
+                                      selectedPurposes.contains(entry.key),
+                                    ),
+                                    onTap: () => refresh(() {
+                                      if (selectedPurposes.contains(
+                                        entry.key,
+                                      )) {
+                                        selectedPurposes.remove(entry.key);
+                                      } else {
+                                        selectedPurposes.add(entry.key);
+                                      }
+                                    }),
+                                  ),
+                              ],
+                            ),
+                            CupertinoListSection.insetGrouped(
+                              header: const Text('人群'),
+                              children: [
+                                for (final entry in const [
+                                  ('adult', '成人'),
+                                  ('child', '儿童'),
+                                ])
+                                  AppleListRow(
+                                    title: Text(entry.$2, style: AppType.body),
+                                    selected: selectedPopulations.contains(
+                                      entry.$1,
+                                    ),
+                                    trailing: check(
+                                      selectedPopulations.contains(entry.$1),
+                                    ),
+                                    onTap: () => refresh(() {
+                                      if (selectedPopulations.contains(
+                                        entry.$1,
+                                      )) {
+                                        selectedPopulations.remove(entry.$1);
+                                      } else {
+                                        selectedPopulations.add(entry.$1);
+                                      }
+                                    }),
+                                  ),
+                              ],
+                            ),
+                            CupertinoListSection.insetGrouped(
+                              header: const Text('排序'),
+                              children: [
+                                for (final entry in const [
+                                  ('expiry', '到期优先'),
+                                  ('recent', '最近录入'),
+                                  ('name', '药名排序'),
+                                ])
+                                  AppleListRow(
+                                    title: Text(entry.$2, style: AppType.body),
+                                    selected: sortOrder == entry.$1,
+                                    trailing: check(sortOrder == entry.$1),
+                                    onTap: () =>
+                                        refresh(() => sortOrder = entry.$1),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -815,8 +907,6 @@ class _CabinetHomePageState extends State<CabinetHomePage> {
       ),
     );
   }
-
-
 }
 
 class _MedicineRow extends StatelessWidget {
@@ -826,6 +916,7 @@ class _MedicineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final largeText = MediaQuery.textScalerOf(context).scale(15) > 20;
     // B23：在库口径 = 未处置批次；已处理批次保留在详情/历史，不驱动卡片摘要。
     final inCabinet = medicine.batches
         .where((batch) => batch.dispositionStatus != 'handled')
@@ -849,91 +940,103 @@ class _MedicineRow extends StatelessWidget {
     final expiryDate =
         batch?.managementExpiryDate ?? batch?.expiryDisplay ?? '待补充';
     return InkWell(
-          onTap: () => context.push('/medicine/${medicine.id}'),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: PrivateMedicineImage(
-                    loader: imageLoader,
-                    medicineId: medicine.id,
-                    photoId: medicine.coverPhotoId,
-                    width: 46,
-                    height: 46,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      onTap: () => context.push('/medicine/${medicine.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: PrivateMedicineImage(
+                loader: imageLoader,
+                medicineId: medicine.id,
+                photoId: medicine.coverPhotoId,
+                width: 46,
+                height: 46,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flex(
+                    direction: largeText ? Axis.vertical : Axis.horizontal,
+                    crossAxisAlignment: largeText
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              medicine.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppType.body.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: CupertinoColors.label.resolveFrom(
-                                  context,
-                                ),
-                              ),
+                      if (largeText)
+                        Text(
+                          medicine.name,
+                          style: AppType.body.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.label.resolveFrom(context),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: Text(
+                            medicine.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.body.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: CupertinoColors.label.resolveFrom(context),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          _MedicineStatus(medicine: medicine, batch: batch),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        medicine.specificationDisplay,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppType.subhead.copyWith(
-                          color: CupertinoColors.secondaryLabel.resolveFrom(
-                            context,
-                          ),
                         ),
+                      SizedBox(
+                        width: largeText ? 0 : 8,
+                        height: largeText ? 4 : 0,
                       ),
-                      const SizedBox(height: 4),
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(text: '余量 ${_totalDisplay(inCabinet)}'),
-                            const TextSpan(text: '  ·  '),
-                            TextSpan(text: '最早 $expiryDate'),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppType.caption1.copyWith(
-                          color: expired
-                              ? CupertinoColors.systemRed.resolveFrom(context)
-                              : expiringSoon
-                              ? CupertinoColors.systemOrange
-                              : CupertinoColors.secondaryLabel.resolveFrom(
-                                  context,
-                                ),
-                        ),
-                      ),
+                      _MedicineStatus(medicine: medicine, batch: batch),
                     ],
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  CupertinoIcons.chevron_forward,
-                  size: 15,
-                  color: CupertinoColors.separator.resolveFrom(context),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    medicine.specificationDisplay,
+                    maxLines: largeText ? null : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.subhead.copyWith(
+                      color: CupertinoColors.secondaryLabel.resolveFrom(
+                        context,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '余量 ${_totalDisplay(inCabinet)}'),
+                        const TextSpan(text: '  ·  '),
+                        TextSpan(text: '最早 $expiryDate'),
+                      ],
+                    ),
+                    maxLines: largeText ? null : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.caption1.copyWith(
+                      color: expired
+                          ? AppSemanticColors.dangerLabel.resolveFrom(context)
+                          : expiringSoon
+                          ? AppSemanticColors.warningLabel.resolveFrom(context)
+                          : CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 4),
+            Icon(
+              CupertinoIcons.chevron_forward,
+              size: 15,
+              color: CupertinoColors.separator.resolveFrom(context),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -967,20 +1070,28 @@ class _MedicineStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = batch?.managementExpiryState.state ?? 'unknown';
-    final (
-      label,
-      color,
-      background,
-    ) = batch?.isExpired == true || state == 'expired'
-        ? ('已过期', AppColors.terracotta, const Color(0xFFF8E7E0))
+    final (label, color) = batch?.isExpired == true || state == 'expired'
+        ? ('已过期', AppSemanticColors.dangerLabel.resolveFrom(context))
         : ['due_this_month', 'expiring_soon'].contains(state)
-        ? ('临期', AppColors.amber, const Color(0xFFFFF2DA))
+        ? ('临期', AppSemanticColors.warningLabel.resolveFrom(context))
         : medicine.stockStatus == 'low' || medicine.stockStatus == 'exhausted'
-        ? ('库存不足', AppColors.terracotta, const Color(0xFFF8E7E0))
+        ? ('库存不足', AppSemanticColors.dangerLabel.resolveFrom(context))
         : medicine.stockStatus == 'unknown'
-        ? ('库存待核对', AppColors.muted, const Color(0xFFEEF0ED))
-        : ('有效', AppColors.leafDeep, const Color(0xFFE7F1E9));
-    return StatusPill(label: label, color: color, background: background);
+        ? ('库存待核对', CupertinoColors.secondaryLabel.resolveFrom(context))
+        : state == 'unknown'
+        ? (
+            batch?.managementExpiryDate == null && batch?.expiryValue == null
+                ? '日期待补充'
+                : '效期待核对',
+            CupertinoColors.secondaryLabel.resolveFrom(context),
+          )
+        : ('有效', CupertinoTheme.of(context).primaryColor);
+    // A missing date must never read as an affirmative expiry status.
+    return StatusPill(
+      label: label,
+      color: color,
+      background: color.withValues(alpha: 0.10),
+    );
   }
 }
 
@@ -991,15 +1102,18 @@ class _EmptyCabinet extends StatelessWidget {
   Widget build(BuildContext context) => AppCard(
     child: Column(
       children: [
-        const Icon(
-          Icons.inventory_2_outlined,
+        Icon(
+          CupertinoIcons.archivebox,
           size: 40,
-          color: AppColors.muted,
+          color: CupertinoColors.secondaryLabel.resolveFrom(context),
         ),
         const SizedBox(height: 10),
         Text('还没有记录药品', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 6),
-        const Text('拍药盒识别，核对后保存；也可以只填药品名称。'),
+        const Text(
+          '点右下角“录入”，拍药盒并核对后保存；也可以只填药品名称。',
+          textAlign: TextAlign.center,
+        ),
       ],
     ),
   );
@@ -1027,11 +1141,11 @@ class _ConnectionBanner extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: AppCard(
-      color: const Color(0xFFFFF2DA),
+      color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          const Icon(Icons.cloud_off_outlined),
+          const Icon(CupertinoIcons.wifi_slash),
           const SizedBox(width: 10),
           Expanded(child: Text(text)),
         ],

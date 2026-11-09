@@ -1,5 +1,16 @@
 # 当前任务：Flutter App 功能对齐小程序与苹果风收尾（2026-11-08）
 
+## 2026-11-09 Windows App UI 与本地功能集成
+
+- [x] 小程序先接收并验证，独立工作区入口为 `E:\project\medcial_box-miniprogram`，接收分支为 `codex/miniprogram-ui-integration-20261109@5a194002bb6f199939f02cd4df3c1812e9d71982`。
+- [x] 在原目录从 `7ecc7b3dd30e81b1c8d6bee533e076dde3e1b07b` 开 `codex/app-ui-integration-20261109`，合并远端 App UI `b8eecaeb894b1f791e45b2584be83beeb5189d2b`。
+- [x] 归档页采用远端 `AppleScreen` 与加载样式。App 保留本地归档路由、药品回收站和家庭邀请入口，以及远端的大字号适配。
+- [x] 两端使用同一份 [公共工作区说明](../docs/README.md)。App 端 [文档入口](../apps/flutter/docs/README.md) 收录专属验证回执与预览。
+- [ ] 验证 App 合并提交的静态分析、归档、字号、导航与本地功能测试。
+- [ ] 按候选记录同 SHA CI、签名包、保数据安装与真机验收，后续按门槛发布。
+
+下方 11 月 8 日记录对应本地功能分支。11 月 9 日远端记录对应合并前的网页执行环境。当前合并结果按本节提交和验证记录核对。
+
 ## 2026-11-08 Flutter App 功能对齐小程序（已完成，已在 codex/flutter-app-parity 提交）
 
 - [x] 新建专用开发分支：`codex/flutter-app-parity`。
@@ -17,6 +28,18 @@
   - `npm run lint`：通过（0 警告，版本一致性 1.2.1/19 校验通过）。
   - `npm run test:tooling`：232 PASS / 0 FAIL / 30 SKIP。
 - [x] Local Project Hub 状态上报成功（revision 1，stage s6，event `9b109d38-65ad-43f9-af83-346f2df73159`）。
+
+## 2026-11-09 双平台 Apple 风 UI 分支优化
+
+- [x] 实时核对 `main@3a9afefe3fcae0f5a827a728c7b71faa5fec102a`，建立独立 App 与微信小程序工作区。
+- [x] 保留“药箱 / 用药计划 / 我的”三栏、中文紧凑字号和全部原有业务入口，分别优化筛选、状态反馈与平台布局。
+- [x] 设计原则、源码功能清单、平台差异和分支接入方法写入 [本轮交付说明](../docs/design/APPLE_UI_DELIVERY_20261109.md)。
+- [x] 提供可点击的 HTML 设计参考；Figma 新文件为空白，因 Starter MCP 额度耗尽尚未回填。
+- [ ] `codex/flutter-app-parity@7ecc7b3…` 两个本地提交尚未取得，不能标记与本轮合并完成；待该分支推送后按交付说明合入并复验。
+- [ ] 官方微信渲染、真实设备、签名及保数据安装按原门槛核验；历史 902 PASS / 19 SKIP 不计作本轮结果。
+- [ ] Windows 本机 Hub wrapper 在当前执行环境不存在，revision 读取失败；待本机生成正式上报事件，状态保留在设计目录 pending JSON。
+
+各端最终测试与提交结果以各自 `docs/design` 交付回执和独立 PR 为准。本轮不复用旧 Draft PR #7，不改变生产服务与版本号。
 
 ## 2026-11-07 文档归档与本机大清理（Jovi 授权，grill-me 逐项确认）
 
