@@ -1,5 +1,13 @@
 # 当前任务：Flutter App 功能对齐小程序与苹果风收尾（2026-11-08）
 
+## 2026-11-10 本机 Android 更新
+
+- [x] 锁定 UI 合并候选 `a86db630b5f62ba18714b44c3bc146bd86d03f70`。核对手机现装 `1.2.1+19` 为 Debug 测试版。
+- [x] 在根版本文件和 Flutter pubspec 同步递增 Android build 到 20，保留产品版本 1.2.1。
+- [ ] 执行版本校验、静态分析、定向测试和 lintDebug。
+- [ ] 构建本机 Debug 候选，核对同包名、同证书、API 目标、递增 build 与包摘要。
+- [ ] 使用覆盖安装并核对首次安装时间、当前版本、启动和日志。业务与正式发布按人工门槛取证。
+
 ## 2026-11-09 Windows App UI 与本地功能集成
 
 - [x] 小程序先接收并验证，独立工作区入口为 `E:\project\medcial_box-miniprogram`，接收分支为 `codex/miniprogram-ui-integration-20261109@5a194002bb6f199939f02cd4df3c1812e9d71982`。
