@@ -186,6 +186,8 @@ const reviewedSourceTrees = new Set([
   // Exact reviewed tree includes the isolated source-preview test helper/docs;
   // they are excluded from the product package. Other trees still fail closed.
   'dd58a9b9d23bd2763da2ef2c97026221cb2ae7d3',
+  // 2026-11-09 local intake changes only the docs index and validation receipt.
+  '597c2950579ac04540ca52970deb15a9d81931ba',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
