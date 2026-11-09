@@ -4,9 +4,16 @@
 
 - [x] 锁定 UI 合并候选 `a86db630b5f62ba18714b44c3bc146bd86d03f70`。核对手机现装 `1.2.1+19` 为 Debug 测试版。
 - [x] 在根版本文件和 Flutter pubspec 同步递增 Android build 到 20，保留产品版本 1.2.1。
-- [ ] 执行版本校验、静态分析、定向测试和 lintDebug。
-- [ ] 构建本机 Debug 候选，核对同包名、同证书、API 目标、递增 build 与包摘要。
+- [x] 执行版本校验、静态分析、定向测试和 lintDebug。
+- [x] 构建本机 Debug 候选，核对同包名、同证书、API 目标、递增 build 与包摘要。
 - [ ] 使用覆盖安装并核对首次安装时间、当前版本、启动和日志。业务与正式发布按人工门槛取证。
+
+### Android 本机候选复核
+
+- 构建源码 `2f88956d56b192521b7865036dd5bab85da34b75`，树 `6cbb60861ce9426cc5c842754b216a6a184932f1`。版本 1.2.1/build 20，Debug 包沿用现装测试版的包名、证书和 HTTPS API。相机声明为可选硬件，保留运行时权限和手输入口。本次无数据迁移。
+- Flutter 静态分析无问题，定向测试 63 通过。修正 Windows SDK 路径转义和相机声明后，`lintDebug` 复验通过，0 错误、4 警告。
+- 已验证 APK SHA-256 `27a40df2b2d4c5bd4f5c1a78f79c9dc0c2780cac0ad514bd85e98789cf98cb4c`，并用 aapt2 确认 build 20 的 Debug 标记及原签名匹配。
+- 自动执行策略拦截设备覆盖安装，返回 `blocked by policy`。后续只读复查时设备已断开，最后核实仍为 build 19。候选 APK 已备好，覆盖安装、启动和保数据验收待手机重连后取证。
 
 ## 2026-11-09 Windows App UI 与本地功能集成
 
