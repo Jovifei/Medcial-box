@@ -8,16 +8,22 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/font_scale.dart';
 import '../../core/widgets/apple_screen.dart';
+import '../../core/widgets/apple_list_row.dart';
 import '../../core/widgets/app_surfaces.dart';
 import '../../data/api_client.dart';
 import '../../data/app_services.dart';
 import '../../models/medicine_models.dart';
+import '../medicine/archived_medicines_page.dart';
 import 'release_notes_page.dart';
 
 /// 我的（苹果风）：inset grouped 分组列表，参照 iOS 系统设置。
 /// 交互弹层暂用既有 AppSheet（过渡期），分组与行为全部对齐 DESIGN.md。
 class MyPage extends StatefulWidget {
-  const MyPage({super.key, required this.services, this.familyManagementRequest = 0});
+  const MyPage({
+    super.key,
+    required this.services,
+    this.familyManagementRequest = 0,
+  });
   final AppServices services;
   final int familyManagementRequest;
   @override
@@ -25,6 +31,7 @@ class MyPage extends StatefulWidget {
 }
 
 class _MyPageState extends State<MyPage> {
+  final _scrollController = ScrollController();
   Future<FamilyRecord>? familyFuture;
   List<Map<String, dynamic>> devices = [];
   String? devicesError;
@@ -47,6 +54,31 @@ class _MyPageState extends State<MyPage> {
     familyFuture = widget.services.families!.getCurrentFamily();
     _restoreReminderState();
     _loadWechatTemplates();
+  }
+
+  @override
+  void didUpdateWidget(covariant MyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyManagementRequest != widget.familyManagementRequest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        if (MediaQuery.disableAnimationsOf(context)) {
+          _scrollController.jumpTo(0);
+        } else {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDevices() async {
@@ -310,51 +342,59 @@ class _MyPageState extends State<MyPage> {
     if (controller == null) return;
     await showCupertinoModalPopup<void>(
       context: context,
-      builder: (popupContext) => Container(
-        height: 260,
-        color: CupertinoColors.systemBackground.resolveFrom(popupContext),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    onPressed: () => Navigator.of(popupContext).pop(),
-                    child: const Text('完成'),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: CupertinoListSection.insetGrouped(
-                  header: const Text('预览与选择 · 全局生效'),
+      builder: (popupContext) => DefaultTextStyle(
+        style: CupertinoTheme.of(popupContext).textTheme.textStyle,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(popupContext).height * 0.8,
+          ),
+          color: CupertinoColors.systemBackground.resolveFrom(popupContext),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    for (final option in FontScaleSetting.values)
-                      CupertinoListTile(
-                        title: Text(
-                          option == FontScaleSetting.small
-                              ? '小 · 适合信息密度优先'
-                              : option == FontScaleSetting.large
-                              ? '大 · 适老友好'
-                              : '标准 · 推荐档',
-                          style: AppType.body.copyWith(
-                            fontSize: AppType.body.fontSize! * option.factorValue,
-                          ),
-                        ),
-                        trailing: controller.setting == option
-                            ? const Icon(CupertinoIcons.check_mark)
-                            : null,
-                        onTap: () {
-                          controller.set(option);
-                          if (popupContext.mounted) {
-                            Navigator.of(popupContext).pop();
-                          }
-                        },
-                      ),
+                    CupertinoButton(
+                      onPressed: () => Navigator.of(popupContext).pop(),
+                      child: const Text('完成'),
+                    ),
                   ],
                 ),
-              ),
-            ],
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: CupertinoListSection.insetGrouped(
+                      header: const Text('预览与选择 · 全局生效'),
+                      children: [
+                        for (final option in FontScaleSetting.values)
+                          AppleListRow(
+                            title: Text(
+                              option == FontScaleSetting.small
+                                  ? '小 · 适合信息密度优先'
+                                  : option == FontScaleSetting.large
+                                  ? '大 · 适老友好'
+                                  : '标准 · 推荐档',
+                              style: AppType.body.copyWith(
+                                fontSize:
+                                    AppType.body.fontSize! * option.factorValue,
+                              ),
+                            ),
+                            trailing: controller.setting == option
+                                ? const Icon(CupertinoIcons.check_mark)
+                                : null,
+                            onTap: () {
+                              controller.set(option);
+                              if (popupContext.mounted) {
+                                Navigator.of(popupContext).pop();
+                              }
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -443,6 +483,7 @@ class _MyPageState extends State<MyPage> {
       builder: (context, snapshot) {
         final family = snapshot.data;
         return ListView(
+          controller: _scrollController,
           padding: EdgeInsets.only(
             bottom: MediaQuery.paddingOf(context).bottom + 84,
           ),
@@ -451,19 +492,19 @@ class _MyPageState extends State<MyPage> {
               header: const Text('家庭'),
               children: [
                 if (family != null)
-                  CupertinoListTile(
+                  AppleListRow(
                     title: Text(family.name),
                     additionalInfo: Text(
                       '${_roleLabel(family.role)} · ${family.members.length} 位成员',
                     ),
                   ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.person_2),
                   title: const Text('切换、创建或加入家庭'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/family-choice'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.gear_alt),
                   title: const Text('家庭设置'),
                   subtitle: const Text('盘点频率、成员管理、离开家庭'),
@@ -475,10 +516,25 @@ class _MyPageState extends State<MyPage> {
             if (snapshot.hasError)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  friendlyApiError(snapshot.error!),
-                  style: AppType.footnote
-                      .copyWith(color: CupertinoColors.systemRed),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      friendlyApiError(snapshot.error!),
+                      style: AppType.footnote.copyWith(
+                        color: CupertinoColors.systemRed.resolveFrom(context),
+                      ),
+                    ),
+                    CupertinoButton(
+                      minimumSize: const Size(48, 48),
+                      padding: EdgeInsets.zero,
+                      onPressed: () => setState(() {
+                        familyFuture = widget.services.families!
+                            .getCurrentFamily();
+                      }),
+                      child: const Text('重新加载家庭'),
+                    ),
+                  ],
                 ),
               )
             else if (snapshot.connectionState != ConnectionState.done)
@@ -491,7 +547,7 @@ class _MyPageState extends State<MyPage> {
                 header: const Text('家庭成员'),
                 children: [
                   for (final member in family.members)
-                    CupertinoListTile(
+                    AppleListRow(
                       leading: Icon(
                         member.role == 'owner'
                             ? CupertinoIcons.lock_shield
@@ -506,7 +562,7 @@ class _MyPageState extends State<MyPage> {
                       subtitle: Text('加入于 ${_formatDate(member.joinedAt)}'),
                     ),
                   if (family.role == 'owner')
-                    CupertinoListTile(
+                    AppleListRow(
                       leading: const Icon(CupertinoIcons.person_add),
                       title: const Text('生成邀请码'),
                       subtitle: const Text('72 小时有效，仅可使用一次'),
@@ -519,20 +575,20 @@ class _MyPageState extends State<MyPage> {
             CupertinoListSection.insetGrouped(
               header: const Text('药箱工具'),
               children: [
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.person_badge_plus),
                   title: const Text('用药的人'),
                   subtitle: const Text('照护对象与权限'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/care-profiles'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.cart),
                   title: const Text('补货清单'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/restock'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.list_bullet),
                   title: const Text('药箱盘点与频率'),
                   trailing: const CupertinoListTileChevron(),
@@ -543,7 +599,7 @@ class _MyPageState extends State<MyPage> {
             CupertinoListSection.insetGrouped(
               header: const Text('提醒'),
               children: [
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.bell),
                   title: const Text('Android 本地通知'),
                   subtitle: const Text('30 / 7 / 1 / 0 天期限提醒，基于上次同步库存'),
@@ -552,19 +608,19 @@ class _MyPageState extends State<MyPage> {
                     onChanged: savingReminder ? null : _toggleReminders,
                   ),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.clock),
                   title: const Text('库存提醒时间'),
                   additionalInfo: Text('$reminderTime · 上海时间'),
                   onTap: _chooseReminderTime,
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.paperplane),
                   title: const Text('微信订阅提醒'),
                   subtitle: Text(_wechatTemplateMessage()),
                   trailing: CupertinoButton(
                     padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
+                    minimumSize: const Size(48, 48),
                     onPressed: loadingWechat ? null : _loadWechatTemplates,
                     child: const Icon(CupertinoIcons.arrow_clockwise, size: 18),
                   ),
@@ -574,27 +630,40 @@ class _MyPageState extends State<MyPage> {
             CupertinoListSection.insetGrouped(
               header: const Text('数据管理'),
               children: [
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.share),
                   title: const Text('导出清单'),
                   subtitle: const Text('Markdown / CSV / PDF'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/export'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.archivebox),
                   title: const Text('备份与恢复'),
                   subtitle: const Text('JSON 保存与恢复'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/export?section=backup'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
+                  leading: const Icon(CupertinoIcons.archivebox),
+                  title: const Text('已归档药品'),
+                  subtitle: const Text('查看已归档的药品与批次摘要'),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => Navigator.of(context).push(
+                    CupertinoPageRoute<void>(
+                      builder: (_) => ArchivedMedicinesPage(
+                        workflow: widget.services.workflow!,
+                      ),
+                    ),
+                  ),
+                ),
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.trash),
                   title: const Text('最近删除'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/trash'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.clock),
                   title: const Text('变更记录'),
                   trailing: const CupertinoListTileChevron(),
@@ -605,7 +674,7 @@ class _MyPageState extends State<MyPage> {
             CupertinoListSection.insetGrouped(
               header: const Text('账号与设备'),
               children: [
-                CupertinoListTile(
+                AppleListRow(
                   title: const Text('已登录设备'),
                   subtitle: Text(
                     devicesLoading
@@ -616,7 +685,9 @@ class _MyPageState extends State<MyPage> {
                   ),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () {
-                    if (!devicesExpanded && devices.isEmpty && devicesError == null) {
+                    if (!devicesExpanded &&
+                        devices.isEmpty &&
+                        devicesError == null) {
                       _loadDevices();
                     }
                     setState(() => devicesExpanded = !devicesExpanded);
@@ -624,15 +695,17 @@ class _MyPageState extends State<MyPage> {
                 ),
                 if (devicesExpanded) ...[
                   if (devicesLoading)
-                    const CupertinoListTile(
+                    const AppleListRow(
                       title: Center(child: CupertinoActivityIndicator()),
                     ),
                   if (devicesError != null)
-                    CupertinoListTile(title: Text(devicesError!)),
-                  if (devices.isEmpty && !devicesLoading && devicesError == null)
-                    const CupertinoListTile(title: Text('暂无其他设备记录')),
+                    AppleListRow(title: Text(devicesError!)),
+                  if (devices.isEmpty &&
+                      !devicesLoading &&
+                      devicesError == null)
+                    const AppleListRow(title: Text('暂无其他设备记录')),
                   for (final device in devices)
-                    CupertinoListTile(
+                    AppleListRow(
                       leading: const Icon(CupertinoIcons.device_phone_portrait),
                       title: Text(
                         '${device['clientKind'] == 'android' ? 'Android App' : '微信小程序'}${device['isCurrent'] == true ? ' · 当前设备' : ''}',
@@ -644,19 +717,21 @@ class _MyPageState extends State<MyPage> {
                             ? '可撤销此设备的授权'
                             : '微信会话请在对应设备退出。',
                       ),
-                      trailing: device['clientKind'] == 'android' &&
+                      trailing:
+                          device['clientKind'] == 'android' &&
                               device['isCurrent'] != true
                           ? CupertinoButton(
                               padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
+                              minimumSize: const Size(48, 48),
                               onPressed: revokingDeviceId == null
                                   ? () => _revokeDevice(device)
                                   : null,
                               child: Text(
                                 '撤销授权',
                                 style: AppType.subhead.copyWith(
-                                  color: CupertinoColors.systemRed
-                                      .resolveFrom(context),
+                                  color: CupertinoColors.systemRed.resolveFrom(
+                                    context,
+                                  ),
                                 ),
                               ),
                             )
@@ -668,14 +743,14 @@ class _MyPageState extends State<MyPage> {
             CupertinoListSection.insetGrouped(
               header: const Text('账号'),
               children: [
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.person),
                   title: const Text('账号设置'),
                   subtitle: const Text('修改显示名'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => _editNickname(null),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.textformat_size),
                   title: const Text('字体大小'),
                   additionalInfo: Text(
@@ -684,14 +759,14 @@ class _MyPageState extends State<MyPage> {
                   trailing: const CupertinoListTileChevron(),
                   onTap: _chooseFontScale,
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.info),
                   title: const Text('版本与更新'),
                   subtitle: Text('当前版本 $appVersion'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () => context.push('/release-notes'),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(CupertinoIcons.doc_text),
                   title: const Text('开源许可'),
                   trailing: const CupertinoListTileChevron(),
@@ -700,7 +775,7 @@ class _MyPageState extends State<MyPage> {
                     applicationName: '家庭药箱',
                   ),
                 ),
-                CupertinoListTile(
+                AppleListRow(
                   leading: const Icon(
                     CupertinoIcons.power,
                     color: CupertinoColors.systemRed,

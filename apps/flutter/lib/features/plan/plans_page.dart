@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_surfaces.dart';
@@ -244,7 +245,7 @@ class _PlansPageState extends State<PlansPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done &&
               _schedule == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CupertinoActivityIndicator());
           }
           return RefreshIndicator(
             onRefresh: _reload,
@@ -259,8 +260,21 @@ class _PlansPageState extends State<PlansPage> {
               children: [
                 if (_failure != null)
                   AppCard(
-                    color: const Color(0xFFFFF2ED),
-                    child: Text(friendlyApiError(_failure!)),
+                    color: CupertinoColors.secondarySystemBackground
+                        .resolveFrom(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_schedule != null)
+                          const Text('暂时无法更新，正在显示上次读取的安排。'),
+                        Text(friendlyApiError(_failure!)),
+                        const SizedBox(height: 8),
+                        SoftButton(
+                          label: '重新加载安排',
+                          onPressed: _loading ? null : _reload,
+                        ),
+                      ],
+                    ),
                   ),
                 CupertinoSlidingSegmentedControl<bool>(
                   groupValue: _showAll,
@@ -278,10 +292,11 @@ class _PlansPageState extends State<PlansPage> {
                       setState(() => _showAll = value ?? false),
                 ),
                 const SizedBox(height: 16),
-                if (_showAll)
-                  _plansSection(context)
-                else
-                  _todaySection(context),
+                if (_schedule != null)
+                  if (_showAll)
+                    _plansSection(context)
+                  else
+                    _todaySection(context),
               ],
             ),
           );
@@ -305,6 +320,16 @@ class _PlansPageState extends State<PlansPage> {
             ),
           ),
         ),
+        if (entries.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+            child: Text(
+              '待确认 ${entries.where((entry) => entry.isPending).length} 次 · 已记录 ${entries.where((entry) => !entry.isPending).length} 次',
+              style: AppType.subhead.copyWith(
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+          ),
         if (schedule != null && entries.isEmpty)
           Container(
             width: double.infinity,
@@ -365,15 +390,20 @@ class _PlansPageState extends State<PlansPage> {
               Expanded(
                 child: Text(
                   entry.medicineName,
-                  style: AppType.body.copyWith(fontWeight: FontWeight.w500),
+                  style: AppType.body.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: CupertinoColors.label.resolveFrom(context),
+                  ),
                 ),
               ),
               StatusPill(
                 label: entry.statusLabel,
-                color: entry.isPending ? AppColors.amber : AppColors.leafDeep,
-                background: entry.isPending
-                    ? const Color(0xFFF7EAD6)
-                    : AppColors.mist,
+                color: entry.isPending
+                    ? AppSemanticColors.warningLabel.resolveFrom(context)
+                    : CupertinoColors.secondaryLabel.resolveFrom(context),
+                background: CupertinoColors.tertiarySystemFill.resolveFrom(
+                  context,
+                ),
               ),
             ],
           ),
@@ -534,5 +564,3 @@ class _PlansPageState extends State<PlansPage> {
     );
   }
 }
-
-
