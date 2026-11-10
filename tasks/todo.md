@@ -4,14 +4,20 @@
 
 - [x] 固定本地已验接收提交 `5a194002bb6f199939f02cd4df3c1812e9d71982` 及精确小程序树。
 - [x] 从精确提交生成 HTTPS 候选包，核验包摘要和官方 WXML/WXSS 编译。
-- [ ] 核对微信开发者登录、项目身份与候选预览。
-- [ ] 按 SOP 核对 main 的精确 CI，再进行开发版上传。体验版和正式审核另行取证。
+- [x] 以 `5a19400` 快进远端 main，核对同提交的四项主线 CI。
+- [ ] 完成微信开发者登录与目标 AppID 核验，再上传 1.2.1 开发版。体验版和正式审核另行取证。
 
 ### 微信候选复核
 
 - `5a194002bb6f199939f02cd4df3c1812e9d71982` 生成 1.2.1 HTTPS 候选，包 SHA-256 为 `6cbd1b20f87c396f22a012a1ff053a7ce0a0b4e498919660cf2458cb4f71ff75`。138 个文件通过候选包校验，官方 wcc 29 份与 wcsc 30 份全部通过。编译后再次校验包摘要。
 - 独立候选分支的 [同 SHA CI](https://github.com/Jovifei/Medcial-box/actions/runs/42651995969) 四项通过。该候选没有 API 代码或迁移差异。当前 HTTPS 服务 ready 为 1.1.3。
 - 微信登录仍过期。扫码任务返回 `Task not found`，重开返回 `terminated`。实时 `main@3a9afef` 尚未包含候选，按[微信验收 SOP](../apps/miniprogram/docs/16-SOP-微信后台设置与真实验收清单.md)补齐登录和主线同 SHA CI 后上传开发版。微信后台与真机另验。
+
+### 主线候选与上传准备
+
+- 小程序候选 `5a194002bb6f199939f02cd4df3c1812e9d71982` 已快进远端 main。main 的 [同 SHA CI](https://github.com/Jovifei/Medcial-box/actions/runs/42830052152) 四项通过。
+- 旧包根目录额外放入了验证回执，触发文件集校验。从同一提交重建干净候选后，138 文件与原包摘要一致，本轮 29 份 WXML、30 份 WXSS 官方编译通过并再次校验包摘要。回执单独存放。
+- 已打开微信开发者工具扫码登录界面。CLI 回查曾返回 `Task not found`，重开返回 `terminated`。等待 Jovi 在窗口中完成扫码并核验账号，之后执行授权的开发版上传。
 
 ## 2026-11-09 Windows 双端 UI 接收计划
 
