@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.2.1";
+export const APP_VERSION = "1.2.2";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.2.2",
+    date: "2026-11-17",
+    items: ["首页刷新失败时保留上次读取的库存并提示重试，不再清空已加载的药箱列表。"],
+  },
   {
     version: "1.2.1",
     date: "2026-11-08",
