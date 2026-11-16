@@ -56,8 +56,9 @@
   <view class="filter-summary" wx:if="{{hasActiveFilters}}"><view class="hint">{{filterSummary}}</view><view class="inline-action" bindtap="onClearFilters" aria-role="button">重置筛选</view></view>
   <view class="card" wx:if="{{savedMessage}}"><view class="hint">{{savedMessage}}</view><view class="btn btn-ghost" bindtap="onViewSaved">查看刚保存的药品</view></view>
   <view class="card error-card" wx:if="{{errorMessage !== ''}}">
-    <view class="section-title">暂时无法加载药箱</view>
+    <view class="section-title">{{errorStale ? '暂时无法更新药箱' : '暂时无法加载药箱'}}</view>
     <view class="hint">{{errorMessage}}</view>
+    <view class="hint" wx:if="{{errorStale}}">正在显示上次读取的库存；可以继续查看，恢复连接后重试。</view>
     <view class="btn btn-ghost retry-btn" bindtap="onRetry">重新连接</view>
   </view>
 

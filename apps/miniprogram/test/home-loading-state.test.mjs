@@ -37,6 +37,60 @@ test('home failure ends loading and displays an error rather than an empty cabin
   await page.refresh();
   assert.equal(page.data.loading, false);
   assert.notEqual(page.data.errorMessage, '');
+  assert.equal(page.data.allItems.length, 0);
+  assert.equal(page.data.errorStale, false);
+});
+
+const syntheticMedicine = {
+  id: 'm-retained', name: '测试药品甲', specification: '10mg/片', manufacturer: null,
+  activeIngredients: [], purposeCategory: null, populationTags: [], purposeTags: [], batches: [],
+  leaflet: { reviewStatus: 'unverified', purposeSummary: null },
+  stockStatus: { state: 'unknown' }, expiryState: { state: 'unknown', label: '未知' }, isArchived: false,
+};
+
+test('refresh failure keeps the last loaded cabinet for the same household and marks it stale', async () => {
+  let calls = 0;
+  const { page } = fixture(async () => {
+    calls += 1;
+    if (calls === 1) return { medicines: [syntheticMedicine] };
+    throw new Error('offline');
+  });
+  await page.refresh();
+  assert.equal(page.data.allItems.length, 1);
+  assert.equal(page.data.items.length, 1);
+  assert.equal(page.data.errorStale, false);
+
+  await page.refresh();
+  assert.equal(page.data.loading, false);
+  assert.notEqual(page.data.errorMessage, '');
+  assert.equal(page.data.errorStale, true);
+  assert.equal(page.data.allItems.length, 1);
+  assert.equal(page.data.items.length, 1);
+  assert.equal(page.data.familyName, '测试家庭');
+  assert.equal(page.data.cabinetCount, 1);
+
+  const markup = fs.readFileSync(new URL('../pages/index/index.wxml', import.meta.url), 'utf8');
+  assert.match(markup, /errorStale \? '暂时无法更新药箱' : '暂时无法加载药箱'/);
+  assert.match(markup, /正在显示上次读取的库存/);
+});
+
+test('a successful retry clears the stale marker and replaces the retained list', async () => {
+  let calls = 0;
+  const { page } = fixture(async () => {
+    calls += 1;
+    if (calls === 2) throw new Error('offline');
+    return { medicines: [calls === 1
+      ? syntheticMedicine
+      : { ...syntheticMedicine, id: 'm-new', name: '测试药品乙' }] };
+  });
+  await page.refresh();
+  await page.refresh();
+  assert.equal(page.data.errorStale, true);
+  await page.refresh();
+  assert.equal(page.data.errorStale, false);
+  assert.equal(page.data.errorMessage, '');
+  assert.equal(page.data.allItems.length, 1);
+  assert.equal(page.data.allItems[0].id, 'm-new');
 });
 
 test('retry replaces the old error with loading while the new list is pending', async () => {
