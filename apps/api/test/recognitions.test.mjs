@@ -313,3 +313,21 @@ test("provider factory selects MoMA with 72B primary and 32B fallback", () => {
     }
   }
 });
+
+test("provider factory selects TokenHub with Hunyuan Vision primary and fallback", () => {
+  const keys = ["MEDICINE_RECOGNITION_PROVIDER", "TOKENHUB_BASE_URL", "TOKENHUB_API_KEY", "TOKENHUB_MODEL", "TOKENHUB_FALLBACK_MODEL"];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.MEDICINE_RECOGNITION_PROVIDER = "tokenhub";
+    process.env.TOKENHUB_BASE_URL = "https://tokenhub.test/v1";
+    process.env.TOKENHUB_API_KEY = "{{SECRET_9gxq3h6w}}";
+    process.env.TOKENHUB_MODEL = "hy-vision-2.0-instruct";
+    process.env.TOKENHUB_FALLBACK_MODEL = "hunyuan-t1-vision-20250916";
+    assert.ok(createDefaultMedicineRecognitionProvider() instanceof FallbackMedicineRecognitionProvider);
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+});

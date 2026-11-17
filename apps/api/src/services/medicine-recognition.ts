@@ -260,6 +260,18 @@ export class FallbackMedicineRecognitionProvider implements MedicineRecognitionP
 }
 
 export function createDefaultMedicineRecognitionProvider(): MedicineRecognitionProvider {
+  if (process.env.MEDICINE_RECOGNITION_PROVIDER === "tokenhub") {
+    const baseUrl = process.env.TOKENHUB_BASE_URL ?? "https://tokenhub.tencentmaas.com/v1";
+    const apiKey = process.env.TOKENHUB_API_KEY ?? "";
+    const primaryModel = process.env.TOKENHUB_MODEL ?? "hy-vision-2.0-instruct";
+    const fallbackModel = process.env.TOKENHUB_FALLBACK_MODEL ?? "hunyuan-t1-vision-20250916";
+    const primary = new DashscopeMedicineRecognitionProvider(apiKey, primaryModel, baseUrl);
+    if (fallbackModel === primaryModel) return primary;
+    return new FallbackMedicineRecognitionProvider(
+      primary,
+      new DashscopeMedicineRecognitionProvider(apiKey, fallbackModel, baseUrl),
+    );
+  }
   if (process.env.MEDICINE_RECOGNITION_PROVIDER === "moma") {
     const baseUrl = process.env.MOMA_BASE_URL ?? "";
     const apiKey = process.env.MOMA_API_KEY ?? "";

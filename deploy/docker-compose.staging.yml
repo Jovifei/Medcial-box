@@ -32,7 +32,11 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a private staging database password}
       WECHAT_APP_ID: ${WECHAT_APP_ID:?Set the approved mini-program AppID}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:?Inject the AppSecret on the server}
-      MEDICINE_RECOGNITION_PROVIDER: ${MEDICINE_RECOGNITION_PROVIDER:-dashscope}
+      MEDICINE_RECOGNITION_PROVIDER: ${MEDICINE_RECOGNITION_PROVIDER:-tokenhub}
+      TOKENHUB_API_KEY: ${TOKENHUB_API_KEY:-}
+      TOKENHUB_BASE_URL: ${TOKENHUB_BASE_URL:-https://tokenhub.tencentmaas.com/v1}
+      TOKENHUB_MODEL: ${TOKENHUB_MODEL:-hy-vision-2.0-instruct}
+      TOKENHUB_FALLBACK_MODEL: ${TOKENHUB_FALLBACK_MODEL:-hunyuan-t1-vision-20250916}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:0.8b}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}

@@ -12,9 +12,12 @@ function configured(value: string | undefined): "configured" | "not_configured" 
  */
 export async function registerPilotReadinessRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/v1/pilot/readiness", async () => {
-    const recognitionConfiguration = process.env.MEDICINE_RECOGNITION_PROVIDER === "moma"
-      ? process.env.MOMA_API_KEY ?? process.env.MOMA_BASE_URL
-      : process.env.DASHSCOPE_API_KEY ?? process.env.OLLAMA_BASE_URL;
+    const recognitionProvider = process.env.MEDICINE_RECOGNITION_PROVIDER;
+    const recognitionConfiguration = recognitionProvider === "tokenhub"
+      ? process.env.TOKENHUB_API_KEY ?? process.env.TOKENHUB_BASE_URL
+      : recognitionProvider === "moma"
+        ? process.env.MOMA_API_KEY ?? process.env.MOMA_BASE_URL
+        : process.env.DASHSCOPE_API_KEY ?? process.env.OLLAMA_BASE_URL;
     return {
       stage: "family-pilot",
       status: "evidence_only",
