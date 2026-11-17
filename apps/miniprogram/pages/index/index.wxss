@@ -1,5 +1,7 @@
 /* Apple 内容优先：连续库存列表、轻分组、单一主动作。 */
-.page { padding: 16px 16px calc(100px + env(safe-area-inset-bottom)); }
+/* 大字号下悬浮按钮随文字增高，底部留白用 em 同步放大，避免遮挡安全提示 */
+/* （与 medicine-detail 的 em 底部留白做法一致）；标准字号 6.5em≈97.5px 与原 100px 相当。 */
+.page { padding: 16px 16px calc(6.5em + env(safe-area-inset-bottom)); }
 .home-page { min-height: 100vh; box-sizing: border-box; background: var(--med-background, #f2f2f7); }
 .home-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 20px; }
 .home-heading { flex: 1; min-width: 0; }
@@ -26,7 +28,7 @@
 .attention-retry { min-height: 48px; display: flex; align-items: center; margin-bottom: 8px; color: var(--med-accent, #087f5b); font-size: 13px; }
 .filter-scroll { width: calc(100% + 32px); margin: 0 -16px 4px; }
 .filter-toolbar { display: flex; width: max-content; gap: 8px; padding: 0 16px 4px; }
-.filter-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 48px; box-sizing: border-box; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; background: #fff; color: var(--med-secondary, #636366); font-size: 13px; line-height: 1.4; }
+.filter-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 48px; box-sizing: border-box; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; background: #fff; color: var(--med-secondary, #636366); font-size: 13px; line-height: 1.4; white-space: nowrap; }
 .filter-chip.selected { border-color: var(--med-accent, #087f5b); color: var(--med-accent, #087f5b); background: var(--med-accent-tint, #edf6f2); font-weight: 600; }
 .filter-panel { margin-bottom: 8px; padding: 8px 12px 12px; }
 .filter-panel-heading, .filter-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -58,9 +60,16 @@
 .badge { max-width: 100%; font-size: 11px; padding: 3px 6px; border-radius: 5px; white-space: normal; }
 .medicine-spec { margin-top: 4px; color: var(--med-secondary, #636366); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .medicine-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px; margin: 10px 0 0 58px; }
+@media (max-width: 360px) {
+  /* 320 宽 + 200% 字号：两列指标过窄，改为上下排列，日期不再逐段拆行。 */
+  .medicine-summary { grid-template-columns: minmax(0, 1fr); }
+}
 .summary-metric { display: flex; min-width: 0; flex-direction: column; }
 .summary-label { color: var(--med-secondary, #636366); font-size: 11px; }
-.summary-primary, .expiry-line { color: var(--med-label, #1c1c1e); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.summary-primary, .expiry-line { color: var(--med-label, #1c1c1e); font-size: 13px; line-height: 1.5; }
+/* 大字号下日期类数字串不逐字拆行；长说明文本仍可换行。 */
+.summary-primary, .expiry-line { overflow-wrap: normal; }
+.expiry-date { white-space: nowrap; }
 .summary-divider { display: none; }
 .tag-row, .medicine-status-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 58px; }
 .medicine-tag, .status-pill { padding: 2px 6px; border-radius: 5px; font-size: 11px; line-height: 1.5; color: var(--med-secondary, #636366); background: var(--med-inset, #f2f2f7); }

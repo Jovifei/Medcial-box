@@ -41,7 +41,7 @@ test('home has one add entry and clears keyword independently of filter reset', 
   const markup = fs.readFileSync(new URL('../pages/index/index.wxml', import.meta.url), 'utf8');
   assert.equal((markup.match(/bindtap="onTapAdd"/g) || []).length, 1);
   assert.doesNotMatch(markup, /class="medicine-location"/);
-  assert.match(markup, /搜索药名、成分、厂家或位置/);
+  assert.match(markup, /搜索药名或位置/);
   const { definition } = loadPage('pages/index/index.ts', { modules: { '../../services/api': apiModule({}), '../../services/auth': auth } });
   const page = makePageContext(definition);
   page.setData({keyword:'合成',filterKind:'low'}); page.onClearFilters();

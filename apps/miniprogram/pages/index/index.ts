@@ -17,6 +17,10 @@ interface CabinetItem {
   purpose: string;
   quantityText: string;
   expiryText: string;
+  /** 已知管理截止日期；空串表示未知，模板改用 expiryText 文案。 */
+  expiryDate: string;
+  /** 开封期优先时的附注文案；无则空串。 */
+  expirySuffix: string;
   state: ExpiryState;
   stateClass: string;
   stateLabel: string;
@@ -142,6 +146,9 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     expiryText: dateRecords.length > 0
       ? (dateRecords[0].source === "opened" ? `截止：${dateRecords[0].date}（开封期优先）` : `截止：${dateRecords[0].date}`)
       : medicine.expiryState?.label ?? "有效期未知",
+    // T3 第二项：日期单独成段并禁止断行，避免 320 宽 / 200% 字号下日期逐段拆行。
+    expiryDate: dateRecords.length > 0 ? dateRecords[0].date : "",
+    expirySuffix: dateRecords.length > 0 && dateRecords[0].source === "opened" ? "（开封期优先）" : "",
     state,
     stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
     stateLabel: stateLabels[state],

@@ -16,7 +16,7 @@
 
   <view class="search-box">
     <view class="search-icon" aria-hidden="true"><view class="search-lens"></view></view>
-    <input class="search-input" placeholder="搜索药名、成分、厂家或位置" value="{{keyword}}"
+    <input class="search-input" placeholder="搜索药名或位置" value="{{keyword}}"
       bindinput="onSearchInput" confirm-type="search" />
     <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearSearch" aria-role="button" aria-label="清除搜索关键词">清除</view>
   </view>
@@ -99,7 +99,8 @@
       <view class="summary-divider"></view>
       <view class="summary-metric">
         <text class="summary-label">效期</text>
-        <text class="expiry-line">{{item.expiryText}}</text>
+        <text class="expiry-line" wx:if="{{item.expiryDate !== ''}}">截止：<text class="expiry-date">{{item.expiryDate}}</text>{{item.expirySuffix}}</text>
+        <text class="expiry-line" wx:else>{{item.expiryText}}</text>
       </view>
     </view>
     <view class="tag-row" wx:if="{{item.displayTags.length > 0}}">
