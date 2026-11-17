@@ -50,6 +50,14 @@
 - [x] 提交 `5d64aa3` 已推送；回执见 [B2 回执](../../docs/product/medbox-ai-b2-20261117.md)。
 - [ ] C1 后端识图接口与 provider 配置、C2 拍照回填与人工确认待执行；版本递增与上传待业主确认。
 
+### C1 MoMA 识图 provider 与 72B→32B 降级
+
+- [x] 沿用现有 `POST /api/v1/recognitions/medicine` 契约；新增 MoMA OpenAI-compatible provider 与 `FallbackMedicineRecognitionProvider`：72B 在限流/5xx/超时后自动切 32B，格式错误不降级。
+- [x] 配置 `MEDICINE_RECOGNITION_PROVIDER=moma`、`MOMA_BASE_URL/API_KEY/MODEL/FALLBACK_MODEL`；compose 与 env 示例、readiness 检查已补。
+- [x] 验证：API 全量 316 pass / 31 skip / 0 fail；识别专项 16 pass；lint、typecheck 通过。
+- [x] 提交 `ec40a6e` 已推送；回执见 [C1 回执](../../docs/product/medbox-ai-c1-20261117.md)。
+- [ ] 真实 MoMA 调用待私有环境配置；C2 前端拍照回填流程已存在，单账号虚构标签自测待 API 部署与业主确认；版本上传待确认。
+
 ## 2026-11-16 小药箱群内讨论
 
 - [x] 核对公开仓库、核心需求与双端最近的交付回执。
