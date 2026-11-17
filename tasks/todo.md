@@ -1,16 +1,18 @@
 # 当前任务：Flutter App 功能对齐小程序与苹果风收尾（2026-11-08）
 
-## 2026-11-17 T3 首项修复与 1.2.2 小程序上传（已完成本地可执行项）
+## 2026-11-17 T3 首项与第二项修复及 1.2.2/1.2.3 小程序发布
 
 - [x] 按最终方案 v1.0 复核本地剩余项：T1 已完成；T2 合成测试完成、真机四步依赖业主资源；T4 依赖参与人、账号与体验资格。
 - [x] T3 首项：修复小程序首页刷新失败清空已加载库存（M1），保留列表与计数并给出降级提示；首次加载失败行为不变。新增 2 项回归。
-- [x] 版本递增 `1.2.2 / Android build 21`，根版本、小程序 APP_VERSION、Flutter pubspec 与版本说明同步。
-- [x] 验证：小程序 761 PASS / 0 FAIL；lint、typecheck、隔离 QA 42 PASS / 1 SKIP；候选包 137 文件 892,909 字节；官方 wcc/wcsc 59 文件编译通过。
-- [x] 微信上传回执 `execution_success`，包体 697,677 字节；手机预览推送 success。
+- [x] T3 第二项：320 宽 / 200% 字号四项可读性修复（日期不拆行、指标上下排列、chip 单行滚动、搜索占位完整）；新增 5 项回归；Muse 代码级复核通过（#327）。
+- [x] 版本递增 `1.2.2 / build 21` 并上传 1.2.2；复核后按业主确认递增 `1.2.3 / build 22` 并上传，根版本、小程序 APP_VERSION、Flutter pubspec 与版本说明一致。
+- [x] 验证：小程序 766 PASS / 0 FAIL；lint、typecheck 通过；源码包 139 文件 1,020,487 字节；HTTPS 候选 137 文件 894,446 字节；官方 wcc/wcsc 59 文件编译 0 失败。
+- [x] 微信 1.2.3 上传回执 `execution_success`，包体 667,530 字节；手机预览推送 success（698,311 字节）。
+- [x] 提交 `7a62ab4`、`452b54a`、`41ee063` 已推送 origin。
 - [ ] 待业主资源：T2 双机双账号真机四步与 T4 五家庭七天试点；体验版设置、平台审核与正式发布由 Jovi 在微信后台操作。
-- [ ] 本轮只改小程序首页展示降级与版本元数据；未改 API/数据库、未部署服务端、未合并 main、未使用真实药品数据。
+- [ ] 本轮只改小程序展示与版本元数据；未改 API/数据库、未部署服务端、未合并 main、未使用真实药品数据。
 
-候选身份、验证命令与边界见 [T3 修复回执](../docs/product/medbox-t3-m1-fix-20261117.md)。小程序侧修复与版本提交位于独立工作区 `E:\project\medcial_box-miniprogram` 分支 `codex/miniprogram-ui-integration-20261109`：`cd0dd85`、`acc94f2`（未推送）。
+T3 首项回执见 [medbox-t3-m1-fix-20261117.md](../docs/product/medbox-t3-m1-fix-20261117.md)，1.2.3 候选与上传回执见 [medbox-1.2.3-release-20261117.md](../docs/product/medbox-1.2.3-release-20261117.md)。小程序侧提交位于独立工作区 `E:\project\medcial_box-miniprogram` 分支 `codex/miniprogram-ui-integration-20261109`，已推送至 `41ee063`。
 
 ## 2026-11-16 T2 合成测试验证与真机就绪清单（等待真机四步开跑授权）
 
