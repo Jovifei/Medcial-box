@@ -33,6 +33,15 @@
 - [x] 版本提交 `41ee063`，已推送 origin（分支 `codex/miniprogram-ui-integration-20261109`）。
 - [ ] 体验版设置与正式审核由 Jovi 在微信后台操作；T2 真机四步与 T4 五家庭试点仍待资源。
 
+### B1 AI 中转云函数与 aiApi 封装
+
+- [x] 新增 `cloudfunctions/aiRelay`（入参校验、模型白名单、`ai_usage` 日志、明确错误码）与 `services/ai-api.ts`，接入 `app.ts` 启动初始化；新增 8 项回归。
+- [x] 云环境 `yaoxiagn-d2goac4i31a1c8485` 创建 `ai_usage` 集合；`aiRelay` 部署成功，Active、超时 60 秒、Nodejs16.13。
+- [x] 虚构文本联调：`deepseek-v4.1-flash` 返回「虚构联调通过」，usage 129 tokens，耗时 2,062 ms；`ai_usage` 回读 1 条 ok=true。
+- [x] 验证：小程序 774 PASS / 0 FAIL；lint、typecheck 通过；源码包 140 文件 1,024,725 字节；B1 候选 138 文件 898,684 字节。
+- [x] 提交 `c7f94cc` 已推送；回执见 [B1 回执](../../docs/product/medbox-ai-b1-20261117.md)。
+- [ ] B2 药品说明摘要接入详情页待执行；版本递增、上传与额度控制台数值核对待后续。
+
 ## 2026-11-16 小药箱群内讨论
 
 - [x] 核对公开仓库、核心需求与双端最近的交付回执。
