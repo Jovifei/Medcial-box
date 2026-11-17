@@ -11,24 +11,29 @@ function configured(value: string | undefined): "configured" | "not_configured" 
  * probes to health/ready and authenticated pilot checks.
  */
 export async function registerPilotReadinessRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/api/v1/pilot/readiness", async () => ({
-    stage: "family-pilot",
-    status: "evidence_only",
-    checks: {
-      database: "use_health_ready",
-      wechat: {
-        configuration: configured(process.env.WECHAT_APP_ID),
-        oauthProbe: "not_run",
+  app.get("/api/v1/pilot/readiness", async () => {
+    const recognitionConfiguration = process.env.MEDICINE_RECOGNITION_PROVIDER === "moma"
+      ? process.env.MOMA_API_KEY ?? process.env.MOMA_BASE_URL
+      : process.env.DASHSCOPE_API_KEY ?? process.env.OLLAMA_BASE_URL;
+    return {
+      stage: "family-pilot",
+      status: "evidence_only",
+      checks: {
+        database: "use_health_ready",
+        wechat: {
+          configuration: configured(process.env.WECHAT_APP_ID),
+          oauthProbe: "not_run",
+        },
+        recognition: {
+          configuration: configured(recognitionConfiguration),
+          providerProbe: "not_run",
+        },
+        privatePhotoStore: "not_run",
       },
-      recognition: {
-        configuration: configured(process.env.DASHSCOPE_API_KEY ?? process.env.OLLAMA_BASE_URL),
-        providerProbe: "not_run",
+      release: {
+        mergeAllowed: false,
+        productionDeployment: false,
       },
-      privatePhotoStore: "not_run",
-    },
-    release: {
-      mergeAllowed: false,
-      productionDeployment: false,
-    },
-  }));
+    };
+  });
 }

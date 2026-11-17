@@ -227,7 +227,43 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
   }
 }
 
+/** 主模型不可用时（限流、上游 5xx 或超时）自动切到后备模型；不掩盖格式错误。 */
+export class FallbackMedicineRecognitionProvider implements MedicineRecognitionProvider {
+  constructor(
+    private readonly primary: MedicineRecognitionProvider,
+    private readonly fallback: MedicineRecognitionProvider,
+  ) {}
+
+  async recognize(imageBase64: string, mimeType: "image/jpeg" | "image/png", purpose: "box_front" | "leaflet" = "box_front"): Promise<MedicineRecognitionResponse> {
+    try {
+      return await this.primary.recognize(imageBase64, mimeType, purpose);
+    } catch (error) {
+      if (!(error instanceof RecognitionUnavailableError) ||
+          (error.reason !== "provider_unavailable" && error.reason !== "timeout")) {
+        throw error;
+      }
+      try {
+        return await this.fallback.recognize(imageBase64, mimeType, purpose);
+      } catch (fallbackError) {
+        throw fallbackError instanceof RecognitionUnavailableError ? fallbackError : error;
+      }
+    }
+  }
+}
+
 export function createDefaultMedicineRecognitionProvider(): MedicineRecognitionProvider {
+  if (process.env.MEDICINE_RECOGNITION_PROVIDER === "moma") {
+    const baseUrl = process.env.MOMA_BASE_URL ?? "";
+    const apiKey = process.env.MOMA_API_KEY ?? "";
+    const primaryModel = process.env.MOMA_MODEL ?? "qwen2.5-vl-72b-instruct";
+    const fallbackModel = process.env.MOMA_FALLBACK_MODEL ?? "qwen2.5-vl-32b-instruct";
+    const primary = new DashscopeMedicineRecognitionProvider(apiKey, primaryModel, baseUrl);
+    if (fallbackModel === primaryModel) return primary;
+    return new FallbackMedicineRecognitionProvider(
+      primary,
+      new DashscopeMedicineRecognitionProvider(apiKey, fallbackModel, baseUrl),
+    );
+  }
   if (process.env.MEDICINE_RECOGNITION_PROVIDER === "ollama") {
     const numCtx = process.env.OLLAMA_NUM_CTX ? Number(process.env.OLLAMA_NUM_CTX) : 8192;
     const numBatch = process.env.OLLAMA_NUM_BATCH ? Number(process.env.OLLAMA_NUM_BATCH) : 256;
