@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.2.3";
+export const APP_VERSION = "1.2.4";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.2.4",
+    date: "2026-11-18",
+    items: ["药品详情新增 AI 说明摘要，可主动生成并标注「AI 生成，请以说明书为准」。", "药品拍照识别切换云端视觉模型，识别结果仍需人工核对后才入档。", "保留首页大字号/窄屏可读性修复与刷新失败保留库存。"],
+  },
   {
     version: "1.2.3",
     date: "2026-11-17",
