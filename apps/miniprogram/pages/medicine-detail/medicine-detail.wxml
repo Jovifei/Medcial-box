@@ -22,6 +22,24 @@
     </view>
   </view>
 
+  <!-- B2 试点：AI 说明摘要（用户主动生成，仅作记录参考） -->
+  <view class="card ai-summary-card" wx:if="{{medicineSummary}}">
+    <view class="ai-summary-head">
+      <view>
+        <view class="section-title">AI 说明摘要</view>
+        <view class="hint">根据药品资料生成一句话摘要，仅供记录参考。</view>
+      </view>
+      <view class="ai-badge">AI</view>
+    </view>
+    <view class="ai-summary-text" wx:if="{{aiSummary}}">{{aiSummary}}</view>
+    <view class="hint" wx:if="{{!aiSummary && !aiSummaryError}}">{{aiSummaryLoading ? '正在生成摘要…' : '还没有生成摘要。'}}</view>
+    <view class="ai-summary-error" wx:if="{{aiSummaryError}}">{{aiSummaryError}}</view>
+    <view class="ai-summary-footer">
+      <view class="ai-summary-disclaimer">{{aiSummaryDisclaimer}}</view>
+      <view class="ai-summary-btn {{aiSummaryLoading ? 'disabled' : ''}}" bindtap="onGenerateAiSummary">{{aiSummaryLoading ? '生成中…' : (aiSummary ? '重新生成' : '生成摘要')}}</view>
+    </view>
+  </view>
+
   <!-- Layer 2: 库存批次卡 -->
   <view class="card">
     <view class="row batch-header-row">

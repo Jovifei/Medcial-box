@@ -1,6 +1,7 @@
 import { PURPOSE_TAG_OPTIONS } from "../../services/medicine-tags";
 import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
+import { AI_SUMMARY_DISCLAIMER, summarizeMedicine } from "../../services/ai-summary";
 import {
   isStrictPositiveInteger,
   isValidExpiryValue,
@@ -80,6 +81,11 @@ interface MedicineDetailPageData {
   leafletPurpose: string;
   leafletText: string;
   leafletBadge: string;
+  /** B2 试点：AI 生成的一句话说明摘要，仅作记录参考。 */
+  aiSummary: string;
+  aiSummaryLoading: boolean;
+  aiSummaryError: string;
+  aiSummaryDisclaimer: string;
   leafletPhotos: LeafletPhotoView[];
   /** 药盒封面（R2-d 剩余）：私有图片需带鉴权下载，不能直接给 <image> 远程地址。 */
   coverPhotoPath: string;
@@ -254,6 +260,10 @@ Page({
     leafletPurpose: "",
     leafletText: "",
     leafletBadge: "",
+    aiSummary: "",
+    aiSummaryLoading: false,
+    aiSummaryError: "",
+    aiSummaryDisclaimer: AI_SUMMARY_DISCLAIMER,
     leafletPhotos: [] as LeafletPhotoView[],
     coverPhotoPath: "",
     coverPhotoLoading: false,
@@ -309,15 +319,16 @@ Page({
   displayedIdentity: null as ReturnType<typeof captureSessionIdentity> | null,
   displayedMedicineId: "",
   noteActionSeq: 0,
+  aiSummarySeq: 0,
   photoSeq: 0,
   photoActionSeq: 0,
   coverSeq: 0,
   onHide(): void {
-    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.noteActionSeq;
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.noteActionSeq; ++this.aiSummarySeq;
     this.setData({ noteSubmitting: false });
   },
   onUnload(): void {
-    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq;
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq; ++this.aiSummarySeq;
     this.setData({ noteSubmitting: false });
   },
   onShow(): void {
@@ -327,9 +338,9 @@ Page({
   },
 
   clearPrivateView(): void {
-    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq;
+    ++this.refreshSeq; ++this.photoSeq; ++this.coverSeq; ++this.photoActionSeq; ++this.noteActionSeq; ++this.aiSummarySeq;
     this.setData({ medicineSummary: null, name: "", specText: "", displayTags: [], metaText: "",
-      leafletText: "", leafletBadge: "", leafletPhotos: [], batches: [], batchRecords: [],
+      leafletText: "", leafletBadge: "", aiSummary: "", aiSummaryLoading: false, aiSummaryError: "", leafletPhotos: [], batches: [], batchRecords: [],
       notes: [], noteInput: "", noteSubmitting: false, noteVisibilityIndex: 0, stockStatusText: "", thresholdEnabled: false,
       thresholdQuantity: "", thresholdUnitIndex: 4, savingThreshold: false, restockBusy: false, busyBatchId: "",
       quantityPanelId: "", quantityPanelInput: "", quantityPanelBusy: false,
@@ -420,6 +431,9 @@ Page({
       metaText: metaParts.length === 0 ? "暂无补充资料" : metaParts.join("；"),
       leafletText: leaflet.text,
       leafletBadge: leaflet.badge,
+      aiSummary: "",
+      aiSummaryLoading: false,
+      aiSummaryError: "",
       batches: medicine.batches.map(toBatchView),
       batchRecords: medicine.batches,
       notes: notes.map(toNoteView),
@@ -428,6 +442,31 @@ Page({
       thresholdUnitIndex: threshold === null ? 4 : Math.max(0, UNIT_VALUES.indexOf(threshold.unit)),
       stockStatusText: stockLabel[medicine.stockStatus?.state ?? "unknown"] ?? "库存待核对",
     });
+  },
+
+  /** B2 试点：用户主动生成一句话说明摘要；失败保留可重试的错误态，不自动调用。 */
+  async onGenerateAiSummary(): Promise<void> {
+    const data = this.data as MedicineDetailPageData;
+    if (data.aiSummaryLoading) return;
+    const medicine = data.medicineSummary;
+    if (medicine === null) {
+      this.setData({ aiSummaryError: "药品资料尚未加载，请稍后重试" });
+      return;
+    }
+    const seq = ++this.aiSummarySeq;
+    this.setData({ aiSummaryLoading: true, aiSummaryError: "" });
+    try {
+      const summary = await summarizeMedicine(medicine);
+      if (seq !== this.aiSummarySeq) return;
+      this.setData({ aiSummary: summary, aiSummaryLoading: false, aiSummaryError: "" });
+    } catch (error) {
+      if (seq !== this.aiSummarySeq) return;
+      const message = error !== null && typeof error === "object" &&
+        typeof (error as { message?: unknown }).message === "string" && (error as { message: string }).message !== ""
+        ? (error as { message: string }).message
+        : "AI 摘要暂不可用，请稍后重试";
+      this.setData({ aiSummaryLoading: false, aiSummaryError: message });
+    }
   },
 
   async refreshLeafletPhotos(): Promise<void> {
