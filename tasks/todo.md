@@ -46,6 +46,7 @@
 - [x] 读取群消息 #341–#346（游标 340→346）：#341 Jovi 附短视频截图问 modern-web-guidance 项目评价与 UI 借鉴；#343/#345 Jovi 群成员管理（本人操作，未介入）；#344 Jovi 附微信文章问 UI 优化借鉴。
 - [x] 调研结论（已发群 #346）：modern-web-guidance 为谷歌 Chrome 官方真实项目、评价正面但数字自报，面向标准 Web 与 WXML/Flutter 双端不兼容；文章讲 21st.dev（React+Tailwind）组件超市，组件搬不进双端。可借鉴四条方法论：参照先行（设计令牌+参照清单）、候选收敛人拍板、窄屏大字号回归（T3 已有）、生成物过门禁再提交（门禁已具备）。建议不引入第三方工具，仅整理设计令牌清单为 UI 验收附件，待 Jovi 主会话拍板。
 - [x] 本轮未修改任何文件、未提交、未递增版本；小程序工作树保持干净（HEAD `ffddadb`）。
+- [x] MateLink CI 核查（群 #359 Jovi 本人确认授权，按 #167 转达的 12:51 批准方案；游标 358→362）：main 上 miniprogram 作业失败根因为 f2e0a8e3 把 `miniprogram/project.config.json` 的 `setting.urlCheck` 从 true 改为 false，taro 构建复制进 dist 后断言 `urlCheck===true` 失败。修复提交 `7d65fd53`（MateLink 分支 `codex/miniprogram-urlcheck-fix-20261117`，已推送）：恢复 urlCheck=true，保留域名校验。本地复现 CI 作业五步全过（npm ci / typecheck / vitest 1213 pass / build:weapp / dist urlCheck=true 断言）；该分支 CI run 44107314330 miniprogram 作业转绿。群内 #362 回执。verify（Go copylocks，main 同红）与 android（main 同红）为 #167 声明的范围外存量，未动；合并 main 不在自动任务边界内。matelink hub 已上报（event cb7ed2c8，revision 1）。
 
 ### B1 AI 中转云函数与 aiApi 封装
 
