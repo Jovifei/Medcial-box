@@ -39,9 +39,9 @@ services:
       DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3-vl-flash}
       DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       MOMA_API_KEY: ${MOMA_API_KEY:-}
-      MOMA_BASE_URL: ${MOMA_BASE_URL:-}
-      MOMA_MODEL: ${MOMA_MODEL:-qwen2.5-vl-72b-instruct}
-      MOMA_FALLBACK_MODEL: ${MOMA_FALLBACK_MODEL:-qwen2.5-vl-32b-instruct}
+      MOMA_BASE_URL: ${MOMA_BASE_URL:-https://tokenhub.tencentmaas.com/v1}
+      MOMA_MODEL: ${MOMA_MODEL:-hy-vision-2.0-instruct}
+      MOMA_FALLBACK_MODEL: ${MOMA_FALLBACK_MODEL:-hunyuan-t1-vision-20250916}
       JISU_MEDICINE_API_KEY: ${JISU_MEDICINE_API_KEY:-}
       WECHAT_REMINDER_TEMPLATE_ID: ${WECHAT_REMINDER_TEMPLATE_ID:-}
       WECHAT_REMINDER_FIELD_MAP: ${WECHAT_REMINDER_FIELD_MAP:-}

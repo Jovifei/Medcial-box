@@ -273,6 +273,29 @@ test("fallback does not hide malformed primary output", async () => {
   assert.equal(fallbackCalls, 0);
 });
 
+test("vision provider accepts <answer>-wrapped JSON", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hy-vision-2.0-instruct", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "<answer>\n{\"name\":\"合成药品\",\"expiryValue\":\"2027-06\"}\n</answer>" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+  assert.equal(result.draft.expiryPrecision, "month");
+});
+
+test("vision provider accepts an unterminated <answer> wrapper", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hunyuan-t1-vision-20250916", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "<answer>\n{\"name\":\"合成药品\",\"expiryValue\":\"2027-06\"}\n" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+});
+
+test("vision provider accepts fenced JSON", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hy-vision-2.0-instruct", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "```json\n{\"name\":\"合成药品\",\"lotNumber\":\"TEST20261117\"}\n```" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+  assert.equal(result.draft.lotNumber, "TEST20261117");
+});
+
 test("provider factory selects MoMA with 72B primary and 32B fallback", () => {
   const keys = ["MEDICINE_RECOGNITION_PROVIDER", "MOMA_BASE_URL", "MOMA_API_KEY", "MOMA_MODEL", "MOMA_FALLBACK_MODEL"];
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
