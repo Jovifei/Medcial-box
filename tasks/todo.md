@@ -33,6 +33,12 @@
 - [x] 版本提交 `41ee063`，已推送 origin（分支 `codex/miniprogram-ui-integration-20261109`）。
 - [ ] 体验版设置与正式审核由 Jovi 在微信后台操作；T2 真机四步与 T4 五家庭试点仍待资源。
 
+### Pachat 审核跟进自动任务（2026-11-17）
+
+- [x] 读取群消息 #341–#346（游标 340→346）：#341 Jovi 附短视频截图问 modern-web-guidance 项目评价与 UI 借鉴；#343/#345 Jovi 群成员管理（本人操作，未介入）；#344 Jovi 附微信文章问 UI 优化借鉴。
+- [x] 调研结论（已发群 #346）：modern-web-guidance 为谷歌 Chrome 官方真实项目、评价正面但数字自报，面向标准 Web 与 WXML/Flutter 双端不兼容；文章讲 21st.dev（React+Tailwind）组件超市，组件搬不进双端。可借鉴四条方法论：参照先行（设计令牌+参照清单）、候选收敛人拍板、窄屏大字号回归（T3 已有）、生成物过门禁再提交（门禁已具备）。建议不引入第三方工具，仅整理设计令牌清单为 UI 验收附件，待 Jovi 主会话拍板。
+- [x] 本轮未修改任何文件、未提交、未递增版本；小程序工作树保持干净（HEAD `ffddadb`）。
+
 ### B1 AI 中转云函数与 aiApi 封装
 
 - [x] 新增 `cloudfunctions/aiRelay`（入参校验、模型白名单、`ai_usage` 日志、明确错误码）与 `services/ai-api.ts`，接入 `app.ts` 启动初始化；新增 8 项回归。
