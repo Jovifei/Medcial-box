@@ -77,7 +77,7 @@
 
 - [x] 业主提供 TokenHub 端点后，按可用模型改用 `hy-vision-2.0-instruct` 主模型与 `hunyuan-t1-vision-20250916` 后备；解析器兼容 `<answer>`/代码围栏，超时 45 秒。
 - [x] 虚构标签图（测试药品甲 / 10mg × 12片 / TEST20261117 / 2027-06-30）经真实 TokenHub 模型识别四字段全对；API 返回 `requiresConfirmation: true`、零数据库写入、3,093 ms。
-- [x] 验证：API 全量 319 pass / 31 skip / 0 fail（350 项）；识别专项 19 pass；lint、typecheck 通过。
+- [x] 验证：API 全量 320 pass / 31 skip / 0 fail（351 项）；识别专项 20 pass；lint、typecheck 通过。
 - [x] 提交 `c66d9a7` 已推送；回执见 [C2 回执](../../docs/product/medbox-ai-c2-20261117.md)。
 - [ ] API 部署与小程序单账号现场自测待业主确认；微信版本递增/上传（B2 AI 摘要）待业主确认。
 
