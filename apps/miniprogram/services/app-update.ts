@@ -11,7 +11,7 @@
 
 import { clearDirtyDraft, peekDirtyDraft } from "./draft-guard";
 
-export const APP_VERSION = "1.2.4";
+export const APP_VERSION = "1.2.5";
 
 export interface ReleaseNote {
   version: string;
@@ -21,6 +21,11 @@ export interface ReleaseNote {
 
 /** 新版本重点改进：只列用户能直接感知的变化，最多三项。 */
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "1.2.5",
+    date: "2026-11-18",
+    items: ["数量与效期显示更准确：单位统一中文，未知单位标注待核对；月精度效期标注按包装月份；「已用完」口径统一。", "计划与盘点交互完善：全部筛选空态更准确、盘点保存有禁用状态、详情余量弹层可点遮罩关闭。"],
+  },
   {
     version: "1.2.4",
     date: "2026-11-18",
