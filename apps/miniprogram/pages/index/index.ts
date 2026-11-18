@@ -2,10 +2,10 @@ import { api, ApiError, readToken, captureSessionIdentity, isCurrentSession } fr
 import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
+import { quantityUnitShort } from "../../services/quantity-units";
 import type {
   ExpiryState,
   MedicationSummary,
-  QuantityUnit,
   PendingNotificationSummary,
 } from "../../services/api-types";
 
@@ -55,17 +55,6 @@ interface CabinetItem {
 
 type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted" | "pending";
 
-const UNIT_SHORT: Record<QuantityUnit, string> = {
-  tablet: "片",
-  capsule: "粒",
-  sachet: "袋",
-  bottle: "瓶",
-  tube: "支",
-  box: "盒",
-  blister: "板",
-  ml: "毫升",
-  other: "份",
-};
 
 function quantitySummary(medicine: MedicationSummary): string {
   // B23：卡片数量摘要只统计当前在库批次，已处置（handled）历史不再显示。
@@ -75,10 +64,10 @@ function quantitySummary(medicine: MedicationSummary): string {
   }
   const parts = inCabinet.map((batch) => {
     if (batch.quantity === null) return "数量未知";
-    if (batch.quantity === 0) return "已耗尽";
-    return `${batch.quantity}${UNIT_SHORT[batch.unit] ?? "份"}`;
+    if (batch.quantity === 0) return "已用完";
+    return `${batch.quantity}${quantityUnitShort(batch.unit)}`;
   });
-  return `数量：${parts.join(" / ")}`;
+  return parts.join(" / ");
 }
 
 function purposeText(medicine: MedicationSummary): string {
@@ -112,7 +101,8 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
       const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
       sortDate = `${date}-${String(lastDay).padStart(2, "0")}`;
     }
-    return [{ date, sortDate, source: batch.managementExpirySource ?? null }];
+    return [{ date, sortDate, source: batch.managementExpirySource ?? null,
+      precision: batch.managementExpiryDate !== undefined ? "day" : batch.expiry.precision }];
   });
   dateRecords.sort((left, right) => left.sortDate.localeCompare(right.sortDate));
   const stateLabels: Record<ExpiryState, string> = {
@@ -148,7 +138,9 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
       : medicine.expiryState?.label ?? "有效期未知",
     // T3 第二项：日期单独成段并禁止断行，避免 320 宽 / 200% 字号下日期逐段拆行。
     expiryDate: dateRecords.length > 0 ? dateRecords[0].date : "",
-    expirySuffix: dateRecords.length > 0 && dateRecords[0].source === "opened" ? "（开封期优先）" : "",
+    expirySuffix: dateRecords.length > 0
+      ? `${dateRecords[0].source === "opened" ? "（开封期优先）" : ""}${dateRecords[0].precision === "month" ? "（按包装月份）" : ""}`
+      : "",
     state,
     stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
     stateLabel: stateLabels[state],

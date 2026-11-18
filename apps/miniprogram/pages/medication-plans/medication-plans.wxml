@@ -71,7 +71,7 @@
       <view class="hint">正在读取计划…</view>
     </view>
     <view class="card" wx:elif="{{visiblePlans.length === 0 && errorMessage === ''}}">
-      <view class="section-title">这个状态没有计划</view>
+      <view class="section-title">{{planStatusFilter === 'all' ? '还没有用药计划' : '这个状态没有计划'}}</view>
       <view class="hint">点击下方“＋创建计划”，为家人或自己安排固定时间的用药提醒；已结束的计划保留历史记录。</view>
     </view>
     <block wx:if="{{!loading && errorMessage === ''}}">

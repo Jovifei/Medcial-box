@@ -100,6 +100,11 @@ export function loadPage(relativePath, { modules = {}, wx = {}, setTimeoutFn = s
         "./ai-api": { aiApi: { generateText: async () => { throw new Error("ai-api must be mocked in this AI summary test"); } } },
       } });
     }
+    if (id.endsWith("quantity-units")) {
+      return loadService("services/quantity-units.ts", { wx: pageWx, modules: {
+        "./input-validation": loadService("services/input-validation.ts", { wx: pageWx }),
+      } });
+    }
     if (id === "../../services/ingredient-matches") return loadService("services/ingredient-matches.ts", { wx: pageWx });
     if (id.endsWith("app-update")) return loadService("services/app-update.ts", { wx: pageWx });
     if (id.endsWith("draft-guard")) return loadService("services/draft-guard.ts", { wx: pageWx });

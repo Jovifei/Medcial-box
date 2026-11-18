@@ -8,6 +8,23 @@ import type { ExpiryPrecision, QuantityUnit } from "./api-types";
 export const UNIT_VALUES: QuantityUnit[] = ["tablet", "capsule", "sachet", "bottle", "box", "blister", "ml", "other", "tube"];
 export const UNIT_LABELS = ["片", "粒", "袋", "瓶", "盒", "板", "毫升", "其他", "支"];
 
+/**
+ * 展示用单位表（B02）：QuantityUnit → 中文短文案，一处维护。
+ * 页面拼接数量文案时统一经此表，避免英文枚举值直接展示
+ * （盘点「3bottle」）或局部表缺项回落成「份」（补货 blister）。
+ */
+export const UNIT_DISPLAY: Record<QuantityUnit, string> = {
+  tablet: "片",
+  capsule: "粒",
+  sachet: "袋",
+  bottle: "瓶",
+  box: "盒",
+  blister: "板",
+  ml: "毫升",
+  other: "份",
+  tube: "支",
+};
+
 /** 数量按单位的输入规则：ml 允许最多 3 位小数，其余计件单位必须是非负整数。 */
 export function unitAllowsDecimals(unit: QuantityUnit): boolean {
   return unit === "ml";

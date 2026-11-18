@@ -554,7 +554,8 @@
 }
 
 /* 与药箱共用的中文紧凑档；文字换行时控件增高。 */
-.page { padding: 16px 16px calc(104px + env(safe-area-inset-bottom)); }
+/* 底部留白随字号缩放：6.5em 在标准字号约等于原 104px，大字号下不遮挡安全提示。 */
+.page { padding: 16px 16px calc(6.5em + env(safe-area-inset-bottom)); }
 .view-tabs { border-radius: 10px; padding: 3px; background: #e8e8ed; }
 .view-tab { display: flex; align-items: center; justify-content: center; min-height: 48px; height: auto; padding: 8px 6px; border-radius: 8px; box-sizing: border-box; font-size: 14px; line-height: 1.4; }
 .view-tab.active { color: var(--med-label, #1c1c1e); box-shadow: 0 1px 4px rgba(0,0,0,.08); }

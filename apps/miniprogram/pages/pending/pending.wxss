@@ -11,3 +11,5 @@
 .pending-label { margin-top: 8rpx; color: var(--med-secondary, #636366); font-size: 23rpx; line-height: 1.55; }
 .pending-date { margin-top: 6rpx; color: var(--med-secondary, #636366); font-size: 21rpx; }
 .footnote { margin: 22rpx 8rpx; }
+
+.pending-collapse { min-height: 48px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; }

@@ -139,7 +139,7 @@ interface DetailAction {
 
 function quantityText(batch: MedicationBatchSummary): string {
   if (batch.quantity === null) return "数量未知";
-  if (batch.quantity === 0) return "已耗尽";
+  if (batch.quantity === 0) return "已用完";
   return `${batch.quantity} ${UNIT_LABELS[batch.unit] ?? "个单位"}`;
 }
 
@@ -417,7 +417,7 @@ Page({
       ok: "库存充足",
       low: "库存不足",
       unknown: "库存待核对",
-      exhausted: "已耗尽",
+      exhausted: "已用完",
     };
     this.setData({
       medicineSummary: medicine,
@@ -1083,6 +1083,17 @@ Page({
   },
   onQuantityPanelInput(event: { detail: { value: string } }): void { this.setData({ quantityPanelInput: event.detail.value }); },
   onCancelQuantityPanel(): void { if (!this.data.quantityPanelBusy) this.setData({ quantityPanelId: "", quantityPanelInput: "" }); },
+  onTapQuantityMask(): void {
+    if (this.data.quantityPanelBusy) return;
+    const batch = this.data.medicineSummary?.batches.find((item) => item.id === this.data.quantityPanelId);
+    const current = batch && batch.quantity !== null ? String(batch.quantity) : "";
+    if (this.data.quantityPanelInput.trim() !== current) {
+      wx.showToast({ title: "请先取消或保存", icon: "none" });
+      return;
+    }
+    this.setData({ quantityPanelId: "", quantityPanelInput: "" });
+  },
+  noop(): void {},
   async onSaveQuantityPanel(): Promise<void> {
     const action = this.captureDetailAction();
     if (action === null || this.data.quantityPanelBusy) return;
