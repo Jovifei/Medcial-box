@@ -60,7 +60,11 @@ export async function buildApiCandidate({root, sha, tag, apiOrigin, output, dock
     const context = join(temporary, 'source');
     await mkdir(context);
     await command('git', ['archive', '--format=tar', `--output=${join(temporary, 'source.tar')}`, sha], {cwd: root});
-    await command('tar', ['-xf', join(temporary, 'source.tar'), '-C', context]);
+    // Windows: the Git-bundled GNU tar treats `C:` in a POSIX-style path argument as a remote host
+    // ("Cannot connect to C:"), which fails on any absolute Windows path. Prefer the Windows system
+    // bsdtar when present; it handles drive-letter paths correctly. POSIX platforms keep the default tar.
+    const tarBinary = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+    await command(tarBinary, ['-xf', join(temporary, 'source.tar'), '-C', context]);
     await docker(['build', '--tag', tag, '--file', join(context, 'apps/api/Dockerfile'),
       '--build-arg', `MEDBOX_SOURCE_SHA=${source.sourceSha}`, '--build-arg', `MEDBOX_VERSION=${appVersion}`, '--build-arg', `MEDBOX_SOURCE_TREE=${source.sourceTree}`,
       '--build-arg', `MEDBOX_API_TREE=${source.apiTree}`, context]);
