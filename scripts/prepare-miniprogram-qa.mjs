@@ -180,6 +180,8 @@ const reviewedSourceTrees = new Set([
   // 2026-11-08 版本 1.2.1：相对 75bb7c 树仅 app-update.ts 版本号与版本说明条目（纯元数据），
   // 无运行时逻辑/能力变化。
   '6b6f122afe721b266dff44ca46bd457a5f7702c7',
+  // 2026-11-22：仅说明书空结果与照片核对回归；已复核原生能力与上一树一致。
+  'eb07b0db4c92795100fd5288872c16180a8af135',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

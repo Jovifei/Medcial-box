@@ -27,6 +27,12 @@ import '../../models/medicine_models.dart';
 
 enum _ImageAction { camera, gallery }
 
+const _emptyLeafletMessage = '未能识别说明书文字，可重拍或手动填写。';
+
+class _EmptyLeafletRecognition implements Exception {
+  const _EmptyLeafletRecognition();
+}
+
 bool _isProductBarcode(String code) => RegExp(r'^\d{8,14}$').hasMatch(code);
 bool _isTraceabilityCode(String code) => RegExp(r'^\d{20}$').hasMatch(code);
 
@@ -53,6 +59,7 @@ const _fieldLabels = <String, String>{
 };
 
 String _recognitionErrorMessage(Object error) {
+  if (error is _EmptyLeafletRecognition) return _emptyLeafletMessage;
   if (error is FileSystemException) return '无法读取本机照片，请重新选择或拍照。';
   if (error is FormatException) {
     const messages = {
@@ -360,9 +367,14 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           (result.expiry.trim().length == 7 ? 'month' : 'day'),
     if (result.purposeCategory?.trim().isNotEmpty == true)
       'purposeCategory': result.purposeCategory!.trim(),
-    if (result.populationTags.isNotEmpty)
-      'populationTags': result.populationTags,
-    if (result.purposeTags.isNotEmpty) 'purposeTags': result.purposeTags,
+    if (result.populationTags.any(medicinePopulationLabels.containsKey))
+      'populationTags': result.populationTags
+          .where(medicinePopulationLabels.containsKey)
+          .toList(),
+    if (result.purposeTags.any(medicinePurposeLabels.containsKey))
+      'purposeTags': result.purposeTags
+          .where(medicinePurposeLabels.containsKey)
+          .toList(),
     if (result.leaflet['text']?.trim().isNotEmpty == true)
       'leafletText': result.leaflet['text']!.trim(),
     if (result.rawText.isNotEmpty) 'rawOcrText': result.rawText,
@@ -371,6 +383,10 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           entry.value.trim().isNotEmpty)
         entry.key: entry.value.trim(),
   };
+
+  bool _hasLeafletContent(Map<String, dynamic> fields) =>
+      fields.containsKey('leafletText') ||
+      leafletControllers.keys.any(fields.containsKey);
 
   void _setReviewValue(String field, Object value) {
     final controller = _reviewControllers[field];
@@ -1383,8 +1399,18 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
           return;
         }
         recognitionTimer?.cancel();
+        final fields = _recognitionFields(draft);
+        if (leafletPhoto && !_hasLeafletContent(fields)) {
+          final warnings = List<String>.of(draft.warnings);
+          if (!warnings.contains(_emptyLeafletMessage)) {
+            warnings.add(_emptyLeafletMessage);
+          }
+          pendingPhoto['recognitionWarnings'] = warnings;
+          recognitionWarnings = warnings;
+          throw const _EmptyLeafletRecognition();
+        }
         pendingPhoto['recognitionStatus'] = 'recognized';
-        pendingPhoto['recognitionFields'] = _recognitionFields(draft);
+        pendingPhoto['recognitionFields'] = fields;
         pendingPhoto['recognitionWarnings'] = draft.warnings;
         if (draft.rawText.isNotEmpty) pendingPhoto['rawText'] = draft.rawText;
         _refreshRecognizedSuggestions();
@@ -1895,6 +1921,17 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       ).recognize(XFile(photo['path'] as String));
       if (!current()) return;
       final newFields = _recognitionFields(result);
+      if (photo['purpose'] == 'leaflet' && !_hasLeafletContent(newFields)) {
+        final warnings = (photo['recognitionWarnings'] as List? ?? const [])
+            .whereType<String>()
+            .toList();
+        for (final warning in [...result.warnings, _emptyLeafletMessage]) {
+          if (!warnings.contains(warning)) warnings.add(warning);
+        }
+        photo['recognitionWarnings'] = warnings;
+        recognitionWarnings = warnings;
+        throw const _EmptyLeafletRecognition();
+      }
       final id = photo['clientPhotoId'] as String;
       final changesChosenResult =
           oldFields != null &&
