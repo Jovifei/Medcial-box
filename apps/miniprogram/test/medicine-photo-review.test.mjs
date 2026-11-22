@@ -8,6 +8,93 @@ const capture = (page, purpose = "box_front") => page.onRecognizePhoto({
   currentTarget: { dataset: { source: "camera", purpose } },
 });
 
+for (const [label, draft] of [
+  ["missing leaflet", {}],
+  ["empty leaflet", { leaflet: {} }],
+  ["blank text", { leaflet: { text: "  " } }],
+  ["metadata without leaflet text", {
+    name: "合成药", brand: "合成品牌", specification: "合成规格", expiryValue: "2099-01-01", expiryPrecision: "day",
+    populationTags: ["adult"], purposeTags: ["fever"], leaflet: { text: "  " },
+  }],
+]) {
+  test(`empty ${label} preserves manual values and does not create a source`, async () => {
+    const h = harness({ recognize: () => ({ draft, warnings: [], requiresConfirmation: true }) });
+    h.a.data.name = "";
+    h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工填写" } });
+    h.a.onVerifiedChange({ detail: { value: true } });
+    await capture(h.a, "leaflet");
+    const [entry] = h.read();
+    assert.equal(entry.photos[0].review.status, "failed");
+    assert.deepEqual(entry.photos[0].review.fields, {});
+    assert.match(h.a.data.recognitionHint, /未能识别说明书/);
+    assert.equal(h.a.data.name, "");
+    assert.equal(h.a.data.brand, "");
+    assert.equal(h.a.data.specification, "");
+    assert.equal(h.a.data.purposeTags.length, 0);
+    assert.equal(h.a.data.populationTags.length, 0);
+    assert.equal(Object.hasOwn(entry.fields.fieldSources ?? {}, "name"), false);
+    assert.equal(h.a.data.leafletUsage, "人工填写");
+    assert.equal(h.a.data.verified, true);
+    assert.equal(h.a.data.leafletSource, "");
+    assert.equal(entry.fields.leafletSource, "");
+    assert.equal(h.calls.create, 0);
+    assert.equal(h.calls.upload, 0);
+  });
+}
+
+test("an invalid leaflet response is not marked recognized", async () => {
+  const h = harness({ recognize: () => ({ draft: null, warnings: [], requiresConfirmation: true }) });
+  h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工填写" } });
+  h.a.onVerifiedChange({ detail: { value: true } });
+  await capture(h.a, "leaflet");
+  assert.equal(h.read()[0].photos[0].review.status, "failed");
+  assert.equal(h.a.data.leafletUsage, "人工填写");
+  assert.equal(h.a.data.verified, true);
+  assert.equal(h.calls.create, 0);
+});
+
+test("an empty retake preserves the previous photo and manual review", async () => {
+  let calls = 0;
+  const h = harness({ recognize: () => ({ draft: ++calls === 1
+    ? { leaflet: { text: "原说明书", purposeSummary: "原用途" } } : { leaflet: {} }, warnings: [], requiresConfirmation: true }) });
+  await capture(h.a, "leaflet");
+  const previous = h.read()[0].photos[0];
+  h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工填写" } });
+  h.a.onVerifiedChange({ detail: { value: true } });
+  await capture(h.a, "leaflet");
+  const photos = h.read()[0].photos;
+  assert.equal(photos.length, 2);
+  assert.equal(photos[0].path, previous.path);
+  assert.equal(photos[0].review.fields.leafletText, "原说明书");
+  assert.equal(photos[1].review.status, "failed");
+  assert.equal(h.a.data.leafletUsage, "人工填写");
+  assert.equal(h.a.data.verified, true);
+  assert.equal(h.calls.create, 0);
+  assert.equal(h.calls.upload, 0);
+});
+
+test("leaflet text keeps manual review unless a new summary is applied", async () => {
+  const h = harness({ recognize: () => ({ draft: { leaflet: { text: "说明书原文", packageUsageSummary: "机器用法" } }, warnings: [], requiresConfirmation: true }) });
+  h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工填写" } });
+  h.a.onVerifiedChange({ detail: { value: true } });
+  await capture(h.a, "leaflet");
+  assert.equal(h.read()[0].photos[0].review.fields.leafletText, "说明书原文");
+  assert.equal(h.a.data.leafletUsage, "人工填写");
+  assert.equal(h.a.data.verified, true);
+  assert.equal(h.a.data.leafletSource, "");
+  assert.equal(h.calls.create, 0);
+});
+
+test("new leaflet summary becomes unverified with its photo source", async () => {
+  const h = harness({ recognize: () => ({ draft: { leaflet: { purposeSummary: "合成用途" } }, warnings: [], requiresConfirmation: true }) });
+  h.a.onVerifiedChange({ detail: { value: true } });
+  await capture(h.a, "leaflet");
+  assert.equal(h.a.data.leafletPurpose, "合成用途");
+  assert.equal(h.a.data.verified, false);
+  assert.match(h.a.data.leafletSource, /待核对/);
+  assert.equal(h.calls.create, 0);
+});
+
 test("each captured photo retains its own ordered recognition result and source", async () => {
   let calls = 0;
   const h = harness({ recognize: () => ({
@@ -37,8 +124,9 @@ test("each captured photo retains its own ordered recognition result and source"
 
 test("conflicting identity values require an explicit choice before saving", async () => {
   let calls = 0;
+  const drafts = [{ name: "合成药甲" }, { name: "合成药乙", leaflet: { text: "合成说明书乙" } }];
   const h = harness({ recognize: () => ({
-    draft: { name: ++calls === 1 ? "合成药甲" : "合成药乙" }, warnings: [], requiresConfirmation: true,
+    draft: drafts[calls++], warnings: [], requiresConfirmation: true,
   }) });
   h.a.data.name = "";
   await capture(h.a);
@@ -58,7 +146,8 @@ test("conflicting identity values require an explicit choice before saving", asy
 
 test("manually entered values remain authoritative when other photos disagree", async () => {
   let calls = 0;
-  const h = harness({ recognize: () => ({ draft: { name: ++calls === 1 ? "候选甲" : "候选乙" }, warnings: [], requiresConfirmation: true }) });
+  const drafts = [{ name: "候选甲" }, { name: "候选乙", leaflet: { text: "合成说明书乙" } }];
+  const h = harness({ recognize: () => ({ draft: drafts[calls++], warnings: [], requiresConfirmation: true }) });
   h.a.onFieldInput({ currentTarget: { dataset: { field: "name" } }, detail: { value: "家人填写的名称" } });
   await capture(h.a);
   await capture(h.a, "leaflet");
@@ -70,7 +159,11 @@ test("manually entered values remain authoritative when other photos disagree", 
 
 test("a later conflicting photo requires review without replacing an earlier selected value", async () => {
   let calls = 0;
-  const h = harness({ recognize: () => ({ draft: { name: ["合成甲", "合成乙", "合成丙"][calls++] }, warnings: [], requiresConfirmation: true }) });
+  const drafts = [
+    { name: "合成甲" }, { name: "合成乙", leaflet: { text: "合成说明书乙" } },
+    { name: "合成丙", leaflet: { text: "合成说明书丙" } },
+  ];
+  const h = harness({ recognize: () => ({ draft: drafts[calls++], warnings: [], requiresConfirmation: true }) });
   h.a.data.name = "";
   await capture(h.a);
   await capture(h.a, "leaflet");
@@ -113,7 +206,8 @@ test("scan or album choice dispatches the selected source without changing a sta
 test("removing one photo preserves other numbers and an explicitly accepted field", async () => {
   let calls = 0;
   const results = [
-    { name: "合成药" }, { manufacturer: "合成厂家" }, { expiryValue: "2027-08", expiryPrecision: "month" },
+    { name: "合成药" }, { manufacturer: "合成厂家", leaflet: { text: "第二张原文" } },
+    { expiryValue: "2027-08", expiryPrecision: "month" },
     { leaflet: { text: "第四张原文", purposeSummary: null, packageUsageSummary: null, contraindicationsSummary: null, precautionsSummary: null } },
   ];
   const h = harness({ recognize: () => ({ draft: results[calls++], warnings: [], requiresConfirmation: true }) });
