@@ -188,6 +188,8 @@ const reviewedSourceTrees = new Set([
   'dd58a9b9d23bd2763da2ef2c97026221cb2ae7d3',
   // 2026-11-09 local intake changes only the docs index and validation receipt.
   '597c2950579ac04540ca52970deb15a9d81931ba',
+  // 2026-11-22：在 main 树上移植说明书空结果修复，已复核原生能力不变。
+  '68bf3cb348e0e3bf5ac866258c7e078d9e33bb01',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],

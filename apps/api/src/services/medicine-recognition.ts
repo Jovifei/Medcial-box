@@ -115,7 +115,17 @@ function cleanDraft(value: unknown, purpose: "box_front" | "leaflet"): MedicineR
       return value ? value.slice(0, limit) : null;
     };
     draft.leaflet = { text: text("text"), purposeSummary: text("purposeSummary"), packageUsageSummary: text("packageUsageSummary"), contraindicationsSummary: text("contraindicationsSummary"), precautionsSummary: text("precautionsSummary") };
+  }
+  const hasLeafletContent = Object.values(draft.leaflet ?? {}).some(Boolean);
+  if (hasLeafletContent) {
     warnings.push("说明书识别仅作草稿，请对照原图核对文字和用法用量");
+  } else if (purpose === "leaflet") {
+    for (const field of FIELDS) draft[field] = null;
+    delete draft.populationTags;
+    draft.expiryValue = null;
+    draft.expiryPrecision = null;
+    warnings.push("未能识别说明书文字，可重拍或手动填写。");
+    return { draft, warnings, requiresConfirmation: true };
   }
   const rawExpiry = source.expiryValue;
   if (typeof rawExpiry === "string" && rawExpiry.trim() !== "") {

@@ -359,7 +359,41 @@ void main() {
           Navigator.of(tester.element(find.byType(AlertDialog))).pop();
         } else {
           if (mode == 'recognition-file-missing') {
-            await File(state.image.path as String).delete();
+            final path = state.image.path as String;
+            final preview = find.byWidgetPredicate(
+              (widget) =>
+                  widget is Image &&
+                  widget.width == 64 &&
+                  widget.height == 64 &&
+                  widget.image is FileImage &&
+                  (widget.image as FileImage).file.path == path,
+              skipOffstage: false,
+            );
+            expect(preview, findsOneWidget);
+            final frame = find.descendant(
+              of: preview,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is RawImage && widget.image != null,
+                skipOffstage: false,
+              ),
+              skipOffstage: false,
+            );
+            final timer = Stopwatch()..start();
+            var pumps = 0;
+            while (frame.evaluate().isEmpty &&
+                timer.elapsedMilliseconds < 3000 &&
+                pumps < 200) {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+              await tester.pump(const Duration(milliseconds: 10));
+              pumps++;
+            }
+            expect(frame, findsOneWidget, reason: '照片预览首帧未在限定时间内加载');
+            expect(requests, isEmpty);
+            expect(state.nameController.text, '');
+            expect(state.photoDrafts.length, 1);
+            expect(state.photoDrafts.single['state'], 'ready');
+            await File(path).delete();
+            expect(await File(path).exists(), isFalse);
           }
           await tester.tap(find.text('AI 识别').last);
         }
@@ -398,6 +432,10 @@ void main() {
           expect(state.recognitionFailure, isNull);
         } else {
           expect(find.textContaining(expected), findsOneWidget);
+        }
+        if (mode == 'recognition-file-missing') {
+          expect(state.recognitionFailure, isA<FileSystemException>());
+          expect(find.text('识别失败，可继续手动保存：无法读取本机照片，请重新选择或拍照。'), findsOneWidget);
         }
         expect(
           requests.length,
