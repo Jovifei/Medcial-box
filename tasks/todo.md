@@ -286,3 +286,12 @@ T3 首项回执见 [medbox-t3-m1-fix-20261117.md](../docs/product/medbox-t3-m1-f
 - [x] 预览二维码生成成功，自动预览推送成功。
 - [ ] 他人真实手机业务走查仍需体验成员权限、微信登录和实际设备证据。
 - [x] 本阶段不执行 Android/App、APK、签名、App 安装或 App 发布。
+
+### TRIAL-02 桥梁模式阶段小结（2026-11-25 21:3x，登记执行会话 local_ddfa55c8）
+
+- [x] 身份登记核实：本会话=bridge-executors.json Medcial-box 键（get_session self 直核）。
+- [x] 9ce0594（config.ts L3 线上域名，+2/-2）核实属实，不在 main、本 checkout 未含，合入即修复；合入等业主批准（小药箱群#125 口径）。
+- [x] 测试真基线复核：9ce0594 已提交树零脏复跑 789/789/0 全过（工单口径一致）；13:0x 回执「794/4 败系既有失败」不成立——差额与 4 败全部来自未提交 test/medicine-photo-review.test.mjs +44 行。
+- [x] 脏文件盘点：codex worktree 与主 checkout 各 3 处未提交改动（miniprogram 测试+44 同 blob、api 测试+29 两树 blob 不同、tasks/todo.md），来源不明早于本会话，未动，归属留业主。
+- [ ] 业主决策项：①9ce0594 合入主线批准；②未提交测试/改动归属处置；③TRIAL-02 挂起行处置口径。
+- [ ] hub 上报未完成：127.0.0.1:8765 连接拒绝（服务未运行），按约定不自动重试，恢复后补报。
