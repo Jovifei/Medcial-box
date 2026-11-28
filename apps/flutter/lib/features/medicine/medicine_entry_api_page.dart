@@ -27,7 +27,13 @@ import '../../models/medicine_models.dart';
 
 enum _ImageAction { camera, gallery }
 
-const _emptyLeafletMessage = '未能识别说明书文字，可重拍或手动填写。';
+const _emptyLeafletMessage = '说明书未提取，可重拍或手动填写。';
+const _legacyEmptyLeafletMessage = '未能识别说明书文字，可重拍或手动填写。';
+
+List<String> _emptyLeafletWarnings(Iterable<String> warnings) => {
+  _emptyLeafletMessage,
+  ...warnings.where((warning) => warning != _legacyEmptyLeafletMessage),
+}.toList();
 
 class _EmptyLeafletRecognition implements Exception {
   const _EmptyLeafletRecognition();
@@ -1401,10 +1407,7 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
         recognitionTimer?.cancel();
         final fields = _recognitionFields(draft);
         if (leafletPhoto && !_hasLeafletContent(fields)) {
-          final warnings = List<String>.of(draft.warnings);
-          if (!warnings.contains(_emptyLeafletMessage)) {
-            warnings.add(_emptyLeafletMessage);
-          }
+          final warnings = _emptyLeafletWarnings(draft.warnings);
           pendingPhoto['recognitionWarnings'] = warnings;
           recognitionWarnings = warnings;
           throw const _EmptyLeafletRecognition();
@@ -1922,12 +1925,11 @@ class _MedicineEntryApiPageState extends State<MedicineEntryApiPage> {
       if (!current()) return;
       final newFields = _recognitionFields(result);
       if (photo['purpose'] == 'leaflet' && !_hasLeafletContent(newFields)) {
-        final warnings = (photo['recognitionWarnings'] as List? ?? const [])
-            .whereType<String>()
-            .toList();
-        for (final warning in [...result.warnings, _emptyLeafletMessage]) {
-          if (!warnings.contains(warning)) warnings.add(warning);
-        }
+        final warnings = _emptyLeafletWarnings([
+          ...(photo['recognitionWarnings'] as List? ?? const [])
+              .whereType<String>(),
+          ...result.warnings,
+        ]);
         photo['recognitionWarnings'] = warnings;
         recognitionWarnings = warnings;
         throw const _EmptyLeafletRecognition();

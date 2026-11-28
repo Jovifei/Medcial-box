@@ -18,7 +18,9 @@ for (const [label, draft] of [
   }],
 ]) {
   test(`empty ${label} preserves manual values and does not create a source`, async () => {
-    const h = harness({ recognize: () => ({ draft, warnings: [], requiresConfirmation: true }) });
+    const h = harness({ recognize: () => ({
+      draft, warnings: ["未能识别说明书文字，可重拍或手动填写。", "合成提醒"], requiresConfirmation: true,
+    }) });
     h.a.data.name = "";
     h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工填写" } });
     h.a.onVerifiedChange({ detail: { value: true } });
@@ -26,7 +28,8 @@ for (const [label, draft] of [
     const [entry] = h.read();
     assert.equal(entry.photos[0].review.status, "failed");
     assert.deepEqual(entry.photos[0].review.fields, {});
-    assert.match(h.a.data.recognitionHint, /未能识别说明书/);
+    assert.equal(h.a.data.recognitionHint, "说明书未提取，可重拍或手动填写。；合成提醒");
+    assert.deepEqual(entry.photos[0].review.warnings, ["说明书未提取，可重拍或手动填写。", "合成提醒"]);
     assert.equal(h.a.data.name, "");
     assert.equal(h.a.data.brand, "");
     assert.equal(h.a.data.specification, "");
@@ -37,7 +40,10 @@ for (const [label, draft] of [
     assert.equal(h.a.data.verified, true);
     assert.equal(h.a.data.leafletSource, "");
     assert.equal(entry.fields.leafletSource, "");
+    h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "空结果后手填" } });
+    assert.equal(h.a.data.leafletUsage, "空结果后手填");
     assert.equal(h.calls.create, 0);
+    assert.equal(h.calls.update, 0);
     assert.equal(h.calls.upload, 0);
   });
 }
@@ -498,3 +504,43 @@ test("new medicine keeps exact recognition intent for retry when the API is old"
   assert.equal(pending.payload.photos[0].fields.name, "合成药");
   assert.equal(pending.payload.revision, 0);
 });
+
+for (const warning of [
+  "说明书未提取，可重拍或手动填写。",
+  "未能识别说明书文字，可重拍或手动填写。",
+]) {
+  test("reopening an empty leaflet draft restores its reason and manual text: " + warning, async () => {
+    const h = harness({ recognize: () => ({ draft: { leaflet: {} }, warnings: [], requiresConfirmation: true }) });
+    h.a.onFieldInput({ currentTarget: { dataset: { field: "leafletUsage" } }, detail: { value: "人工保留" } });
+    await capture(h.a, "leaflet");
+    const queue = h.read();
+    queue[0].photos[0].review.warnings = [warning];
+    h.seed(queue);
+    const reopened = h.page();
+    h.attach(reopened, queue, "");
+    reopened.onSelectPhotoDraft({ currentTarget: { dataset: { id: queue[0].id } } });
+    assert.equal(reopened.data.recognitionHint, "说明书未提取，可重拍或手动填写。");
+    assert.equal(reopened.data.leafletUsage, "人工保留");
+    assert.equal(h.calls.create, 0);
+    assert.equal(h.calls.update, 0);
+    assert.equal(h.calls.upload, 0);
+  });
+}
+
+for (const legacyCase of ["removed photo", "missing warnings"]) {
+  test("reopening ignores an empty leaflet reason from " + legacyCase, async () => {
+    const h = harness({ recognize: () => ({ draft: { leaflet: {} }, warnings: [], requiresConfirmation: true }) });
+    await capture(h.a, "leaflet");
+    const queue = h.read();
+    if (legacyCase === "removed photo") queue[0].photos[0].removed = true;
+    else delete queue[0].photos[0].review.warnings;
+    h.seed(queue);
+    const reopened = h.page();
+    h.attach(reopened, queue, "");
+    reopened.onSelectPhotoDraft({ currentTarget: { dataset: { id: queue[0].id } } });
+    assert.equal(reopened.data.recognitionHint, "已打开照片草稿，请核对后保存。");
+    assert.equal(h.calls.create, 0);
+    assert.equal(h.calls.update, 0);
+    assert.equal(h.calls.upload, 0);
+  });
+}

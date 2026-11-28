@@ -566,6 +566,11 @@
 .date-shift { min-width: 48px; min-height: 48px; height: auto; display: flex; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box; line-height: 1.4; font-size: 12px; border: 0; border-radius: 10px; }
 .date-current { flex: 1; min-width: 0; text-align: center; font-size: 15px; overflow-wrap: anywhere; }
 .date-context { font-size: 11px; font-weight: 400; color: var(--med-secondary, #636366); }
+@media (max-width: 420px) {
+  .date-row { flex-wrap: wrap; }
+  .date-current { order: -1; flex-basis: 100%; white-space: nowrap; }
+  .date-shift { flex: 1 1 0; }
+}
 .today-reset { min-height: 48px; display: flex; align-items: center; justify-content: center; color: var(--med-accent, #087f5b); font-size: 13px; margin-bottom: 8px; }
 .filter-row { display: flex; flex-wrap: wrap; gap: 8px; white-space: normal; }
 .filter-chip { min-height: 48px; margin: 0; box-sizing: border-box; padding: 8px 12px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
