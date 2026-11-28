@@ -1981,6 +1981,25 @@ Page({
       if (!operationCurrent()) return;
       const draft = result.draft;
       const recognizedFields = recognitionFields(draft, POPULATION_TAG_OPTIONS.map(item => item.kind), PURPOSE_TAG_OPTIONS.map(item => item.kind));
+      const warnings = result.warnings.filter((warning): warning is string => typeof warning === "string");
+      const latest = this.currentPhotoDraftQueue(id, photo?.path);
+      if (!latest) return;
+      const recognizedDraft = latest.find((entry) => entry.id === id);
+      const recognizedPhoto = recognizedDraft?.photos.find(item => item.path === photo?.path);
+      if (!recognizedDraft || !recognizedPhoto?.clientPhotoId) return;
+      if (purpose === "leaflet" && ![
+        recognizedFields.leafletText, recognizedFields.purposeSummary, recognizedFields.packageUsageSummary,
+        recognizedFields.contraindicationsSummary, recognizedFields.precautionsSummary,
+      ].some(Boolean)) {
+        if (!warnings.some(warning => warning.includes("未能识别说明书"))) {
+          warnings.push("未能识别说明书文字，可重拍或手动填写。");
+        }
+        recognizedPhoto.review = { status: "failed", fields: {}, warnings };
+        this.setData({ photoDrafts: this.visiblePhotoDrafts(latest), recognitionHint: warnings.join("；") });
+        this.setPhotoDraftStatus("review");
+        this.updateDirtyState();
+        return;
+      }
       const current = this.data as MedicineEditPageData;
       const targetIndex = current.batches.findIndex(batch => batchKey(batch) === ownerBatchKey);
       const first = current.batches[0];
@@ -1990,8 +2009,8 @@ Page({
         !this.isManuallyEdited(fieldPath) &&
         (this.touchedFields[fieldPath] ?? 0) === (touchedSnapshot[fieldPath] ?? 0);
       const fields: Record<string, unknown> = {
-        recognitionHint: result.warnings.length > 0
-          ? `识别完成，请逐项核对。${result.warnings.join("；")}`
+        recognitionHint: warnings.length > 0
+          ? `识别完成，请逐项核对。${warnings.join("；")}`
           : "识别完成，请对照包装核对后保存。有效期在另一面时可再拍一次。",
       };
       const recognitionSpecWillFill = untouched("specification") && current.specification.trim() === "" &&
@@ -2021,14 +2040,21 @@ Page({
         fields.populationChips = buildPopulationChips(recognizedFields.populationTags);
       }
       if (purpose === "leaflet" && draft.leaflet) {
-        if (untouched("leafletText") && current.leafletText.trim() === "") fields.leafletText = draft.leaflet.text ?? "";
+        const text = draft.leaflet.text;
+        if (untouched("leafletText") && current.leafletText.trim() === "" && typeof text === "string" && text.trim()) fields.leafletText = text;
         const mapping = { leafletPurpose: "purposeSummary", leafletUsage: "packageUsageSummary", leafletContraindications: "contraindicationsSummary", leafletPrecautions: "precautionsSummary" } as const;
+        let filledSummary = false;
         for (const field of Object.keys(mapping) as Array<keyof typeof mapping>) {
           const value = draft.leaflet[mapping[field]];
-          if (untouched(field) && current[field].trim() === "" && value) fields[field] = value;
+          if (untouched(field) && current[field].trim() === "" && typeof value === "string" && value.trim()) {
+            fields[field] = value;
+            filledSummary = true;
+          }
         }
-        if (untouched("leafletSource") && !current.leafletSource.trim()) fields.leafletSource = "包装内说明书照片（待核对）";
-        fields.verified = false;
+        if (filledSummary) {
+          if (untouched("leafletSource") && !current.leafletSource.trim()) fields.leafletSource = "包装内说明书照片（待核对）";
+          fields.verified = false;
+        }
       }
       // 批次结构必须与发起时一致（数量与稳定 id 逐一匹配），否则宁可跳过，
       // 也不能把晚到的识别结果写进被删除/新增后的另一个批次。
@@ -2047,13 +2073,7 @@ Page({
           fields[`batches[${targetIndex}].precisionIndex`] = PRECISION_VALUES.indexOf(draft.expiryPrecision);
         }
       }
-      const latest = this.currentPhotoDraftQueue(id, photo?.path);
-      if (!latest) return;
-      const recognizedDraft = latest.find((entry) => entry.id === id);
-      const recognizedPhoto = recognizedDraft?.photos.find(item => item.path === photo?.path);
-      if (!recognizedDraft || !recognizedPhoto?.clientPhotoId) return;
-      recognizedPhoto.review = { status: "recognized", fields: recognizedFields,
-        warnings: result.warnings.filter((warning): warning is string => typeof warning === "string") };
+      recognizedPhoto.review = { status: "recognized", fields: recognizedFields, warnings };
       const candidates = photoCandidates(recognizedDraft.photos);
       const sources = snapshot(current.fieldSources ?? {});
       const batchSources = snapshot(current.batchSources ?? []);

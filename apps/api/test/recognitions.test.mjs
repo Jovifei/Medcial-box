@@ -160,6 +160,62 @@ test("leaflet recognition retains visible text and filters suggested tags", asyn
   assert.equal(result.requiresConfirmation, true);
 });
 
+for (const [label, model, hasText] of [
+  ["missing leaflet", {}, false],
+  ["empty leaflet", { leaflet: {} }, false],
+  ["blank text", { leaflet: { text: "  " } }, false],
+  ["metadata without leaflet text", {
+    name: "合成药", brand: "合成品牌", specification: "合成规格", expiryValue: "2099-01-01",
+    populationTags: ["adult"], purposeTags: ["fever"], leaflet: { text: "  " },
+  }, false],
+  ["visible text", { leaflet: { text: "合成说明书原文" } }, true],
+]) {
+  test(`leaflet ${label} remains a confirmation draft without inventory writes`, async () => {
+    const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "test-model", "https://example.test",
+      async () => new globalThis.Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(model) } }] })));
+    const pool = createFakePool();
+    const app = await buildServer({ database: pool, logger: false, wechatGateway: gateway(), medicineRecognitionProvider: provider });
+    try {
+      const token = await login(app, pool, { membership: membershipRow() });
+      const response = await app.inject({ method: "POST", url: "/api/v1/recognitions/medicine",
+        headers: { authorization: `Bearer ${token}` }, payload: { imageBase64: jpg, mimeType: "image/jpeg", purpose: "leaflet" } });
+      assert.equal(response.statusCode, 200);
+      const result = response.json();
+      assert.equal(result.requiresConfirmation, true);
+      if (hasText) {
+        assert.equal(result.draft.leaflet.text, "合成说明书原文");
+        assert.doesNotMatch(result.warnings.join(" "), /未能识别说明书/);
+      } else {
+        assert.match(result.warnings.join(" "), /未能识别说明书/);
+        assert.equal(result.draft.name, null);
+        assert.equal(result.draft.brand, null);
+        assert.equal(result.draft.specification, null);
+        assert.equal(result.draft.expiryValue, null);
+        assert.deepEqual(result.draft.populationTags ?? [], []);
+        assert.deepEqual(result.draft.purposeTags ?? [], []);
+      }
+      assert.equal(pool.callsMatching(/INSERT INTO medicines|INSERT INTO medicine_batches/).length, 0);
+    } finally { await app.close(); }
+  });
+}
+
+for (const [label, content] of [["empty content", ""], ["blank content", "  "], ["null", "null"], ["array", "[]"], ["malformed JSON", "{"]]) {
+  test(`invalid leaflet ${label} is not accepted as a draft`, async () => {
+    const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "test-model", "https://example.test",
+      async () => new globalThis.Response(JSON.stringify({ choices: [{ message: { content } }] })));
+    const pool = createFakePool();
+    const app = await buildServer({ database: pool, logger: false, wechatGateway: gateway(), medicineRecognitionProvider: provider });
+    try {
+      const token = await login(app, pool, { membership: membershipRow() });
+      const response = await app.inject({ method: "POST", url: "/api/v1/recognitions/medicine",
+        headers: { authorization: `Bearer ${token}` }, payload: { imageBase64: jpg, mimeType: "image/jpeg", purpose: "leaflet" } });
+      assert.equal(response.statusCode, 503);
+      assert.equal(response.json().error.code, "RECOGNITION_UNAVAILABLE");
+      assert.equal(pool.callsMatching(/INSERT INTO medicines|INSERT INTO medicine_batches/).length, 0);
+    } finally { await app.close(); }
+  });
+}
+
 test("recognition purpose is validated and forwarded without storing a medicine", async () => {
   const pool = createFakePool();
   const purposes = [];
