@@ -25,7 +25,7 @@ function harness({ project, mutateNative, mockOverride, appId = 'touristappid', 
   const uiCalls = [];
   const native = {};
   for (const name of dangerous) native[name] = () => { counts[name] = (counts[name] ?? 0) + 1; throw new Error('ORIGINAL MUST NEVER RUN: ' + name); };
-  native.cloud = new Proxy({}, { get() { counts.cloud = (counts.cloud ?? 0) + 1; throw new Error('ORIGINAL CLOUD'); } });
+  Object.defineProperty(native, 'cloud', { get() { counts.cloud = (counts.cloud ?? 0) + 1; throw new Error('ORIGINAL CLOUD'); } });
   native.getSystemInfoSync = () => ({ platform: 'devtools' });
   native.getAccountInfoSync = () => ({ miniProgram: { appId: nativeAppId, envVersion: 'develop' } });
   for (const name of uiNames) native[name] = options => { uiCalls.push({ name, options }); if (name === 'showModal') options.success?.({ confirm: true, cancel: false }); if (name === 'showActionSheet') options.success?.({ tapIndex: 0 }); };
@@ -147,13 +147,64 @@ test('exact origin, method, normalized route and denied network/unknown API stop
   const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.request({ url: 'http://127.0.0.1:43187/api/v1/auth/me', method: 'POST' }), /QA STOPPED/); assertNoOriginals(h);
 });
 
-test('non-synthetic file path, cloud API and unverified hook installation are fail-closed', () => {
+test('non-synthetic file path, unknown cloud API and unverified hook installation are fail-closed', () => {
   for (const file of ['/real/photo.jpg', '/__qa_memory__/self-test/../private', '/__qa_memory__/self-test/a%2fb']) {
     const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.getFileSystemManager().readFileSync(file, 'base64'), /QA STOPPED/); assertNoOriginals(h);
   }
-  const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.cloud.callFunction(), /unknown cloud/); assertNoOriginals(h);
+  const h = harness(); h.install(); assert.throws(() => h.runtime.bindings().wx.cloud.uploadFile(), /unknown cloud/); assertNoOriginals(h);
   const bad = harness({ mutateNative: native => { delete native.showModal; } });
   assert.throws(() => bad.install(), /unverifiable native UI hook/); assert.throws(() => bad.runtime.bindings(), /before every product module/); assertNoOriginals(bad);
+});
+
+const cloudOptions = () => ({ name: 'aiRelay', data: { model: 'deepseek-v4.1-flash', messages: [{ role: 'user', content: 'QA 合成资料' }] } });
+test('cloud init and aiRelay are synthetic, and injected failure can be retried without original cloud access', async () => {
+  const h = harness(); h.install(); const bindings = h.runtime.bindings(); bindings.App({});
+  bindings.wx.cloud.init({ env: 'yaoxiagn-d2goac4i31a1c8485', traceUser: true });
+  h.app.qa.failNext('cloud.callFunction', 'synthetic failure');
+  await assert.rejects(bindings.wx.cloud.callFunction(cloudOptions()), error => /synthetic failure/.test(error.errMsg));
+  const response = await bindings.wx.cloud.callFunction(cloudOptions());
+  assert.equal(response.result.success, true); assert.equal(response.result.text, 'QA 合成摘要，仅供测试。');
+  assert.ok(!JSON.stringify(h.app.qa.summary()).includes('QA 合成资料'));
+  assertNoOriginals(h);
+});
+
+test('cloud rejects unknown environment, function, model, messages, reflection and rebinding', () => {
+  const attacks = [
+    wx => wx.cloud.init({ env: 'other', traceUser: true }),
+    wx => wx.cloud.callFunction({ ...cloudOptions(), name: 'other' }),
+    wx => wx.cloud.callFunction({ name: 'aiRelay', data: { ...cloudOptions().data, model: 'other' } }),
+    wx => wx.cloud.callFunction({ name: 'aiRelay', data: { ...cloudOptions().data, messages: [{ role: 'tool', content: 'QA' }] } }),
+    wx => wx.cloud.callFunction({ name: 'aiRelay', data: { ...cloudOptions().data, messages: [{ role: 'user', content: 'x'.repeat(4001) }] } }),
+    wx => wx.cloud['uploadFile'](),
+    wx => Object.getPrototypeOf(wx.cloud),
+    wx => Object.getOwnPropertyDescriptor(wx.cloud, 'init'),
+    wx => wx.cloud.init['con' + 'structor'],
+    wx => wx.cloud.callFunction.constructor,
+    wx => Object.getPrototypeOf(wx.cloud.init),
+    wx => Object.getOwnPropertyDescriptor(wx.cloud.callFunction, 'name'),
+    wx => Reflect.ownKeys(wx.cloud.init),
+    wx => { wx.cloud.callFunction.extra = 1; },
+    wx => Object.setPrototypeOf(wx.cloud.init, null),
+    wx => { wx.cloud.init = () => {}; },
+    wx => { wx.cloud = {}; },
+  ];
+  for (const attack of attacks) {
+    const h = harness(); h.install(); assert.throws(() => attack(h.runtime.bindings().wx), /QA STOPPED/);
+    assert.throws(() => h.runtime.bindings(), /QA STOPPED/); assertNoOriginals(h);
+  }
+});
+
+test('cloud alias and computed method escapes are statically rejected and native sentinels stay untouched', () => {
+  for (const source of [
+    'let c; c = wx.cloud; c.uploadFile({});',
+    'const c = wx.cloud || {}; c.uploadFile({});',
+    'wx.cloud.init["con"+"structor"]("return wx")().request({});',
+  ]) {
+    assert.throws(() => inventorySource(source, 'services/ai-api.ts'), /cloud.*(review|access)/);
+    const h = harness(); h.install();
+    assert.throws(() => vm.runInNewContext(source, { wx: h.runtime.bindings().wx }), /QA STOPPED/);
+    assert.throws(() => h.runtime.bindings(), /QA STOPPED/); assertNoOriginals(h);
+  }
 });
 
 test('reviewed page scrolling remains a UI-only hook and missing support fails closed', () => {
@@ -202,6 +253,11 @@ test('AST inventory includes cast aliases and rejects dynamic/ambient escape', (
   assert.throws(() => inventorySource('globalThis.wx.request({})', 'x.ts'), /ambient escape/);
   assert.throws(() => assertReviewedInventory(inventorySource('wx.arrayBufferToBase64(new ArrayBuffer(1))', 'new.ts'), 'new.ts'), /unreviewed wx API/);
   assert.throws(() => assertReviewedInventory(inventorySource('wx.getFileSystemManager().stat({})', 'new.ts'), 'new.ts'), /unreviewed filesystem API/);
+  assert.doesNotThrow(() => assertReviewedInventory(inventorySource('const cloud = typeof wx !== "undefined" ? (wx as unknown as A).cloud : undefined; cloud.init({}); cloud.callFunction({});', 'services/ai-api.ts'), 'services/ai-api.ts'));
+  for (const source of ['wx.cloud[method]()', 'const cloud = wx.cloud; cloud[method]()', 'const { init } = wx.cloud;', 'wx.cloud.uploadFile()', 'wx.cloud.init.constructor()']) {
+    assert.throws(() => inventorySource(source, 'services/ai-api.ts'), /dynamic|destructured|unreviewed cloud|reflection|constructor/);
+  }
+  assert.throws(() => inventorySource('wx.cloud.init({})', 'new.ts'), /unreviewed cloud/);
 });
 
 test('reviewed components are exact local dependencies and Component stays file-scoped', () => {

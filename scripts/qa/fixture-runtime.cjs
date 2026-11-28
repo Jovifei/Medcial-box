@@ -60,11 +60,15 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
     if (typeof name !== 'string' || !name.startsWith(root + '/') || !/^[a-zA-Z0-9_./-]+$/.test(name) || name.includes('//') || name.split('/').some(s => s === '.' || s === '..')) stop('non-synthetic file path');
     return name;
   };
-  const protect = (target, label) => new Proxy(Object.freeze(target), {
+  const protect = (target, label, denyReflection = false) => new Proxy(Object.freeze(target), {
     get(object, key) { alive(); if (typeof key === 'symbol') return Reflect.get(object, key); if (!Object.prototype.hasOwnProperty.call(object, key)) return stop('unknown ' + label + '.' + key); return object[key]; },
     set() { return stop('QA hooks are immutable'); },
     defineProperty() { return stop('QA hooks are immutable'); },
     deleteProperty() { return stop('QA hooks are immutable'); },
+    getPrototypeOf(object) { if (denyReflection) return stop('QA cloud reflection blocked'); return Reflect.getPrototypeOf(object); },
+    setPrototypeOf() { return stop('QA hooks are immutable'); },
+    getOwnPropertyDescriptor(object, key) { if (denyReflection) return stop('QA cloud reflection blocked'); return Reflect.getOwnPropertyDescriptor(object, key); },
+    ownKeys(object) { if (denyReflection) return stop('QA cloud reflection blocked'); return Reflect.ownKeys(object); },
   });
   function asyncCall(name, options = {}, operation) {
     alive();
@@ -168,7 +172,37 @@ function install(native, config, nativeApp, nativePage, nativeComponent) {
   api.batchSetStorage = options => asyncCall('batchSetStorage', options, () => { api.batchSetStorageSync(options.dataList); return {}; });
   const blocked = ['uploadFile', 'connectSocket', 'sendSocketMessage', 'closeSocket', 'onSocketOpen', 'onSocketMessage', 'onSocketError', 'onSocketClose', 'createTCPSocket', 'createUDPSocket', 'chooseImage', 'chooseMessageFile', 'shareFileMessage', 'setClipboardData', 'getClipboardData', 'requestSubscribeMessage', 'saveFile', 'getSavedFileList', 'removeSavedFile', 'openDocument', 'saveImageToPhotosAlbum', 'shareAppMessage', 'showShareMenu'];
   for (const name of blocked) api[name] = () => stop('blocked wx.' + name);
-  api.cloud = protect({}, 'cloud');
+  const onlyKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+  const cloudMethod = method => new Proxy(method, {
+    apply(target, receiver, args) { alive(); return Reflect.apply(target, receiver, args); },
+    get() { return stop('QA cloud method access blocked'); },
+    set() { return stop('QA cloud method access blocked'); },
+    defineProperty() { return stop('QA cloud method access blocked'); },
+    deleteProperty() { return stop('QA cloud method access blocked'); },
+    getPrototypeOf() { return stop('QA cloud method reflection blocked'); },
+    setPrototypeOf() { return stop('QA cloud method reflection blocked'); },
+    getOwnPropertyDescriptor() { return stop('QA cloud method reflection blocked'); },
+    ownKeys() { return stop('QA cloud method reflection blocked'); },
+    preventExtensions() { return stop('QA cloud method reflection blocked'); },
+    isExtensible() { return stop('QA cloud method reflection blocked'); },
+  });
+  api.cloud = protect({
+    init: cloudMethod(sync('cloud.init', options => {
+      if (!onlyKeys(options, ['env', 'traceUser']) || options.env !== 'yaoxiagn-d2goac4i31a1c8485' || options.traceUser !== true) stop('QA cloud init denied');
+    })),
+    callFunction: cloudMethod(function (options) {
+      alive();
+      if (!onlyKeys(options, ['name', 'data']) || options.name !== 'aiRelay' || !onlyKeys(options.data, ['model', 'messages']) ||
+          !['deepseek-v4.1-flash', 'deepseek-v4.1-flash-1017', 'hy3', 'hy4', 'hy4-preview'].includes(options.data.model) ||
+          !Array.isArray(options.data.messages) || options.data.messages.length < 1 || options.data.messages.length > 20 ||
+          !options.data.messages.some(message => message?.role === 'user') ||
+          options.data.messages.some(message => !onlyKeys(message, ['role', 'content']) ||
+            !['system', 'user', 'assistant'].includes(message.role) || typeof message.content !== 'string' ||
+            !message.content.trim() || message.content.length > 4000)) stop('QA cloud function denied');
+      return asyncCall('cloud.callFunction', {}, () => ({ result: { success: true, text: 'QA 合成摘要，仅供测试。' } }));
+    }),
+  }, 'cloud', true);
   function request(options, download) {
     alive();
     const method = download ? 'GET' : options.method ?? 'GET';
