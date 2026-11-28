@@ -233,7 +233,7 @@ void main() {
       await Scrollable.ensureVisible(tester.element(failure), alignment: 0.3);
       await tester.pumpAndSettle();
       expect(find.text(failureText), findsOneWidget);
-      expect(find.textContaining('未能识别说明书', skipOffstage: false), findsNothing);
+      expect(find.textContaining('说明书未提取', skipOffstage: false), findsNothing);
       final saved = (await queue.list()).single;
       expect(saved['leaflet']['purposeSummary'], '人工保留');
       expect(

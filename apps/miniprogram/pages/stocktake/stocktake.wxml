@@ -16,7 +16,7 @@
     <view class="card session-card"><view class="section-title">本次盘点</view><view class="hint">开始时间：{{stocktake.startedAt}}</view></view>
     <view class="card stocktake-item" wx:for="{{items}}" wx:key="batchId" wx:for-item="item" wx:for-index="index">
       <view class="medicine-name">{{item.medicineName}}</view>
-      <view class="hint">当前记录：{{item.quantity === null ? '数量未知' : item.quantity + item.unit}} · 按本批次核对</view>
+      <view class="hint">当前记录：{{item.quantity === null ? '数量未知' : item.quantity + item.unitLabel}} · 按本批次核对</view>
       <view class="result-warning" wx:if="{{item.resultLabel}}">{{item.resultLabel}}</view>
       <view class="field">
         <view class="field-label">核对结果</view>
@@ -29,7 +29,7 @@
       </view>
       <view class="outcome-note">{{item.outcome === 'deferred' ? '本批次暂不核对，原记录不会变化。' : item.outcome === 'unchanged' ? '已核对实物，余量与原记录一致。' : item.outcome === 'adjusted' ? '保存后以填写的实际余量更新记录。' : '保存后该批次余量记为 0。'}}</view>
     </view>
-    <view class="btn btn-primary" bindtap="onSubmit">{{submitting ? "保存中…" : "保存并完成盘点"}}</view>
+    <view class="btn btn-primary {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">{{submitting ? "保存中…" : "保存并完成盘点"}}</view>
   </view>
 </view>
 

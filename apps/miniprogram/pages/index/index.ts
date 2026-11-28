@@ -2,10 +2,10 @@ import { api, ApiError, readToken, captureSessionIdentity, isCurrentSession } fr
 import { scopedStorageKey } from "../../services/session-scope";
 import { ensureLoggedIn } from "../../services/auth";
 import { PURPOSE_TAG_OPTIONS, purposeCategoryLabel } from "../../services/medicine-tags";
+import { quantityUnitShort } from "../../services/quantity-units";
 import type {
   ExpiryState,
   MedicationSummary,
-  QuantityUnit,
   PendingNotificationSummary,
 } from "../../services/api-types";
 
@@ -17,6 +17,10 @@ interface CabinetItem {
   purpose: string;
   quantityText: string;
   expiryText: string;
+  /** 已知管理截止日期；空串表示未知，模板改用 expiryText 文案。 */
+  expiryDate: string;
+  /** 开封期优先时的附注文案；无则空串。 */
+  expirySuffix: string;
   state: ExpiryState;
   stateClass: string;
   stateLabel: string;
@@ -51,17 +55,6 @@ interface CabinetItem {
 
 type CabinetFilter = "all" | "expiring" | "low" | "missing" | "expired" | "opened" | "archived" | "unknown" | "exhausted" | "pending";
 
-const UNIT_SHORT: Record<QuantityUnit, string> = {
-  tablet: "片",
-  capsule: "粒",
-  sachet: "袋",
-  bottle: "瓶",
-  tube: "支",
-  box: "盒",
-  blister: "板",
-  ml: "毫升",
-  other: "份",
-};
 
 function quantitySummary(medicine: MedicationSummary): string {
   // B23：卡片数量摘要只统计当前在库批次，已处置（handled）历史不再显示。
@@ -71,10 +64,10 @@ function quantitySummary(medicine: MedicationSummary): string {
   }
   const parts = inCabinet.map((batch) => {
     if (batch.quantity === null) return "数量未知";
-    if (batch.quantity === 0) return "已耗尽";
-    return `${batch.quantity}${UNIT_SHORT[batch.unit] ?? "份"}`;
+    if (batch.quantity === 0) return "已用完";
+    return `${batch.quantity}${quantityUnitShort(batch.unit)}`;
   });
-  return `数量：${parts.join(" / ")}`;
+  return parts.join(" / ");
 }
 
 function purposeText(medicine: MedicationSummary): string {
@@ -108,7 +101,8 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
       const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
       sortDate = `${date}-${String(lastDay).padStart(2, "0")}`;
     }
-    return [{ date, sortDate, source: batch.managementExpirySource ?? null }];
+    return [{ date, sortDate, source: batch.managementExpirySource ?? null,
+      precision: batch.managementExpiryDate !== undefined ? "day" : batch.expiry.precision }];
   });
   dateRecords.sort((left, right) => left.sortDate.localeCompare(right.sortDate));
   const stateLabels: Record<ExpiryState, string> = {
@@ -142,6 +136,11 @@ function toCabinetItem(medicine: MedicationSummary): CabinetItem {
     expiryText: dateRecords.length > 0
       ? (dateRecords[0].source === "opened" ? `截止：${dateRecords[0].date}（开封期优先）` : `截止：${dateRecords[0].date}`)
       : medicine.expiryState?.label ?? "有效期未知",
+    // T3 第二项：日期单独成段并禁止断行，避免 320 宽 / 200% 字号下日期逐段拆行。
+    expiryDate: dateRecords.length > 0 ? dateRecords[0].date : "",
+    expirySuffix: dateRecords.length > 0
+      ? `${dateRecords[0].source === "opened" ? "（开封期优先）" : ""}${dateRecords[0].precision === "month" ? "（按包装月份）" : ""}`
+      : "",
     state,
     stateClass: state === "due_this_month" ? "due" : state === "expiring_soon" ? "soon" : state,
     stateLabel: stateLabels[state],
@@ -221,6 +220,8 @@ interface IndexPageData {
   allItems: CabinetItem[];
   loading: boolean;
   errorMessage: string;
+  /** 刷新失败但仍在展示上次读取的库存（M1：不清空已加载列表）。 */
+  errorStale: boolean;
   highlightedId: string;
   savedMessage: string;
   filterPanel: string;
@@ -263,6 +264,7 @@ Page({
     allItems: [] as CabinetItem[],
     loading: true,
     errorMessage: "",
+    errorStale: false,
     highlightedId: "",
     savedMessage: "",
     filterPanel: "",
@@ -293,7 +295,7 @@ Page({
     ++this.coverToken;
     this.coverCacheOwner = "";
     this.coverCache = null;
-    this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "", loading: true,
+    this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "", errorStale: false, loading: true,
       highlightedId: "", savedMessage: "",
       expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
       attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
@@ -302,17 +304,19 @@ Page({
   async refresh(): Promise<void> {
     const seq = ++this.refreshSeq;
     ++this.coverToken; // 新列表必须使上一轮封面下载失效。
-    this.setData({ loading: true, errorMessage: "" });
+    this.setData({ loading: true, errorMessage: "", errorStale: false });
     let identity = captureSessionIdentity();
     const shown = this.displayedIdentity;
     if (shown === null || shown.generation !== identity.generation || shown.token !== identity.token) {
       this.displayedIdentity = identity;
       this.coverCacheOwner = "";
       this.coverCache = null;
-      this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "",
+      this.setData({ allItems: [], items: [], cabinetCount: 0, familyName: "", errorMessage: "", errorStale: false,
         expiredCount: 0, expiringCount: 0, lowStockCount: 0, missingInfoCount: 0, pendingCount: 0,
         attentionMedicineCount: 0, attentionMedicineIds: [], attentionStocktake: false, attentionUnavailable: false });
     }
+    // M1：刷新失败时若已有当前家庭的列表，保留旧库存并提示，不清空展示。
+    const retainedList = (this.data as IndexPageData).allItems.length > 0;
     const current = (): boolean => seq === this.refreshSeq && isCurrentSession(identity);
     if (readToken() === "") {
       if (current() && !this.redirecting) {
@@ -345,7 +349,7 @@ Page({
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
-      this.showUnavailable(error);
+      this.showUnavailable(error, retainedList);
       return;
     }
     if (!current()) return;
@@ -396,7 +400,7 @@ Page({
         wx.reLaunch({ url: "/pages/family-entry/family-entry" });
         return;
       }
-      this.showUnavailable(error);
+      this.showUnavailable(error, retainedList);
     }
   },
 
@@ -410,7 +414,7 @@ Page({
       if (state === "expired") expiredCount += 1;
       else if (state === "due_this_month" || state === "expiring_soon") expiringCount += 1;
     }
-    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, loading: false, errorMessage: "", stageLabel: "药箱首页" });
+    this.setData({ isExample: false, familyName, allItems, expiredCount, expiringCount, loading: false, errorMessage: "", errorStale: false, stageLabel: "药箱首页" });
     const lowStockCount = currentItems.filter((item) => item.stockState === "low" || item.stockState === "exhausted" || item.isExhausted).length;
     const missingInfoCount = currentItems.filter((item) => item.needsInfo).length;
     this.setData({
@@ -491,8 +495,18 @@ Page({
     this.applyFilter();
   },
 
-  showUnavailable(error: unknown): void {
+  showUnavailable(error: unknown, retainLoadedList = false): void {
     const message = error instanceof ApiError ? error.message : "服务暂时不可用，请稍后重试";
+    // M1：已加载过当前家庭的库存时，刷新失败只降级提示；旧列表与计数保持可读。
+    if (retainLoadedList && (this.data as IndexPageData).allItems.length > 0) {
+      this.setData({
+        stageLabel: "暂时无法更新",
+        loading: false,
+        errorStale: true,
+        errorMessage: message,
+      });
+      return;
+    }
     this.setData({
       stageLabel: "暂时无法连接",
       loading: false,
@@ -511,6 +525,7 @@ Page({
       attentionStocktake: false,
       attentionUnavailable: false,
       errorMessage: message,
+      errorStale: false,
     });
   },
 

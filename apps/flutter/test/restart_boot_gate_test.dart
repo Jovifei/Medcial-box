@@ -5,7 +5,8 @@ import 'package:home_medicine_flutter/features/medicine/medicine_entry_api_page.
 import 'package:home_medicine_flutter/data/medicine_draft_queue.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction, CupertinoListTile, CupertinoNavigationBarBackButton;
+import 'package:flutter/cupertino.dart'
+    show CupertinoDialogAction, CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -21,6 +22,7 @@ import 'package:home_medicine_flutter/data/private_atomic_state.dart';
 import 'package:home_medicine_flutter/data/session_identity_state.dart';
 import 'package:home_medicine_flutter/features/auth/device_link_page.dart';
 import 'package:home_medicine_flutter/features/home/production_shell.dart';
+import 'package:home_medicine_flutter/core/widgets/apple_list_row.dart';
 import 'package:home_medicine_flutter/features/my/my_page.dart';
 import 'package:home_medicine_flutter/features/plan/plan_detail_page.dart';
 import 'package:home_medicine_flutter/features/plan/plan_form_page.dart';
@@ -353,13 +355,23 @@ void main() {
       await tester.tap(find.text('用药的人'));
       await _pump(tester);
       expect(find.text('照护对象与权限'), findsOneWidget);
-      expect(f.requests.any((request) => request.url.path == '/api/v1/care-profiles'), isTrue);
+      expect(
+        f.requests.any(
+          (request) => request.url.path == '/api/v1/care-profiles',
+        ),
+        isTrue,
+      );
       GoRouter.of(tester.element(find.text('照护对象与权限'))).pop();
       await _pump(tester);
       await tester.ensureVisible(find.text('补货清单'));
       await tester.tap(find.text('补货清单'));
       await _pump(tester);
-      expect(f.requests.any((request) => request.url.path == '/api/v1/families/restock'), isTrue);
+      expect(
+        f.requests.any(
+          (request) => request.url.path == '/api/v1/families/restock',
+        ),
+        isTrue,
+      );
       GoRouter.of(tester.element(find.text('补货清单'))).pop();
       await _pump(tester);
       await tester.ensureVisible(find.text('Android 本地通知'));
@@ -371,35 +383,83 @@ void main() {
   );
 
   testWidgets(
-    'home keeps filters in a nav-bar sheet instead of flat chips',
+    'family shortcut returns a scrolled My page to the family group',
     (tester) async {
       final f = _Fixture();
       await f.accepted();
       await f.cache();
       await _mount(tester, f);
-      // 首页不再平铺筛选胶囊，整行留给列表内容。
-      expect(find.text('状态 ▾'), findsNothing);
-      expect(find.text('用途 ▾'), findsNothing);
-      await tester.tap(find.byTooltip('筛选与排序'));
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      final router = GoRouter.of(tester.element(find.byType(ProductionShell)));
+      router.go('/home?tab=my');
       await _pump(tester);
-      // 弹层内按 iOS 分组呈现，四类条件都在。
-      expect(find.text('筛选与排序'), findsOneWidget);
-      expect(find.text('状态'), findsOneWidget);
-      // 分组顺序在下方，允许在滚动区外。
-      expect(find.text('用途', skipOffstage: false), findsWidgets);
-      expect(find.text('人群', skipOffstage: false), findsWidgets);
-      expect(find.text('排序', skipOffstage: false), findsWidgets);
-      await tester.tap(find.widgetWithText(CupertinoListTile, '临期/过期'));
+      await tester.scrollUntilVisible(
+        find.text('版本与更新'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byType(MyPage),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await _pump(tester);
-      await tester.tap(find.text('完成'));
+      router.go('/home');
       await _pump(tester);
-      expect(find.text('筛选与排序'), findsNothing);
+      await tester.tap(find.widgetWithText(TextButton, 'Synthetic family A'));
+      await _pump(tester);
+      final familyGroup = find.widgetWithText(
+        AppleListRow,
+        'Synthetic family A',
+      );
+      expect(familyGroup, findsOneWidget);
+      expect(tester.getTopLeft(familyGroup).dy, inInclusiveRange(0, 220));
+      await tester.scrollUntilVisible(
+        find.text('已归档药品'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byType(MyPage),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await _pump(tester);
+      await tester.tap(find.text('已归档药品'));
+      await _pump(tester);
+      expect(find.text('暂无已归档药品'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
     },
   );
 
+  testWidgets('home keeps filters in a nav-bar sheet instead of flat chips', (
+    tester,
+  ) async {
+    final f = _Fixture();
+    await f.accepted();
+    await f.cache();
+    await _mount(tester, f);
+    // 首页不再平铺筛选胶囊，整行留给列表内容。
+    expect(find.text('状态 ▾'), findsNothing);
+    expect(find.text('用途 ▾'), findsNothing);
+    await tester.tap(find.byTooltip('筛选与排序'));
+    await _pump(tester);
+    // 弹层内按 iOS 分组呈现，四类条件都在。
+    expect(find.text('筛选与排序'), findsOneWidget);
+    expect(find.text('状态'), findsOneWidget);
+    // 分组顺序在下方，允许在滚动区外。
+    expect(find.text('用途', skipOffstage: false), findsWidgets);
+    expect(find.text('人群', skipOffstage: false), findsWidgets);
+    expect(find.text('排序', skipOffstage: false), findsWidgets);
+    await tester.tap(find.widgetWithText(AppleListRow, '临期/过期'));
+    await _pump(tester);
+    await tester.tap(find.text('完成'));
+    await _pump(tester);
+    expect(find.text('筛选与排序'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 
   testWidgets(
     'home attention count and status filters keep unknown stock separate',
@@ -439,7 +499,7 @@ void main() {
       expect(find.text('需关注 2 种'), findsOneWidget);
       await tester.tap(find.byTooltip('筛选与排序'));
       await _pump(tester);
-      await tester.tap(find.widgetWithText(CupertinoListTile, '库存不足'));
+      await tester.tap(find.widgetWithText(AppleListRow, '库存不足'));
       await _pump(tester);
       await tester.tap(find.text('完成'));
       await _pump(tester);
@@ -448,7 +508,7 @@ void main() {
       expect(find.text('数量未知'), findsNothing);
       await tester.tap(find.byTooltip('筛选与排序'));
       await _pump(tester);
-      await tester.tap(find.widgetWithText(CupertinoListTile, '待补资料'));
+      await tester.tap(find.widgetWithText(AppleListRow, '待补资料'));
       await _pump(tester);
       await tester.tap(find.text('完成'));
       await _pump(tester);
@@ -457,7 +517,7 @@ void main() {
       expect(find.text('低库存'), findsNothing);
       await tester.tap(find.byTooltip('筛选与排序'));
       await _pump(tester);
-      await tester.tap(find.widgetWithText(CupertinoListTile, '数量/日期未知'));
+      await tester.tap(find.widgetWithText(AppleListRow, '数量/日期未知'));
       await _pump(tester);
       await tester.tap(find.text('完成'));
       await _pump(tester);

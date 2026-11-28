@@ -16,7 +16,7 @@
 
   <view class="search-box">
     <view class="search-icon" aria-hidden="true"><view class="search-lens"></view></view>
-    <input class="search-input" placeholder="搜索药名、成分、厂家或位置" value="{{keyword}}"
+    <input class="search-input" placeholder="搜索药名或位置" value="{{keyword}}"
       bindinput="onSearchInput" confirm-type="search" />
     <view class="clear-search" wx:if="{{keyword !== ''}}" bindtap="onClearSearch" aria-role="button" aria-label="清除搜索关键词">清除</view>
   </view>
@@ -56,8 +56,9 @@
   <view class="filter-summary" wx:if="{{hasActiveFilters}}"><view class="hint">{{filterSummary}}</view><view class="inline-action" bindtap="onClearFilters" aria-role="button">重置筛选</view></view>
   <view class="card" wx:if="{{savedMessage}}"><view class="hint">{{savedMessage}}</view><view class="btn btn-ghost" bindtap="onViewSaved">查看刚保存的药品</view></view>
   <view class="card error-card" wx:if="{{errorMessage !== ''}}">
-    <view class="section-title">暂时无法加载药箱</view>
+    <view class="section-title">{{errorStale ? '暂时无法更新药箱' : '暂时无法加载药箱'}}</view>
     <view class="hint">{{errorMessage}}</view>
+    <view class="hint" wx:if="{{errorStale}}">正在显示上次读取的库存；可以继续查看，恢复连接后重试。</view>
     <view class="btn btn-ghost retry-btn" bindtap="onRetry">重新连接</view>
   </view>
 
@@ -98,7 +99,8 @@
       <view class="summary-divider"></view>
       <view class="summary-metric">
         <text class="summary-label">效期</text>
-        <text class="expiry-line">{{item.expiryText}}</text>
+        <text class="expiry-line" wx:if="{{item.expiryDate !== ''}}">截止：<text class="expiry-date">{{item.expiryDate}}</text>{{item.expirySuffix}}</text>
+        <text class="expiry-line" wx:else>{{item.expiryText}}</text>
       </view>
     </view>
     <view class="tag-row" wx:if="{{item.displayTags.length > 0}}">

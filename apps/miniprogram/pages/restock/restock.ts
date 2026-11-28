@@ -1,4 +1,5 @@
 import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
+import { quantityUnitShort } from "../../services/quantity-units";
 import { ensureLoggedIn } from "../../services/auth";
 import type { RestockItemSummary, RestockStatus } from "../../services/api-types";
 
@@ -38,9 +39,8 @@ Page({
       const result = await api.listRestockItems();
       if (!current()) return;
       const labels: Record<RestockStatus, string> = { needed: "待购买", purchased: "已购买", dismissed: "已取消" };
-      const units: Record<string, string> = { tablet: "片", capsule: "粒", sachet: "袋", bottle: "瓶", tube: "支", box: "盒", other: "份" };
       this.setData({ items: result.items.map((item) => ({ ...item, statusLabel: labels[item.status],
-        quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${units[item.unit] ?? "份"}` })) });
+        quantityLabel: item.desiredQuantity === null ? "数量待定" : `目标 ${item.desiredQuantity}${quantityUnitShort(item.unit)}` })) });
     } catch (error) {
       if (!acceptFailure(error)) return;
       if (error instanceof ApiError && (error.statusCode === 401 || error.code === "UNAUTHENTICATED")) {

@@ -1,3 +1,4 @@
+import { initAiCloud } from "./services/ai-api";
 import { showReleaseNotesIfNeeded, watchForUpdates } from "./services/app-update";
 
 App<IAppOption>({
@@ -5,6 +6,8 @@ App<IAppOption>({
     stage: "P2-family-trial",
   },
   onLaunch() {
+    // 云开发 AI 入口：不支持云开发的环境（如 QA 沙盒）会静默跳过，不影响现有功能。
+    initAiCloud();
     // 默认关闭移动端 vConsole 调试球，避免遮挡界面内容；可在"我的 → 版本与更新"连击 5 次按需唤起
     if (typeof wx.setEnableDebug === "function") {
       try {

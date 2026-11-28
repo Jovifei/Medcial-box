@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../data/api_workflow_repository.dart';
@@ -208,7 +209,7 @@ class _StocktakePageState extends State<StocktakePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('批次盘点')),
+    appBar: appleAppBar('批次盘点'),
     bottomNavigationBar: SafeArea(
       minimum: const EdgeInsets.fromLTRB(16, 8, 18, 10),
       child: Column(

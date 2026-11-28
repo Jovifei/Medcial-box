@@ -1991,11 +1991,11 @@ Page({
         recognizedFields.leafletText, recognizedFields.purposeSummary, recognizedFields.packageUsageSummary,
         recognizedFields.contraindicationsSummary, recognizedFields.precautionsSummary,
       ].some(Boolean)) {
-        if (!warnings.some(warning => warning.includes("未能识别说明书"))) {
-          warnings.push("未能识别说明书文字，可重拍或手动填写。");
-        }
-        recognizedPhoto.review = { status: "failed", fields: {}, warnings };
-        this.setData({ photoDrafts: this.visiblePhotoDrafts(latest), recognitionHint: warnings.join("；") });
+        const hint = "说明书未提取，可重拍或手动填写。";
+        const reviewWarnings = [hint, ...warnings.filter(warning =>
+          warning !== hint && warning !== "未能识别说明书文字，可重拍或手动填写。")];
+        recognizedPhoto.review = { status: "failed", fields: {}, warnings: reviewWarnings };
+        this.setData({ photoDrafts: this.visiblePhotoDrafts(latest), recognitionHint: reviewWarnings.join("；") });
         this.setPhotoDraftStatus("review");
         this.updateDirtyState();
         return;
@@ -2519,9 +2519,13 @@ Page({
     if (!this.persistPhotoDrafts() && this.data.activePhotoDraftId) return;
     this.recognitionToken += 1;
     const incomplete = entry.photos.some((photo) => photo.ownedLocal?.state === "reserved");
+    const unextractedLeaflet = entry.photos.some(photo => !photo.removed && photo.purpose === "leaflet" &&
+      photo.review?.status === "failed" && Array.isArray(photo.review.warnings) && photo.review.warnings.some(warning =>
+        warning === "说明书未提取，可重拍或手动填写。" ||
+        warning === "未能识别说明书文字，可重拍或手动填写。"));
     this.setData({ ...entry.fields, usePhotoAsCover: entry.fields.usePhotoAsCover === true, manualEdits: entry.fields.manualEdits ?? {}, fieldSources: entry.fields.fieldSources ?? {}, batchSources: entry.fields.batchSources ?? [], resolvedConflictPhotoIds: entry.fields.resolvedConflictPhotoIds ?? {}, purposeTagsTouched: entry.fields.purposeTagsTouched === true, brand: entry.fields.brand ?? "", leafletText: entry.fields.leafletText ?? "", activePhotoDraftId: entry.id, recognitionHint: incomplete
       ? "照片写入尚未完成，请删除这份照片草稿后重拍；药品文字仍可手动保存。"
-      : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : "已打开照片草稿，请核对后保存。" });
+      : entry.status === "photo_pending" ? "药品已保存，照片待补；点击保存重试照片。" : unextractedLeaflet ? "说明书未提取，可重拍或手动填写。" : "已打开照片草稿，请核对后保存。" });
     this.updateDirtyState();
   },
   onNewPhotoDraft(): void {

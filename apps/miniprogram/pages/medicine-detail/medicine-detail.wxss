@@ -108,6 +108,80 @@
   line-height: 1.5;
 }
 
+/* B2 试点：AI 说明摘要卡 */
+.ai-summary-card {
+  padding: 24rpx 26rpx;
+}
+
+.ai-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.ai-badge {
+  flex: none;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  background: var(--med-accent-tint, #edf6f2);
+  color: var(--med-accent, #087f5b);
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.ai-summary-text {
+  margin-top: 14rpx;
+  color: var(--med-label, #1c1c1e);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.ai-summary-error {
+  margin-top: 14rpx;
+  color: #b42318;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.ai-summary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx dashed var(--med-line, #dcdce1);
+}
+
+.ai-summary-disclaimer {
+  flex: 1;
+  min-width: 0;
+  color: var(--med-secondary, #636366);
+  font-size: 20rpx;
+  line-height: 1.5;
+}
+
+.ai-summary-btn {
+  flex: none;
+  min-height: 88rpx;
+  min-width: 160rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 22rpx;
+  border-radius: 12rpx;
+  background: var(--med-accent, #087f5b);
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.ai-summary-btn.disabled {
+  opacity: 0.6;
+}
+
 .batch-header-row {
   margin-bottom: 12rpx;
 }

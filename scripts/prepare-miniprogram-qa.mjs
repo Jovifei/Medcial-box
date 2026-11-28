@@ -190,6 +190,9 @@ const reviewedSourceTrees = new Set([
   '597c2950579ac04540ca52970deb15a9d81931ba',
   // 2026-11-22：在 main 树上移植说明书空结果修复，已复核原生能力不变。
   '68bf3cb348e0e3bf5ac866258c7e078d9e33bb01',
+  // 2026-11-29 independent review: unified UI, leaflet safeguards and text AI use only
+  // the frozen synthetic cloud facade. Native cloud/network/storage capabilities stay guarded.
+  '95620238e3e5904fb1b4820e26a0076978ecfc27',
 ]);
 const reviewedComponents = new Map([
   ['business-nav', 'components/business-nav/business-nav'],
@@ -216,7 +219,7 @@ export function assertReviewedComponents(filename, usingComponents) {
 // This list is deliberately reviewed rather than inferred from source. A new capability
 // requires an explicit adapter change and new tests. The owned-photo integration adapter
 // explicitly covers base64ToArrayBuffer plus ArrayBuffer open/write/close semantics.
-const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'compressImage', 'chooseMessageFile', 'disableAlertBeforeUnload', 'downloadFile',
+const reviewedWx = new Set(['base64ToArrayBuffer', 'chooseMedia', 'cloud', 'compressImage', 'chooseMessageFile', 'disableAlertBeforeUnload', 'downloadFile',
   'enableAlertBeforeUnload', 'env', 'getFileSystemManager', 'getMenuButtonBoundingClientRect', 'getStorageSync',
   'getFileInfo', 'getSystemInfoSync', 'getUpdateManager', 'login', 'navigateBack', 'navigateTo', 'pageScrollTo', 'previewImage', 'reLaunch',
   'redirectTo', 'removeStorageSync', 'request', 'requestSubscribeMessage', 'scanCode', 'setClipboardData',
@@ -249,6 +252,7 @@ export function inventorySource(source, filename) {
   if (reviewedFsHelper && sha256(source) !== REVIEWED_PHOTO_LIFECYCLE_SHA256) throw new Error(filename + ': unreviewed filesystem helper fingerprint');
   const tree = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true);
   const wxAliases = new Set(['wx']);
+  const cloudAliases = new Set();
   const fsAliases = new Set(reviewedFsHelper ? ['fs'] : []);
   const wxApis = new Set();
   const fsApis = new Set();
@@ -256,28 +260,47 @@ export function inventorySource(source, filename) {
   const visit = node => { nodes.push(node); ts.forEachChild(node, visit); };
   visit(tree);
   const isWx = raw => { const node = unwrap(raw); return node && ts.isIdentifier(node) && wxAliases.has(node.text); };
+  const isCloud = raw => {
+    const node = unwrap(raw);
+    return !!node && ((ts.isIdentifier(node) && cloudAliases.has(node.text)) ||
+      (ts.isPropertyAccessExpression(node) && isWx(node.expression) && node.name.text === 'cloud') ||
+      (ts.isConditionalExpression(node) && (isCloud(node.whenTrue) || isCloud(node.whenFalse))) ||
+      (ts.isBinaryExpression(node) && (isCloud(node.left) || isCloud(node.right))));
+  };
   const isFs = raw => {
     const node = unwrap(raw);
     return node && ((reviewedFsHelper && ts.isPropertyAccessExpression(node) && node.name.text === 'fs') || (ts.isIdentifier(node) && fsAliases.has(node.text)) || (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && isWx(node.expression.expression) && node.expression.name.text === 'getFileSystemManager'));
   };
   // Fixed point covers aliases through casts or alias chains, without guessing names.
   for (let pass = 0; pass < nodes.length; pass++) {
-    const count = wxAliases.size + fsAliases.size;
+    const count = wxAliases.size + fsAliases.size + cloudAliases.size;
     for (const node of nodes) if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
       if (isWx(node.initializer)) wxAliases.add(node.name.text);
       if (isFs(node.initializer)) fsAliases.add(node.name.text);
+      if (isCloud(node.initializer)) cloudAliases.add(node.name.text);
     }
-    if (count === wxAliases.size + fsAliases.size) break;
+    if (count === wxAliases.size + fsAliases.size + cloudAliases.size) break;
   }
   for (const node of nodes) {
     if (ts.isIdentifier(node) && ['globalThis', 'global', 'window', 'self', 'eval', 'Function', 'require', 'Component', 'Behavior', 'Worker', 'requirePlugin', 'importScripts', 'fetch', 'WebSocket', 'XMLHttpRequest', 'navigator', 'Reflect'].includes(node.text) &&
         !(node.text === 'Component' && reviewedComponentSource)) {
       throw new Error(filename + ': forbidden ambient escape ' + node.text);
     }
-    if (ts.isElementAccessExpression(node) && (isWx(node.expression) || isFs(node.expression))) throw new Error(filename + ': dynamic wx/filesystem access needs review');
+    if (ts.isElementAccessExpression(node) && (isWx(node.expression) || isFs(node.expression) || isCloud(node.expression))) throw new Error(filename + ': dynamic wx/cloud/filesystem access needs review');
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && isCloud(node.initializer)) throw new Error(filename + ': destructured cloud access needs review');
+    if (ts.isBinaryExpression(node) && isCloud(node) &&
+        (node.operatorToken.kind === ts.SyntaxKind.BarBarToken || node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+         (node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment))) throw new Error(filename + ': cloud assignment/logical alias needs review');
     if ((ts.isPropertyAccessExpression(node) && ['constructor', '__proto__', 'getPrototypeOf', 'setPrototypeOf', 'getOwnPropertyDescriptor', 'getOwnPropertyDescriptors', 'defineProperty', 'defineProperties'].includes(node.name.text)) ||
         (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) && ['constructor', '__proto__'].includes(node.argumentExpression.text))) throw new Error(filename + ': reflection/constructor access needs review');
     if (ts.isPropertyAccessExpression(node)) {
+      if (isWx(node.expression) && node.name.text === 'cloud' && filename !== 'services/ai-api.ts') throw new Error(filename + ': unreviewed cloud source');
+      if (isCloud(node.expression) && (filename !== 'services/ai-api.ts' || !['init', 'callFunction'].includes(node.name.text))) throw new Error(filename + ': unreviewed cloud API ' + node.name.text);
+      if (isCloud(node.expression)) {
+        let use = node.parent;
+        while (use && (ts.isParenthesizedExpression(use) || ts.isAsExpression(use) || ts.isNonNullExpression(use))) use = use.parent;
+        if (!use || !((ts.isCallExpression(use) || ts.isTypeOfExpression(use)) && unwrap(use.expression) === node)) throw new Error(filename + ': cloud method access needs review');
+      }
       if (isWx(node.expression)) wxApis.add(node.name.text);
       if (isFs(node.expression)) fsApis.add(node.name.text);
     }

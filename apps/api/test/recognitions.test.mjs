@@ -3,7 +3,7 @@ import test from "node:test";
 import { Buffer } from "node:buffer";
 import { buildServer } from "../dist/app.js";
 import { FakeWechatGateway } from "../dist/auth/wechat.js";
-import { DashscopeMedicineRecognitionProvider, OllamaMedicineRecognitionProvider, createDefaultMedicineRecognitionProvider, RecognitionUnavailableError } from "../dist/services/medicine-recognition.js";
+import { DashscopeMedicineRecognitionProvider, OllamaMedicineRecognitionProvider, FallbackMedicineRecognitionProvider, createDefaultMedicineRecognitionProvider, RecognitionUnavailableError } from "../dist/services/medicine-recognition.js";
 import { createFakePool } from "./helpers/fake-pool.mjs";
 import { login, membershipRow } from "./helpers/app.mjs";
 
@@ -296,4 +296,94 @@ test("failure logs retain only diagnostic category and upstream status", async (
     assert.equal(lines.join("").includes("PRIVATE"), false);
     assert.equal(lines.join("").includes(jpg), false);
   } finally { await app.close(); }
+});
+
+test("MoMA fallback retries the 32B model on rate limit and keeps the draft confirmable", async () => {
+  const models = [];
+  const primary = new DashscopeMedicineRecognitionProvider("synthetic-key", "qwen2.5-vl-72b-instruct", "https://moma.test/v1", async (_url, init) => {
+    models.push(JSON.parse(init.body).model);
+    return new globalThis.Response(JSON.stringify({ error: { message: "rate limit" } }), { status: 429 });
+  });
+  const fallback = new DashscopeMedicineRecognitionProvider("synthetic-key", "qwen2.5-vl-32b-instruct", "https://moma.test/v1", async (_url, init) => {
+    models.push(JSON.parse(init.body).model);
+    return new globalThis.Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ name: "合成药品", expiryValue: "2027-12" }) } }] }), { status: 200 });
+  });
+  const result = await new FallbackMedicineRecognitionProvider(primary, fallback).recognize(jpg, "image/jpeg");
+  assert.deepEqual(models, ["qwen2.5-vl-72b-instruct", "qwen2.5-vl-32b-instruct"]);
+  assert.equal(result.draft.name, "合成药品");
+  assert.equal(result.requiresConfirmation, true);
+});
+
+test("fallback does not hide malformed primary output", async () => {
+  let fallbackCalls = 0;
+  const primary = new DashscopeMedicineRecognitionProvider("synthetic-key", "qwen2.5-vl-72b-instruct", "https://moma.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "not json" } }] }), { status: 200 }));
+  const fallback = new DashscopeMedicineRecognitionProvider("synthetic-key", "qwen2.5-vl-32b-instruct", "https://moma.test/v1", async () => {
+    fallbackCalls += 1;
+    return new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), { status: 200 });
+  });
+  await assert.rejects(
+    () => new FallbackMedicineRecognitionProvider(primary, fallback).recognize(jpg, "image/jpeg"),
+    (error) => error instanceof RecognitionUnavailableError && error.reason === "invalid_json",
+  );
+  assert.equal(fallbackCalls, 0);
+});
+
+test("vision provider accepts <answer>-wrapped JSON", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hy-vision-2.0-instruct", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "<answer>\n{\"name\":\"合成药品\",\"expiryValue\":\"2027-06\"}\n</answer>" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+  assert.equal(result.draft.expiryPrecision, "month");
+});
+
+test("vision provider accepts an unterminated <answer> wrapper", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hunyuan-t1-vision-20250916", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "<answer>\n{\"name\":\"合成药品\",\"expiryValue\":\"2027-06\"}\n" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+});
+
+test("vision provider accepts fenced JSON", async () => {
+  const provider = new DashscopeMedicineRecognitionProvider("synthetic-key", "hy-vision-2.0-instruct", "https://tokenhub.test/v1", async () =>
+    new globalThis.Response(JSON.stringify({ choices: [{ message: { content: "```json\n{\"name\":\"合成药品\",\"lotNumber\":\"TEST20261117\"}\n```" } }] }), { status: 200 }));
+  const result = await provider.recognize(jpg, "image/jpeg");
+  assert.equal(result.draft.name, "合成药品");
+  assert.equal(result.draft.lotNumber, "TEST20261117");
+});
+
+test("provider factory selects MoMA with 72B primary and 32B fallback", () => {
+  const keys = ["MEDICINE_RECOGNITION_PROVIDER", "MOMA_BASE_URL", "MOMA_API_KEY", "MOMA_MODEL", "MOMA_FALLBACK_MODEL"];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.MEDICINE_RECOGNITION_PROVIDER = "moma";
+    process.env.MOMA_BASE_URL = "https://moma.test/v1";
+    process.env.MOMA_API_KEY = "synthetic-key";
+    process.env.MOMA_MODEL = "qwen2.5-vl-72b-instruct";
+    process.env.MOMA_FALLBACK_MODEL = "qwen2.5-vl-32b-instruct";
+    assert.ok(createDefaultMedicineRecognitionProvider() instanceof FallbackMedicineRecognitionProvider);
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+});
+
+test("provider factory selects TokenHub with Hunyuan Vision primary and fallback", () => {
+  const keys = ["MEDICINE_RECOGNITION_PROVIDER", "TOKENHUB_BASE_URL", "TOKENHUB_API_KEY", "TOKENHUB_MODEL", "TOKENHUB_FALLBACK_MODEL"];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.MEDICINE_RECOGNITION_PROVIDER = "tokenhub";
+    process.env.TOKENHUB_BASE_URL = "https://tokenhub.test/v1";
+    process.env.TOKENHUB_API_KEY = "{{SECRET_9gxq3h6w}}";
+    process.env.TOKENHUB_MODEL = "hy-vision-2.0-instruct";
+    process.env.TOKENHUB_FALLBACK_MODEL = "hunyuan-t1-vision-20250916";
+    assert.ok(createDefaultMedicineRecognitionProvider() instanceof FallbackMedicineRecognitionProvider);
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
 });

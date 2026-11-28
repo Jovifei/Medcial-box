@@ -1,6 +1,7 @@
 import { api, ApiError, captureSessionIdentity, isCurrentSession } from "../../services/api";
 import { ensureLoggedIn } from "../../services/auth";
 import { parseQuantityByUnit } from "../../services/input-validation";
+import { quantityUnitShort } from "../../services/quantity-units";
 import type { QuantityUnit, StocktakeItemInput, StocktakeSession } from "../../services/api-types";
 
 type Outcome = StocktakeItemInput["outcome"];
@@ -11,6 +12,7 @@ interface StocktakeViewItem {
   medicineName: string;
   quantity: number | null;
   unit: string;
+  unitLabel: string;
   outcome: Outcome;
   outcomeIndex: number;
   adjustedQuantity: string;
@@ -131,12 +133,13 @@ Page({
       medicineName: item.medicineName,
       quantity: item.quantity,
       unit: item.unit,
+      unitLabel: quantityUnitShort(item.unit),
       outcome: "deferred" as Outcome,
       outcomeIndex: 0,
       adjustedQuantity: item.quantity === null ? "" : String(item.quantity),
       result: item.result,
       resultLabel: item.result === "conflict"
-        ? `家人已修改此批次；当前数量：${item.quantity === null ? "未知" : `${item.quantity} ${item.unit}`}，请重新核对。`
+        ? `家人已修改此批次；当前数量：${item.quantity === null ? "未知" : `${item.quantity} ${quantityUnitShort(item.unit)}`}，请重新核对。`
         : item.result === "not_found" ? "批次已删除或不可见。"
           : item.result === "saved" ? "已保存" : "",
       // 一样的盘点会话/批次及版本才复用用户尚未提交的选择。

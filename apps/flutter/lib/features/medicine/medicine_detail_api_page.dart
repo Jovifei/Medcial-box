@@ -356,6 +356,33 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
       if (mounted) _error(error);
     }
   }
+  Future<void> _deleteMedicine(MedicineRecord medicine) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除这项药品？'),
+        content: Text('“${medicine.name}”删除后进入回收站，30 天内可在“我的 → 回收站”恢复。确定删除？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.repository.deleteMedicine(medicine.id);
+      if (mounted) context.pop();
+    } catch (error) {
+      if (mounted) _error(error);
+    }
+  }
+
 
   Future<void> _trashBatch(MedicineRecord medicine, BatchRecord batch) async {
     final confirmed = await showDialog<bool>(
@@ -411,9 +438,13 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
               child: Text(entry.$2),
             ),
           CupertinoActionSheetAction(
-            isDestructiveAction: true,
             onPressed: () => Navigator.of(sheetContext).pop('archive'),
             child: const Text('归档药品'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(sheetContext).pop('delete'),
+            child: const Text('删除药品'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
@@ -440,6 +471,8 @@ class _MedicineDetailApiPageState extends State<MedicineDetailApiPage> {
         context.push('/audit');
       case 'archive':
         _archive(medicine);
+      case 'delete':
+        _deleteMedicine(medicine);
     }
   }
 

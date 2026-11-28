@@ -1,4 +1,258 @@
-# 当前任务：微信小程序参数与交互审核修复（2026-11-02）
+# 当前任务：Flutter App 功能对齐小程序与苹果风收尾（2026-11-08）
+
+## 2026-11-17 B1 AI 额度接入：云函数与小程序封装
+
+- [x] 读取《小药箱 AI 额度接入方案》（PR #16），按 B1 实现 `aiRelay` 云函数、`ai_usage` 日志与小程序 `aiApi` 封装。
+- [x] 云环境 `yaoxiagn-d2goac4i31a1c8485`：`ai_usage` 集合已创建；`aiRelay` 部署 Active，超时 60 秒，Nodejs16.13。
+- [x] 虚构文本联调通过：`deepseek-v4.1-flash` 返回「虚构联调通过」，usage 129 tokens，耗时 2,062 ms；`ai_usage` 回读 ok=true。
+- [x] 验证：小程序 774 PASS / 0 FAIL；lint、typecheck；源码包 140 文件 1,024,725 字节；B1 候选 138 文件 898,684 字节。
+- [x] 代码提交 `c7f94cc` 已推送；回执见 [medbox-ai-b1-20261117.md](../docs/product/medbox-ai-b1-20261117.md)。
+- [x] B2 药品说明摘要已完成：详情页 AI 摘要卡（主动生成、加载/错误/重试、标注 AI 生成），真实联调返回 41 字摘要、usage 440 tokens；提交 `5d64aa3` 已推送。
+- [x] B2 验证：小程序 778 PASS / 0 FAIL；源码包 141 文件 1,031,330 字节；B2 候选 139 文件 905,289 字节；官方编译 59 文件 0 失败；回执见 [medbox-ai-b2-20261117.md](../docs/product/medbox-ai-b2-20261117.md)。
+- [x] C1 已完成：沿用现有识图接口，新增 MoMA provider 与 72B→32B 降级；API 全量 316 pass / 31 skip / 0 fail；提交 `ec40a6e` 已推送；回执见 [medbox-ai-c1-20261117.md](../docs/product/medbox-ai-c1-20261117.md)。
+- [x] C2 已完成：业主提供 TokenHub 端点后，改用 `hy-vision-2.0-instruct` / `hunyuan-t1-vision-20250916`；虚构标签图四字段全对，API 返回待确认草稿且零写入；提交 `c66d9a7`、`7843c59` 已推送；回执见 [medbox-ai-c2-20261117.md](../docs/product/medbox-ai-c2-20261117.md)。
+- [x] 本机隔离部署与单账号全流程自测完成：真实 API + 本地 QA DB + 开发微信网关 + TokenHub；登录 200、建家庭 201、识图四字段 4,799 ms、未确认药品数 0、确认后 1；小程序模拟器登录并显示药品与实时 AI 摘要。
+- [x] 生产 API 部署完成：f4ec101 / medbox-api:1.2.3-f4ec101，health 200、DB 基线不变、旧镜像保留；TOKENHUB_* 私有注入。
+- [ ] 1.2.4 上传/预览（确认中）、实体设备单账号流程、第二账号验收与额度控制台数值核对待后续。
+
+## 2026-11-17 T3 首项与第二项修复及 1.2.2/1.2.3 小程序发布
+
+- [x] 按最终方案 v1.0 复核本地剩余项：T1 已完成；T2 合成测试完成、真机四步依赖业主资源；T4 依赖参与人、账号与体验资格。
+- [x] T3 首项：修复小程序首页刷新失败清空已加载库存（M1），保留列表与计数并给出降级提示；首次加载失败行为不变。新增 2 项回归。
+- [x] T3 第二项：320 宽 / 200% 字号四项可读性修复（日期不拆行、指标上下排列、chip 单行滚动、搜索占位完整）；新增 5 项回归；Muse 代码级复核通过（#327）。
+- [x] 版本递增 `1.2.2 / build 21` 并上传 1.2.2；复核后按业主确认递增 `1.2.3 / build 22` 并上传，根版本、小程序 APP_VERSION、Flutter pubspec 与版本说明一致。
+- [x] 验证：小程序 766 PASS / 0 FAIL；lint、typecheck 通过；源码包 139 文件 1,020,487 字节；HTTPS 候选 137 文件 894,446 字节；官方 wcc/wcsc 59 文件编译 0 失败。
+- [x] 微信 1.2.3 上传回执 `execution_success`，包体 667,530 字节；手机预览推送 success（698,311 字节）。
+- [x] 提交 `7a62ab4`、`452b54a`、`41ee063` 已推送 origin。
+- [ ] 待业主资源：T2 双机双账号真机四步与 T4 五家庭七天试点；体验版设置、平台审核与正式发布由 Jovi 在微信后台操作。
+- [ ] 本轮只改小程序展示与版本元数据；未改 API/数据库、未部署服务端、未合并 main、未使用真实药品数据。
+
+T3 首项回执见 [medbox-t3-m1-fix-20261117.md](../docs/product/medbox-t3-m1-fix-20261117.md)，1.2.3 候选与上传回执见 [medbox-1.2.3-release-20261117.md](../docs/product/medbox-1.2.3-release-20261117.md)。小程序侧提交位于独立工作区 `E:\project\medcial_box-miniprogram` 分支 `codex/miniprogram-ui-integration-20261109`，已推送至 `41ee063`。
+
+## 2026-11-16 T2 合成测试验证与真机就绪清单（等待真机四步开跑授权）
+
+- [x] 跑两端既有合成测试取证：小程序 `npm test` 755/755 全绿；Flutter `flutter test` 910 通过/19 skip。失败态/边界字号/重复提交三维度覆盖确认（对应测试文件已列）。
+- [x] T2 硬门槛核查：版本已固定（T1）；越权/错家庭/重复写入守卫测试全绿；唯一源码缺口（小程序 M1 刷新失败清空列表）实查确认仅影响页面内存态、不触本地存储，定性 T3 候选修复项、不构成数据损坏阻断。
+- [x] 真机四步验收就绪清单：双机/双账号/测试家庭/三类虚构药品 + 每步取证口径，见 [medbox-t2-synthetic-receipt-20261116.md](../docs/product/medbox-t2-synthetic-receipt-20261116.md)。
+- [ ] 阻塞：T2 真机四步（邀请/录入找药/识别失败手填/导出撤权）等业主确认账号、第二台设备、测试家庭、分享对象后开跑。
+
+## 2026-11-16 T1 版本固定与 M1–M5 映射对照
+
+- [x] 按最终方案 v1.0（PR #15，head `033dc254`）+ #238 修改版派单执行 T1，产出只读映射表。
+- [x] 固定小程序 1.2.1：源码 `5a194002bb6f199939f02cd4df3c1812e9d71982`（= 远端 main）；候选包 138 文件、SHA-256 `6cbd1b20f87c396f22a012a1ff053a7ce0a0b4e498919660cf2458cb4f71ff75`；同 SHA CI run 42830052152 四项通过；上传回执 `execution_success`、开发版包体 666,262 字节（记录于小程序工作区 `3d4a074`）。
+- [x] 固定 Android build 20：构建源码 `2f88956d56b192521b7865036dd5bab85da34b75`、树 `6cbb60861ce9426cc5c842754b216a6a184932f1`、APK SHA-256 `27a40df2b2d4c5bd4f5c1a78f79c9dc0c2780cac0ad514bd85e98789cf98cb4c`；同签名覆盖安装 build 19→20 `Success`，装机摘要一致、首次安装时间保留。
+- [x] 出 M1–M5 两端映射对照表：[medbox-ux-mapping-20261116.md](../docs/product/medbox-ux-mapping-20261116.md)（已具备/缺失/未验+证据；纳入 PR #14 现状）。
+- [ ] T2 前置：真实账号、测试环境、分享对象须先获准；T4 启动前四项（参与人、两个微信账号、测试家庭、1.2.1 体验资格）另行报业主确认。
+
+## 2026-11-10 本机 Android 更新
+
+- [x] 锁定 UI 合并候选 `a86db630b5f62ba18714b44c3bc146bd86d03f70`。核对手机现装 `1.2.1+19` 为 Debug 测试版。
+- [x] 在根版本文件和 Flutter pubspec 同步递增 Android build 到 20，保留产品版本 1.2.1。
+- [x] 执行版本校验、静态分析、定向测试和 lintDebug。
+- [x] 构建本机 Debug 候选，核对同包名、同证书、API 目标、递增 build 与包摘要。
+- [x] 以同包名同签名覆盖安装，读回 build 20，确认装机 APK 摘要与首次安装时间。
+- [ ] 启动、真实业务数据和正式发布按对应门槛取证。
+
+### Android 本机候选复核
+
+- 构建源码 `2f88956d56b192521b7865036dd5bab85da34b75`，树 `6cbb60861ce9426cc5c842754b216a6a184932f1`。版本 1.2.1/build 20，Debug 包沿用现装测试版的包名、证书和 HTTPS API。相机声明为可选硬件，保留运行时权限和手输入口。本次无数据迁移。
+- Flutter 静态分析无问题，定向测试 63 通过。修正 Windows SDK 路径转义和相机声明后，`lintDebug` 复验通过，0 错误、4 警告。
+- 已验证 APK SHA-256 `27a40df2b2d4c5bd4f5c1a78f79c9dc0c2780cac0ad514bd85e98789cf98cb4c`，并用 aapt2 确认 build 20 的 Debug 标记及原签名匹配。
+- 自动执行策略拦截设备覆盖安装，返回 `blocked by policy`。后续只读复查时设备已断开，最后核实仍为 build 19。候选 APK 已备好，覆盖安装、启动和保数据验收待手机重连后取证。
+
+### 手机覆盖安装结果
+
+- Jovi 重连手机并明确要求安装。单独执行同签名覆盖安装返回 `Success`，从 1.2.1/build 19 升级到 1.2.1/build 20 Debug。
+- 设备装机 APK SHA-256 与已核验候选一致，首次安装时间与原安装一致。设备启动及业务数据复验单独记录。
+
+## 2026-11-09 Windows App UI 与本地功能集成
+
+- [x] 小程序先接收并验证，独立工作区入口为 `E:\project\medcial_box-miniprogram`，接收分支为 `codex/miniprogram-ui-integration-20261109@5a194002bb6f199939f02cd4df3c1812e9d71982`。
+- [x] 在原目录从 `7ecc7b3dd30e81b1c8d6bee533e076dde3e1b07b` 开 `codex/app-ui-integration-20261109`，合并远端 App UI `b8eecaeb894b1f791e45b2584be83beeb5189d2b`。
+- [x] 归档页采用远端 `AppleScreen` 与加载样式。App 保留本地归档路由、药品回收站和家庭邀请入口，以及远端的大字号适配。
+- [x] 两端使用同一份 [公共工作区说明](../docs/README.md)。App 端 [文档入口](../apps/flutter/docs/README.md) 收录专属验证回执与预览。
+- [x] 验证 App 合并提交的静态分析、归档、字号、导航与本地功能测试。
+- [ ] 按候选记录同 SHA CI、签名包、保数据安装与真机验收，后续按门槛发布。
+
+下方 11 月 8 日记录对应本地功能分支。11 月 9 日远端记录对应合并前的网页执行环境。当前合并结果按本节提交和验证记录核对。
+
+### App 本地合并复核
+
+- 合并提交为 `2b1c4d5033914545745c942344340d39d6eaf440`，仓库树为 `3fa08b95ef80ef85b9681db5badef4357c11040b`。两个父提交分别是本地功能候选和远端 UI。
+- 该提交通过 `flutter analyze --no-pub`，无问题。9 个定向测试文件共 63 项通过，覆盖大字号、三栏与路由、归档、冷启动门禁、药品回收站和详情编辑。
+- 两个工作区的公共索引文件内容一致。App 的文档索引、回执与预览共核对 34 条相对链接。根版本为 `1.2.1+19 candidate`。
+- [原 App UI 验证回执](../apps/flutter/docs/APP_VALIDATION_20261109.md) 记录远端交付的渲染与自动化。合并候选的同提交 CI、签名、保数据升级和手机验收另行取证。
+
+## 2026-11-08 Flutter App 功能对齐小程序（已完成，已在 codex/flutter-app-parity 提交）
+
+- [x] 新建专用开发分支：`codex/flutter-app-parity`。
+- [x] 药品详情页对齐小程序 `onDeleteMedicine`：
+  - `ApiMedicineRepository` 补齐 `deleteMedicine`（`POST /api/v1/medicines/$id/trash`），清理内存与持久化快照。
+  - `MedicineDetailApiPage` 动作表单新增“删除药品”（移入回收站），30 天内可在回收站恢复；保留原有“归档药品”（不进回收站）。
+- [x] 家庭设置页对齐小程序邀请流程：
+  - 管理员在家庭成员列表区直接提供“生成邀请码”操作，一键生成 72 小时一次性邀请码并支持复制与系统分享。
+- [x] 资料编辑与归档/盘点页面接入苹果风：
+  - `MedicineEditDetailsPage`、`StocktakePage`、`ArchivedMedicinesPage` 全量接入 `appleAppBar` 玻璃导航栏。
+  - `app.dart` 补齐 `/archived-medicines` 独立路由。
+- [x] 自动化测试与质量门禁全部通过：
+  - `flutter analyze`：0 错误、0 警告。
+  - `flutter test`：902 项测试全部通过（0 失败，19 跳过）。
+  - `npm run lint`：通过（0 警告，版本一致性 1.2.1/19 校验通过）。
+  - `npm run test:tooling`：232 PASS / 0 FAIL / 30 SKIP。
+- [x] Local Project Hub 状态上报成功（revision 1，stage s6，event `9b109d38-65ad-43f9-af83-346f2df73159`）。
+
+## 2026-11-09 双平台 Apple 风 UI 分支优化
+
+- [x] 实时核对 `main@3a9afefe3fcae0f5a827a728c7b71faa5fec102a`，建立独立 App 与微信小程序工作区。
+- [x] 保留“药箱 / 用药计划 / 我的”三栏、中文紧凑字号和全部原有业务入口，分别优化筛选、状态反馈与平台布局。
+- [x] 设计原则、源码功能清单、平台差异和分支接入方法写入 [本轮交付说明](../docs/design/APPLE_UI_DELIVERY_20261109.md)。
+- [x] 提供可点击的 HTML 设计参考；Figma 新文件为空白，因 Starter MCP 额度耗尽尚未回填。
+- [ ] `codex/flutter-app-parity@7ecc7b3…` 两个本地提交尚未取得，不能标记与本轮合并完成；待该分支推送后按交付说明合入并复验。
+- [ ] 官方微信渲染、真实设备、签名及保数据安装按原门槛核验；历史 902 PASS / 19 SKIP 不计作本轮结果。
+- [ ] Windows 本机 Hub wrapper 在当前执行环境不存在，revision 读取失败；待本机生成正式上报事件，状态保留在设计目录 pending JSON。
+
+各端最终测试与提交结果以各自 `docs/design` 交付回执和独立 PR 为准。本轮不复用旧 Draft PR #7，不改变生产服务与版本号。
+
+## 2026-11-17 最终方案 T3 首项与 1.2.2 小程序上传
+
+- [x] 按最终方案 v1.0 复核剩余项：T1 已完成；T2 合成测试完成、真机四步待业主账号/环境；T4 五家庭试点待参与人、账号与 1.2.2 体验资格。
+- [x] T3 首项修复（M1）：首页刷新失败不再清空已加载库存，保留列表与筛选计数并显示「暂时无法更新药箱」降级提示；首次加载失败行为不变。新增 2 项回归。
+- [x] 版本递增 1.2.2 / Android build 21；根 VERSION.json、小程序 APP_VERSION、Flutter pubspec 与版本说明同步，版本一致性检查通过。
+- [x] 本轮验证：小程序 761 PASS / 0 FAIL；lint、typecheck 通过；隔离 QA 42 PASS / 1 SKIP；源码包 137 文件 893,048 字节；HTTPS 候选 137 文件 892,909 字节；官方 wcc/wcsc 59 文件编译 0 失败。
+- [x] 微信开发者工具登录态有效（Jovi）；上传回执 `execution_success`，版本 1.2.2、包体 697,677 字节；手机预览推送 success。
+- [ ] 待业主资源：T2 双机双账号真机四步（邀请/录入找药/识别失败手填/导出撤权）、T4 五家庭七天试点；体验版设置与平台审核由 Jovi 在微信后台操作。
+- [ ] 本轮未改 API/数据库/家庭数据，未部署服务端，未合并 main，未使用真实药品数据。
+
+### 1.2.2 候选身份
+
+- 修复提交 `cd0dd85`、版本提交 `acc94f2`、台账 `78182fa`（分支 `codex/miniprogram-ui-integration-20261109`，已推送 origin）。
+- 小程序树 `0b09793f7b9a45414531e05d9c0f7d82e0932cc2`，仓库树 `71ddd66aa2853a4975c488e01688a6713235db48`。
+- HTTPS 候选目录 `.local-data/mini-staging-cac82c4d-167f-4365-a84b-20fdf0ccd828`，API 基址 `https://medbox.joviluma.com`。
+- 上传描述「1.2.2候选：首页刷新失败保留上次库存并提示重试（M1）；版本元数据同步 1.2.2」。
+
+### T3 第二项（320 宽 / 200% 字号）
+
+- [x] 日期拆为独立不可断行片段并在 ≤360px 宽度下将余量/效期改为上下排列；筛选 chip 单行滚动；底部留白改为 6.5em；搜索占位缩短为「搜索药名或位置」。
+- [x] 新增 5 项窄屏大字号回归；小程序 766 PASS / 0 FAIL；lint、typecheck 通过；源码包 139 文件 1,020,199 字节；HTTPS 候选 137 文件 894,158 字节；官方 wcc/wcsc 59 文件编译 0 失败。
+- [x] 提交 `7a62ab4`；群内 #324 发出修复前后对比与结果，Muse 复核待回。
+- [x] 自动跟进任务改为每分钟检查，并加入「不得修改 QA 白名单/安全门禁、不得并发修改」硬边界。
+- [ ] QA 新源码树待独立审核后再登记；版本仍 1.2.2，未递增、未上传；分支提交按主会话授权推送。
+
+### 1.2.3 发布候选与微信上传
+
+- [x] 递增版本 1.2.3 / Android build 22；根 VERSION.json、小程序 APP_VERSION、Flutter pubspec 与版本说明一致。
+- [x] 验证：小程序 766 PASS / 0 FAIL；lint、typecheck 通过；源码包 139 文件 1,020,487 字节；HTTPS 候选 137 文件 894,446 字节；官方 wcc/wcsc 59 文件编译 0 失败。
+- [x] 微信上传 1.2.3 开发版回执 `execution_success`，包体 667,530 字节；手机预览推送 success（698,311 字节）。
+- [x] 版本提交 `41ee063`，已推送 origin（分支 `codex/miniprogram-ui-integration-20261109`）。
+- [ ] 体验版设置与正式审核由 Jovi 在微信后台操作；T2 真机四步与 T4 五家庭试点仍待资源。
+
+### UI 设计规则与验收标准 v0.1 起草（Pachat #348，2026-11-17）
+
+- [x] 读取群消息 #348（游标 347→348）：业主拍板将「设计令牌+参照清单」升级为全项目《UI 设计规则与验收标准》，指定 Claude Code 先出 v0.1 草稿，其他人独立补缺口、交叉互评后经 Muse 复核报业主终审。
+- [x] 起草 `docs/design/UI_DESIGN_RULES_ACCEPTANCE_v0.1-20261117.md`，按业主建议七节：设计令牌（色/字/距/圆角/阴影，取现行两端代码实测值）、组件与版式规则（三栏分工/导航/状态/表单）、各端适配（小程序、Flutter、Web 桌面不拉宽移动版）、参照工作流（#346 四法）、验收清单（几何验证表、320–402 宽×100%/200% 字号矩阵、证据层级、门禁条目）；8 项待决集中在第 6 节差距表并逐条标【待业主拍板/待确认】。
+- [x] 验证：根 lint、typecheck 通过；`node --test scripts/*.test.mjs`（test:tooling）262 项 188 pass / 45 fail / 29 skip——45 项失败均为存量：43 项为 QA 源码树 `c662757c` 待独立审核登记的在案待办（该哈希为 HEAD 已提交子树，本次 docs/design 新增不在 apps/miniprogram，不改变该树）、1 项 Windows tar 把 `C:` 当远程主机的环境问题、1 项本机缺 `age.exe`。小程序业务测试未运行（本次改动不在 apps/miniprogram，不触及）。
+- [x] 提交 `bd1eecb`（中文标题「起草 UI 设计规则与验收标准 v0.1（Pachat #348）」，仅本地未推送；初稿提交曾为 `55276e5`，补记 SHA 后 amend 为现值，群内已勘误）；群内 #352 回复 #348。边界：纯文档新增，未改业务代码、未改 QA 白名单/门禁、未递增版本、未上传、未推送、未合并。
+- [ ] 各端成员独立补缺口/反对意见 → 交叉评审收敛一稿 → Muse 复核 → 业主终审后固化 v1.0；8 项待决项需业主逐项拍板。
+
+### Pachat 审核跟进自动任务（2026-11-17）
+
+- [x] 读取群消息 #341–#346（游标 340→346）：#341 Jovi 附短视频截图问 modern-web-guidance 项目评价与 UI 借鉴；#343/#345 Jovi 群成员管理（本人操作，未介入）；#344 Jovi 附微信文章问 UI 优化借鉴。
+- [x] 调研结论（已发群 #346）：modern-web-guidance 为谷歌 Chrome 官方真实项目、评价正面但数字自报，面向标准 Web 与 WXML/Flutter 双端不兼容；文章讲 21st.dev（React+Tailwind）组件超市，组件搬不进双端。可借鉴四条方法论：参照先行（设计令牌+参照清单）、候选收敛人拍板、窄屏大字号回归（T3 已有）、生成物过门禁再提交（门禁已具备）。建议不引入第三方工具，仅整理设计令牌清单为 UI 验收附件，待 Jovi 主会话拍板。
+- [x] 本轮未修改任何文件、未提交、未递增版本；小程序工作树保持干净（HEAD `ffddadb`）。
+- [x] MateLink CI 核查（群 #359 Jovi 本人确认授权，按 #167 转达的 12:51 批准方案；游标 358→362）：main 上 miniprogram 作业失败根因为 f2e0a8e3 把 `miniprogram/project.config.json` 的 `setting.urlCheck` 从 true 改为 false，taro 构建复制进 dist 后断言 `urlCheck===true` 失败。修复提交 `7d65fd53`（MateLink 分支 `codex/miniprogram-urlcheck-fix-20261117`，已推送）：恢复 urlCheck=true，保留域名校验。本地复现 CI 作业五步全过（npm ci / typecheck / vitest 1213 pass / build:weapp / dist urlCheck=true 断言）；该分支 CI run 44107314330 miniprogram 作业转绿。群内 #362 回执。verify（Go copylocks，main 同红）与 android（main 同红）为 #167 声明的范围外存量，未动；合并 main 不在自动任务边界内。matelink hub 已上报（event cb7ed2c8，revision 1）。
+
+### B1 AI 中转云函数与 aiApi 封装
+
+- [x] 新增 `cloudfunctions/aiRelay`（入参校验、模型白名单、`ai_usage` 日志、明确错误码）与 `services/ai-api.ts`，接入 `app.ts` 启动初始化；新增 8 项回归。
+- [x] 云环境 `yaoxiagn-d2goac4i31a1c8485` 创建 `ai_usage` 集合；`aiRelay` 部署成功，Active、超时 60 秒、Nodejs16.13。
+- [x] 虚构文本联调：`deepseek-v4.1-flash` 返回「虚构联调通过」，usage 129 tokens，耗时 2,062 ms；`ai_usage` 回读 1 条 ok=true。
+- [x] 验证：小程序 774 PASS / 0 FAIL；lint、typecheck 通过；源码包 140 文件 1,024,725 字节；B1 候选 138 文件 898,684 字节。
+- [x] 提交 `c7f94cc` 已推送；回执见 [B1 回执](../../docs/product/medbox-ai-b1-20261117.md)。
+- [x] B2 药品说明摘要接入详情页已完成；版本递增、上传与额度控制台数值核对待后续。
+
+### B2 药品说明摘要接入详情页
+
+- [x] 新增 `services/ai-summary.ts` 与详情页「AI 说明摘要」卡：用户主动生成、加载/错误/重试态，固定标注「AI 生成，请以说明书为准」；不自动调用、不发送家庭/账号/私人备注。
+- [x] 真实联调：虚构氯雷他定资料 → `deepseek-v4.1-flash` 返回 41 字摘要，usage 440 tokens，耗时 3,344 ms；`ai_usage` 回读 2 条均 ok=true。
+- [x] 验证：小程序 778 PASS / 0 FAIL（新增 4 项）；lint、typecheck；源码包 141 文件 1,031,330 字节；B2 候选 139 文件 905,289 字节；官方编译 59 文件 0 失败。
+- [x] 提交 `5d64aa3` 已推送；回执见 [B2 回执](../../docs/product/medbox-ai-b2-20261117.md)。
+- [ ] C1 后端识图接口与 provider 配置、C2 拍照回填与人工确认待执行；版本递增与上传待业主确认。
+
+### C1 MoMA 识图 provider 与 72B→32B 降级
+
+- [x] 沿用现有 `POST /api/v1/recognitions/medicine` 契约；新增 MoMA OpenAI-compatible provider 与 `FallbackMedicineRecognitionProvider`：72B 在限流/5xx/超时后自动切 32B，格式错误不降级。
+- [x] 配置 `MEDICINE_RECOGNITION_PROVIDER=moma`、`MOMA_BASE_URL/API_KEY/MODEL/FALLBACK_MODEL`；compose 与 env 示例、readiness 检查已补。
+- [x] 验证：API 全量 316 pass / 31 skip / 0 fail；识别专项 16 pass；lint、typecheck 通过。
+- [x] 提交 `ec40a6e` 已推送；回执见 [C1 回执](../../docs/product/medbox-ai-c1-20261117.md)。
+- [ ] 真实 MoMA 调用待私有环境配置；C2 前端拍照回填流程已存在，单账号虚构标签自测待 API 部署与业主确认；版本上传待确认。
+
+### C2 拍照回填与人工确认自测（TokenHub 视觉模型）
+
+- [x] 业主提供 TokenHub 端点后，按可用模型改用 `hy-vision-2.0-instruct` 主模型与 `hunyuan-t1-vision-20250916` 后备；解析器兼容 `<answer>`/代码围栏，超时 45 秒。
+- [x] 虚构标签图（测试药品甲 / 10mg × 12片 / TEST20261117 / 2027-06-30）经真实 TokenHub 模型识别四字段全对；API 返回 `requiresConfirmation: true`、零数据库写入、3,093 ms。
+- [x] 验证：API 全量 320 pass / 31 skip / 0 fail（351 项）；识别专项 20 pass；lint、typecheck 通过。
+- [x] 提交 `c66d9a7` 已推送；回执见 [C2 回执](../../docs/product/medbox-ai-c2-20261117.md)。
+- [x] 本机隔离部署完成：dev-simulator-server 13310 + 真实本地 API/QA PostgreSQL + 开发微信网关 + TokenHub；登录 200、建家庭 201、识图四字段 4,799 ms、识别后药品数 0、人工确认后 1。
+- [x] 小程序实机模拟器登录「AI自测家庭」并显示 1 种药品；详情 AI 摘要实时生成（资料不足时不编造）；截图 `c2-live-home.png` / `c2-live-detail-summary.png`。
+- [x] 说明：照片选择器未做 UI 自动化；识图走同一 API，前端回填/确认由 778 项测试覆盖；未部署生产/测试服务器、未使用真实数据。
+- [x] 生产 API 部署完成：f4ec101 / medbox-api:1.2.3-f4ec101，health 200、DB 基线不变、旧镜像保留；TOKENHUB_* 私有注入。
+- [ ] 1.2.4 上传/预览（确认中）、实体设备单账号流程、第二账号验收与额度控制台数值核对待后续。
+
+### 1.2.5 发布候选与微信上传
+
+- [x] 递增版本 1.2.5 / Android build 24；根版本、小程序 APP_VERSION、Flutter pubspec 与版本说明一致。
+- [x] 验证：小程序 789 PASS / 0 FAIL；lint、typecheck；HTTPS 候选 140 文件 908,172 字节；官方 wcc/wcsc 59 文件 0 失败。
+- [x] 版本提交 12caaaf 已推送；微信上传回执 execution_success，包体 677,681 字节；手机预览推送 success（709,032 字节）。
+- [ ] 微信原生 #5/#9 触控/键盘证据、真机单账号 C2 全流程与第二账号验收待后续；额度控制台数值核对待业主。
+
+### 小药箱 UI/交互/数据逻辑修复（清单 #1–#10）
+
+- [x] 共享单位表与 quantityUnitShort：盘点、补货、首页统一中文单位；未知枚举显示「单位待核对」，不回落「份」。
+- [x] 统一「已用完」；计划页「全部」空态改「还没有用药计划」；首页余量去掉「数量：」前缀；月精度加「按包装月份」。
+- [x] 待处理折叠标题 48px + aria-expanded；盘点保存按钮 disabled 视觉态；详情修改余量遮罩点按关闭且保护未保存输入。
+- [x] 计划页底部留白改 6.5em；320 宽/200% 合成截图显示安全提示在按钮上方。
+- [x] 验证：小程序 789 PASS / 0 FAIL；typecheck、lint；源码包 142 文件；UI 修复候选 140 文件 907,809 字节；官方编译 59 文件 0 失败。
+- [ ] #5/#9 微信原生触控/键盘证据待补；群审通过后再递增版本并上传（建议 1.2.5），未通过前不上传。
+## 2026-11-16 小药箱群内讨论
+
+- [x] 核对公开仓库、核心需求与双端最近的交付回执。
+- [x] 以独立临时 Codex 身份加入指定的项目讨论群。
+- [x] 整理讨论稿，覆盖使用流程、执行验收、界面体验和推广，核对公开链接和证据范围。
+- [x] 在群内发送自我介绍和讨论稿，核验服务器回执。
+
+### 群聊反馈跟进与执行计划
+
+- [x] 核对讨论稿和后续讨论，确认群内当前反馈范围。
+- [x] 核对可复用的交付、真实设备与验收材料。
+- [x] 产出按优先级排列的执行计划，标出群内事实、建议和验收门槛。
+
+复核结果：群内目前收到收稿和后续组织讨论的回复。另行交付本地执行计划，建议先验证两账号双机家庭流程，再按试用卡点修界面，最后以小规模家庭试用决定推广。计划含分工、通过标准、停止条件与试用记录口径，尚待实际试用验证。
+
+- [x] 已在原群讨论线回帖并附执行计划，复核消息与附件送达。群里后续提出先补双端现状与 M1–M5 证据对照，已在回帖说明认同的验收方向。
+
+### 讨论发起回执
+
+- 项目介绍、公开仓库和 Markdown 讨论稿已发至指定协作群，服务端回读的附件与本机稿内容一致。
+- 讨论稿引用 11 月 10 日交付回执，保留开发版、测试包装机和真实业务验收的证据边界。家庭试用及推广指标为讨论提议。
+
+## 2026-11-10 微信小程序更新验证
+
+- [x] 固定本地已验接收提交 `5a194002bb6f199939f02cd4df3c1812e9d71982` 及精确小程序树。
+- [x] 从精确提交生成 HTTPS 候选包，核验包摘要和官方 WXML/WXSS 编译。
+- [x] 以 `5a19400` 快进远端 main，核对同提交的四项主线 CI。
+- [x] 核对微信登录账号及目标小程序权限，完成 1.2.1 开发版上传。
+
+### 微信候选复核
+
+- `5a194002bb6f199939f02cd4df3c1812e9d71982` 生成 1.2.1 HTTPS 候选，包 SHA-256 为 `6cbd1b20f87c396f22a012a1ff053a7ce0a0b4e498919660cf2458cb4f71ff75`。138 个文件通过候选包校验，官方 wcc 29 份与 wcsc 30 份全部通过。编译后再次校验包摘要。
+- 独立候选分支的 [同 SHA CI](https://github.com/Jovifei/Medcial-box/actions/runs/42651995969) 四项通过。该候选没有 API 代码或迁移差异。当前 HTTPS 服务 ready 为 1.1.3。
+- 微信登录仍过期。扫码任务返回 `Task not found`，重开返回 `terminated`。实时 `main@3a9afef` 尚未包含候选，按[微信验收 SOP](../apps/miniprogram/docs/16-SOP-微信后台设置与真实验收清单.md)补齐登录和主线同 SHA CI 后上传开发版。微信后台与真机另验。
+
+### 主线候选与上传回执
+
+- 小程序候选 `5a194002bb6f199939f02cd4df3c1812e9d71982` 已快进远端 main。main 的 [同 SHA CI](https://github.com/Jovifei/Medcial-box/actions/runs/42830052152) 四项通过。
+- 旧包根目录额外放入了验证回执，触发文件集校验。从同一提交重建干净候选后，138 文件与原包摘要一致，本轮 29 份 WXML、30 份 WXSS 官方编译通过并再次校验包摘要。回执单独存放。
+- Jovi 完成扫码登录后，已核验账号能管理目标小程序。Jovi 在微信开发者工具确认上传，原任务回执为 `execution_success`，1.2.1 开发版包体 666,262 字节。
 
 ## 2026-11-09 Windows 双端 UI 接收计划
 
@@ -202,3 +456,28 @@
 - [x] 预览二维码生成成功，自动预览推送成功。
 - [ ] 他人真实手机业务走查仍需体验成员权限、微信登录和实际设备证据。
 - [x] 本阶段不执行 Android/App、APK、签名、App 安装或 App 发布。
+
+### TRIAL-02 桥梁模式阶段小结（2026-11-25 21:3x，登记执行会话 local_ddfa55c8）
+
+- [x] 身份登记核实：本会话=bridge-executors.json Medcial-box 键（get_session self 直核）。
+- [x] 9ce0594（config.ts L3 线上域名，+2/-2）核实属实，不在 main、本 checkout 未含，合入即修复；合入等业主批准（小药箱群#125 口径）。
+- [x] 测试真基线复核：9ce0594 已提交树零脏复跑 789/789/0 全过（工单口径一致）；13:0x 回执「794/4 败系既有失败」不成立——差额与 4 败全部来自未提交 test/medicine-photo-review.test.mjs +44 行。
+- [x] 脏文件盘点：codex worktree 与主 checkout 各 3 处未提交改动（miniprogram 测试+44 同 blob、api 测试+29 两树 blob 不同、tasks/todo.md），来源不明早于本会话，未动，归属留业主。
+- [ ] 业主决策项：①9ce0594 合入主线批准；②未提交测试/改动归属处置；③TRIAL-02 挂起行处置口径。
+- [ ] hub 上报未完成：127.0.0.1:8765 连接拒绝（服务未运行），按约定不自动重试，恢复后补报。
+
+## 2026-11-28 统一候选与发布前复测
+- [x] 更新当前项目知识库的测试证据和未完成项。
+- [x] 整合小程序、App本地功能、TokenHub与说明书补丁，保留原工作区。
+- [x] 修复320px双倍字号的日期和按钮遮挡，并复验截图及交互。
+- [x] 在获准下载目录补齐Android测试依赖，跑原生检查和候选构建。
+- [x] 执行同候选静态、单元、隔离QA和CI，记录可合并与可部署/安装测试的独立门槛。
+- [x] 固定提交、树、补丁、包摘要及回退办法，更新知识库结果。
+
+### 本轮审阅与后续门槛
+
+- 程序候选cb30fe1与PR #18已固定，原工作区及他人改动保留。最终收尾提交只含文档，程序子树须与候选逐项比对。
+- 本轮实测与产物身份见[统一候选复测记录](../docs/product/medbox-unified-candidate-20261128.md)。知识库的计划、当前进度、Bug/版本及工程证据已按Jovi授权更新。
+- 当前可进入独立PR评审与隔离部署/安装测试。主干合并、生产部署、微信上传/发布和手机保数据验收保持各自人工门槛。
+- 跳过项为Flutter19项、Windows工具30项，未算通过。真实测试说明书缺少；专用空库已用合成数据验证并回收，真实识别仍需重新核空库与获准材料。4070云失败自动回退未实现。
+- 项目管理台拒绝该共享克隆的仓库绑定，保留未同步，不冒用原工作区身份或改登记。

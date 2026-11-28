@@ -147,6 +147,14 @@ function cleanDraft(value: unknown, purpose: "box_front" | "leaflet"): MedicineR
   return { draft, warnings, requiresConfirmation: true };
 }
 
+/** Some OpenAI-compatible vision providers wrap JSON in <answer> tags or code fences. */
+function parseRecognitionJson(content: string): unknown {
+  const trimmed = content.trim();
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed)?.[1]?.trim();
+  const answered = /<answer>\s*([\s\S]*?)(?:<\/answer>|$)/i.exec(trimmed)?.[1]?.trim();
+  return JSON.parse(fenced ?? answered ?? trimmed);
+}
+
 /** Server-side DashScope OpenAI-compatible vision request. The image is never stored. */
 export class DashscopeMedicineRecognitionProvider implements MedicineRecognitionProvider {
   constructor(
@@ -175,7 +183,7 @@ export class DashscopeMedicineRecognitionProvider implements MedicineRecognition
           }],
           response_format: { type: "json_object" },
         }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(45_000),
       });
     } catch (error) {
       throw requestFailure(error);
@@ -185,7 +193,7 @@ export class DashscopeMedicineRecognitionProvider implements MedicineRecognition
       const payload = JSON.parse(await readRecognitionResponse(response, 512 * 1024)) as { choices?: Array<{ message?: { content?: unknown } }> };
       const content = payload.choices?.[0]?.message?.content;
       if (typeof content !== "string") throw new Error("missing content");
-      return cleanDraft(JSON.parse(content) as unknown, purpose);
+      return cleanDraft(parseRecognitionJson(content), purpose);
     } catch (error) {
       if (error instanceof RecognitionUnavailableError) throw error;
       throw new RecognitionUnavailableError("vision provider returned invalid JSON", "invalid_json");
@@ -229,7 +237,7 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
     try {
       const payload = JSON.parse(await readRecognitionResponse(response, 512 * 1024)) as { message?: { content?: unknown } };
       if (typeof payload.message?.content !== "string") throw new Error("missing content");
-      return cleanDraft(JSON.parse(payload.message.content) as unknown, purpose);
+      return cleanDraft(parseRecognitionJson(payload.message.content), purpose);
     } catch (error) {
       if (error instanceof RecognitionUnavailableError) throw error;
       throw new RecognitionUnavailableError("vision provider returned invalid JSON", "invalid_json");
@@ -237,7 +245,55 @@ export class OllamaMedicineRecognitionProvider implements MedicineRecognitionPro
   }
 }
 
+/** 主模型不可用时（限流、上游 5xx 或超时）自动切到后备模型；不掩盖格式错误。 */
+export class FallbackMedicineRecognitionProvider implements MedicineRecognitionProvider {
+  constructor(
+    private readonly primary: MedicineRecognitionProvider,
+    private readonly fallback: MedicineRecognitionProvider,
+  ) {}
+
+  async recognize(imageBase64: string, mimeType: "image/jpeg" | "image/png", purpose: "box_front" | "leaflet" = "box_front"): Promise<MedicineRecognitionResponse> {
+    try {
+      return await this.primary.recognize(imageBase64, mimeType, purpose);
+    } catch (error) {
+      if (!(error instanceof RecognitionUnavailableError) ||
+          (error.reason !== "provider_unavailable" && error.reason !== "timeout")) {
+        throw error;
+      }
+      try {
+        return await this.fallback.recognize(imageBase64, mimeType, purpose);
+      } catch (fallbackError) {
+        throw fallbackError instanceof RecognitionUnavailableError ? fallbackError : error;
+      }
+    }
+  }
+}
+
 export function createDefaultMedicineRecognitionProvider(): MedicineRecognitionProvider {
+  if (process.env.MEDICINE_RECOGNITION_PROVIDER === "tokenhub") {
+    const baseUrl = process.env.TOKENHUB_BASE_URL ?? "https://tokenhub.tencentmaas.com/v1";
+    const apiKey = process.env.TOKENHUB_API_KEY ?? "";
+    const primaryModel = process.env.TOKENHUB_MODEL ?? "hy-vision-2.0-instruct";
+    const fallbackModel = process.env.TOKENHUB_FALLBACK_MODEL ?? "hunyuan-t1-vision-20250916";
+    const primary = new DashscopeMedicineRecognitionProvider(apiKey, primaryModel, baseUrl);
+    if (fallbackModel === primaryModel) return primary;
+    return new FallbackMedicineRecognitionProvider(
+      primary,
+      new DashscopeMedicineRecognitionProvider(apiKey, fallbackModel, baseUrl),
+    );
+  }
+  if (process.env.MEDICINE_RECOGNITION_PROVIDER === "moma") {
+    const baseUrl = process.env.MOMA_BASE_URL ?? "";
+    const apiKey = process.env.MOMA_API_KEY ?? "";
+    const primaryModel = process.env.MOMA_MODEL ?? "qwen2.5-vl-72b-instruct";
+    const fallbackModel = process.env.MOMA_FALLBACK_MODEL ?? "qwen2.5-vl-32b-instruct";
+    const primary = new DashscopeMedicineRecognitionProvider(apiKey, primaryModel, baseUrl);
+    if (fallbackModel === primaryModel) return primary;
+    return new FallbackMedicineRecognitionProvider(
+      primary,
+      new DashscopeMedicineRecognitionProvider(apiKey, fallbackModel, baseUrl),
+    );
+  }
   if (process.env.MEDICINE_RECOGNITION_PROVIDER === "ollama") {
     const numCtx = process.env.OLLAMA_NUM_CTX ? Number(process.env.OLLAMA_NUM_CTX) : 8192;
     const numBatch = process.env.OLLAMA_NUM_BATCH ? Number(process.env.OLLAMA_NUM_BATCH) : 256;

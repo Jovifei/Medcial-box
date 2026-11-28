@@ -131,7 +131,7 @@ void main() {
       expect(photo['recognitionWarnings'], contains('新提醒'));
       expect(
         (photo['recognitionWarnings'] as List).join(' '),
-        contains('未能识别说明书'),
+        contains('说明书未提取'),
       );
       expect(state.leafletControllers['purposeSummary'].text, '人工保留');
       expect(state.nameController.text, '旧名称');
@@ -201,7 +201,11 @@ void main() {
                 utf8.encode(
                   jsonEncode({
                     'draft': entry.value,
-                    'warnings': ['模型提醒'],
+                    'warnings': [
+                      '模型提醒',
+                      if (entry.key == 'empty leaflet')
+                        '未能识别说明书文字，可重拍或手动填写。',
+                    ],
                     'requiresConfirmation': true,
                   }),
                 ),
@@ -284,9 +288,26 @@ void main() {
           } else {
             expect(
               (photo['recognitionWarnings'] as List).join(' '),
-              contains('未能识别说明书'),
+              contains('说明书未提取'),
             );
             expect(photo['recognitionWarnings'], contains('模型提醒'));
+            expect(
+              find.textContaining('说明书未提取', skipOffstage: false),
+              findsWidgets,
+            );
+            expect(
+              find.textContaining('未能识别说明书', skipOffstage: false),
+              findsNothing,
+            );
+            await Scrollable.ensureVisible(tester.element(usage), alignment: 0.2);
+            await tester.pumpAndSettle();
+            await tester.enterText(usage, '空结果后手填');
+            await tester.pumpAndSettle();
+            expect(state.leafletControllers['packageUsageSummary'].text, '空结果后手填');
+            expect(
+              requests.where((call) => call.startsWith('POST /api/v1/medicines')),
+              isEmpty,
+            );
           }
           expect(
             (state.review.toJson() as Map).values.where(

@@ -144,7 +144,7 @@ test('quantity display preserves unknown, zero and separate units without packag
     batch('tablets', { quantity: 5, unit: 'tablet' }), batch('ml', { quantity: 0.125, unit: 'ml' }),
     batch('handled', { quantity: 77, dispositionStatus: 'handled' }),
   ])]);
-  assert.equal(page.data.items[0].quantityText, '数量：数量未知 / 已耗尽 / 2盒 / 5片 / 0.125毫升');
+  assert.equal(page.data.items[0].quantityText, '数量未知 / 已用完 / 2盒 / 5片 / 0.125毫升');
   select(page, 'unknown');
   assert.deepEqual(ids(page), ['quantities']);
 });
