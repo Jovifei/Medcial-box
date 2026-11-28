@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_typography.dart';
+import 'app_spacing.dart';
 
 /// 旧品牌色（Material 过渡期仍在部分屏幕使用；新屏幕一律用 AppSemanticColors）。
 /// 新增屏幕禁止引用这里除 [AppColors.leaf]（= accent）以外的成员。
@@ -31,22 +32,34 @@ abstract final class AppColors {
 /// Stage C 逐屏 Cupertino 化完成后，壳切换为 CupertinoApp，本主题仅服务存留 Material 组件。
 ThemeData appTheme({Brightness brightness = Brightness.light}) {
   final c = AppSemanticColors.of(brightness);
-  final scheme = ColorScheme.fromSeed(
-    seedColor: c.accent,
-    brightness: brightness,
-  ).copyWith(
-    primary: c.accent,
-    onPrimary: c.background,
-    surface: c.background,
-    onSurface: c.label,
-    error: c.danger,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: c.accent,
+        brightness: brightness,
+      ).copyWith(
+        primary: c.accent,
+        onPrimary: c.background,
+        surface: c.background,
+        onSurface: c.label,
+        error: c.danger,
+      );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: c.background,
     fontFamily: 'sans',
     splashFactory: NoSplash.splashFactory,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: c.accent,
+      foregroundColor: scheme.onPrimary,
+      elevation: 0,
+      highlightElevation: 0,
+      focusElevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      ),
+      extendedTextStyle: AppType.headline.copyWith(color: scheme.onPrimary),
+    ),
     textTheme: AppType.materialTextTheme(c.label, c.secondaryLabel),
     appBarTheme: AppBarTheme(
       backgroundColor: c.background,

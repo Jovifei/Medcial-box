@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/app_surfaces.dart';
+import '../../core/widgets/apple_screen.dart';
 import '../../data/api_client.dart';
 import '../../data/api_medicine_repository.dart';
 import '../../models/medicine_models.dart';
@@ -287,7 +288,7 @@ class _MedicineEditDetailsPageState extends State<MedicineEditDetailsPage> {
       if (!didPop) _confirmExit();
     },
     child: Scaffold(
-      appBar: AppBar(title: const Text('编辑药品资料')),
+      appBar: appleAppBar('编辑药品资料'),
       body: _stale
           ? const Center(child: Text('家庭或账号已变化，请返回后重新打开。'))
           : _medicine == null

@@ -324,6 +324,15 @@ class ApiMedicineRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteMedicine(String id) async {
+    final session = _session;
+    await api.post('/api/v1/medicines/$id/trash');
+    if (!_isCurrentSession(session)) return;
+    _medicines = _medicines.where((medicine) => medicine.id != id).toList();
+    await _persistCache(session: session);
+    notifyListeners();
+  }
+
   Future<DosageNoteRecord> createDosageNote(
     String medicineId, {
     required String content,

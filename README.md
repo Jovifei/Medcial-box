@@ -54,3 +54,7 @@ node scripts/prepare-miniprogram.mjs --appid wx1f6dd99d28aab8e5 --api-base https
 ~~~
 
 在开发者工具打开命令返回的目录；生成包保留域名校验且不含服务端密钥。平台上传、体验、真机业务、审核与正式发布须按[发布验收计划](apps/miniprogram/docs/archive/45-PLAN-1.0.6小程序发布验收-20261021.md)分别核验。
+
+## 提交与版本追溯
+
+工程提交按[提交规范](docs/提交规范.md)执行。各端候选与实际发布见[版本记录](docs/版本记录.md)。
